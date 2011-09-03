@@ -1,0 +1,160 @@
+(* README
+ * Author: Frank Pfenning <fp@cs.cmu.edu>
+ * Modified: Anand Subramanian <asubrama@andrew.cmu.edu>
+ *)
+
+-----------------------------------------------------------------------
+Welcome to 15-411 F10!
+-----------------------------------------------------------------------
+
+This is some starter code for the L1 compiler you have to build for
+the Lab1.  It contains a lexer, parser, translator, and even a code
+generator, except that the code generator creates pseudo assembly
+language with fictitious instructions and an unlimited number of
+registers.  We took some care to use good style (according to the
+instructor); you may consider this a model for your own coding.  Feel
+free to modify any and all of this code as you see fit.
+
+Bug reports to the course staff are particularly welcome and will be
+noted in the extra credit category.
+
+-----------------------------------------------------------------------
+SML Notes
+-----------------------------------------------------------------------
+There are many different compilers for SML, perhaps the most
+popular ones are
+
+  SML/NJ  -- http://www.smlnj.org/
+  MLton   -- http://www.mlton.org/
+  Poly/ML -- http://www.polyml.org/
+
+In this class we will be using SML/NJ v110.59.  Please make sure your
+code compiles under specifically this version on the lab machines
+where it is the default and can be invoked simply with "sml" in a
+shell.
+
+If you develop your implementation on other machines, similar versions
+of SML/NJ are likely to be compatible, but you should certainly check
+your code on the lab machines.
+
+For (almost universal) Standard Basis Libraries, see
+http://www.standardml.org/Basis/index.html.  Further resources, such
+as documentation for ML-Lex and ML-Yacc, and documentation for the SML/NJ
+specific libraries which are used in the starter code, can be found at
+
+http://symbolaris.com/course/compiler-resources.html
+
+------------------------------------------------------------------------
+Source Files
+------------------------------------------------------------------------
+The following are the source files for the L1 compiler
+
+README               -- this file
+
+Makefile             -- makefile for the compiler
+                        For a quick test
+
+    % make l1c          (generates file bin/l1c.heap.<os-tag>)
+    % bin/l1c --verbose ../tests/test1.c
+
+	                should generate ../tests/test1.s in pseudo assembly
+
+    % make clean        (removes generated files)
+    % make TAGS         (creates file TAGS, for Emacs tags commands)
+
+compile-l1c.sml      -- SML commands that will create bin/l1c.heap.<os-tag>
+bin/l1c              -- the script that will run the exported SML heap
+
+sources.cm           -- lists all source files, including libraries,
+                        and lexer and grammar specifications
+		        For a quick test
+
+    % sml
+    - CM.make "sources.cm";
+    - Top.test "--verbose ../tests/test1.c";
+
+                        should generate ../tests/test1.s in pseudo assembly
+
+parse/ast.sml        -- definition and printer for abstract syntax trees (AST's)
+parse/l1.lex         -- L1 lexer
+parse/l1.grm         -- L1 grammar
+parse/parse.sml      -- L1 parser
+parse/parsestate.sml -- L1 parser support for error messages
+
+type/typechecker.sml -- (trivial) type-checker for AST
+
+trans/temp.sml       -- functions to generate and track temp's
+trans/tree.sml       -- definition and pretty printer for IR trees
+trans/trans.sml      -- translation from AST to IR trees
+
+codegen/assem.sml    -- pseudo assembly format for this starter code
+codegen/codegen.sml  -- pseudo code generator
+
+util/errormsg.sml    -- error message utilities
+util/flag.sml        -- library for defining flags
+util/mark.sml        -- library for tracking source file positions
+util/safe-io.sml     -- I/O utilities
+util/symbol.sml      -- symbol table library
+util/word32.sml      -- machine word utilities for two's complement interpretation
+
+top/top.sml          -- top level function for export to binary and testing
+
+------------------------------------------------------------------------
+Debugging Hints
+------------------------------------------------------------------------
+You can use
+
+  - Top.test "--verbose --dump-ast --dump-ir --dump-assem file.l1";
+
+to print information from all the phases of the current compiler.
+
+If you want to see the internal representations, you can call directly
+on SML's top level:
+
+  - val ast = Parse.parse "file.l1";
+  - val ir = Trans.translate ast;
+  - val assem = Codegen.codgen ir;
+
+This will use SML's internal printing function to print the data
+structures.  However, not everything will show.
+
+"-" means that the type is opaque.  Sometimes you can replace an opaque
+    signature ascription ":>" with a transparent one ":" to see the info.
+    For reasons of general hygiene, however, you should change it back
+    before handing in.
+
+"#" means that the printing depth is exceeded.  Use
+
+      - Control.Print.printDepth := 100;
+
+    to increase the depth if you need to see more.
+
+"..." means that the printing length is exceeded.  Use
+
+      - Control.Print.printLength := 1000;
+
+    to increase the length if you need to see more.
+
+------------------------------------------------------------------------
+Library Hints
+------------------------------------------------------------------------
+See util/symbol.sml for some uses of libraries provided with SML/NJ
+(and some other SML implementations).  
+
+BinaryMapFn and
+BinarySetFn are likely of general use. 
+
+You may also find the following utilities in the smlnj libraries useful:
+- BinarySetFn
+- BinaryMapFn
+- HashTable
+- PP (Pretty Printer)
+
+To see their interface, you can check
+http://www.smlnj.org/doc/smlnj-lib/Manual/toc.html.
+
+HEADS UP: the aforementioned page has not been maintained for a while
+now. You may find the documentation out-dated compared to the
+inline comments in the source distribution of these libraries.
+Please download the sources from the smlnj webpage and lookup the
+inline comments for more in-depth documentation.

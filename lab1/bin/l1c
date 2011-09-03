@@ -1,0 +1,1 @@
+sml @SMLcmdname=$0 @SMLload=bin/l1c.heap.x86-linux $*
