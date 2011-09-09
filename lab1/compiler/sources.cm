@@ -26,5 +26,6 @@ Group is
   codegen/assem.sml
   codegen/codegen.sml 
   codegen/liveness.sml
+  codegen/allocation.sml
 
   top/top.sml
