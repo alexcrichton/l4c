@@ -2,3 +2,5 @@ compiler/bin/l1c.heap*
 compiler/parse/l1.grm.*
 compiler/parse/l1.lex.*
 *.s
+.cm
+*.swp
