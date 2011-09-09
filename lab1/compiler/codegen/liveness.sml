@@ -11,7 +11,5 @@ end
 
 structure Liveness :> LIVENESS = 
 struct
-  structure AS = Assem
-
   fun compute _ = []
 end
