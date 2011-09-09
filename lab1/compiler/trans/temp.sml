@@ -8,6 +8,7 @@
 signature TEMP = 
 sig
   type temp
+  type ord_key = temp
 
   val reset : unit -> unit	(* resets temp numbering *)
   val new : unit -> temp	(* returns a unique new temp *)
@@ -18,6 +19,7 @@ end
 structure Temp :> TEMP = 
 struct
   type temp = int
+  type ord_key = temp
 
   local
     val counter = ref 1
