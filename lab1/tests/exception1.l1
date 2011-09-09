@@ -12,7 +12,7 @@ int main() {
   d = 4;
 
   d -= c;
-  b -= a
+  b -= a;
 
   d -= b;
 
