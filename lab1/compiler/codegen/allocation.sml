@@ -27,7 +27,7 @@ struct
 
   (*  color : graph -> node list -> node_data *)
   fun color g []     = NodeData.empty
-    | color g (n::L) = ?
+    | color g (n::L) = NodeData.empty
 
   (*  generate_seo : graph -> node_set -> node list *)
   fun generate_seo g s0 = let
