@@ -1,3 +1,4 @@
+exception CodeGenExn of string
 
 signature ALLOCATION =
 sig
@@ -19,9 +20,9 @@ struct
   structure NodeData = Graph
 
   type node = Node.temp
-  type graph = Graph.map
   type node_set = NodeSet.set
-  type node_data = NodeData.map
+  type 'a node_data = 'a NodeData.map
+  type 'a graph = 'a Graph.map
 
   fun allocate a = a
 
@@ -36,14 +37,14 @@ struct
       val maxfn = fn (n, (n', wt')) => let
                     val wt = (case NodeData.find(w, n) of NONE => 0 | SOME(wt'') => wt'')
                   in if wt > wt' then (n, wt) else (n', wt') end
-      val max = NodeSet.foldl maxfn (Node.new(), -1) s
+      val (max, _) = NodeSet.foldl maxfn (Node.new(), ~1) s
       (* increase the weight of the neighbors *)
       val incfn = fn (n, w') =>
                     (case NodeData.find(w', n)
-                       of NONE     => NodeData.add(w', 1)
-                        | SOME(wt) => NodeData.add(w', wt + 1))
+                       of NONE     => NodeData.insert(w', n, 1)
+                        | SOME(wt) => NodeData.insert(w', n, wt + 1))
       val w' = (case Graph.find(g, max)
-                  of NONE            => raise Exception
+                  of NONE            => raise CodeGenExn "Node in set isn't in graph"
                    | SOME(neighbors) => NodeSet.foldl incfn w neighbors)
     in
       max :: (remove (NodeSet.delete(s, max)) w')
