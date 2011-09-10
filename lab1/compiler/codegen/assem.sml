@@ -16,7 +16,8 @@
 
 signature ASSEM =
 sig
-  datatype reg = EAX | EBX | ECX | EDX | EDI | ESI
+  datatype reg = EAX | EBX  | ECX  | EDX  | EDI  | ESI  | R8D
+               | R9D | R10D | R11D | R12D | R13D | R14D | R15D
 
   datatype operand =
 	   IMM of Word32.word
@@ -37,7 +38,8 @@ end
 structure Assem :> ASSEM = 
 struct
 
-  datatype reg = EAX | EBX | ECX | EDX | EDI | ESI
+  datatype reg = EAX | EBX  | ECX  | EDX  | EDI  | ESI  | R8D
+               | R9D | R10D | R11D | R12D | R13D | R14D | R15D
 
   datatype operand =
 	   IMM of Word32.word
