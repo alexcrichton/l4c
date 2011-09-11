@@ -20,39 +20,41 @@ sig
                | R9D | R10D | R11D | R12D | R13D | R14D | R15D
 
   datatype operand =
-	   IMM of Word32.word
-	 | REG of reg
-	 | TEMP of Temp.temp
+     IMM of Word32.word
+   | REG of reg
+   | TEMP of Temp.temp
 
-  datatype operation = ADD | SUB| MUL | DIV | MOD
+  datatype operation = ADD | SUB | MUL | DIV | MOD
 
   datatype instr =
-	   BINOP of operation * operand * operand * operand
-	 | MOV of operand * operand
-	 | DIRECTIVE of string
-	 | COMMENT of string
+     BINOP of operation * operand * operand * operand
+   | MOV of operand * operand
+   | RET
+   | DIRECTIVE of string
+   | COMMENT of string
 
   val format : instr -> string
 end
 
-structure Assem :> ASSEM = 
+structure Assem :> ASSEM =
 struct
 
   datatype reg = EAX | EBX  | ECX  | EDX  | EDI  | ESI  | R8D
                | R9D | R10D | R11D | R12D | R13D | R14D | R15D
 
   datatype operand =
-	   IMM of Word32.word
-	 | REG of reg
-	 | TEMP of Temp.temp
+     IMM of Word32.word
+   | REG of reg
+   | TEMP of Temp.temp
 
-  datatype operation = ADD | SUB| MUL | DIV | MOD
+  datatype operation = ADD | SUB | MUL | DIV | MOD
 
   datatype instr =
-	   BINOP of operation * operand * operand * operand
-	 | MOV of operand * operand
-	 | DIRECTIVE of string
-	 | COMMENT of string
+     BINOP of operation * operand * operand * operand
+   | MOV of operand * operand
+   | RET
+   | DIRECTIVE of string
+   | COMMENT of string
 
   (* functions that format assembly output *)
 
@@ -69,17 +71,16 @@ struct
     | format_operand (REG(r)) = format_reg r
 
   fun format (BINOP(oper, d, s1, s2)) =
-	"\t" ^ format_binop oper
-	^ "\t" ^ format_operand d
-	^ " <- " ^ format_operand s1
-	^ "," ^ format_operand s2 ^ "\n"
+      "\t" ^ format_binop oper
+      ^ "\t" ^ format_operand d
+      ^ " <- " ^ format_operand s1
+      ^ "," ^ format_operand s2 ^ "\n"
     | format (MOV(d, s)) =
-	"\t" ^ "MOV"
-	^ "\t" ^ format_operand d
-	^ " <- " ^ format_operand s ^ "\n"
-    | format (DIRECTIVE(str)) =
-	"\t" ^ str ^ "\n"
-    | format (COMMENT(str)) =
-	"\t" ^ "/* " ^ str ^ "*/\n"
+      "\t" ^ "MOV"
+      ^ "\t" ^ format_operand d
+      ^ " <- " ^ format_operand s ^ "\n"
+    | format (DIRECTIVE(str)) = "\t" ^ str ^ "\n"
+    | format (COMMENT(str)) = "\t" ^ "/* " ^ str ^ "*/\n"
+    | format (RET) = "\tRET\n"
 
 end
