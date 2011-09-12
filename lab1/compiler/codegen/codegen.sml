@@ -12,7 +12,7 @@ sig
   val codegen : Tree.stm list -> Assem.instr list
 end
 
-structure Codegen :> CODEGEN = 
+structure Codegen :> CODEGEN =
 struct
   structure T = Tree
   structure AS = Assem
@@ -29,7 +29,7 @@ struct
    * d must be TEMP(t) or REG(r)
    *)
   fun munch_exp d (T.CONST(n)) = [AS.MOV(d, AS.IMM(n))]
-    | munch_exp d (T.TEMP(t)) = [AS.MOV(d, AS.TEMP(t))]
+    | munch_exp d (T.TEMP(t))  = [AS.MOV(d, AS.TEMP(t))]
     | munch_exp d (T.BINOP(binop, e1, e2)) =
         munch_binop d (binop, e1, e2)
 
@@ -40,12 +40,12 @@ struct
    *)
   and munch_binop d (binop, e1, e2) =
       let val operator = munch_op binop
-	  val t1 = AS.TEMP(Temp.new())
-	  val t2 = AS.TEMP(Temp.new())
+    val t1 = AS.TEMP(Temp.new())
+    val t2 = AS.TEMP(Temp.new())
       in
-	  munch_exp t1 e1
-	  @ munch_exp t2 e2
-	  @ [AS.BINOP(operator, d, t1, t2)]
+    munch_exp t1 e1
+    @ munch_exp t2 e2
+    @ [AS.BINOP(operator, d, t1, t2)]
       end
 
   (* munch_stm : T.stm -> AS.instr list *)

@@ -4,6 +4,8 @@ sig
 
   val tmp : unit -> Assem.operand
   val mov : (Assem.operand * Assem.operand) -> Assem.instr
+  val com : unit -> Assem.instr
+  val dir : unit -> Assem.instr
 
   val ret : Assem.instr
 
@@ -28,6 +30,8 @@ struct
   fun add (a, b, c) = A.BINOP (A.ADD, a, b, c)
   fun sub (a, b, c) = A.BINOP (A.SUB, a, b, c)
   fun mul (a, b, c) = A.BINOP (A.MUL, a, b, c)
+  fun dir () = A.DIRECTIVE ("I'm a directive!")
+  fun com () = A.COMMENT ("I'm a comment!")
 
   fun runtests nil = ()
   |   runtests ((s, t)::L) = (

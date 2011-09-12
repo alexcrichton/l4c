@@ -41,7 +41,17 @@ struct
   fun test_mov_has_interfere3 () =
     equals (Liveness.compute [mov (t4, t2), mov (t3, t4)]) [[t2], [t4]]
 
+  fun test_comments_and_directives () =
+    equals (Liveness.compute [mov (t4, t2), com(), dir(), mov (t2, t4)])
+                             [[t2], [t4], [t4], [t4]]
+
+  fun test_binops () =
+   equals (Liveness.compute [add (t4, t2, t1), mov (t2, t4), mul (t1, t2, t3)])
+                            [[t1, t2, t3], [t3, t4], [t2, t3]]
+
   val tests = [("test_ret_no_interfere", test_ret_no_interfere),
+               ("test_comments_and_directives", test_comments_and_directives),
+               ("test_binops", test_binops),
                ("test_mov_has_interfere", test_mov_has_interfere),
                ("test_mov_has_interfere2", test_mov_has_interfere2),
                ("test_mov_has_interfere3", test_mov_has_interfere3)]
