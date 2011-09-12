@@ -122,7 +122,9 @@ struct
     val rules = List.map rulegen (give_labels 0 L)
     val rulesets = List.map (fn (rule) => (rule, ref TempSet.empty)) rules
   in
-    (munge rulesets (fn (label) => #2 (List.nth (rulesets, label)));
+    (munge rulesets (fn (label) =>
+       (#2 (List.nth (rulesets, label))) handle Subscript => ref TempSet.empty
+     );
      List.map (fn (_, r) => !r) rulesets)
   end
 
