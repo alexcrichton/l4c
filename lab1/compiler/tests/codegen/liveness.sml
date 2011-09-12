@@ -1,9 +1,4 @@
-signature LIVENESSTEST =
-sig
-  val tests : (string * (unit -> unit)) list
-end
-
-structure LivenessTest :> LIVENESSTEST =
+structure LivenessTest :> TESTCASE =
 struct
 
   open TestUtils
@@ -23,9 +18,6 @@ struct
   fun equals (set::L) (expected::L') = (sets_eq set expected; equals L L')
   |   equals nil nil = ()
   |   equals _ _ = raise Failure
-
-  fun test_ret_no_interfere () =
-    equals (Liveness.compute [ret]) [[]]
 
   val t1 = tmp()
   val t2 = tmp()
@@ -49,8 +41,7 @@ struct
    equals (Liveness.compute [add (t4, t2, t1), mov (t2, t4), mul (t1, t2, t3)])
                             [[t1, t2, t3], [t3, t4], [t2, t3]]
 
-  val tests = [("test_ret_no_interfere", test_ret_no_interfere),
-               ("test_comments_and_directives", test_comments_and_directives),
+  val tests = [("test_comments_and_directives", test_comments_and_directives),
                ("test_binops", test_binops),
                ("test_mov_has_interfere", test_mov_has_interfere),
                ("test_mov_has_interfere2", test_mov_has_interfere2),

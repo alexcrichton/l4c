@@ -7,8 +7,6 @@ sig
   val com : unit -> Assem.instr
   val dir : unit -> Assem.instr
 
-  val ret : Assem.instr
-
   val add : (Assem.operand * Assem.operand * Assem.operand) -> Assem.instr
   val sub : (Assem.operand * Assem.operand * Assem.operand) -> Assem.instr
   val mul : (Assem.operand * Assem.operand * Assem.operand) -> Assem.instr
@@ -16,13 +14,16 @@ sig
   val runtests : (string * (unit -> unit)) list -> unit
 end
 
+signature TESTCASE =
+sig
+  val tests : (string * (unit -> unit)) list
+end
+
 structure TestUtils :> TESTUTILS =
 struct
   exception Failure
   structure A = Assem
   structure T = Temp
-
-  val ret = A.RET
 
   fun tmp () = A.TEMP(T.new())
   fun mov (a, b) = A.MOV (a, b)

@@ -29,7 +29,6 @@ sig
   datatype instr =
      BINOP of operation * operand * operand * operand
    | MOV of operand * operand
-   | RET
    | DIRECTIVE of string
    | COMMENT of string
 
@@ -52,13 +51,25 @@ struct
   datatype instr =
      BINOP of operation * operand * operand * operand
    | MOV of operand * operand
-   | RET
    | DIRECTIVE of string
    | COMMENT of string
 
   (* functions that format assembly output *)
 
   fun format_reg EAX = "%eax"
+  |   format_reg EBX = "%ebx"
+  |   format_reg ECX = "%ecx"
+  |   format_reg EDX = "%edx"
+  |   format_reg EDI = "%edi"
+  |   format_reg ESI = "%esi"
+  |   format_reg R8D = "%r8d"
+  |   format_reg R9D = "%r9d"
+  |   format_reg R10D = "%R10D"
+  |   format_reg R11D = "%R11D"
+  |   format_reg R12D = "%R12D"
+  |   format_reg R13D = "%R13D"
+  |   format_reg R14D = "%R14D"
+  |   format_reg R15D = "%R15D"
 
   fun format_binop ADD = "ADD"
     | format_binop SUB = "SUB"
@@ -81,6 +92,5 @@ struct
       ^ " <- " ^ format_operand s ^ "\n"
     | format (DIRECTIVE(str)) = "\t" ^ str ^ "\n"
     | format (COMMENT(str)) = "\t" ^ "/* " ^ str ^ "*/\n"
-    | format (RET) = "\tRET\n"
 
 end

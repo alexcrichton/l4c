@@ -50,11 +50,9 @@ struct
 
   (* munch_stm : T.stm -> AS.instr list *)
   (* munch_stm stm generates code to execute stm *)
-  fun munch_stm (T.MOVE(T.TEMP(t1), e2)) =
-        munch_exp (AS.TEMP(t1)) e2
-    | munch_stm (T.RETURN(e)) =
-        (* return e is implemented as %eax <- e *)
-        munch_exp (AS.REG(AS.EAX)) e
+  fun munch_stm (T.MOVE(T.TEMP(t1), e2)) = munch_exp (AS.TEMP(t1)) e2
+    (* return e is implemented as %eax <- e *)
+    | munch_stm (T.RETURN(e)) = munch_exp (AS.REG(AS.EAX)) e
 
   fun codegen nil = nil
     | codegen (stm::stms) = munch_stm stm @ codegen stms

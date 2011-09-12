@@ -35,7 +35,6 @@ struct
    *)
   fun rulegen (l, A.BINOP(_, A.TEMP(d), s1, s2)) = ([s1, s2], SOME d, [l + 1])
   |   rulegen (l, A.MOV(A.TEMP(d), s)) = ([s], SOME d, [l + 1])
-  |   rulegen (_, A.RET) = ([], NONE, [])
   |   rulegen (l, A.DIRECTIVE(_)) = ([], NONE, [l + 1])
   |   rulegen (l, A.COMMENT(_)) = ([], NONE, [l + 1])
   |   rulegen (_, i) = raise BadInstruction i
