@@ -1,7 +1,8 @@
 //test error
 
 int main() {
-  int a = b;
-  int b = 3;
-  return 9;
+  int a;
+  int b;
+  a = b
+  return b;
 }

@@ -4,3 +4,4 @@ compiler/parse/l1.lex.*
 *.s
 .cm
 *.swp
+*.log
