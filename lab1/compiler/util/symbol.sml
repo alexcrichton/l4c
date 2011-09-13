@@ -10,30 +10,29 @@
    functor BinarySetFn
 *)
 
-
 signature SYMBOL =
 sig
   type symbol
-  val compare : symbol * symbol -> order (* compare symbols by their creation time 
-					  * GREATER if they can not be compared
-					  *)
+  val compare : symbol * symbol -> order (* compare symbols by their creation time
+            * GREATER if they can not be compared
+            *)
 
-  val bogus : symbol		(* a dummy symbol, less than others *)
-  val is_bogus : symbol -> bool 
+  val bogus : symbol    (* a dummy symbol, less than others *)
+  val is_bogus : symbol -> bool
 
-  val reset : unit -> unit	(* resets the hash table in which the symbols are stored *)
+  val reset : unit -> unit  (* resets the hash table in which the symbols are stored *)
   val symbol : string -> symbol (* generates a new symbol with given name *)
-  val name : symbol -> string	(* returns a name associated with symbol *)
+  val name : symbol -> string  (* returns a name associated with symbol *)
 
   (* symbol tables -- allows association of any type with each symbol *)
   type 'a table
-  val empty : 'a table		(* empty table *)
+  val empty : 'a table    (* empty table *)
   val digest : (symbol * 'a) list -> 'a table (* prefilled table *)
 
   val bind : 'a table -> symbol * 'a -> 'a table (* insert new item into table *)
   val look : 'a table -> symbol -> 'a option (* return the value from the table *)
   val look' : 'a table -> symbol -> 'a (* returns value from table, raise Option if not found *)
-  val count : 'a table -> int	(* returns the number of items in the table *)
+  val count : 'a table -> int  (* returns the number of items in the table *)
 
   val elems : 'a table -> 'a list (* return all the data as a list *)
   val elemsi : 'a table -> (symbol * 'a) list (* return the symbols with the associated data *)
@@ -41,14 +40,13 @@ sig
 
   (* symbol set -- similar to a () Symbol.table, elements can be removed *)
   type set
-  val null : set		(* empty set *)
-  val singleton : symbol -> set (* generate a set with one item *) 
+  val null : set    (* empty set *)
+  val singleton : symbol -> set (* generate a set with one item *)
   val add : set -> symbol -> set (* add a symbol *)
   val remove : set -> symbol -> set (* remove a symbol *)
   val member : set -> symbol -> bool (* is the symbol in the set? *)
-  val showmems : set -> string	(* returns the string of delimited names, for debugging *)
+  val showmems : set -> string  (* returns the string of delimited names, for debugging *)
 end
-
 
 structure Symbol :> SYMBOL =
 struct
@@ -58,7 +56,7 @@ struct
   fun is_bogus (_, ~1) = true
     | is_bogus _ = false
 
-  fun compare ((n, i), (n', i')) = 
+  fun compare ((n, i), (n', i')) =
       if i < 0 orelse i' < 0 then GREATER
       else Int.compare (i, i')
 
@@ -71,25 +69,24 @@ struct
     val ht = ref (initht ())
   in
     fun reset () = (nexts := 0;
-		    ht := initht ())
+                    ht := initht ())
     fun symbol name =
       (case HashTable.find (!ht) name of
-	 SOME i => (name, i)
-       | NONE => let
-		   val i = !nexts before nexts := !nexts + 1
-		 in
-		   HashTable.insert (!ht) (name, i);
-		   (name, i)
-		 end)
+        SOME i => (name, i)
+        | NONE => let
+            val i = !nexts before nexts := !nexts + 1
+          in
+            HashTable.insert (!ht) (name, i); (name, i)
+          end)
 
   end
 
   fun name (n, i) = n
 
   structure Map = BinaryMapFn (struct
-				 type ord_key = symbol
-				 val compare = compare
-			       end)
+                                 type ord_key = symbol
+                                 val compare = compare
+                               end)
 
   type 'a table = 'a Map.map
 
@@ -110,9 +107,9 @@ struct
   fun delimit l = delimit' l "[" ^ "]"
 
   structure Set = BinarySetFn (struct
-				 type ord_key = symbol
-				 val compare = compare
-			       end)
+                                 type ord_key = symbol
+                                 val compare = compare
+                               end)
 
   type set = Set.set
 

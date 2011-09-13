@@ -7,7 +7,7 @@
  * Lexes forward compatible fragment of C0
  *
  * Update this file to lex the necessary keywords and other tokens
- * in order to make the grammar forward compatible with C0. 
+ * in order to make the grammar forward compatible with C0.
  *)
 
 structure A = Ast
@@ -24,33 +24,34 @@ local
 in
   fun enterComment yypos =
       ( commentLevel := !commentLevel + 1 ;
-	commentPos := yypos )
-    
+        commentPos := yypos )
+
   fun exitComment () =
       ( commentLevel := !commentLevel - 1 ;
-	!commentLevel = 0 )
+        !commentLevel = 0 )
 
   fun number (yyt, yyp) =
       let
         val ext = ParseState.ext (yyp, yyp + size yyt)
-	val numOpt = Word32Signed.fromString yyt
+        val numOpt = Word32Signed.fromString yyt
                      handle Overflow =>
-			    ( ErrorMsg.error ext
+                            ( ErrorMsg.error ext
                                 ("integral constant `" ^ yyt ^ "' too large") ;
-			      NONE )
+                              NONE )
       in
-	case numOpt
-	  of NONE => ( ErrorMsg.error ext
-                         ("cannot parse integral constant `" ^ yyt ^ "'");
-		       Tokens.INTCONST (Word32Signed.ZERO, yyp, yyp + size yyt) )
-	   | SOME n => Tokens.INTCONST (n,yyp,yyp + size yyt)
+        case numOpt
+          of NONE => ( ErrorMsg.error ext
+                     ("cannot parse integral constant `" ^ yyt ^ "'");
+                      Tokens.INTCONST (Word32Signed.ZERO, yyp, yyp + size yyt) )
+          | SOME n => Tokens.INTCONST (n,yyp,yyp + size yyt)
       end
 
-  fun eof () = 
+  fun eof () =
       ( if (!commentLevel > 0)
-          then (ErrorMsg.error (ParseState.ext (!commentPos,!commentPos)) "unterminated comment")
+          then (ErrorMsg.error (ParseState.ext (!commentPos,!commentPos))
+                "unterminated comment")
           else ();
-	Tokens.EOF (0,0) )		(* bogus position information; unused *)
+            Tokens.EOF (0,0) )    (* bogus position information; unused *)
 
 end
 
