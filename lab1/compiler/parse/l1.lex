@@ -96,9 +96,13 @@ ws = [\ \t\012];
 
 <INITIAL> {decnum}    => (number (yytext, yypos));
 
-<INITIAL> {id}        => (let
+<INITIAL> {id}        => (if not (Symbol.valid yytext) then
+                            (ErrorMsg.error (ParseState.ext (yypos, yypos))
+                                       ("'" ^ yytext ^ "' cannot be a symbol");
+                            lex ())
+                          else let
                             val id = Symbol.symbol yytext
-                          in 
+                          in
                             Tokens.IDENT (id, yypos, yypos + size yytext)
                           end);
 

@@ -23,6 +23,7 @@ sig
   val reset : unit -> unit  (* resets the hash table in which the symbols are stored *)
   val symbol : string -> symbol (* generates a new symbol with given name *)
   val name : symbol -> string  (* returns a name associated with symbol *)
+  val valid : string -> bool (* returns whether a possible symbol is valid *)
 
   (* symbol tables -- allows association of any type with each symbol *)
   type 'a table
@@ -80,6 +81,13 @@ struct
           end)
 
   end
+
+  fun valid name = let
+    val blacklist = ["struct", "typedef", "if", "else", "while", "for",
+                     "continue", "break", "return", "assert", "true", "false",
+                     "NULL", "alloc", "alloc_array", "int", "bool", "void",
+                     "char", "string"]
+  in not (List.exists (fn (s) => s = name) blacklist) end
 
   fun name (n, i) = n
 
