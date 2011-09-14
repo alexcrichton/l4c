@@ -54,7 +54,9 @@ struct
     (* return e is implemented as %eax <- e *)
     | munch_stm (T.RETURN(e)) = munch_exp (AS.REG(AS.EAX)) e
 
-  fun codegen nil = nil
-    | codegen (stm::stms) = munch_stm stm @ codegen stms
+  fun codegen_temps nil = nil
+    | codegen_temps (stmt::stmts) = munch_stm stmt @ codegen_temps stmts
+
+  fun codegen stmts = Allocation.allocate (codegen_temps stmts)
 
 end

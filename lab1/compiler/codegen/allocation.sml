@@ -1,18 +1,19 @@
-exception AllocationExn of string
 
 signature ALLOCATION =
 sig
   val allocate : Assem.instr list -> Assem.instr list
+  exception AllocationExn of string
 end
 
 (*
- * NodeData: Map<Node, int>
- * Node    : Temp
- * Graph 1 : Map<Node, Set<Node>>
- *  also   : Set<Node> - remaining nodes
+ * The interference graph is represented as a map between nodes and
+ * a list of that node's neighbors. Nodes in this case are Temp.temps.
+ * There is also an ('a node_data) type that stores metadata of type 'a
+ * about nodes.
  *)
 structure Allocation :> ALLOCATION =
 struct
+  exception AllocationExn of string
   structure AS = Assem
   structure Node = Temp
   structure NodeSet = BinarySetFn(Node)
@@ -24,6 +25,61 @@ struct
   type 'a node_data = 'a NodeData.map
   type graph = node list Graph.map
 
+  (*
+  (* make_graph : node_set list -> graph
+   * Converts the liveness information map into an interference graph.
+   *
+   * @param N   The list of nodes
+   * @param L   The liveness information list
+   * @param g   The current interference graph
+   * @return    The complete interference graph
+   *
+   * @usage g should be equal to Graph.empty when calling this function
+   *)
+  fun make_graph [] g = g
+    | make_graph (nbr_set::L) g = let
+        val add_nbr = fn (n, g') => (case 
+        val nbrs = NodeSet.foldl (fn (n, S) => n::S) [] nbr_set
+        val g' = Graph.insert (g, node, nbrs)
+      in
+        make_graph N L g'
+      end*)
+
+  (* apply_coloring : instr list -> int node_data -> instr list
+   *
+   * @param I   The list of instructions
+   * @param c   The coloring information (a map of nodes (temps) to colors (ints))
+   * @return    L, with all temps replaced with their correct registers
+   *)
+  fun apply_coloring L coloring = let
+        fun map_color 0  = AS.EAX
+          | map_color 1  = AS.EBX
+          | map_color 2  = AS.ECX
+          | map_color 3  = AS.EDX
+          | map_color 4  = AS.EDI
+          | map_color 5  = AS.ESI
+          | map_color 6  = AS.R8D
+          | map_color 7  = AS.R9D
+          | map_color 8  = AS.R10D
+          | map_color 9  = AS.R11D
+          | map_color 10 = AS.R12D
+          | map_color 11 = AS.R13D
+          | map_color 12 = AS.R14D
+          | map_color 13 = AS.R15D
+          | map_color x  = AS.STACK (x - 14)
+
+        fun map_op (AS.TEMP n) = (case NodeData.find (coloring, n)
+                                    of SOME(clr) => AS.REG (map_color clr)
+                                     | NONE      => raise AllocationExn "Temp not colored")
+          | map_op operand     = operand
+
+        fun map_instr (AS.BINOP (oper, op1, op2, op3)) = AS.BINOP (oper, map_op op1, map_op op2, map_op op3)
+          | map_instr (AS.MOV (op1, op2)) = AS.MOV (map_op op1, map_op op2)
+          | map_instr i = i
+      in
+        map map_instr L
+      end
+
   (* allocate : instr list -> instr list
    * Returns the given instruction list with all temps and variables assigned
    * to specific registers or stack locations. This function will perform the
@@ -33,7 +89,15 @@ struct
    * @return    The original list of instructions with all temps replaced with
    *            registers or stack locations
    *)
-  fun allocate a = a (* TODO *)
+  fun allocate L = let
+        val live  = Liveness.compute L
+        (*val graph = make_graph live Graph.empty
+        val order = generate_seo graph ? NodeData.empty
+        val coloring = color graph order NodeData.empty*)
+      in
+        (* apply_coloring L coloring *)
+        L
+      end
 
   (* minNotIn : int -> int list -> int
    * Returns the lowest integer >= x that is not in sorted list L
@@ -64,7 +128,7 @@ struct
    *        inserted into the coloring map already, and those nodes should not
    *        be included in the SEO.
    *)
-  fun color _   []   coloring       = coloring
+  fun color _        []    coloring = coloring
     | color graph (n::SEO) coloring = let
         (* get the set of neighbors of node n *)
         val nbrs = (case Graph.find (graph, n)

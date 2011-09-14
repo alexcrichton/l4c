@@ -18,6 +18,7 @@ signature ASSEM =
 sig
   datatype reg = EAX | EBX  | ECX  | EDX  | EDI  | ESI  | R8D
                | R9D | R10D | R11D | R12D | R13D | R14D | R15D
+               | STACK of int
 
   datatype operand =
      IMM of Word32.word
@@ -40,6 +41,7 @@ struct
 
   datatype reg = EAX | EBX  | ECX  | EDX  | EDI  | ESI  | R8D
                | R9D | R10D | R11D | R12D | R13D | R14D | R15D
+               | STACK of int
 
   datatype operand =
      IMM of Word32.word
@@ -70,6 +72,7 @@ struct
   |   format_reg R13D = "%R13D"
   |   format_reg R14D = "%R14D"
   |   format_reg R15D = "%R15D"
+  |   format_reg (STACK n) = "todo"
 
   fun format_binop ADD = "ADD"
     | format_binop SUB = "SUB"
