@@ -16,7 +16,7 @@ struct
   exception AllocationExn of string
   structure AS = Assem
   structure Node = Temp
-  structure NodeSet = BinarySetFn(Node)
+  structure NodeSet = TempSet
   structure Graph = BinaryMapFn(Node)
   structure NodeData = Graph
 
@@ -25,8 +25,7 @@ struct
   type 'a node_data = 'a NodeData.map
   type graph = node list Graph.map
 
-  (*
-  (* make_graph : node_set list -> graph
+  (* make_graph : (node_set list * instr list) -> (graph * int node_data) -> (graph * int node_data)
    * Converts the liveness information map into an interference graph.
    *
    * @param N   The list of nodes
@@ -36,14 +35,33 @@ struct
    *
    * @usage g should be equal to Graph.empty when calling this function
    *)
-  fun make_graph [] g = g
-    | make_graph (nbr_set::L) g = let
-        val add_nbr = fn (n, g') => (case 
-        val nbrs = NodeSet.foldl (fn (n, S) => n::S) [] nbr_set
-        val g' = Graph.insert (g, node, nbrs)
+  fun make_graph ([], []) g = g
+    | make_graph (set::S, i::L) (G, C) = let
+        val (set', C') = (case i
+                            of (AS.BINOP (AS.DIV, _, _, _)) => let
+                                   val (t1, t2) = (Node.new(), Node.new())
+                                   val set' = NodeSet.addList (set, [t1, t2])
+                                   val C'   = NodeData.insert (C, t1, 0)
+                                   val C''  = NodeData.insert (C' , t2, 3)
+                                 in
+                                   (set', C'')
+                                 end
+                             | _ => (set, C))
+        fun addNode(n, G') = let
+              val L = (case Graph.find (G', n)
+                         of SOME(L) => L
+                          | NONE    => [])
+              val set'' = NodeSet.delete (set', n)
+              val L' = NodeSet.listItems (NodeSet.addList (set'', L))
+            in
+              Graph.insert (G', n, L')
+            end
+        val G' = NodeSet.foldl addNode G set
       in
-        make_graph N L g'
-      end*)
+        make_graph (S, L) (G', C')
+      end
+    | make_graph _ _ = raise AllocationExn ("Instruction list and temp list " ^
+                                            "should be the same size")
 
   (* apply_coloring : instr list -> int node_data -> instr list
    *
@@ -52,7 +70,7 @@ struct
    * @return    L, with all temps replaced with their correct registers
    *)
   fun apply_coloring L coloring = let
-        fun map_color 0  = AS.EAX
+        fun map_color 0  = AS.EAX (* We use these constants in make_graph *)
           | map_color 1  = AS.EBX
           | map_color 2  = AS.ECX
           | map_color 3  = AS.EDX
@@ -78,25 +96,6 @@ struct
           | map_instr i = i
       in
         map map_instr L
-      end
-
-  (* allocate : instr list -> instr list
-   * Returns the given instruction list with all temps and variables assigned
-   * to specific registers or stack locations. This function will perform the
-   * liveness analysis and register allocation.
-   *
-   * @param L   The list of instructions with temps
-   * @return    The original list of instructions with all temps replaced with
-   *            registers or stack locations
-   *)
-  fun allocate L = let
-        val live  = Liveness.compute L
-        (*val graph = make_graph live Graph.empty
-        val order = generate_seo graph ? NodeData.empty
-        val coloring = color graph order NodeData.empty*)
-      in
-        (* apply_coloring L coloring *)
-        L
       end
 
   (* minNotIn : int -> int list -> int
@@ -157,12 +156,13 @@ struct
    * @usage todo should initially be the set of all nodes, and weights should
    *        initially be NodeData.empty.
    *)
-  fun generate_seo graph todo weights = let
+  fun generate_seo graph todo weights =
+      if NodeSet.numItems todo = 0 then [] else let
         (* get the highest weighted todo node *)
         val maxfn = fn (n, (n', wt')) => let
                       val wt = (case NodeData.find (weights, n) of NONE => 0 | SOME(w) => w)
-                    in if wt > wt' then (n, wt) else (n', wt') end
-        val (max, _) = NodeSet.foldl maxfn (Node.new(), ~1) todo
+                    in if wt > wt' then (SOME n, wt) else (n', wt') end
+        val max = valOf (#1 (NodeSet.foldl maxfn (NONE, ~1) todo))
         (* increase the weight of the neighbors *)
         val incfn = fn (n, weights') =>
                        (case NodeData.find (weights', n)
@@ -170,8 +170,28 @@ struct
                            | SOME(wt) => NodeData.insert (weights', n, wt + 1))
         val weights' = (case Graph.find(graph, max)
                           of NONE            => raise AllocationExn "Node in set isn't in graph"
-                           | SOME(neighbors) => NodeSet.foldl incfn weights neighbors)
+                           | SOME(neighbors) => foldl incfn weights neighbors)
       in
         max :: (generate_seo graph (NodeSet.delete (todo, max)) weights')
+      end
+
+  (* allocate : instr list -> instr list
+   * Returns the given instruction list with all temps and variables assigned
+   * to specific registers or stack locations. This function will perform the
+   * liveness analysis and register allocation.
+   *
+   * @param L   The list of instructions with temps
+   * @return    The original list of instructions with all temps replaced with
+   *            registers or stack locations
+   *)
+  fun allocate L = let
+        val live  = Liveness.compute L
+        val (G, C) = make_graph  (live, L) (Graph.empty, NodeData.empty)
+        val all_nodes = Graph.foldli (fn (n, _, S) => NodeSet.add (S, n))
+                                     NodeSet.empty G
+        val order = generate_seo G all_nodes NodeData.empty
+        val C' = color G order C
+      in
+        apply_coloring L C'
       end
 end
