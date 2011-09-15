@@ -37,6 +37,7 @@ struct
   |   rulegen (l, A.MOV(A.TEMP(d), s)) = ([s], SOME d, [l + 1])
   |   rulegen (l, A.DIRECTIVE(_)) = ([], NONE, [l + 1])
   |   rulegen (l, A.COMMENT(_)) = ([], NONE, [l + 1])
+  |   rulegen (l, A.RET) = ([], NONE, [])
   |   rulegen (_, i) = raise BadInstruction i
 
   (* add_uses : temp list -> TempSet ref -> bool

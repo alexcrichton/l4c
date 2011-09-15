@@ -30,6 +30,7 @@ sig
   datatype instr =
      BINOP of operation * operand * operand * operand
    | MOV of operand * operand
+   | RET
    | DIRECTIVE of string
    | COMMENT of string
 
@@ -53,6 +54,7 @@ struct
   datatype instr =
      BINOP of operation * operand * operand * operand
    | MOV of operand * operand
+   | RET
    | DIRECTIVE of string
    | COMMENT of string
 
@@ -95,5 +97,6 @@ struct
       ^ " <- " ^ format_operand s ^ "\n"
     | format (DIRECTIVE(str)) = "\t" ^ str ^ "\n"
     | format (COMMENT(str)) = "\t" ^ "/* " ^ str ^ "*/\n"
+    | format (RET) = "\tret\n"
 
 end
