@@ -2,8 +2,9 @@
 
 int main() {
   int a;
-  int b = 6;
-  (((a))) = 0 + -8;
+  int b;
+  b = 6;
+  a = 0 + -8;
   b /= 3;
   return a / b;
 }
