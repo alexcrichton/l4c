@@ -84,3 +84,5 @@ for test in $(find ../tests -name '*.l1'); do
   esac
 
 done
+
+find ../tests -type f -perm -o+rx | xargs rm
