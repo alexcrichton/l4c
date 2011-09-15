@@ -15,6 +15,8 @@ l1c=bin/l1c
 function pass() {
   local green='\e[1;32m'
   echo -e "${green}passed"
+  local binary=${test/%.l1/}
+  [ -f $binary ] && rm $binary
   tput sgr0
 }
 
@@ -67,7 +69,7 @@ for test in $(find ../tests -name '*.l1'); do
       if [ $ret -eq 0 ]; then
         gcc_compile $test
         if [ $ret -eq 0 ]; then
-          expected=`echo $line | sed -E 's/.*([0-9]+).*/\\1/'`
+          expected=`echo $line | perl -ne 's/.*?(-?\d+).*/\\1/ && print'`
           program=${test/%.l1/}
           set +e
           output=$($program)
@@ -84,5 +86,3 @@ for test in $(find ../tests -name '*.l1'); do
   esac
 
 done
-
-find ../tests -type f -perm -o+rx | xargs rm
