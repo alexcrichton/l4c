@@ -93,8 +93,8 @@ struct
       "\tmov %eax, " ^ format_operand d ^ "\n"
     | format (BINOP(oper, d, s1, s2)) =
       "\tmov " ^ format_operand s1 ^ ", " ^ format_operand d ^ "\n" ^
-      "\t" ^ format_binop oper ^ " " ^ format_operand s1 ^ ", "
-           ^ format_operand s2 ^ "\n"
+      "\t" ^ format_binop oper ^ " " ^ format_operand s2 ^ ", "
+           ^ format_operand d ^ "\n"
     | format (MOV(d, s)) =
         "\t" ^ "mov" ^ " " ^ format_operand s ^ ", " ^ format_operand d ^ "\n"
     | format (DIRECTIVE(str)) = str ^ "\n"
