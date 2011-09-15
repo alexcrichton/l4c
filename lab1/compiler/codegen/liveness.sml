@@ -34,7 +34,9 @@ struct
    * @return a rule representing the current instruction
    *)
   fun rulegen (l, A.BINOP(_, A.TEMP(d), s1, s2)) = ([s1, s2], SOME d, [l + 1])
+  |   rulegen (l, A.BINOP(_, _, s1, s2)) = ([s1, s2], NONE, [l + 1])
   |   rulegen (l, A.MOV(A.TEMP(d), s)) = ([s], SOME d, [l + 1])
+  |   rulegen (l, A.MOV(A.REG(_), s)) = ([s], NONE, [l + 1])
   |   rulegen (l, A.DIRECTIVE(_)) = ([], NONE, [l + 1])
   |   rulegen (l, A.COMMENT(_)) = ([], NONE, [l + 1])
   |   rulegen (l, A.RET) = ([], NONE, [])
