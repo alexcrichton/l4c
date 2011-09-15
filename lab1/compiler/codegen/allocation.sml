@@ -42,7 +42,7 @@ struct
                                    val (t1, t2) = (Node.new(), Node.new())
                                    val set' = NodeSet.addList (set, [t1, t2])
                                    val C'   = NodeData.insert (C, t1, 0)
-                                   val C''  = NodeData.insert (C' , t2, 3)
+                                   val C''  = NodeData.insert (C', t2, 3)
                                  in
                                    (set', C'')
                                  end
@@ -56,7 +56,7 @@ struct
             in
               Graph.insert (G', n, L')
             end
-        val G' = NodeSet.foldl addNode G set
+        val G' = NodeSet.foldl addNode G set'
       in
         make_graph (S, L) (G', C')
       end
@@ -134,7 +134,7 @@ struct
                       of NONE     => raise AllocationExn "Node in order isn't in graph"
                        | SOME(nbrs) => nbrs)
         (* map nbrs to the neighbors' color *)
-        val cmap = fn n' => (case NodeData.find(coloring, n)
+        val cmap = fn n' => (case NodeData.find(coloring, n')
                                of NONE      => 0 (* 0 means not yet colored *)
                                 | SOME(clr) => clr)
         val clrs = ListMergeSort.uniqueSort Int.compare (map cmap nbrs)
