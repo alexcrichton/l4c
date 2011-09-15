@@ -79,14 +79,19 @@ struct
   fun format_binop ADD = "add"
     | format_binop SUB = "sub"
     | format_binop MUL = "mul"
-    | format_binop DIV = "div"
+    | format_binop DIV = "idiv"
     | format_binop MOD = "mod"
 
   fun format_operand (IMM(n))  = "$" ^ Word32Signed.toString(n)
     | format_operand (TEMP(t)) = Temp.name(t)
     | format_operand (REG(r))  = format_reg r
 
-  fun format (BINOP(oper, d, s1, s2)) =
+  fun format (BINOP(DIV, d, s1, s2)) =
+      "\tmov " ^ format_operand s1 ^ ", %eax\n" ^
+      "\tmov $0, %edx\n" ^
+      "\t" ^ format_binop DIV ^ " " ^ format_operand s2 ^ "\n" ^
+      "\tmov %eax, " ^ format_operand d ^ "\n"
+    | format (BINOP(oper, d, s1, s2)) =
       "\tmov " ^ format_operand s1 ^ ", " ^ format_operand d ^ "\n" ^
       "\t" ^ format_binop oper ^ " " ^ format_operand s1 ^ ", "
            ^ format_operand s2 ^ "\n"
