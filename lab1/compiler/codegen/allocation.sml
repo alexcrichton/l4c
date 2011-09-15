@@ -41,8 +41,8 @@ struct
                             of (AS.BINOP (AS.DIV, _, _, _)) => let
                                    val (t1, t2) = (Node.new(), Node.new())
                                    val set' = NodeSet.addList (set, [t1, t2])
-                                   val C'   = NodeData.insert (C, t1, 0)
-                                   val C''  = NodeData.insert (C', t2, 3)
+                                   val C'   = NodeData.insert (C, t1, 1)
+                                   val C''  = NodeData.insert (C' , t2, 4)
                                  in
                                    (set', C'')
                                  end
@@ -70,20 +70,20 @@ struct
    * @return    L, with all temps replaced with their correct registers
    *)
   fun apply_coloring L coloring = let
-        fun map_color 0  = AS.EAX (* We use these constants in make_graph *)
-          | map_color 1  = AS.EBX
-          | map_color 2  = AS.ECX
-          | map_color 3  = AS.EDX
-          | map_color 4  = AS.EDI
-          | map_color 5  = AS.ESI
-          | map_color 6  = AS.R8D
-          | map_color 7  = AS.R9D
-          | map_color 8  = AS.R10D
-          | map_color 9  = AS.R11D
-          | map_color 10 = AS.R12D
-          | map_color 11 = AS.R13D
-          | map_color 12 = AS.R14D
-          | map_color 13 = AS.R15D
+        fun map_color 1  = AS.EAX (* We use these constants in make_graph *)
+          | map_color 2  = AS.EBX
+          | map_color 3  = AS.ECX
+          | map_color 4  = AS.EDX
+          | map_color 5  = AS.EDI
+          | map_color 6  = AS.ESI
+          | map_color 7  = AS.R8D
+          | map_color 8  = AS.R9D
+          | map_color 9  = AS.R10D
+          | map_color 10 = AS.R11D
+          | map_color 11 = AS.R12D
+          | map_color 12 = AS.R13D
+          | map_color 13 = AS.R14D
+          | map_color 14 = AS.R15D
           | map_color x  = AS.STACK (x - 14)
 
         fun map_op (AS.TEMP n) = (case NodeData.find (coloring, n)

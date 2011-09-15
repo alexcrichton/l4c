@@ -5,3 +5,4 @@ Group is
   utils.sml
 
   codegen/liveness.sml
+  codegen/allocation.sml
