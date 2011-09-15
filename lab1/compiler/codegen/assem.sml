@@ -68,33 +68,32 @@ struct
   |   format_reg ESI = "%esi"
   |   format_reg R8D = "%r8d"
   |   format_reg R9D = "%r9d"
-  |   format_reg R10D = "%R10D"
-  |   format_reg R11D = "%R11D"
-  |   format_reg R12D = "%R12D"
-  |   format_reg R13D = "%R13D"
-  |   format_reg R14D = "%R14D"
-  |   format_reg R15D = "%R15D"
+  |   format_reg R10D = "%r10d"
+  |   format_reg R11D = "%r11d"
+  |   format_reg R12D = "%r12d"
+  |   format_reg R13D = "%r13d"
+  |   format_reg R14D = "%r14d"
+  |   format_reg R15D = "%r15d"
   |   format_reg (STACK n) = "todo"
 
-  fun format_binop ADD = "ADD"
-    | format_binop SUB = "SUB"
-    | format_binop MUL = "MUL"
-    | format_binop DIV = "DIV"
-    | format_binop MOD = "MOD"
+  fun format_binop ADD = "add"
+    | format_binop SUB = "sub"
+    | format_binop MUL = "mul"
+    | format_binop DIV = "div"
+    | format_binop MOD = "mod"
 
-  fun format_operand (IMM(n)) = "$" ^ Word32Signed.toString(n)
+  fun format_operand (IMM(n))  = "$" ^ Word32Signed.toString(n)
     | format_operand (TEMP(t)) = Temp.name(t)
-    | format_operand (REG(r)) = format_reg r
+    | format_operand (REG(r))  = format_reg r
 
   fun format (BINOP(oper, d, s1, s2)) =
+
       "\t" ^ format_binop oper
       ^ "\t" ^ format_operand d
       ^ " <- " ^ format_operand s1
       ^ "," ^ format_operand s2 ^ "\n"
     | format (MOV(d, s)) =
-      "\t" ^ "MOV"
-      ^ "\t" ^ format_operand d
-      ^ " <- " ^ format_operand s ^ "\n"
+        "\t" ^ "mov" ^ "\t" ^ format_operand s ^ ", " ^ format_operand d ^ "\n"
     | format (DIRECTIVE(str)) = "\t" ^ str ^ "\n"
     | format (COMMENT(str)) = "\t" ^ "/* " ^ str ^ "*/\n"
     | format (RET) = "\tret\n"
