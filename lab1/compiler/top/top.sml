@@ -105,7 +105,14 @@ struct
 	val _ = Flag.guard flag_assem
 		  (fn () => List.app (TextIO.print o Assem.format) assem) ()
 
-	val assem = [Assem.DIRECTIVE(".file\t\"" ^ source ^ "\"")]
+  (* OSX gcc apparently doesn't like '.global' or an _l1_main with only
+     one underscore. Unix gcc, however, expects these two. As a compromise,
+     output '.globl' for both and have a _l1_main and a __l1_main *)
+	val assem = [Assem.DIRECTIVE(".file\t\"" ^ source ^ "\""),
+               Assem.DIRECTIVE(".globl _l1_main"),
+               Assem.DIRECTIVE(".globl __l1_main"),
+	             Assem.DIRECTIVE("_l1_main:"),
+	             Assem.DIRECTIVE("__l1_main:")]
 		    @ assem
 		    @ [Assem.DIRECTIVE ".ident\t\"15-411 L1 reference compiler\""]
 	val code = String.concat (List.map (Assem.format) assem)

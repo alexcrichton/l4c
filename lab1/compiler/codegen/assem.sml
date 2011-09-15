@@ -87,14 +87,12 @@ struct
     | format_operand (REG(r))  = format_reg r
 
   fun format (BINOP(oper, d, s1, s2)) =
-
-      "\t" ^ format_binop oper
-      ^ "\t" ^ format_operand d
-      ^ " <- " ^ format_operand s1
-      ^ "," ^ format_operand s2 ^ "\n"
+      "\tmov " ^ format_operand s1 ^ ", " ^ format_operand d ^ "\n" ^
+      "\t" ^ format_binop oper ^ " " ^ format_operand s1 ^ ", "
+           ^ format_operand s2 ^ "\n"
     | format (MOV(d, s)) =
-        "\t" ^ "mov" ^ "\t" ^ format_operand s ^ ", " ^ format_operand d ^ "\n"
-    | format (DIRECTIVE(str)) = "\t" ^ str ^ "\n"
+        "\t" ^ "mov" ^ " " ^ format_operand s ^ ", " ^ format_operand d ^ "\n"
+    | format (DIRECTIVE(str)) = str ^ "\n"
     | format (COMMENT(str)) = "\t" ^ "/* " ^ str ^ "*/\n"
     | format (RET) = "\tret\n"
 
