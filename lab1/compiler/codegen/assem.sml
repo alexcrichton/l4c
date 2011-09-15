@@ -88,7 +88,7 @@ struct
 
   fun format (BINOP(DIV, d, s1, s2)) =
       "\tmov " ^ format_operand s1 ^ ", %eax\n" ^
-      "\tmov $0, %edx\n" ^
+      "\tcltd\n" ^
       "\t" ^ format_binop DIV ^ " " ^ format_operand s2 ^ "\n" ^
       "\tmov %eax, " ^ format_operand d ^ "\n"
     | format (BINOP(oper, d, s1, s2)) =
