@@ -67,7 +67,12 @@ for test in $(find ../tests -name '*.l1'); do
       if [ $ret -eq 0 ]; then
         gcc_compile $test
         if [ $ret -eq 0 ]; then
-          echo maybe
+          expected=`echo $line | sed -E 's/.*([0-9]+).*/\\1/'`
+          program=${test/%.l1/}
+          set +e
+          output=$($program)
+          set -e
+          [ $output -eq $expected ] && pass || fail "Got $output, expected $expected"
         fi
       else
         fail "$l1c failed"
