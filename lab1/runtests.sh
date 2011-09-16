@@ -59,7 +59,14 @@ for test in $(find ../tests -name '*.l1'); do
       if [ $ret -eq 0 ]; then
         gcc_compile $test
         if [ $ret -eq 0 ]; then
-          echo maybe
+          program=${test/%.l1/}
+          expected=SIGFPE
+          set +e
+          output=$($program)
+          set -e
+          [ "$output" = "$expected" ] && pass \
+                                      || fail "Got $output, expected $expected"
+
         fi
       else
         fail "$l1c failed"
@@ -74,7 +81,8 @@ for test in $(find ../tests -name '*.l1'); do
           set +e
           output=$($program)
           set -e
-          [ $output -eq $expected ] && pass || fail "Got $output, expected $expected"
+          [ $output -eq $expected ] && pass \
+                                    || fail "Got $output, expected $expected"
         fi
       else
         fail "$l1c failed"
