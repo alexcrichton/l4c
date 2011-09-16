@@ -140,7 +140,7 @@ struct
         ] else if d = s2 then [
           BINOP (oper, REG d, REG s2, s1)
         ] else [
-          MOV (s1, REG d),
+          MOV (REG d, s1),
           BINOP (oper, REG d, s1, REG s2)
         ]
     | instr_expand (BINOP (oper, d, s1, s2)) = [
