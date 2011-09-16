@@ -31,6 +31,7 @@ sig
      BINOP of operation * operand * operand * operand
    | MOV of operand * operand
    | RET
+   | ASM of string
    | DIRECTIVE of string
    | COMMENT of string
 
@@ -55,6 +56,7 @@ struct
      BINOP of operation * operand * operand * operand
    | MOV of operand * operand
    | RET
+   | ASM of string
    | DIRECTIVE of string
    | COMMENT of string
 
@@ -86,33 +88,45 @@ struct
     | format_operand (TEMP(t)) = Temp.name(t)
     | format_operand (REG(r))  = format_reg r
 
-  fun format (BINOP(DIV, d, s1, s2)) =
-      "\tmov " ^ format_operand s1 ^ ", %eax\n" ^
-      "\tcltd\n" ^
-      "\t" ^ format_binop DIV ^ " " ^ format_operand s2 ^ "\n" ^
-      "\tmov %eax, " ^ format_operand d ^ "\n"
-    | format (BINOP(MOD, d, s1, s2)) =
-      "\tmov " ^ format_operand s1 ^ ", %eax\n" ^
-      "\tcltd\n" ^
-      "\t" ^ format_binop DIV ^ " " ^ format_operand s2 ^ "\n" ^
-      "\tmov %edx, " ^ format_operand d ^ "\n"
-    | format (BINOP(oper, REG(d), s1, REG(s2))) =
-      if d = s2 then
-        "\t" ^ format_binop oper ^ " " ^ format_operand s1 ^ ", "
-             ^ format_operand (REG(d)) ^ "\n" ^
-        (if oper = SUB then "\tneg " ^ format_operand (REG(d)) ^ "\n" else "")
-      else
-        "\tmov " ^ format_operand s1 ^ ", " ^ format_operand (REG(d)) ^ " \n" ^
-        "\t" ^ format_binop oper ^ " " ^ format_operand (REG(s2)) ^ ", "
-             ^ format_operand (REG(d)) ^ "\n"
-    | format (BINOP(oper, d, s1, s2)) =
-      "\tmov " ^ format_operand s1 ^ ", " ^ format_operand d ^ " \n" ^
-      "\t" ^ format_binop oper ^ " " ^ format_operand s2 ^ ", "
-           ^ format_operand d ^ "\n"
-    | format (MOV(d, s)) =
-        "\t" ^ "mov" ^ " " ^ format_operand s ^ ", " ^ format_operand d ^ "\n"
-    | format (DIRECTIVE(str)) = str ^ "\n"
-    | format (COMMENT(str)) = "\t" ^ "/* " ^ str ^ "*/\n"
-    | format (RET) = "\tret\n"
+  fun format_instr (BINOP(oper, d, s1, s2)) =
+      format_binop oper ^ " " ^ format_operand s2  ^
+      (if oper = DIV orelse oper = MOD then "" else
+        ", " ^ format_operand d)
+    | format_instr (MOV(REG(d), REG(s))) =
+        if d = s then "" else
+          "mov " ^ format_operand (REG s) ^ ", " ^ format_operand (REG d)
+    | format_instr (MOV(d, s)) =
+        "mov " ^ format_operand s ^ ", " ^ format_operand d
+    | format_instr (ASM str) = str
+    | format_instr (DIRECTIVE str) = "\r" ^ str
+    | format_instr (COMMENT str) = "/* " ^ str ^ "*/"
+    | format_instr (RET) = "ret"
+
+  fun instr_expand (BINOP (DIV, d, s1, s2)) = [
+        MOV (REG(EAX), s1),
+        ASM "cltd",
+        BINOP (DIV, d, s1, s2),
+        MOV (d, REG(EAX))
+      ]
+    | instr_expand (BINOP (MOD, d, s1, s2)) = [
+        MOV (REG(EAX), s1),
+        ASM "cltd",
+        BINOP (DIV, d, s1, s2),
+        MOV (d, REG(EDX))
+      ]
+    | instr_expand (BINOP (oper, REG d, s1, REG s2)) =
+        if d = s2 andalso oper = SUB then [
+          BINOP (SUB, REG d, REG s2, s1),
+          ASM ("neg " ^ format_operand (REG d))
+        ] else if d = s2 then [
+          BINOP (oper, REG d, REG s2, s1)
+        ] else [
+          MOV (s1, REG d),
+          BINOP (oper, REG d, s1, REG s2)
+        ]
+    | instr_expand i = [i]
+
+  fun format instr = String.concat (map (fn s => "\t" ^ format_instr s ^ "\n")
+                                        (instr_expand instr))
 
 end
