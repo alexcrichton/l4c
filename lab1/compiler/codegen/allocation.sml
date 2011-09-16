@@ -37,17 +37,20 @@ struct
    *)
   fun make_graph ([], []) g = g
     | make_graph (set::S, i::L) (G, C) = let
+        fun reserve_registers pair nil = pair
+          | reserve_registers (set, C) (r::L) = let
+            val t1   = Node.new()
+            val set' = NodeSet.add (set, t1)
+            val C'   = NodeData.insert (C, t1, r)
+          in
+            reserve_registers (set', C') L
+          end
         (* handle instructions that should be pre-colored *)
-        val (set', C') = (case i
-                            of (AS.BINOP (AS.DIV, _, _, _)) => let
-                                   val (t1, t2) = (Node.new(), Node.new())
-                                   val set' = NodeSet.addList (set, [t1, t2])
-                                   val C'   = NodeData.insert (C, t1, 1)
-                                   val C''  = NodeData.insert (C' , t2, 4)
-                                 in
-                                   (set', C'')
-                                 end
-                             | _ => (set, C))
+        val (set', C') = (
+          case i
+            of (AS.BINOP (AS.DIV, _, _, _)) => reserve_registers (set, C) [1, 4]
+             | (AS.BINOP (AS.MOD, _, _, _)) => reserve_registers (set, C) [1, 4]
+             | _ => (set, C))
         fun addNode(n, G') = let
               val L = (case Graph.find (G', n)
                          of SOME(L) => L
