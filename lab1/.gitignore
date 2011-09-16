@@ -1,6 +1,8 @@
 compiler/bin/l1c.heap*
 compiler/parse/l1.grm.*
 compiler/parse/l1.lex.*
+tests/*
+!tests/*.*
 *.s
 .cm
 *.swp
