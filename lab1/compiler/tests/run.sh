@@ -6,4 +6,6 @@ print "Running tests for AllocationTest\n";
 TestUtils.runtests AllocationTest.tests;
 print "Running tests for AssemTest\n";
 TestUtils.runtests AssemTest.tests;
+print "Running tests for CodegenTest\n";
+TestUtils.runtests CodegenTest.tests;
 EOF
