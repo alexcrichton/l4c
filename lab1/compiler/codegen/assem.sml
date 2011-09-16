@@ -126,7 +126,13 @@ struct
         ]
     | instr_expand i = [i]
 
-  fun format instr = String.concat (map (fn s => "\t" ^ format_instr s ^ "\n")
-                                        (instr_expand instr))
+  fun format instr = let
+        fun finstr i =  let val s = format_instr i in
+                          if s = "" then s else
+                            "\t" ^ s ^ "\n"
+                        end
+      in
+        String.concat (map finstr (instr_expand instr))
+      end
 
 end
