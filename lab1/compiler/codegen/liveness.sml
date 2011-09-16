@@ -126,8 +126,8 @@ struct
   in
     (munge rulesets (fn (label) =>
        (#2 (List.nth (rulesets, label))) handle Subscript => ref TempSet.empty
-     );
-     List.map (fn (_, r) => !r) rulesets)
+     ));
+    List.map (fn (_, r) => !r) rulesets
   end
 
 end

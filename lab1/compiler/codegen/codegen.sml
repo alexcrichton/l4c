@@ -40,12 +40,12 @@ struct
    *)
   and munch_binop d (binop, e1, e2) =
       let val operator = munch_op binop
-    val t1 = AS.TEMP(Temp.new())
-    val t2 = AS.TEMP(Temp.new())
+        val t1 = AS.TEMP(Temp.new())
+        val t2 = AS.TEMP(Temp.new())
       in
-    munch_exp t1 e1
-    @ munch_exp t2 e2
-    @ [AS.BINOP(operator, d, t1, t2)]
+        munch_exp t1 e1
+        @ munch_exp t2 e2
+        @ [AS.BINOP(operator, d, t1, t2)]
       end
 
   (* munch_stm : T.stm -> AS.instr list *)
