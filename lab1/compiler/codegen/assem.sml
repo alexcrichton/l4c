@@ -91,8 +91,17 @@ struct
       "\tcltd\n" ^
       "\t" ^ format_binop DIV ^ " " ^ format_operand s2 ^ "\n" ^
       "\tmov %eax, " ^ format_operand d ^ "\n"
+    | format (BINOP(oper, REG(d), s1, REG(s2))) =
+      if d = s2 then
+        "\t" ^ format_binop oper ^ " " ^ format_operand s1 ^ ", "
+             ^ format_operand (REG(d)) ^ "\n" ^
+        (if oper = SUB then "\tneg " ^ format_operand (REG(d)) ^ "\n" else "")
+      else
+        "\tmov " ^ format_operand s1 ^ ", " ^ format_operand (REG(d)) ^ " \n" ^
+        "\t" ^ format_binop oper ^ " " ^ format_operand (REG(s2)) ^ ", "
+             ^ format_operand (REG(d)) ^ "\n"
     | format (BINOP(oper, d, s1, s2)) =
-      "\tmov " ^ format_operand s1 ^ ", " ^ format_operand d ^ "\n" ^
+      "\tmov " ^ format_operand s1 ^ ", " ^ format_operand d ^ " \n" ^
       "\t" ^ format_binop oper ^ " " ^ format_operand s2 ^ ", "
            ^ format_operand d ^ "\n"
     | format (MOV(d, s)) =
