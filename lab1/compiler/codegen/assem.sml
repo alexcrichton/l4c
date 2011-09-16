@@ -88,6 +88,16 @@ struct
     | format_operand (TEMP(t)) = Temp.name(t)
     | format_operand (REG(r))  = format_reg r
 
+  (* format_instr : instr -> string
+   *
+   * Takes an instruction and formats it into a string (raw assembly). This
+   * formatting assumes that preprocessing has already happened, such that if
+   * you format a DIV instruction, it assumes that the dividend is in %eax and
+   * %edx is the sign extension of %eax, etc.
+   *
+   * @param I the instruction to format
+   * @return the instruction formatted.
+   *)
   fun format_instr (BINOP(oper, d, s1, s2)) =
       format_binop oper ^ " " ^ format_operand s2  ^
       (if oper = DIV orelse oper = MOD then "" else
@@ -102,6 +112,16 @@ struct
     | format_instr (COMMENT str) = "/* " ^ str ^ "*/"
     | format_instr (RET) = "ret"
 
+  (* instr_expand : instr -> instr list
+   *
+   * Takes an abstract assembly instruction and expands it into a list of
+   * instructions which are needed to execute the abstract instruction. This is
+   * needed to account for the oddities of x86 such as for the DIV or MOD
+   * operations always working on %eax and %edx.
+   *
+   * @param I the instruction to expand
+   * @return L a list of instructions which should be passed to format_intstr
+   *)
   fun instr_expand (BINOP (DIV, d, s1, s2)) = [
         MOV (REG(EAX), s1),
         ASM "cltd",
