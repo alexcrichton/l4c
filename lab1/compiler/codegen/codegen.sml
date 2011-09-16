@@ -39,13 +39,18 @@ struct
    * d must be TEMP(t) or REG(r)
    *)
   and munch_binop d (binop, e1, e2) =
-      let val operator = munch_op binop
-        val t1 = AS.TEMP(Temp.new())
-        val t2 = AS.TEMP(Temp.new())
+      let
+        fun gen_temp e =
+          let val t = AS.TEMP(Temp.new()) in (t, munch_exp t e) end
+        fun calculate (T.CONST n) = (AS.IMM n, [])
+          | calculate (T.TEMP t)  = (AS.TEMP t, [])
+          | calculate e = gen_temp e
+        val operator = munch_op binop
+        val (t1, t1instrs) = calculate e1
+        val (t2, t2instrs) = if binop = T.DIV orelse binop = T.MOD
+          then gen_temp e2 else calculate e2
       in
-        munch_exp t1 e1
-        @ munch_exp t2 e2
-        @ [AS.BINOP(operator, d, t1, t2)]
+        t1instrs @ t2instrs @ [AS.BINOP(operator, d, t1, t2)]
       end
 
   (* munch_stm : T.stm -> AS.instr list *)
