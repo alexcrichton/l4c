@@ -99,10 +99,9 @@ struct
    * @return the instruction formatted.
    *)
   fun format_instr (BINOP(oper, d, s1, s2)) =
-      format_binop oper ^ " " ^ format_operand s2  ^
-      (if oper = DIV orelse oper = MOD then "" else
-        ", " ^ format_operand d)
-    | format_instr (MOV(REG(d), REG(s))) =
+      format_binop oper ^ " " ^ format_operand s2 ^
+      (if oper = DIV orelse oper = MOD then "" else ", " ^ format_operand d)
+    | format_instr (MOV(REG d, REG s)) =
         if d = s then "" else
           "mov " ^ format_operand (REG s) ^ ", " ^ format_operand (REG d)
     | format_instr (MOV(d, s)) =
@@ -143,6 +142,9 @@ struct
         ] else [
           MOV (s1, REG d),
           BINOP (oper, REG d, s1, REG s2)
+        ]
+    | instr_expand (BINOP (oper, d, s1, s2)) = [
+          MOV (d, s1), BINOP (oper, d, s1, s2)
         ]
     | instr_expand i = [i]
 
