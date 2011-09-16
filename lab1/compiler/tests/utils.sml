@@ -10,6 +10,8 @@ sig
   val add : (Assem.operand * Assem.operand * Assem.operand) -> Assem.instr
   val sub : (Assem.operand * Assem.operand * Assem.operand) -> Assem.instr
   val mul : (Assem.operand * Assem.operand * Assem.operand) -> Assem.instr
+  val adiv : (Assem.operand * Assem.operand * Assem.operand) -> Assem.instr
+  val amod : (Assem.operand * Assem.operand * Assem.operand) -> Assem.instr
 
   val runtests : (string * (unit -> unit)) list -> unit
 end
@@ -31,6 +33,8 @@ struct
   fun add (a, b, c) = A.BINOP (A.ADD, a, b, c)
   fun sub (a, b, c) = A.BINOP (A.SUB, a, b, c)
   fun mul (a, b, c) = A.BINOP (A.MUL, a, b, c)
+  fun adiv (a, b, c) = A.BINOP (A.DIV, a, b, c)
+  fun amod (a, b, c) = A.BINOP (A.MOD, a, b, c)
   fun dir () = A.DIRECTIVE ("I'm a directive!")
   fun com () = A.COMMENT ("I'm a comment!")
 
