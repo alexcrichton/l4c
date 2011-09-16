@@ -74,7 +74,7 @@ struct
     | format_reg R13D = "%r13d"
     | format_reg R14D = "%r14d"
     | format_reg R15D = "%r15d"
-    | format_reg (STACK n) = "todo"
+    | format_reg (STACK n) = "-" ^ Int.toString (n * 4) ^ "(%esp)"
 
   fun format_binop ADD = "add"
     | format_binop SUB = "sub"

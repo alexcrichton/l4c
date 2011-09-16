@@ -87,8 +87,8 @@ struct
           | map_color 11 = AS.R12D
           | map_color 12 = AS.R13D
           | map_color 13 = AS.R14D
-          | map_color 14 = AS.R15D
-          | map_color x  = AS.STACK (x - 14)
+          (*| map_color 14 = AS.R15D*) (* TODO: use r15d if only 14 regs *)
+          | map_color x  = AS.STACK (x - 13)
 
         fun map_op (AS.TEMP n) = (case NodeData.find (coloring, n)
                                     of SOME(clr) => AS.REG (map_color clr)
