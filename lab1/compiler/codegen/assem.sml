@@ -108,7 +108,7 @@ struct
     | format_instr (MOV(d, s)) =
         "mov " ^ format_operand s ^ ", " ^ format_operand d
     | format_instr (ASM str) = str
-    | format_instr (DIRECTIVE str) = "\r" ^ str
+    | format_instr (DIRECTIVE str) = str
     | format_instr (COMMENT str) = "/* " ^ str ^ "*/"
     | format_instr (RET) = "ret"
 
@@ -146,10 +146,19 @@ struct
         ]
     | instr_expand i = [i]
 
+  (* format : instr -> string
+   *
+   * Generates a string which is a scrap of assembly which is required to
+   * fully execute the given instruction. The abstract assembly instruction
+   * may be formatted into multiple instructions.
+   *
+   * @param instr the instruction to format
+   * @return the string of assembly necessary to execute the instruction
+   *)
   fun format instr = let
         fun finstr i =  let val s = format_instr i in
                           if s = "" then s else
-                            "\t" ^ s ^ "\n"
+                          (case i of (DIRECTIVE _) => "" | _ => "\t") ^ s ^ "\n"
                         end
       in
         String.concat (map finstr (instr_expand instr))
