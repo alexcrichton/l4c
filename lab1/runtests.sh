@@ -34,7 +34,7 @@ function gcc_compile() {
   local out=${test/%.l1/}
   local log=${test/%l1/gcc.log}
   set +e
-  gcc -Iruntime -o $out $assem runtime/l1rt.c &> $log
+  gcc -m64 -Iruntime -o $out $assem runtime/l1rt.c &> $log
   ret=$?
   set -e
 
