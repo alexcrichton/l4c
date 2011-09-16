@@ -37,6 +37,7 @@ struct
    *)
   fun make_graph ([], []) g = g
     | make_graph (set::S, i::L) (G, C) = let
+        (* handle instructions that should be pre-colored *)
         val (set', C') = (case i
                             of (AS.BINOP (AS.DIV, _, _, _)) => let
                                    val (t1, t2) = (Node.new(), Node.new())
@@ -130,9 +131,7 @@ struct
   fun color _        []    coloring = coloring
     | color graph (n::SEO) coloring = let
         (* get the set of neighbors of node n *)
-        val nbrs = (case Graph.find (graph, n)
-                      of NONE     => raise AllocationExn "Node in order isn't in graph"
-                       | SOME(nbrs) => nbrs)
+        val nbrs = valOf (Graph.find (graph, n))
         (* map nbrs to the neighbors' color *)
         val cmap = fn n' => (case NodeData.find(coloring, n')
                                of NONE      => 0 (* 0 means not yet colored *)
@@ -168,9 +167,7 @@ struct
                        (case NodeData.find (weights', n)
                           of NONE     => NodeData.insert (weights', n, 1)
                            | SOME(wt) => NodeData.insert (weights', n, wt + 1))
-        val weights' = (case Graph.find(graph, max)
-                          of NONE            => raise AllocationExn "Node in set isn't in graph"
-                           | SOME(neighbors) => foldl incfn weights neighbors)
+        val weights' = foldl incfn weights (valOf (Graph.find (graph, max)))
       in
         max :: (generate_seo graph (NodeSet.delete (todo, max)) weights')
       end
@@ -191,6 +188,7 @@ struct
                                      NodeSet.empty G
         val order = generate_seo G all_nodes NodeData.empty
         val C' = color G order C
+        (* TODO - finter out nodes that were never colored *)
       in
         apply_coloring L C'
       end
