@@ -89,7 +89,7 @@ struct
 
         fun map_op (AS.TEMP n) = (case NodeData.find (coloring, n)
                                     of SOME(clr) => AS.REG (map_color clr)
-                                     | NONE      => raise AllocationExn "Temp not colored")
+                                     | NONE      => AS.TEMP n)
           | map_op operand     = operand
 
         fun map_instr (AS.BINOP (oper, op1, op2, op3)) = AS.BINOP (oper, map_op op1, map_op op2, map_op op3)
@@ -188,8 +188,15 @@ struct
                                      NodeSet.empty G
         val order = generate_seo G all_nodes NodeData.empty
         val C' = color G order C
-        (* TODO - finter out nodes that were never colored *)
+        (* functions to determine if an instruction still has a temp *)
+        fun isTemp (AS.TEMP _) = true
+          | isTemp _           = false
+        fun hasTemps (AS.MOV (o1, o2)) = (isTemp o1) orelse (isTemp o2)
+          | hasTemps (AS.BINOP (_, o1, o2, o3)) = (isTemp o1) orelse (isTemp o2)
+                                                              orelse (isTemp o3)
+          | hasTemps _ = false
+        val L' = apply_coloring L C'
       in
-        apply_coloring L C'
+        List.filter (fn i => not (hasTemps i)) L'
       end
 end
