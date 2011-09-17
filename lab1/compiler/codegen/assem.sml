@@ -76,7 +76,7 @@ struct
     | format_reg R13D = "%r13d"
     | format_reg R14D = "%r14d"
     | format_reg R15D = "%r15d"
-    | format_reg (STACK n) = "-" ^ Int.toString (n * 4) ^ "(%esp)"
+    | format_reg (STACK n) = "-" ^ Int.toString (n * 4) ^ "(%rsp)"
 
   fun format_binop ADD = "add"
     | format_binop SUB = "sub"
@@ -139,13 +139,15 @@ struct
           ASM ("neg " ^ format_operand (REG d))
         ] else if d = s2 then [
           BINOP (oper, REG d, REG s2, s1)
-        ] else [
-          MOV (REG d, s1),
-          BINOP (oper, REG d, s1, REG s2)
-        ]
-    | instr_expand (BINOP (oper, d, s1, s2)) = [
-          MOV (d, s1), BINOP (oper, d, s1, s2)
-        ]
+        ] else
+          (instr_expand (MOV (REG d, s1))) @
+          [BINOP (oper, REG d, s1, REG s2)]
+    | instr_expand (BINOP (oper, d, s1, s2)) =
+        (instr_expand (MOV (d, s1))) @ [BINOP (oper, d, s1, s2)]
+    | instr_expand (MOV (REG (STACK n1), REG (STACK n2))) = [
+        MOV (REG R15D, REG (STACK n2)),
+        MOV (REG (STACK n1), REG R15D)
+      ]
     | instr_expand i = [i]
 
   (* format : instr -> string
