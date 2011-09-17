@@ -38,24 +38,21 @@ struct
 
   (* translate the statement *)
   (* trans_stms : Temp.temp Symbol.table -> A.stm list -> Tree.stm list *)
-  fun trans_stms env (A.Assign(id,e)::stms) =
-      let val t = Temp.new()
-	  val env' = Symbol.bind env (id, t)
-      in
-	  T.MOVE(T.TEMP(t), trans_exp env e)
-	  :: trans_stms env' stms
-      end
+  fun trans_stms env (A.Assign(id,e)::stms) = let
+          val t = Temp.new()
+          val env' = Symbol.bind env (id, t)
+        in
+          T.MOVE(T.TEMP(t), trans_exp env e) :: trans_stms env' stms
+        end
+    | trans_stms env (A.Declare _::stms) = trans_stms env stms
+    | trans_stms env (A.Init (id,e)::stms) =
+        trans_stms env (A.Assign(id,e)::stms)
     | trans_stms env (A.Return e::_) =
-	(* ignore code after return *)
+	      (* ignore code after return *)
         T.RETURN (trans_exp env e) :: nil
     | trans_stms env (A.Markeds (marked_stm)::stms) =
       trans_stms env ((Mark.data marked_stm)::stms)
 
-  fun translate (L, stms) = let
-        fun extract (A.Init (id, exp), stms) = (A.Assign (id, exp))::stms
-          | extract (_, stms) = stms
-      in
-        trans_stms Symbol.empty (foldr extract stms L)
-      end
+  fun translate stms = trans_stms Symbol.empty stms
 
 end

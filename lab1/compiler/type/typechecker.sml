@@ -41,38 +41,30 @@ struct
         tc_exp env (Mark.data marked_exp) (Mark.ext marked_exp)
 
   (* tc_stms : unit Symbol.table -> Ast.program -> Mark.ext option -> bool -> unit *)
-  fun tc_stms env nil ext ret = ret
+  fun tc_stms env [] ext ret = ret
+    | tc_stms env (A.Init (id,e)::stms) ext ret =
+        tc_stms env ((A.Declare id)::(A.Assign (id, e))::stms) ext ret
+    | tc_stms env ((A.Declare id)::stms) ext ret = 
+         (case Symbol.look env id
+            of SOME _ => ( ErrorMsg.error NONE ("redeclared variable `" ^ Symbol.name id ^ "'") ;
+		                       raise ErrorMsg.Error )
+	           | NONE => tc_stms (Symbol.bind env (id, false)) stms ext ret)
     | tc_stms env (A.Assign(id,e)::stms) ext ret =
-      ( tc_exp env e ext;
+       (tc_exp env e ext;
         (case Symbol.look env id
-	  of NONE => ( ErrorMsg.error ext ("undeclared variable `" ^ Symbol.name id ^ "'") ;
-		       raise ErrorMsg.Error )
-           (* just got initialized *)
-	   | SOME (false) => tc_stms (Symbol.bind env (id, true)) stms ext ret
-           (* already initialized *)
-	   | SOME (true) => tc_stms env stms ext ret))
+	         of NONE => ( ErrorMsg.error ext ("undeclared variable `" ^ Symbol.name id ^ "'") ;
+		                    raise ErrorMsg.Error )
+            (* just got initialized *)
+	          | SOME (false) => tc_stms (Symbol.bind env (id, true)) stms ext ret
+            (* already initialized *)
+	          | SOME (true) => tc_stms env stms ext ret))
     | tc_stms env (A.Return(e)::stms) ext _ =
         (tc_exp env e ext; tc_stms env stms ext true)
     | tc_stms env ((A.Markeds(marked_stm))::stms) _ ret =
         tc_stms env ((Mark.data marked_stm)::stms) (Mark.ext marked_stm) ret
 
-  (* populate environment with declarations. false is for uninitialized. *)
-  fun typecheck' (nil, stms) env = tc_stms env stms NONE false
-    | typecheck' ((A.Decl id)::decls, stms) env =
-         (case Symbol.look env id
-            of SOME _ => ( ErrorMsg.error NONE ("redeclared variable `" ^ Symbol.name id ^ "'") ;
-		                       raise ErrorMsg.Error )
-	           | NONE => typecheck' (decls, stms) (Symbol.bind env (id, false)))
-    | typecheck' _ _ = raise Fail "Invalid program in typecheck'"
-
-  fun typecheck (decls, stms) = let
-        fun extract (A.Decl id, (decls, stms)) = ((A.Decl id)::decls, stms)
-          | extract (A.Init (id, exp), (decls, stms)) =
-                    ((A.Decl id)::decls, (A.Assign (id, exp))::stms)
-        val prog = foldr extract ([], stms) decls
-      in
-        if typecheck' prog Symbol.empty then ()
+  fun typecheck prog =
+        if tc_stms Symbol.empty prog NONE false then ()
         else (ErrorMsg.error NONE "main does not return\n"; raise ErrorMsg.Error)
-      end
 
 end

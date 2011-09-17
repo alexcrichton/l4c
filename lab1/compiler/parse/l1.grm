@@ -55,10 +55,9 @@ fun check_main (sym, lpos, rpos) prog =
  *)
 
 %nonterm
-   program  of A.decl list * A.stm list
- | decls    of A.decl list
- | decl     of A.decl
+   program  of A.program
  | stmts    of A.stm list
+ | decl     of A.stm
  | stmt     of A.stm
  | lvalue   of A.ident
  | simp     of A.stm
@@ -83,14 +82,11 @@ fun check_main (sym, lpos, rpos) prog =
 
 (* note that MAIN is not intended to be a keyword.
  * the current rule is an expedient hack for forward compatability *)
-program    : INT IDENT LPAREN RPAREN LBRACE decls stmts RBRACE
+program    : INT IDENT LPAREN RPAREN LBRACE stmts RBRACE
                                       (check_main (IDENT, IDENTleft, IDENTright)
-                                                  (decls, stmts))
+                                                  stmts)
 
-decls      :                            (nil)
-           | decl decls                 (decl::decls)
-
-decl       : INT IDENT SEMI             (A.Decl IDENT)
+decl       : INT IDENT SEMI             (A.Declare IDENT)
            | INT IDENT ASSIGN exp SEMI  (A.Init (IDENT, exp))
 
 stmts      :                            ([])
@@ -98,6 +94,7 @@ stmts      :                            ([])
 
 stmt       : simp SEMI                  (marks (simp, (simpleft, simpright)))
            | RETURN exp SEMI            (marks ((A.Return exp), (RETURNleft, expright)))
+           | decl                       (marks (decl, (declleft, declright)))
 
 lvalue     : IDENT                      (IDENT)
            | LPAREN lvalue RPAREN       (lvalue)

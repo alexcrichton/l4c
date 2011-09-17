@@ -30,15 +30,13 @@ sig
    | OpExp of oper * exp list
    | Marked of exp Mark.marked
   and stm =
-     Assign of ident * exp
-   | Return of exp
+     Assign  of ident * exp
+   | Return  of exp
    | Markeds of stm Mark.marked
+   | Declare of ident
+   | Init    of ident * exp
 
-  datatype decl =
-     Decl of ident
-   | Init of ident * exp
-
-  type program = (decl list * stm list)
+  type program = stm list
 
   (* print as source, with redundant parentheses *)
   structure Print :
@@ -71,12 +69,10 @@ struct
      Assign of ident * exp
    | Return of exp
    | Markeds of stm Mark.marked
+   | Declare of ident
+   | Init    of ident * exp
 
-  datatype decl =
-     Decl of ident
-   | Init of ident * exp
-
-  type program = (decl list * stm list)
+  type program = stm list
 
   (* print programs and expressions in source form
    * using redundant parentheses to clarify precedence
@@ -97,27 +93,20 @@ struct
       | pp_exp (OpExp(oper, [e])) =
 	  pp_oper oper ^ "(" ^ pp_exp e ^ ")"
       | pp_exp (OpExp(oper, [e1,e2])) =
-	  "(" ^ pp_exp e1 ^ " " ^ pp_oper oper
-	  ^ " " ^ pp_exp e2 ^ ")"
+          "(" ^ pp_exp e1 ^ " " ^ pp_oper oper
+          ^ " " ^ pp_exp e2 ^ ")"
       | pp_exp (Marked(marked_exp)) =
 	  pp_exp (Mark.data marked_exp)
 
-    fun pp_stm (Assign (id,e)) =
-	pp_ident id ^ " = " ^ pp_exp e ^ ";"
-      | pp_stm (Return e) =
-	  "return " ^ pp_exp e ^ ";"
-      | pp_stm (Markeds (marked_stm)) =
-	  pp_stm (Mark.data marked_stm)
+    fun pp_stm (Assign (id,e)) = pp_ident id ^ " = " ^ pp_exp e ^ ";"
+      | pp_stm (Return e) = "return " ^ pp_exp e ^ ";"
+      | pp_stm (Markeds (marked_stm)) = pp_stm (Mark.data marked_stm)
+      | pp_stm (Declare d) = "int " ^ pp_ident d ^ ";"
+      | pp_stm (Init (d, exp)) = "int " ^ pp_ident d ^ " = " ^ pp_exp exp ^ ";"
 
     fun pp_stms nil = ""
       | pp_stms (s::ss) = pp_stm s ^ "\n" ^ pp_stms ss
 
-    fun pp_decl (Decl d) = "int " ^ pp_ident d
-      | pp_decl (Init (d, exp)) = "int " ^ pp_ident d ^ " = " ^ pp_exp exp
-
-    fun pp_decls nil = ""
-      | pp_decls (d::dd) = pp_decl d ^ "\n" ^ pp_decls dd
-
-    fun pp_program (decls, stms) = "{\n" ^ pp_decls decls ^ pp_stms stms ^ "}"
+    fun pp_program stms = "{\n" ^ pp_stms stms ^ "}"
   end
 end
