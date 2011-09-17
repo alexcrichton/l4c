@@ -1,0 +1,5 @@
+//test error
+// tests that function is called main
+int foo() {
+  return 5;
+}

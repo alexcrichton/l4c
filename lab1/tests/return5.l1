@@ -1,0 +1,6 @@
+//test return 3
+// tests variable initialization
+int main() {
+  int a = 3;
+  return a;
+}
