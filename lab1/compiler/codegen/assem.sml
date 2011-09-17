@@ -78,11 +78,11 @@ struct
     | format_reg R15D = "%r15d"
     | format_reg (STACK n) = "-" ^ Int.toString (n * 4) ^ "(%rsp)"
 
-  fun format_binop ADD = "add"
-    | format_binop SUB = "sub"
-    | format_binop MUL = "imul"
-    | format_binop DIV = "idiv"
-    | format_binop MOD = "idiv"
+  fun format_binop ADD = "addl"
+    | format_binop SUB = "subl"
+    | format_binop MUL = "imull"
+    | format_binop DIV = "idivl"
+    | format_binop MOD = "idivl"
 
   fun format_operand (IMM(n))  = "$" ^ Word32Signed.toString(n)
     | format_operand (TEMP(t)) = Temp.name(t)
@@ -103,9 +103,9 @@ struct
       (if oper = DIV orelse oper = MOD then "" else ", " ^ format_operand d)
     | format_instr (MOV(REG d, REG s)) =
         if d = s then "" else
-          "mov " ^ format_operand (REG s) ^ ", " ^ format_operand (REG d)
+          "movl " ^ format_operand (REG s) ^ ", " ^ format_operand (REG d)
     | format_instr (MOV(d, s)) =
-        "mov " ^ format_operand s ^ ", " ^ format_operand d
+        "movl " ^ format_operand s ^ ", " ^ format_operand d
     | format_instr (ASM str) = str
     | format_instr (DIRECTIVE str) = str
     | format_instr (COMMENT str) = "/* " ^ str ^ "*/"
