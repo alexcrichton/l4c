@@ -31,13 +31,13 @@ struct
     ("test_mov2", fn () => equals (A.format (mov(stack 1, stack 2)))
                  "\tmov -8(%rsp), %r15d\n\tmov %r15d, -4(%rsp)\n"),
     ("test_add", fn () => equals (A.format (add(stack 1, stack 2, stack 3)))
-                 "\tmov -12(%rsp), %r15d\n\tadd -8(%rsp), %r15d\n\tmov %r15d, -4(%rsp)\n"),
+                 "\tmov -8(%rsp), %r15d\n\tadd -12(%rsp), %r15d\n\tmov %r15d, -4(%rsp)\n"),
     ("test_add2", fn () => equals (A.format (add(eax, stack 2, stack 3)))
-                 "\tmov -8(%rsp), %eax\n\tadd -12%(rsp), %eax\n"),
+                 "\tmov -8(%rsp), %eax\n\tadd -12(%rsp), %eax\n"),
     ("test_add3", fn () => equals (A.format (add(stack 1, eax, stack 3)))
-                 "\tmov -12(%rsp), %r15d\n\tadd %eax, %r15d\n\tmov %r15d, -4(%rsp)\n"),
+                 "\tmov %eax, %r15d\n\tadd -12(%rsp), %r15d\n\tmov %r15d, -4(%rsp)\n"),
     ("test_add4", fn () => equals (A.format (add(stack 1, stack 3, eax)))
-                 "\tmov %eax, %r15d\n\tadd -12%(rsp), %r15d\n\tmov %r15d, -4(%rsp)\n"),
+                 "\tmov -12(%rsp), %r15d\n\tadd %eax, %r15d\n\tmov %r15d, -4(%rsp)\n"),
     ("test_add5", fn () => equals (A.format (add(eax, ebx, eax)))
                  "\tadd %ebx, %eax\n")
   ]
