@@ -76,35 +76,40 @@ fun expand_asnop (id, NONE, exp) (left, right) =
 
 (* note that MAIN is not intended to be a keyword.
  * the current rule is an expedient hack for forward compatability *)
-program    : INT MAIN LPAREN RPAREN LBRACE decls stmts RBRACE (decls, stmts)
+program    : INT IDENT LPAREN RPAREN LBRACE decls stmts RBRACE
+                                      (check_main (IDENT, IDENTleft, IDENTright)
+                                                  (decls, stmts))
 
-decls      :                       (nil)
-           | decl decls            (decl::decls)
+decls      :                            (nil)
+           | decl decls                 (decl::decls)
 
-decl       : INT IDENT SEMI         (IDENT)
+decl       : INT IDENT SEMI             (A.Decl IDENT)
+           | INT IDENT ASSIGN exp SEMI  (A.Init (IDENT, exp))
 
-stmts      :                       ([])
-           | stmt stmts            (stmt :: stmts)
+stmts      :                            ([])
+           | stmt stmts                 (stmt :: stmts)
 
-stmt       : simp SEMI             (marks (simp, (simpleft, simpright)))
-           | RETURN exp SEMI       (marks ((A.Return exp), (RETURNleft, expright)))
+stmt       : simp SEMI                  (marks (simp, (simpleft, simpright)))
+           | RETURN exp SEMI            (marks ((A.Return exp), (RETURNleft, expright)))
 
-simp       : IDENT asnop exp %prec ASNOP
-                                   (expand_asnop (IDENT, asnop, exp) (IDENTleft, expright))
+lvalue     : IDENT                      (IDENT)
+           | LPAREN lvalue RPAREN       (lvalue)
+simp       : lvalue asnop exp %prec ASNOP
+                                        (expand_asnop (lvalue, asnop, exp) (lvalueleft, expright))
 
-exp        : LPAREN exp RPAREN     (exp)
-           | INTCONST              (mark (A.ConstExp(INTCONST),(INTCONSTleft,INTCONSTright)))
-           | IDENT                 (mark (A.Var(IDENT), (IDENTleft,IDENTright)))
-           | exp PLUS exp          (mark (A.OpExp (A.PLUS, [exp1,exp2]), (exp1left,exp2right)))
-           | exp MINUS exp         (mark (A.OpExp (A.MINUS, [exp1,exp2]), (exp1left,exp2right)))
-           | exp STAR exp          (mark (A.OpExp (A.TIMES, [exp1,exp2]), (exp1left,exp2right)))
-           | exp SLASH exp         (mark (A.OpExp (A.DIVIDEDBY, [exp1,exp2]), (exp1left,exp2right)))
-           | exp PERCENT exp       (mark (A.OpExp (A.MODULO, [exp1,exp2]), (exp1left,exp2right)))
-           | MINUS exp %prec UNARY (mark (A.OpExp (A.NEGATIVE, [exp]), (MINUSleft,expright)))
+exp        : LPAREN exp RPAREN          (exp)
+           | INTCONST                   (mark (A.ConstExp(INTCONST),(INTCONSTleft,INTCONSTright)))
+           | IDENT                      (mark (A.Var(IDENT), (IDENTleft,IDENTright)))
+           | exp PLUS exp               (mark (A.OpExp (A.PLUS, [exp1,exp2]), (exp1left,exp2right)))
+           | exp MINUS exp              (mark (A.OpExp (A.MINUS, [exp1,exp2]), (exp1left,exp2right)))
+           | exp STAR exp               (mark (A.OpExp (A.TIMES, [exp1,exp2]), (exp1left,exp2right)))
+           | exp SLASH exp              (mark (A.OpExp (A.DIVIDEDBY, [exp1,exp2]), (exp1left,exp2right)))
+           | exp PERCENT exp            (mark (A.OpExp (A.MODULO, [exp1,exp2]), (exp1left,exp2right)))
+           | MINUS exp %prec UNARY      (mark (A.OpExp (A.NEGATIVE, [exp]), (MINUSleft,expright)))
 
-asnop      : ASSIGN                (NONE)
-           | PLUSEQ                (SOME(A.PLUS))
-           | MINUSEQ               (SOME(A.MINUS))
-           | STAREQ                (SOME(A.TIMES))
-           | SLASHEQ               (SOME(A.DIVIDEDBY))
-           | PERCENTEQ             (SOME(A.MODULO))
+asnop      : ASSIGN                     (NONE)
+           | PLUSEQ                     (SOME(A.PLUS))
+           | MINUSEQ                    (SOME(A.MINUS))
+           | STAREQ                     (SOME(A.TIMES))
+           | SLASHEQ                    (SOME(A.DIVIDEDBY))
+           | PERCENTEQ                  (SOME(A.MODULO))

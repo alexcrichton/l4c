@@ -51,6 +51,11 @@ struct
     | trans_stms env (A.Markeds (marked_stm)::stms) =
       trans_stms env ((Mark.data marked_stm)::stms)
 
-  fun translate (_, stms) = trans_stms Symbol.empty stms
+  fun translate (L, stms) = let
+        fun extract (A.Init (id, exp), stms) = (A.Assign (id, exp))::stms
+          | extract (_, stms) = stms
+      in
+        trans_stms Symbol.empty (foldr extract stms L)
+      end
 
 end

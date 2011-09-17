@@ -34,7 +34,9 @@ sig
    | Return of exp
    | Markeds of stm Mark.marked
 
-  type decl = ident
+  datatype decl =
+     Decl of ident
+   | Init of ident * exp
 
   type program = (decl list * stm list)
 
@@ -70,7 +72,9 @@ struct
    | Return of exp
    | Markeds of stm Mark.marked
 
-  type decl = ident
+  datatype decl =
+     Decl of ident
+   | Init of ident * exp
 
   type program = (decl list * stm list)
 
@@ -108,7 +112,8 @@ struct
     fun pp_stms nil = ""
       | pp_stms (s::ss) = pp_stm s ^ "\n" ^ pp_stms ss
 
-    fun pp_decl d = "int " ^ pp_ident d
+    fun pp_decl (Decl d) = "int " ^ pp_ident d
+      | pp_decl (Init (d, exp)) = "int " ^ pp_ident d ^ " = " ^ pp_exp exp
 
     fun pp_decls nil = ""
       | pp_decls (d::dd) = pp_decl d ^ "\n" ^ pp_decls dd

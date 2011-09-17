@@ -58,14 +58,21 @@ struct
 
   (* populate environment with declarations. false is for uninitialized. *)
   fun typecheck' (nil, stms) env = tc_stms env stms NONE false
-    | typecheck' (decl::decls, stms) env =
-         case Symbol.look env decl
-	  of SOME _ => ( ErrorMsg.error NONE ("redeclared variable `" ^ Symbol.name decl ^ "'") ;
-		         raise ErrorMsg.Error )
-	   | NONE => typecheck' (decls, stms) (Symbol.bind env (decl, false))
+    | typecheck' ((A.Decl id)::decls, stms) env =
+         (case Symbol.look env id
+            of SOME _ => ( ErrorMsg.error NONE ("redeclared variable `" ^ Symbol.name id ^ "'") ;
+		                       raise ErrorMsg.Error )
+	           | NONE => typecheck' (decls, stms) (Symbol.bind env (id, false)))
+    | typecheck' _ _ = raise Fail "Invalid program in typecheck'"
 
-  fun typecheck prog =
-      if typecheck' prog Symbol.empty then ()
-      else (ErrorMsg.error NONE "main does not return\n"; raise ErrorMsg.Error)
+  fun typecheck (decls, stms) = let
+        fun extract (A.Decl id, (decls, stms)) = ((A.Decl id)::decls, stms)
+          | extract (A.Init (id, exp), (decls, stms)) =
+                    ((A.Decl id)::decls, (A.Assign (id, exp))::stms)
+        val prog = foldr extract ([], stms) decls
+      in
+        if typecheck' prog Symbol.empty then ()
+        else (ErrorMsg.error NONE "main does not return\n"; raise ErrorMsg.Error)
+      end
 
 end
