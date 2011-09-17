@@ -12,6 +12,7 @@ sig
   val mul : (Assem.operand * Assem.operand * Assem.operand) -> Assem.instr
   val adiv : (Assem.operand * Assem.operand * Assem.operand) -> Assem.instr
   val amod : (Assem.operand * Assem.operand * Assem.operand) -> Assem.instr
+  val stack : int -> Assem.operand
 
   val runtests : (string * (unit -> unit)) list -> unit
 end
@@ -37,6 +38,8 @@ struct
   fun amod (a, b, c) = A.BINOP (A.MOD, a, b, c)
   fun dir () = A.DIRECTIVE ("I'm a directive!")
   fun com () = A.COMMENT ("I'm a comment!")
+
+  fun stack n = A.REG (A.STACK n)
 
   fun runtests nil = ()
   |   runtests ((s, t)::L) = (
