@@ -1,4 +1,4 @@
-//test return 2
+//test return 6
 int main() {
   int a;
   int b;
