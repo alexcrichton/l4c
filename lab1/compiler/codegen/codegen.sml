@@ -58,6 +58,7 @@ struct
   fun munch_stm (T.MOVE(T.TEMP(t1), e2)) = munch_exp (AS.TEMP(t1)) e2
     (* return e is implemented as %eax <- e *)
     | munch_stm (T.RETURN(e)) = munch_exp (AS.REG(AS.EAX)) e @ [AS.RET]
+    | munch_stm _ = raise Fail "Invalid IL"
 
   fun codegen_temps nil = nil
     | codegen_temps (stmt::stmts) = munch_stm stmt @ codegen_temps stmts
