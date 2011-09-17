@@ -60,6 +60,7 @@ fun check_main (sym, lpos, rpos) prog =
  | decl     of A.decl
  | stmts    of A.stm list
  | stmt     of A.stm
+ | lvalue   of A.ident
  | simp     of A.stm
  | exp      of A.exp
  | asnop    of A.oper option
