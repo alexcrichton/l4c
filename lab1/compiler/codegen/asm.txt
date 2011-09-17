@@ -21,3 +21,24 @@ sub:
   sub   imm32, r/m32            r/m32 -= imm32
   sub   r32, r/m32              r/m32 -= r32
   sub   r/m32, r32              r32 -= r/m32
+
+ d   s1  s2 | +  -  *  /
+------------+------------
+r32 r32 r32 |
+r32 r32 m32 | 
+r32 r32 imm | 
+r32 m32 r32 | 
+r32 m32 m32 | 
+r32 m32 imm | 
+r32 imm r32 | 
+r32 imm m32 | 
+r32 imm imm | 
+m32 r32 r32 | y y y 
+m32 r32 m32 | y y y
+m32 r32 imm | y y y
+m32 m32 r32 | y y y
+m32 m32 m32 | y y y
+m32 m32 imm | y y y
+m32 imm r32 | y y y
+m32 imm m32 | y y y
+m32 imm imm | y y y
