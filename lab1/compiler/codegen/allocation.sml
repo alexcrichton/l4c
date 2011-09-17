@@ -194,9 +194,13 @@ struct
         (* functions to determine if an instruction still has a temp *)
         fun isTemp (AS.TEMP _) = true
           | isTemp _           = false
-        fun hasTemps (AS.MOV (o1, o2)) = (isTemp o1) orelse (isTemp o2)
-          | hasTemps (AS.BINOP (_, o1, o2, o3)) = (isTemp o1) orelse (isTemp o2)
-                                                              orelse (isTemp o3)
+        fun hasTemps (AS.MOV (o1, o2)) =
+              if (isTemp o2) then raise AllocationExn "Live temp not allocated"
+              else (isTemp o1)
+          | hasTemps (AS.BINOP (_, o1, o2, o3)) =
+              if (isTemp o2) orelse (isTemp o3) then
+                raise AllocationExn "Live temp not allocated"
+              else (isTemp o1)
           | hasTemps _ = false
         val L' = apply_coloring L C'
       in
