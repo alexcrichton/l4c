@@ -24,6 +24,13 @@ fun expand_asnop (id, NONE, exp) (left, right) =
   | expand_asnop (id, SOME(oper), exp) (left, right) =
       A.Assign(id, mark(A.OpExp(oper, [A.Var(id), exp]), (left, right)))
 
+fun check_main (sym, lpos, rpos) prog =
+      if (Symbol.name sym) = "main" then
+        prog
+      else
+        (ErrorMsg.error (ParseState.ext (lpos, rpos))
+                        "Function must be called main"; prog)
+
 %%
 %header (functor L1LrValsFn (structure Token : TOKEN))
 
@@ -34,7 +41,6 @@ fun expand_asnop (id, NONE, exp) (left, right) =
  | IDENT    of Symbol.symbol
  | RETURN
  | INT
- | MAIN
  | PLUS | MINUS | STAR | SLASH | PERCENT
  | ASSIGN | PLUSEQ | MINUSEQ | STAREQ | SLASHEQ | PERCENTEQ
  | LBRACE | RBRACE

@@ -92,7 +92,6 @@ ws = [\ \t\012];
 
 <INITIAL> "return"    => (Tokens.RETURN (yypos, yypos + size yytext));
 <INITIAL> "int"       => (Tokens.INT (yypos, yypos + size yytext));
-<INITIAL> "main"      => (Tokens.MAIN (yypos, yypos + size yytext));
 
 <INITIAL> {decnum}    => (number (yytext, yypos));
 
