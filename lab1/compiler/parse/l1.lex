@@ -119,7 +119,6 @@ ws = [\ \t\011\013\n\012];
                           lex());
 
 <INITIAL> "//"        => (YYBEGIN COMMENT_LINE; lex());
-<INITIAL> "#"         => (YYBEGIN COMMENT_LINE; lex());
 <INITIAL> .           => (ErrorMsg.error (ParseState.ext (yypos,yypos))
                               ("illegal character: \"" ^ yytext ^ "\"");
                           lex ());
