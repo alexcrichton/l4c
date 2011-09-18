@@ -14,13 +14,14 @@
 
 signature WORD32_SIGNED =
 sig
-  val TMAX : Word32.word	(* largest signed positive word, 2^31-1  *)
-  val TMIN : Word32.word	(* smallest signed negative word -2^31 *)
-  val ZERO : Word32.word	(* 0 *)
-  val fromString : string -> Word32.word option	(* parse from string, no sign *)
-				(* raises Overflow if not 0 <= n < 2^32 *)
-  val fromHexString : string -> Word32.word option	(* parse from string, no sign *)
-				(* raises Overflow if not 0 <= n < 2^32 *)
+  val TMAX : Word32.word  (* largest signed positive word, 2^31-1  *)
+  val TMIN : Word32.word  (* smallest signed negative word -2^31 *)
+  val ZERO : Word32.word  (* 0 *)
+  (* parse from string, no sign *)
+  val fromString : string -> Word32.word option
+        (* raises Overflow if not 0 <= n < 2^31 *)
+  val fromHexString : string -> Word32.word option (* parse from string, no sign *)
+        (* raises Overflow if not 0 <= n < 2^31 *)
   val toString : Word32.word -> string (* print to string, with sign *)
 end
 
@@ -31,17 +32,13 @@ struct
   val ZERO = Word32.fromInt(0)
   fun neg w = Word32.>(w, TMAX)
 
-  (* scanString might also raise Overflow *)
-  fun fromHelper fmt str =
-        case StringCvt.scanString (Word32.scan fmt) str
-          of SOME i => if i > TMIN then raise Overflow else SOME i
-           | NONE   => NONE
-
   (* fromString does not allow leading "-" *)
-  val fromString = fromHelper StringCvt.DEC
+  fun fromString s = case StringCvt.scanString (Word32.scan StringCvt.DEC) s
+                       of SOME i => if i > TMIN then raise Overflow else SOME i
+                        | NONE   => NONE
 
   (* fromHexString does not allow leading "-" *)
-  val fromHexString = fromHelper StringCvt.HEX
+  fun fromHexString s = StringCvt.scanString (Word32.scan StringCvt.HEX) s
 
   fun toString (w) =
       if neg w then "-" ^ Word32.fmt StringCvt.DEC (Word32.~(w))
