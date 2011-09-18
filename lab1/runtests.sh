@@ -81,13 +81,15 @@ for test in $(echo $files); do
         gcc_compile $test
         if [ $ret -eq 0 ]; then
           program=${test/%.l1/}
-          expected=SIGFPE
           set +e
           output=$($program)
+          ret=$?
           set -e
-          [ "$output" = "$expected" ] && pass \
-                                      || fail "Got $output, expected $expected"
-
+          if [ "$output" = "" ]; then
+             [ $ret -eq 136 ] && pass || fail "Got 136, expected $ret"
+          else
+            fail "Output was produced: $output"
+          fi
         fi
       else
         fail "$l1c failed"
