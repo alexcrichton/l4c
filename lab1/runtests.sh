@@ -3,13 +3,11 @@
 #
 # Runs all tests in the tests/ directory of the compiler after rebuilding the
 # compiler.
-
 set -e
 
-cd compiler
-make &> /dev/null
+(cd compiler && make) &> /dev/null || (echo "make failed"; exit 1)
 
-l1c=bin/l1c
+l1c="compiler/bin/l1c"
 
 # Prints a message of passing, first argument is failure message
 function pass() {
@@ -34,7 +32,7 @@ function gcc_compile() {
   local out=${test/%.l1/}
   local log=${test/%l1/gcc.log}
   set +e
-  gcc -m64 -Iruntime -o $out $assem runtime/l1rt.c &> $log
+  gcc -m64 -Icompiler/runtime -o $out $assem compiler/runtime/l1rt.c &> $log
   ret=$?
   set -e
 
@@ -43,7 +41,10 @@ function gcc_compile() {
   fi
 }
 
-for test in $(find ../tests -name '*.l1'); do
+tests=$@
+[ "$tests" = "" ] && tests="tests"
+
+for test in $(find $tests -name '*.l1'); do
   echo -n $test ' '
   line=`head -n 1 $test`
   type=`echo $line | sed -E 's/\/\/test ([a-z]+).*/\\1/'`
