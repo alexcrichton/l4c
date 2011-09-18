@@ -1,7 +1,3 @@
-Reserved words - generate error
-
-Code generation:
-    1: Instruction selection
-    2: Liveness analysis
-    3: Chordal graph coloring for register allocation
-    n: Maybe use imperative stuff to speed up compilation
+Initialize weights of neighbors or precolored nodes
+SSA?
+  -reusing variables in assign statements?
