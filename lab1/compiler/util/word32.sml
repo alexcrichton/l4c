@@ -31,17 +31,19 @@ struct
   val ZERO = Word32.fromInt(0)
   fun neg w = Word32.>(w, TMAX)
 
-  (* fromString does not allow leading "-" *)
-  fun fromString (str) =
-         (* scanString might also raise Overflow *)
-	 StringCvt.scanString (Word32.scan StringCvt.DEC) str
+  (* scanString might also raise Overflow *)
+  fun fromHelper fmt str =
+        case StringCvt.scanString (Word32.scan fmt) str
+          of SOME i => if i > TMIN then raise Overflow else SOME i
+           | NONE   => NONE
 
-  fun fromHexString (str) =
-         (* scanString might also raise Overflow *)
-	 StringCvt.scanString (Word32.scan StringCvt.HEX) str
+  (* fromString does not allow leading "-" *)
+  val fromString = fromHelper StringCvt.DEC
+
+  (* fromHexString does not allow leading "-" *)
+  val fromHexString = fromHelper StringCvt.HEX
 
   fun toString (w) =
-      if neg w
-	 then "-" ^ Word32.fmt StringCvt.DEC (Word32.~(w))
+      if neg w then "-" ^ Word32.fmt StringCvt.DEC (Word32.~(w))
       else Word32.fmt StringCvt.DEC w
 end

@@ -197,10 +197,10 @@ struct
         fun hasTemps (AS.MOV (o1, o2)) =
               if (isTemp o2) then raise AllocationExn "Live temp not allocated"
               else (isTemp o1)
-          | hasTemps (AS.BINOP (_, o1, o2, o3)) =
+          | hasTemps (AS.BINOP (oper, o1, o2, o3)) =
               if (isTemp o2) orelse (isTemp o3) then
                 raise AllocationExn "Live temp not allocated"
-              else (isTemp o1)
+              else oper <> AS.DIV andalso oper <> AS.MOD andalso (isTemp o1)
           | hasTemps _ = false
         val L' = apply_coloring L C'
       in

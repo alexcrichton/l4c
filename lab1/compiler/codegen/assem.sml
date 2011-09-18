@@ -101,6 +101,7 @@ struct
   fun format_instr (BINOP(oper, d, s1, s2)) =
       format_binop oper ^ " " ^ format_operand s2 ^
       (if oper = DIV orelse oper = MOD then "" else ", " ^ format_operand d)
+    | format_instr (MOV(TEMP _, _)) = ""
     | format_instr (MOV(REG d, REG s)) =
         if d = s then "" else
           "movl " ^ format_operand (REG s) ^ ", " ^ format_operand (REG d)

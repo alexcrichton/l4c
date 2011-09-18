@@ -42,13 +42,14 @@ struct
       let
         fun gen_temp e =
           let val t = AS.TEMP(Temp.new()) in (t, munch_exp t e) end
-        fun calculate (T.CONST n) = (AS.IMM n, [])
-          | calculate (T.TEMP t)  = (AS.TEMP t, [])
-          | calculate e = gen_temp e
+        fun calculate _ (T.TEMP t)  = (AS.TEMP t, [])
+          | calculate oper (T.CONST n) = 
+              if oper = AS.DIV orelse oper = AS.MOD then gen_temp (T.CONST n)
+              else (AS.IMM n, [])
+          | calculate _ e = gen_temp e
         val operator = munch_op binop
-        val (t1, t1instrs) = calculate e1
-        val (t2, t2instrs) = if binop = T.DIV orelse binop = T.MOD
-          then gen_temp e2 else calculate e2
+        val (t1, t1instrs) = calculate operator e1
+        val (t2, t2instrs) = calculate operator e2
       in
         t1instrs @ t2instrs @ [AS.BINOP(operator, d, t1, t2)]
       end

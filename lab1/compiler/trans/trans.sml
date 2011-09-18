@@ -39,8 +39,11 @@ struct
   (* translate the statement *)
   (* trans_stms : Temp.temp Symbol.table -> A.stm list -> Tree.stm list *)
   fun trans_stms env (A.Assign(id,e)::stms) = let
-          val t = Temp.new()
-          val env' = Symbol.bind env (id, t)
+          val (env', t) = case Symbol.look env id
+                            of SOME tmp => (env, tmp)
+                             | NONE => let val tmp = Temp.new () in
+                                         (Symbol.bind env (id, tmp), tmp)
+                                       end
         in
           T.MOVE(T.TEMP(t), trans_exp env e) :: trans_stms env' stms
         end
