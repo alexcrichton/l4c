@@ -19,6 +19,8 @@ sig
   val ZERO : Word32.word	(* 0 *)
   val fromString : string -> Word32.word option	(* parse from string, no sign *)
 				(* raises Overflow if not 0 <= n < 2^32 *)
+  val fromHexString : string -> Word32.word option	(* parse from string, no sign *)
+				(* raises Overflow if not 0 <= n < 2^32 *)
   val toString : Word32.word -> string (* print to string, with sign *)
 end
 
@@ -33,6 +35,10 @@ struct
   fun fromString (str) =
          (* scanString might also raise Overflow *)
 	 StringCvt.scanString (Word32.scan StringCvt.DEC) str
+
+  fun fromHexString (str) =
+         (* scanString might also raise Overflow *)
+	 StringCvt.scanString (Word32.scan StringCvt.HEX) str
 
   fun toString (w) =
       if neg w

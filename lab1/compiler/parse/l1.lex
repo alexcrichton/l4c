@@ -30,10 +30,10 @@ in
       ( commentLevel := !commentLevel - 1 ;
         !commentLevel = 0 )
 
-  fun number (yyt, yyp) =
+  fun number parseFn (yyt, yyp) =
       let
         val ext = ParseState.ext (yyp, yyp + size yyt)
-        val numOpt = Word32Signed.fromString yyt
+        val numOpt = parseFn yyt
                      handle Overflow =>
                             ( ErrorMsg.error ext
                                 ("integral constant `" ^ yyt ^ "' too large") ;
@@ -61,7 +61,8 @@ end
 %s COMMENT COMMENT_LINE;
 
 id = [A-Za-z_][A-Za-z0-9_]*;
-decnum = [0-9][0-9]*;
+decnum = 0|([1-9][0-9]*);
+hexnum = 0[xX][0-9a-fA-F]+;
 
 ws = [\ \t\011\013\n\012];
 
@@ -90,10 +91,18 @@ ws = [\ \t\011\013\n\012];
 <INITIAL> "/"         => (Tokens.SLASH (yypos, yypos + size yytext));
 <INITIAL> "%"         => (Tokens.PERCENT (yypos, yypos + size yytext));
 
+<INITIAL> "--"        => (ErrorMsg.error (ParseState.ext (yypos, yypos))
+                            ("'" ^ yytext ^ "' is not yet supported");
+                          lex ());
+<INITIAL> "++"        => (ErrorMsg.error (ParseState.ext (yypos, yypos))
+                            ("'" ^ yytext ^ "' is not yet supported");
+                          lex ());
+
 <INITIAL> "return"    => (Tokens.RETURN (yypos, yypos + size yytext));
 <INITIAL> "int"       => (Tokens.INT (yypos, yypos + size yytext));
 
-<INITIAL> {decnum}    => (number (yytext, yypos));
+<INITIAL> {decnum}    => (number Word32Signed.fromString (yytext, yypos));
+<INITIAL> {hexnum}    => (number Word32Signed.fromHexString (yytext, yypos));
 
 <INITIAL> {id}        => (if not (Symbol.valid yytext) then
                             (ErrorMsg.error (ParseState.ext (yypos, yypos))
