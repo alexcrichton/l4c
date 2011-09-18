@@ -58,10 +58,13 @@ function gcc_compile() {
   fi
 }
 
-tests=$@
-[ "$tests" = "" ] && tests="tests"
+if [ "$1" = "" ]; then
+  files=$(find tests -name '*.l1')
+else
+  files=$(find "$@" -name '*.l1')
+fi
 
-for test in $(find $tests -name '*.l1'); do
+for test in $(echo $files); do
   echo -n $test ' '
   line=`head -n 1 $test`
   type=`echo $line | sed -E 's/\/\/test ([a-z]+).*/\\1/'`
