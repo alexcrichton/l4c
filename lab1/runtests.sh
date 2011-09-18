@@ -9,6 +9,20 @@ set -e
 
 l1c="compiler/bin/l1c"
 
+passed_tests=0
+total_tests=0
+
+function summary() {
+  echo
+  echo
+  local bold='\e[1;1m'
+  echo "  Summary: $bold$passed_tests/$total_tests passed"
+  echo
+  tput sgr0
+}
+
+trap 'summary; exit 1' SIGINT SIGTERM
+
 # Prints a message of passing, first argument is failure message
 function pass() {
   local green='\e[1;32m'
@@ -16,6 +30,8 @@ function pass() {
   local binary=${test/%.l1/}
   [ -f $binary ] && rm $binary
   tput sgr0
+  passed_tests=$(($passed_tests + 1))
+  total_tests=$(($total_tests + 1))
 }
 
 # Prints a message of failure, first argument is failure message
@@ -23,6 +39,7 @@ function fail() {
   local red='\e[0;31m'
   echo -e "${red}$1"
   tput sgr0
+  total_tests=$(($total_tests + 1))
 }
 
 # Compile source with gcc, first argument is l1 source test
@@ -95,3 +112,5 @@ for test in $(find $tests -name '*.l1'); do
   esac
 
 done
+
+summary
