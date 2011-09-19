@@ -97,28 +97,30 @@ struct
         max :: (generate_seo graph (TempSet.delete (set, max)))
       end
 
-  (* minNotIn : int -> int list -> int
-   * Returns the lowest integer >= x that is not in sorted list L
+  (* minNotIn : (int * (int * bool)) -> (int * bool)
+   * Used in a foldl across a set of sorted integers to find the smallest
+   * integer above 1 that is not in the set.
    *
-   * @param x   The current candidate for lowest number not in the set
-   * @param L   The sorted list of numbers
-   * @return    The lowest number >= x that is not in list L
+   * @param n   The next integer in the set
+   * @param min The current candidate for the minimum element
+   * @param found_hold true if we've found a hole in the list and min is right
+   * @return    The next min candidate and whether we know we're right
    *)
-  fun minNotIn x [] = x
-    | minNotIn x (n::L) =
-        if x < n then
-          x
-        else if x > n then
-          minNotIn x L
+  fun minNotIn (n, (min, found_hole)) =
+        if found_hole orelse min < n then
+          (min, true)
+        else if min > n then
+          (min, false)
         else
-          minNotIn (x+1) L
+          (min + 1, false)
 
   (* color : graph -> node list -> unit
    * Colors the given graph according to the provided seo.
    *
    * @param graph     The graph to be colored
    * @param SEO       The seo that should be used
-   * @return          A mapping from each node to the color it should be assigned
+   * @return          A mapping from each node to the color it should be
+   *                  assigned
    *
    * @usage coloring should initially be NodeData.empty unless there are
    *        pre-colored nodes. Pre-colored nodes should have their value
@@ -130,11 +132,13 @@ struct
         (* get the set of neighbors of node n *)
         val nbrs = G.getNeighbors graph node
         (* map nbrs to the neighbors' color *)
-        fun cmapfn n = #color ((G.getValue graph n):node_data)
-        val colors = ListMergeSort.uniqueSort Int.compare
-                     (map cmapfn (TempSet.listItems nbrs))
+        fun cmapfn n = #color (G.getValue graph n)
+        (*val colors = ListMergeSort.uniqueSort Int.compare
+                     (map cmapfn (TempSet.listItems nbrs))*)
+        val colors = TempSet.foldl (fn (n, S) => IntBinarySet.add (S, cmapfn n))
+                                   IntBinarySet.empty nbrs
         (* find the lowest number > 0 not in the set *)
-        val clr = minNotIn 1 colors
+        val (clr, _) = IntBinarySet.foldl minNotIn (1, false) colors
         (* set the color *)
         val {color=_, weight=w} = G.getValue graph node
         val () = G.setValue graph (node, {color=clr, weight=w})
@@ -145,7 +149,8 @@ struct
   (* apply_coloring : instr list -> 'a graph -> instr list
    *
    * @param L     The list of instructions
-   * @param graph The coloring information (a map of nodes (temps) to colors (ints))
+   * @param graph The coloring information (a map of nodes (temps) to colors
+   *              (ints))
    * @return      L, with all temps replaced with their correct registers
    *)
   fun apply_coloring L graph = let
@@ -170,7 +175,8 @@ struct
                                      | c => AS.REG (map_color c))
           | map_op operand     = operand
 
-        fun map_instr (AS.BINOP (oper, op1, op2, op3)) = AS.BINOP (oper, map_op op1, map_op op2, map_op op3)
+        fun map_instr (AS.BINOP (oper, op1, op2, op3)) =
+              AS.BINOP (oper, map_op op1, map_op op2, map_op op3)
           | map_instr (AS.MOV (op1, op2)) = AS.MOV (map_op op1, map_op op2)
           | map_instr i = i
       in
