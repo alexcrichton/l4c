@@ -86,15 +86,15 @@ program    : INT IDENT LPAREN RPAREN LBRACE stmts RBRACE
                                       (check_main (IDENT, IDENTleft, IDENTright)
                                                   stmts)
 
-decl       : INT IDENT SEMI             (A.Declare IDENT)
-           | INT IDENT ASSIGN exp SEMI  (A.Init (IDENT, exp))
+decl       : INT IDENT                  (A.Declare IDENT)
+           | INT IDENT ASSIGN exp       (A.Init (IDENT, exp))
 
 stmts      :                            ([])
            | stmt stmts                 (stmt :: stmts)
 
 stmt       : simp SEMI                  (marks (simp, (simpleft, simpright)))
            | RETURN exp SEMI            (marks ((A.Return exp), (RETURNleft, expright)))
-           | decl                       (marks (decl, (declleft, declright)))
+           | decl SEMI                  (marks (decl, (declleft, declright)))
 
 lvalue     : IDENT                      (IDENT)
            | LPAREN lvalue RPAREN       (lvalue)
