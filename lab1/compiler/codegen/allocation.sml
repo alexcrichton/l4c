@@ -15,65 +15,49 @@ structure Allocation :> ALLOCATION =
 struct
   exception AllocationExn of string
   structure AS = Assem
-  structure Node = Temp
-  structure NodeSet = TempSet
-  structure Graph = BinaryMapFn(Node)
-  structure NodeData = Graph
+  structure G = Graph
+  type node_data = {color:int, weight:int}
 
-  type node = Node.temp
-  type node_set = NodeSet.set
-  type 'a node_data = 'a NodeData.map
-  type graph = node list Graph.map
-
-  (* make_graph : (node_set list * instr list) -> (graph * int node_data) -> (graph * int node_data)
+  (* make_graph : (node_set list * instr list) -> graph -> unit
    * Converts the liveness information map into an interference graph.
    *
-   * @param N   The list of nodes
-   * @param L   The liveness information list
-   * @param g   The current interference graph
-   * @return    The complete interference graph
+   * @param S       The list of live node sets
+   * @param L       The liveness information list
+   * @param graph   The current interference graph
+   * @return        The complete interference graph
    *
-   * @usage g should be equal to Graph.empty when calling this function
+   * @usage g should be an empty graph before calling this function
    *)
-  fun make_graph ([], []) g = g
-    | make_graph (set::S, i::L) (G, C) = let
-        fun reserve_registers pair nil = pair
-          | reserve_registers (set, C) (r::L) = let
-            val t1   = Node.new()
-            val set' = NodeSet.add (set, t1)
-            val C'   = NodeData.insert (C, t1, r)
-          in
-            reserve_registers (set', C') L
-          end
-        (* handle instructions that should be pre-colored *)
-        val (set', C') = (
-          case i
-            of (AS.BINOP (AS.DIV, _, _, _)) => reserve_registers (set, C) [1, 4]
-             | (AS.BINOP (AS.MOD, _, _, _)) => reserve_registers (set, C) [1, 4]
-             | _ => (set, C))
-        fun addNode(n, G') = let
-              val L = (case Graph.find (G', n)
-                         of SOME(L) => L
-                          | NONE    => [])
-              val set'' = NodeSet.delete (set', n)
-              val L' = NodeSet.listItems (NodeSet.addList (set'', L))
+  fun make_graph ([], []) _ = ()
+    | make_graph (set::S, i::L) graph = let
+        (* handle pre-coloring *)
+        fun precolor [] set = set
+          | precolor (c::L) set = let
+              val t1 = Temp.new()
+              val set' = TempSet.add (set, t1)
+              val () = G.addNode graph (t1, SOME {color=c, weight=0})
             in
-              Graph.insert (G', n, L')
+              precolor L set'
             end
-        val G' = NodeSet.foldl addNode G set'
+        val set' = case i
+                     of (AS.BINOP (AS.DIV, _, _, _)) => precolor [1,4] set
+                      | (AS.BINOP (AS.MOD, _, _, _)) => precolor [1,4] set
+                      | _ => set
+        (* create part of the graph *)
+        val () = G.addClique graph set'
       in
-        make_graph (S, L) (G', C')
+        make_graph (S, L) graph
       end
     | make_graph _ _ = raise AllocationExn ("Instruction list and temp list " ^
                                             "should be the same size")
 
-  (* apply_coloring : instr list -> int node_data -> instr list
+  (* apply_coloring : instr list -> 'a graph -> instr list
    *
-   * @param I   The list of instructions
-   * @param c   The coloring information (a map of nodes (temps) to colors (ints))
-   * @return    L, with all temps replaced with their correct registers
+   * @param L     The list of instructions
+   * @param graph The coloring information (a map of nodes (temps) to colors (ints))
+   * @return      L, with all temps replaced with their correct registers
    *)
-  fun apply_coloring L coloring = let
+  fun apply_coloring L graph = let
         fun map_color 1  = AS.EAX (* We use these constants in make_graph *)
           | map_color 2  = AS.EBX
           | map_color 3  = AS.ECX
@@ -90,9 +74,9 @@ struct
           (*| map_color 14 = AS.R15D*) (* TODO: use r15d if only 14 regs *)
           | map_color x  = AS.STACK (x - 13)
 
-        fun map_op (AS.TEMP n) = (case NodeData.find (coloring, n)
-                                    of SOME(clr) => AS.REG (map_color clr)
-                                     | NONE      => AS.TEMP n)
+        fun map_op (AS.TEMP n) = (case #color ((G.getValue graph n):node_data)
+                                    of 0 => AS.TEMP n
+                                     | c => AS.REG (map_color c))
           | map_op operand     = operand
 
         fun map_instr (AS.BINOP (oper, op1, op2, op3)) = AS.BINOP (oper, map_op op1, map_op op2, map_op op3)
@@ -118,12 +102,11 @@ struct
         else
           minNotIn (x+1) L
 
-  (* color : graph -> node list -> int node_data -> int node_data
+  (* color : graph -> node list -> unit
    * Colors the given graph according to the provided seo.
    *
    * @param graph     The graph to be colored
    * @param SEO       The seo that should be used
-   * @param coloring  The current coloring of the graph
    * @return          A mapping from each node to the color it should be assigned
    *
    * @usage coloring should initially be NodeData.empty unless there are
@@ -131,48 +114,49 @@ struct
    *        inserted into the coloring map already, and those nodes should not
    *        be included in the SEO.
    *)
-  fun color _        []    coloring = coloring
-    | color graph (n::SEO) coloring = let
+  fun color _        []    = ()
+    | color graph (node::SEO) = let
         (* get the set of neighbors of node n *)
-        val nbrs = valOf (Graph.find (graph, n))
+        val nbrs = G.getNeighbors graph node
         (* map nbrs to the neighbors' color *)
-        val cmap = fn n' => (case NodeData.find(coloring, n')
-                               of NONE      => 0 (* 0 means not yet colored *)
-                                | SOME(clr) => clr)
-        val clrs = ListMergeSort.uniqueSort Int.compare (map cmap nbrs)
+        fun cmapfn n = #color ((G.getValue graph n):node_data)
+        val colors = ListMergeSort.uniqueSort Int.compare
+                     (map cmapfn (TempSet.listItems nbrs))
         (* find the lowest number > 0 not in the set *)
-        val clr = minNotIn 1 clrs
+        val clr = minNotIn 1 colors
+        (* set the color *)
+        val {color=_, weight=w} = G.getValue graph node
+        val () = G.setValue graph (node, {color=clr, weight=w})
       in
-        (* recurse with L and the color added to c *)
-        color graph SEO (NodeData.insert (coloring, n, clr))
+        color graph SEO
       end
 
-  (* generate_seo : graph -> node_set -> int node_data -> node list
+  (* generate_seo : graph -> node_set -> node list
    * Generates the simplicial elimination ordering (seo) of the given interference graph.
    *
    * @param graph   The interference graph to generate the seo for
-   * @param todo    The set of nodes that have not yet been assigned an order
-   * @param weights A mapping of nodes to their weight.
+   * @param set     The set of nodes that have not yet been assigned an order
    * @return        A list of nodes in seo
    *
    * @usage todo should initially be the set of all nodes, and weights should
    *        initially be NodeData.empty.
    *)
-  fun generate_seo graph todo weights =
-      if NodeSet.numItems todo = 0 then [] else let
+  fun generate_seo graph set =
+      if TempSet.numItems set = 0 then [] else let
         (* get the highest weighted todo node *)
         val maxfn = fn (n, (n', wt')) => let
-                      val wt = (case NodeData.find (weights, n) of NONE => 0 | SOME(w) => w)
+                      val wt = #weight (G.getValue graph n)
                     in if wt > wt' then (SOME n, wt) else (n', wt') end
-        val max = valOf (#1 (NodeSet.foldl maxfn (NONE, ~1) todo))
+        val max = valOf (#1 (TempSet.foldl maxfn (NONE, ~1) set))
         (* increase the weight of the neighbors *)
-        val incfn = fn (n, weights') =>
-                       (case NodeData.find (weights', n)
-                          of NONE     => NodeData.insert (weights', n, 1)
-                           | SOME(wt) => NodeData.insert (weights', n, wt + 1))
-        val weights' = foldl incfn weights (valOf (Graph.find (graph, max)))
+        fun incfn node = let
+              val {color=c, weight=w} = G.getValue graph node
+            in
+              G.setValue graph (node, {color=c, weight=w+1})
+            end
+        val () = TempSet.app incfn (G.getNeighbors graph max)
       in
-        max :: (generate_seo graph (NodeSet.delete (todo, max)) weights')
+        max :: (generate_seo graph (TempSet.delete (set, max)))
       end
 
   (* allocate : instr list -> instr list
@@ -185,12 +169,14 @@ struct
    *            registers or stack locations
    *)
   fun allocate L = let
+        val () = print "Liveness...\n"
         val live  = Liveness.compute L
-        val (G, C) = make_graph  (live, L) (Graph.empty, NodeData.empty)
-        val all_nodes = Graph.foldli (fn (n, _, S) => NodeSet.add (S, n))
-                                     NodeSet.empty G
-        val order = generate_seo G all_nodes NodeData.empty
-        val C' = color G order C
+        val () = print "Making graph...\n"
+        val graph = G.empty {color = 0, weight = 0}
+        val () = make_graph  (live, L) graph
+        val () = print "Generating SEO...\n"
+        val order = generate_seo graph (G.getNodes graph)
+        val () = color graph order
         (* functions to determine if an instruction still has a temp *)
         fun isTemp (AS.TEMP _) = true
           | isTemp _           = false
@@ -202,7 +188,7 @@ struct
                 raise AllocationExn "Live temp not allocated"
               else oper <> AS.DIV andalso oper <> AS.MOD andalso (isTemp o1)
           | hasTemps _ = false
-        val L' = apply_coloring L C'
+        val L' = apply_coloring L graph
       in
         List.filter (fn i => not (hasTemps i)) L'
       end

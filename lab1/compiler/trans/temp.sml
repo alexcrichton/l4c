@@ -13,6 +13,7 @@ sig
   val reset : unit -> unit	(* resets temp numbering *)
   val new : unit -> temp	(* returns a unique new temp *)
   val name : temp -> string	(* returns the name of a temp *)
+  val number : temp -> int (* returns the unique identifier *)
   val compare : temp * temp -> order (* comparison function *)
 end
 
@@ -30,6 +31,8 @@ struct
   end
 
   fun name t = "%t" ^ Int.toString t
+
+  fun number t = t
 		      
   fun compare (t1,t2) = Int.compare (t1,t2)
 end
