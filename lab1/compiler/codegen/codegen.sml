@@ -86,6 +86,6 @@ struct
    * @return a list of instructions with allocated registers
    *)
   fun codegen stmts =
-    Allocation.allocate (foldl (op @) [] (map munch_stm stmts))
+    Allocation.allocate (foldr (op @) [] (map munch_stm stmts))
 
 end
