@@ -35,7 +35,7 @@ struct
           | precolor (c::L) set = let
               val t1 = Temp.new()
               val set' = TempSet.add (set, t1)
-              val () = G.addNode graph (t1, SOME {color=c, weight=0})
+              val () = G.setValue graph (t1, {color=c, weight=0})
             in
               precolor L set'
             end
@@ -169,14 +169,12 @@ struct
    *            registers or stack locations
    *)
   fun allocate L = let
-        val () = print "Liveness...\n"
         val live  = Liveness.compute L
-        val () = print "Making graph...\n"
         val graph = G.empty {color = 0, weight = 0}
         val () = make_graph  (live, L) graph
-        val () = print "Generating SEO...\n"
         val order = generate_seo graph (G.getNodes graph)
         val () = color graph order
+        val L' = apply_coloring L graph
         (* functions to determine if an instruction still has a temp *)
         fun isTemp (AS.TEMP _) = true
           | isTemp _           = false
@@ -188,7 +186,6 @@ struct
                 raise AllocationExn "Live temp not allocated"
               else oper <> AS.DIV andalso oper <> AS.MOD andalso (isTemp o1)
           | hasTemps _ = false
-        val L' = apply_coloring L graph
       in
         List.filter (fn i => not (hasTemps i)) L'
       end
