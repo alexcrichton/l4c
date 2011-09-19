@@ -1,7 +1,6 @@
 signature GRAPH =
 sig
   exception NotFound
-  exception Exists
 
   type node_set = TempSet.set
   type node = Temp.temp
@@ -18,7 +17,6 @@ end
 structure Graph :> GRAPH =
 struct
   exception NotFound
-  exception Exists
 
   structure HT = HashTable
 
