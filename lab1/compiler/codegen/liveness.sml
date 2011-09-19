@@ -2,10 +2,6 @@ structure TempSet = BinarySetFn(Temp)
 
 signature LIVENESS =
 sig
-  (*
-   * The two lists are the same size. Corresponding entries match instructions
-   * to conflicting temp registers at that location.
-   *)
   val compute : Assem.instr list -> TempSet.set list
 
   exception BadInstruction of Assem.instr
@@ -111,6 +107,13 @@ struct
   fun munge rulesets f =
     if process rulesets f then munge rulesets f else ()
 
+  (* compute : Assem.instr list -> TempSet.set list
+   *
+   * Performs liveness analysis on the given list of instructions.
+   * @param L the list of assembly instructions with temps
+   * @return a same-size list where each temp set corresponds to the list of
+   *         live variables at that instruction.
+   *)
   fun compute L = let
     (* give_labels : label -> rule list -> (label * rule) list
      *

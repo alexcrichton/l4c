@@ -40,30 +40,52 @@ struct
    *)
   and munch_binop d (binop, e1, e2) =
       let
+        (* gen_temp : T.exp -> AS.operand * AS.instr list
+         * Generates a temp variable to hold the result of T.exp and returns the
+         * instructions necessary to create the temp.
+         *)
         fun gen_temp e =
           let val t = AS.TEMP(Temp.new()) in (t, munch_exp t e) end
-        fun calculate _ (T.TEMP t)  = (AS.TEMP t, [])
-          | calculate oper (T.CONST n) = 
-              if oper = AS.DIV orelse oper = AS.MOD then gen_temp (T.CONST n)
+        (* calculate : T.exp -> AS.operand * AS.instr list
+         * Takes an expression and returns the minimal number of instructions
+         * to get it into a destination operand. For CONSTs and TEMPs, this
+         * attempts to return just that destination. We have to make a special
+         * exception for the DIV and MOD operations, however, because their
+         * arguments must be a register, not an IMM.
+         *)
+        fun calculate (T.TEMP t)  = (AS.TEMP t, [])
+          | calculate (T.CONST n) =
+              if binop = T.DIV orelse binop = T.MOD then gen_temp (T.CONST n)
               else (AS.IMM n, [])
-          | calculate _ e = gen_temp e
-        val operator = munch_op binop
-        val (t1, t1instrs) = calculate operator e1
-        val (t2, t2instrs) = calculate operator e2
+          | calculate e = gen_temp e
+        val (t1, t1instrs) = calculate e1
+        val (t2, t2instrs) = calculate e2
       in
-        t1instrs @ t2instrs @ [AS.BINOP(operator, d, t1, t2)]
+        t1instrs @ t2instrs @ [AS.BINOP(munch_op binop, d, t1, t2)]
       end
 
-  (* munch_stm : T.stm -> AS.instr list *)
-  (* munch_stm stm generates code to execute stm *)
+  (* munch_stm : T.stm -> AS.instr list
+   *
+   * Converts a statement of the IL into a list of assembly instructions.
+   *
+   * @param exp the expression to convert
+   * @return L a list of abstract assembly instructions with temps
+   *)
   fun munch_stm (T.MOVE(T.TEMP(t1), e2)) = munch_exp (AS.TEMP(t1)) e2
     (* return e is implemented as %eax <- e *)
     | munch_stm (T.RETURN(e)) = munch_exp (AS.REG(AS.EAX)) e @ [AS.RET]
     | munch_stm _ = raise Fail "Invalid IL"
 
-  fun codegen_temps nil = nil
-    | codegen_temps (stmt::stmts) = munch_stm stmt @ codegen_temps stmts
-
-  fun codegen stmts = Allocation.allocate (codegen_temps stmts)
+  (* codegen : T.stm list -> AS.instr list
+   *
+   * Performs code generation on a list of statements of the intermediate
+   * language. The assembly instructions returned have no temps. The registers
+   * are all allocated and ready to be formatted into real assemly.
+   *
+   * @param stmts a list of statements in the intermediate language
+   * @return a list of instructions with allocated registers
+   *)
+  fun codegen stmts =
+    Allocation.allocate (foldl (op @) [] (map munch_stm stmts))
 
 end

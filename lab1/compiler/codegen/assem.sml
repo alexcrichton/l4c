@@ -60,8 +60,11 @@ struct
    | DIRECTIVE of string
    | COMMENT of string
 
-  (* functions that format assembly output *)
-
+  (* format_reg : reg -> string
+   *
+   * @param reg the register to convert to a name
+   * @return the string representation of the given register in x86
+   *)
   fun format_reg EAX = "%eax"
     | format_reg EBX = "%ebx"
     | format_reg ECX = "%ecx"
@@ -76,14 +79,26 @@ struct
     | format_reg R13D = "%r13d"
     | format_reg R14D = "%r14d"
     | format_reg R15D = "%r15d"
+    (* We'll have a stack frame eventually... *)
     | format_reg (STACK n) = "-" ^ Int.toString (n * 4) ^ "(%rsp)"
 
+  (* format_binop : operation -> string
+   *
+   * @param oper the operation to convert to a string
+   * @return the x86 instruction name. All are suffixed with 'l' for now to
+   *         force 32 bit arithmetic.
+   *)
   fun format_binop ADD = "addl"
     | format_binop SUB = "subl"
     | format_binop MUL = "imull"
     | format_binop DIV = "idivl"
     | format_binop MOD = "idivl"
 
+  (* format_operand : operand -> string
+   *
+   * @param operand the operand to convert
+   * @return the string representation of the given operand in x86 assembly
+   *)
   fun format_operand (IMM(n))  = "$" ^ Word32Signed.toString(n)
     | format_operand (TEMP(t)) = Temp.name(t)
     | format_operand (REG(r))  = format_reg r
@@ -102,6 +117,8 @@ struct
       format_binop oper ^ " " ^ format_operand s2 ^
       (if oper = DIV orelse oper = MOD then "" else ", " ^ format_operand d)
     | format_instr (MOV(TEMP _, _)) = ""
+    (* If we're moving between the same registers, then no need to format
+       the result, we can optimize the instruction away *)
     | format_instr (MOV(REG d, REG s)) =
         if d = s then "" else
           "movl " ^ format_operand (REG s) ^ ", " ^ format_operand (REG d)
@@ -123,7 +140,7 @@ struct
    * @return L a list of instructions which should be passed to format_intstr
    *)
   fun instr_expand (BINOP (DIV, d, s1, s2)) = [
-        MOV (REG(EAX), s1),
+        MOV (REG(EAX), s1), (* DIV and MOD are odd X86 instructions... *)
         ASM "cltd",
         BINOP (DIV, d, s1, s2),
         MOV (d, REG(EAX))
@@ -134,11 +151,17 @@ struct
         BINOP (DIV, d, s1, s2),
         MOV (d, REG(EDX))
       ]
+    (* If we assume the destination of a binop is always a register, then the
+       clause below this one is much easier *)
     | instr_expand (BINOP (oper, REG (STACK n), s1, s2)) = [
         MOV (REG R15D, s1),
         BINOP (oper, REG R15D, REG R15D, s2),
         MOV (REG (STACK n), REG R15D)
       ]
+    (* Sometimes we can clobber the destination, but not if one of the operands
+       is also the destination. Another special case is a form of subtraction
+       where we can't override one of the operands. To get around this, we
+       perform subtraction the other way and then negate the result. *)
     | instr_expand (BINOP (oper, REG d, s1, REG s2)) =
         if d = s2 andalso oper = SUB then [
           BINOP (SUB, REG d, REG s2, s1),
@@ -153,6 +176,7 @@ struct
         MOV (d, s1),
         BINOP (oper, d, s1, s2)
       ]
+    (* Can't move between two memory locations... *)
     | instr_expand (MOV (REG (STACK n1), REG (STACK n2))) = [
         MOV (REG R15D, REG (STACK n2)),
         MOV (REG (STACK n1), REG R15D)
