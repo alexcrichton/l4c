@@ -28,7 +28,11 @@ function pass() {
   local green='\e[1;32m'
   echo -e "${green}passed"
   local binary=${test/%.l1/}
-  [ -f $binary ] && rm $binary
+  local assem=${test/%.l1/.s}
+  [ -f ${test/%.l1/} ] && rm ${test/%.l1/}
+  [ -f ${test/%.l1/.s} ] && rm ${test/%.l1/.s}
+  [ -f ${test/%.l1/.l1c.log} ] && rm ${test/%.l1/.l1c.log}
+  [ -f ${test/%.l1/.gcc.log} ] && rm ${test/%.l1/.gcc.log}
   tput sgr0
   passed_tests=$(($passed_tests + 1))
   total_tests=$(($total_tests + 1))
