@@ -1,4 +1,4 @@
-//test exception SIGFPE
+//test exception 8
 // indirect divide by 0 error
 
 int main() {
