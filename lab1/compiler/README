@@ -1,160 +1,82 @@
 (* README
- * Author: Frank Pfenning <fp@cs.cmu.edu>
- * Modified: Anand Subramanian <asubrama@andrew.cmu.edu>
+ * Author: Alex Crichton <acrichto@andrew.cmu.edu>
+ * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
 
 -----------------------------------------------------------------------
-Welcome to 15-411 F10!
+Lab 1
 -----------------------------------------------------------------------
 
-This is some starter code for the L1 compiler you have to build for
-the Lab1.  It contains a lexer, parser, translator, and even a code
-generator, except that the code generator creates pseudo assembly
-language with fictitious instructions and an unlimited number of
-registers.  We took some care to use good style (according to the
-instructor); you may consider this a model for your own coding.  Feel
-free to modify any and all of this code as you see fit.
+For lab 1 we implemented register allocation for L1 and a variety of other
+improvements to make sure the compiler met the spec. The components of our
+register allocation were: codegen, liveness analysis, allocation of registers
+via graph coloring, and then formatting of instructions.
 
-Bug reports to the course staff are particularly welcome and will be
-noted in the extra credit category.
+Codegen
+========
 
------------------------------------------------------------------------
-SML Notes
------------------------------------------------------------------------
-There are many different compilers for SML, perhaps the most
-popular ones are
+Instruction selection isn't highly optimized yet. For now, we use the starter
+code with the slight modification that if the operands for a binary operation
+are immediates or registers, there's no need to move them to another temp
+register. The only exception is a div and mod operation, which cannot take an
+immediate for an argument, so a temp register is allocated for the immediate.
 
-  SML/NJ  -- http://www.smlnj.org/
-  MLton   -- http://www.mlton.org/
-  Poly/ML -- http://www.polyml.org/
+Liveness
+========
 
-In this class we will be using SML/NJ v110.59.  Please make sure your
-code compiles under specifically this version on the lab machines
-where it is the default and can be invoked simply with "sml" in a
-shell.
+Liveness analysis was performed over an abstract representation of each
+instruction. Each instruction is mapped to a `rule` which is a 3-tuple of
+use(l, x), def(l, x), and succ(l, l'). These rules, discussed in class, can be
+generated for all instructions and then used in a generic way to perform
+liveness analysis.
 
-If you develop your implementation on other machines, similar versions
-of SML/NJ are likely to be compatible, but you should certainly check
-your code on the lab machines.
+The analysis itself is straightforward and directly implemented from lecture.
+Our choice of data structure was a list of sets. Each set in the list
+corresponds to an instruction, and each set represents the live variables on
+that line. We used the BinarySetFn functor to create a TempSet structure which
+stores Temps.
 
-For (almost universal) Standard Basis Libraries, see
-http://www.standardml.org/Basis/index.html.  Further resources, such
-as documentation for ML-Lex and ML-Yacc, and documentation for the SML/NJ
-specific libraries which are used in the starter code, can be found at
+Liveness analysis is performed from the last instruction to the first, and it
+returns whether any of the TempSets were modified. If any were, then another
+round of liveness analysis is performed. Otherwise, the TempSet list is passed
+on to the register allocator/colorer.
 
-http://symbolaris.com/course/compiler-resources.html
+Coloring
+========
+<here>
 
-------------------------------------------------------------------------
-Source Files
-------------------------------------------------------------------------
-The following are the source files for the L1 compiler
+Formatting
+==========
 
-README               -- this file
+Formatting the instructions turned out to be a non-trivial task to perform. Our
+abstract assembly represents all binary operations as one operand is the result
+of combining the other two. x86 assembly, however, does not always have
+instructions which take three operands. In most cases, we were able to move
+one of the sources into the destination and then perform the operation on the
+destination and second source, but this does not always work. When the second
+operand and the destination are the same, you overwrite values.
 
-Makefile             -- makefile for the compiler
-                        For a quick test
+We had to special case for this reason about these scenarios, and the only odd
+result we came up with is that if you are calculating `eax = ebx - eax`, then
+the actual assembly results in:
 
-    % make l1c          (generates file bin/l1c.heap.<os-tag>)
-    % bin/l1c --verbose ../tests/test1.c
+  sub %ebx, %eax # performs %eax = %eax - %ebx
+  neg %eax       # %eax = -%eax = %ebx - %eax
 
-	                should generate ../tests/test1.s in pseudo assembly
+Beyond this, however, the cases of addition and multiplication didn't need
+consideration because they are commutative.
 
-    % make clean        (removes generated files)
-    % make TAGS         (creates file TAGS, for Emacs tags commands)
+Division and modular operations were a bit odd to deal with, but the relevant
+registers (%eax, %edx) are ensured to not have live variables during a div
+and mod operation, so we just move everything into the right place, perform
+the operation, and move things out.
 
-compile-l1c.sml      -- SML commands that will create bin/l1c.heap.<os-tag>
-bin/l1c              -- the script that will run the exported SML heap
+Instructions with multiple memory operands were also a difficult case, but we
+were able to reduce it to only two scenarios.
 
-sources.cm           -- lists all source files, including libraries,
-                        and lexer and grammar specifications
-		        For a quick test
-
-    % sml
-    - CM.make "sources.cm";
-    - Top.test "--verbose ../tests/test1.c";
-
-                        should generate ../tests/test1.s in pseudo assembly
-
-parse/ast.sml        -- definition and printer for abstract syntax trees (AST's)
-parse/l1.lex         -- L1 lexer
-parse/l1.grm         -- L1 grammar
-parse/parse.sml      -- L1 parser
-parse/parsestate.sml -- L1 parser support for error messages
-
-type/typechecker.sml -- (trivial) type-checker for AST
-
-trans/temp.sml       -- functions to generate and track temp's
-trans/tree.sml       -- definition and pretty printer for IR trees
-trans/trans.sml      -- translation from AST to IR trees
-
-codegen/assem.sml    -- pseudo assembly format for this starter code
-codegen/codegen.sml  -- pseudo code generator
-
-util/errormsg.sml    -- error message utilities
-util/flag.sml        -- library for defining flags
-util/mark.sml        -- library for tracking source file positions
-util/safe-io.sml     -- I/O utilities
-util/symbol.sml      -- symbol table library
-util/word32.sml      -- machine word utilities for two's complement interpretation
-
-top/top.sml          -- top level function for export to binary and testing
-
-------------------------------------------------------------------------
-Debugging Hints
-------------------------------------------------------------------------
-You can use
-
-  - Top.test "--verbose --dump-ast --dump-ir --dump-assem file.l1";
-
-to print information from all the phases of the current compiler.
-
-If you want to see the internal representations, you can call directly
-on SML's top level:
-
-  - val ast = Parse.parse "file.l1";
-  - val ir = Trans.translate ast;
-  - val assem = Codegen.codgen ir;
-
-This will use SML's internal printing function to print the data
-structures.  However, not everything will show.
-
-"-" means that the type is opaque.  Sometimes you can replace an opaque
-    signature ascription ":>" with a transparent one ":" to see the info.
-    For reasons of general hygiene, however, you should change it back
-    before handing in.
-
-"#" means that the printing depth is exceeded.  Use
-
-      - Control.Print.printDepth := 100;
-
-    to increase the depth if you need to see more.
-
-"..." means that the printing length is exceeded.  Use
-
-      - Control.Print.printLength := 1000;
-
-    to increase the length if you need to see more.
-
-------------------------------------------------------------------------
-Library Hints
-------------------------------------------------------------------------
-See util/symbol.sml for some uses of libraries provided with SML/NJ
-(and some other SML implementations).  
-
-BinaryMapFn and
-BinarySetFn are likely of general use. 
-
-You may also find the following utilities in the smlnj libraries useful:
-- BinarySetFn
-- BinaryMapFn
-- HashTable
-- PP (Pretty Printer)
-
-To see their interface, you can check
-http://www.smlnj.org/doc/smlnj-lib/Manual/toc.html.
-
-HEADS UP: the aforementioned page has not been maintained for a while
-now. You may find the documentation out-dated compared to the
-inline comments in the source distribution of these libraries.
-Please download the sources from the smlnj webpage and lookup the
-inline comments for more in-depth documentation.
+  1. Moving between two memory locations - just move value through %r15d which
+     was never allocated for this very reason.
+  2. The result of a binary operation is in a memory location. If we assume
+     that the destination of a binary operation is always in a register, then
+     there's less consideration for multiple memory locations, so the result
+     is calculated into %r15d in this case and then moved away.
