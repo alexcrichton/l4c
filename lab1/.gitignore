@@ -7,3 +7,5 @@ tests/*
 .cm
 *.swp
 *.log
+compiler/a.out
+compiler/a.result

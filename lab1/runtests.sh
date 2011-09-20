@@ -63,7 +63,7 @@ function gcc_compile() {
 }
 
 if [ "$1" = "" ]; then
-  files=$(find tests -name '*.l1')
+  files=$(find tests tests0 tests1 tests2 -name '*.l1')
 else
   files=$(find "$@" -name '*.l1')
 fi
