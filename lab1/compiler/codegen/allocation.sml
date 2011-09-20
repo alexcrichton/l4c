@@ -5,12 +5,6 @@ sig
   exception AllocationExn of string
 end
 
-(*
- * The interference graph is represented as a map between nodes and
- * a list of that node's neighbors. Nodes in this case are Temp.temps.
- * There is also an ('a node_data) type that stores metadata of type 'a
- * about nodes.
- *)
 structure Allocation :> ALLOCATION =
 struct
   exception AllocationExn of string

@@ -43,7 +43,20 @@ on to the register allocator/colorer.
 
 Coloring
 ========
-<here>
+The list of sets from liveness analysis is converted into an interference graph
+represented as a hashtable from nodes to an ('a, node_set) tuple. The set of
+nodes represents neighboring nodes, and the 'a is the data associated with the
+node (in our case {color:int, weight:int}). While constructing the graph, we
+examine the instructions and see if it's a div or mod, and if so we add temps
+into the graph and precolor them with eax and edx to ensure those registers are
+free when the idiv is executed.
+
+After the graph is constructed we update the weights of the nodes to account
+for precoloring, then generate the SEO based on the algorithm from class. We
+then use greedy coloring to assign colors and then allocate these colors to
+physical registers based on a fixed mapping. Colors above 14 get mapped to
+stack locations. The formatter makes sure these operations on stack locations
+get converted into valid instructions.
 
 Formatting
 ==========
