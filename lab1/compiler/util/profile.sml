@@ -24,7 +24,7 @@ struct
                   val t = Time.toMicroseconds (T.checkRealTimer timer)
                   val s = IntInf.toString t
                 in
-                  results := (name, s, List.length !active)::(!results)
+                  results := (name, s, List.length (!active))::(!results)
                 end
 
     fun time (name, f) = let
@@ -36,10 +36,12 @@ struct
         end
 
     fun print () = let
-          fun pr [] _ s = s
-            | pr ((n, t, l)::L) pre s =
+          fun tab 0 = ""
+            | tab n = "\t" ^ tab (n-1)
+          fun pr [] = ""
+            | pr ((n, t, l)::L) = tab l ^ n ^ "\t" ^ t ^ "usec\n" ^ pr L
         in
-          pr (!results) ""
+          TextIO.print (pr (!results))
         end
   end
 end

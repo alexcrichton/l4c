@@ -10,6 +10,7 @@ struct
   exception AllocationExn of string
   structure AS = Assem
   structure G = Graph
+  structure P = Profile
   type node_data = {color:int, weight:int}
 
   (* make_graph : (node_set list * instr list) -> graph -> unit
@@ -211,14 +212,14 @@ struct
    *            registers or stack locations
    *)
   fun allocate L = let
-        val live  = Liveness.compute L
+        val live  = P.time ("Liveness", fn () => Liveness.compute L)
         val graph = G.empty {color = 0, weight = 0}
-        val () = make_graph  (live, L) graph
-        val () = update_weights graph
-        val order = generate_seo graph (G.getNodes graph)
-        val () = color graph order
-        val L' = apply_coloring L graph
+        val () = P.time ("Make graph", fn () => make_graph  (live, L) graph)
+        val () = P.time ("Update weights", fn () => update_weights graph)
+        val order = P.time ("Generate SEO", fn () => generate_seo graph (G.getNodes graph))
+        val () = P.time ("Color", fn () => color graph order)
+        val L' = P.time ("Apply coloring", fn () => apply_coloring L graph)
       in
-        filter_temps L'
+        P.time ("Filter temps", fn () => filter_temps L')
       end
 end
