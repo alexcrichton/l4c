@@ -225,8 +225,7 @@ struct
         val order = P.time ("Generate SEO", fn () => generate_seo graph (G.getNodes graph))
         val () = P.time ("Coloring", fn () => color graph order)
         val L' = P.time ("Apply coloring", fn () => apply_coloring L graph)
-        val L'' = P.time ("Filter temps", fn () => filter_temps L')
       in
-        P.print (); L''
+        P.time ("Filter temps", fn () => filter_temps L')
       end
 end

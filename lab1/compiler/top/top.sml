@@ -21,6 +21,7 @@ end
 structure Top :> TOP =
 struct
   structure G = GetOpt  (* from $/smlnj-lib/Util/getopt-sig.sml *)
+  structure P = Profile
 
   fun say s = TextIO.output (TextIO.stdErr, s ^ "\n")
 
@@ -89,22 +90,23 @@ struct
            | [filename] => filename
            | _ => errfn "Error: more than one input file"
 
-    val _ = Flag.guard flag_profile Profile.enable ()
+    val _ = Flag.guard flag_profile P.enable ()
+    val _ = P.startTimer "Compiling"
 
     val _ = Flag.guard flag_verbose say ("Parsing... " ^ source)
-    val ast = Parse.parse source
+    val ast = P.time ("Parsing", fn () => Parse.parse source)
     val _ = Flag.guard flag_ast
         (fn () => say (Ast.Print.pp_program ast)) ()
 
     val _ = Flag.guard flag_verbose say "Checking..."
-    val _ = TypeChecker.typecheck ast
+    val _ = P.time ("Typechecking", fn () => TypeChecker.typecheck ast)
 
     val _ = Flag.guard flag_verbose say "Translating..."
-    val ir = Trans.translate ast
+    val ir = P.time ("Translating", fn () => Trans.translate ast)
     val _ = Flag.guard flag_ir (fn () => say (Tree.Print.pp_program ir)) ()
 
     val _ = Flag.guard flag_verbose say "Codegen..."
-    val assem = Codegen.codegen ir
+    val assem = P.time ("Codegen", fn () => Codegen.codegen ir)
     val _ = Flag.guard flag_assem
         (fn () => List.app (TextIO.print o Assem.format) assem) ()
 
@@ -118,12 +120,14 @@ struct
                  Assem.DIRECTIVE("__l1_main:")]
           @ assem
           @ [Assem.DIRECTIVE ".ident\t\"15-411 L1 reference compiler\""]
-    val code = String.concat (List.map (Assem.format) assem)
+    val code = P.time ("Formatting", fn () => String.concat (List.map (Assem.format) assem))
 
     val afname = stem source ^ ".s"
     val _ = Flag.guard flag_verbose say ("Writing assembly to " ^ afname ^ " ...")
     val _ = SafeIO.withOpenOut afname (fn afstream =>
          TextIO.output (afstream, code))
+    val _ = P.stopTimer ()
+    val _ = P.print ()
   in
     OS.Process.success
   end
