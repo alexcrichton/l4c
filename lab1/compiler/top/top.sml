@@ -33,6 +33,7 @@ struct
   val flag_ast = Flag.flag "ast"
   val flag_ir = Flag.flag "ir"
   val flag_assem = Flag.flag "assem"
+  val flag_profile = Flag.flag "profile"
 
   fun reset_flags () =
     List.app Flag.unset [flag_verbose, flag_ast,
@@ -49,7 +50,10 @@ struct
         help="pretty print the IR"},
        {short = "", long=["dump-assem"],
         desc=G.NoArg (fn () => Flag.set flag_assem),
-        help="pretty print the assembly before register allocaction"}
+        help="pretty print the assembly before register allocaction"},
+       {short = "", long=["profile"],
+        desc=G.NoArg (fn () => Flag.set flag_profile),
+        help="profile the compiler"}
       ]
 
   fun stem s = let
@@ -84,6 +88,8 @@ struct
           of [] => errfn "Error: no input file"
            | [filename] => filename
            | _ => errfn "Error: more than one input file"
+
+    val _ = Flag.guard flag_profile Profile.enable ()
 
     val _ = Flag.guard flag_verbose say ("Parsing... " ^ source)
     val ast = Parse.parse source

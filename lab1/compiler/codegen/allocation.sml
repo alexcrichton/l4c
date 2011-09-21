@@ -5,6 +5,12 @@ sig
   exception AllocationExn of string
 end
 
+(*
+ * The interference graph is represented as a map between nodes and
+ * a list of that node's neighbors. Nodes in this case are Temp.temps.
+ * There is also an ('a node_data) type that stores metadata of type 'a
+ * about nodes.
+ *)
 structure Allocation :> ALLOCATION =
 struct
   exception AllocationExn of string
@@ -217,9 +223,10 @@ struct
         val () = P.time ("Make graph", fn () => make_graph  (live, L) graph)
         val () = P.time ("Update weights", fn () => update_weights graph)
         val order = P.time ("Generate SEO", fn () => generate_seo graph (G.getNodes graph))
-        val () = P.time ("Color", fn () => color graph order)
+        val () = P.time ("Coloring", fn () => color graph order)
         val L' = P.time ("Apply coloring", fn () => apply_coloring L graph)
+        val L'' = P.time ("Filter temps", fn () => filter_temps L')
       in
-        P.time ("Filter temps", fn () => filter_temps L')
+        P.print (); L''
       end
 end
