@@ -20,18 +20,22 @@ struct
     fun enable () = enabled := true
     fun disable () = enabled := false
 
-    fun startTimer (name:string) =
-          if (!enabled) then active := (T.startRealTimer (), name)::(!active) else ()
+    fun startTimer (name:string) = if not (!enabled) then () else let
+          val result = (name, ref "", length (!active))
+        in
+          active := (T.startRealTimer (), ref result)::(!active);
+          results := result::(!results)
+        end
 
     fun stopTimer () = if not (!enabled) then () else
           case !active
             of [] => raise Fail "Unmatched call to stopTimer"
-             | ((timer, name)::L) => let
+             | ((timer, (ref (_, t, _)))::L) => let
                   val () = active := L
-                  val t = Time.toMilliseconds (T.checkRealTimer timer)
-                  val s = IntInf.toString t
+                  val t' = Time.toMilliseconds (T.checkRealTimer timer)
+                  val s  = IntInf.toString t'
                 in
-                  results := (name, s, List.length (!active))::(!results)
+                  t := s
                 end
 
     fun time (name, f) = let
@@ -46,7 +50,7 @@ struct
           fun tab 0 = ""
             | tab n = "\t" ^ tab (n-1)
           fun pr [] = ""
-            | pr ((n, t, l)::L) = pr L ^ tab l ^ n ^ "\t" ^ t ^ "ms\n"
+            | pr ((n, ref t, l)::L) = pr L ^ tab l ^ n ^ "\t" ^ t ^ "ms\n"
         in
           TextIO.print (pr (!results))
         end
