@@ -9,6 +9,7 @@ Group is
   util/errormsg.sml
   util/safe-io.sml
   util/word32.sml
+  util/profile.sml
 
   parse/ast.sml
   parse/parsestate.sml
