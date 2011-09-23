@@ -1,2 +1,5 @@
 SSA?
   -reusing variables in assign statements?
+
+typechecking
+checking variable initialization?
