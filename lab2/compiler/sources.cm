@@ -13,9 +13,9 @@ Group is
 
   parse/ast.sml
   parse/parsestate.sml
-  parse/l1.lex.sml
-  parse/l1.grm.sig
-  parse/l1.grm.sml
+  parse/l2.lex.sml
+  parse/l2.grm.sig
+  parse/l2.grm.sml
   parse/parse.sml
 
   type/typechecker.sml
