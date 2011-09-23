@@ -1,7 +1,7 @@
-(* L1 Compiler
+(* L2 Compiler
  * Helper for compilation
  * Author: Kaustuv Chaudhuri <kaustuv+@cs.cmu.edu>
  *)
 
 CM.make "sources.cm";
-SMLofNJ.exportFn ("bin/l1c.heap", Top.main);
+SMLofNJ.exportFn ("bin/l2c.heap", Top.main);
