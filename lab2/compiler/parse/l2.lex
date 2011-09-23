@@ -84,22 +84,48 @@ ws = [\ \t\011\013\n\012];
 <INITIAL> "*="        => (Tokens.STAREQ (yypos, yypos + size yytext));
 <INITIAL> "/="        => (Tokens.SLASHEQ (yypos, yypos + size yytext));
 <INITIAL> "%="        => (Tokens.PERCENTEQ (yypos, yypos + size yytext));
+<INITIAL> "&="        => (Tokens.ANDEQ (yypos, yypos + size yytext));
+<INITIAL> "^="        => (Tokens.XOREQ (yypos, yypos + size yytext));
+<INITIAL> "|="        => (Tokens.OREQ (yypos, yypos + size yytext));
+<INITIAL> "<<="       => (Tokens.LSHIFTEQ (yypos, yypos + size yytext));
+<INITIAL> ">>="       => (Tokens.RSHIFTEQ (yypos, yypos + size yytext));
 
 <INITIAL> "+"         => (Tokens.PLUS (yypos, yypos + size yytext));
 <INITIAL> "-"         => (Tokens.MINUS (yypos, yypos + size yytext));
 <INITIAL> "*"         => (Tokens.STAR (yypos, yypos + size yytext));
 <INITIAL> "/"         => (Tokens.SLASH (yypos, yypos + size yytext));
 <INITIAL> "%"         => (Tokens.PERCENT (yypos, yypos + size yytext));
+<INITIAL> "<"         => (Tokens.LESS (yypos, yypos + size yytext));
+<INITIAL> "<="        => (Tokens.LESSEQ (yypos, yypos + size yytext));
+<INITIAL> ">"         => (Tokens.GREATER (yypos, yypos + size yytext));
+<INITIAL> ">="        => (Tokens.GREATEREQ (yypos, yypos + size yytext));
+<INITIAL> "=="        => (Tokens.EQUALS (yypos, yypos + size yytext));
+<INITIAL> "!="        => (Tokens.NEQUALS (yypos, yypos + size yytext));
+<INITIAL> "&&"        => (Tokens.ANDAND (yypos, yypos + size yytext));
+<INITIAL> "||"        => (Tokens.PIPEPIPE (yypos, yypos + size yytext));
+<INITIAL> "&"         => (Tokens.AND (yypos, yypos + size yytext));
+<INITIAL> "^"         => (Tokens.CARET (yypos, yypos + size yytext));
+<INITIAL> "|"         => (Tokens.PIPE (yypos, yypos + size yytext));
+<INITIAL> "<<"        => (Tokens.LSHIFT (yypos, yypos + size yytext));
+<INITIAL> ">>"        => (Tokens.RSHIFT (yypos, yypos + size yytext));
 
-<INITIAL> "--"        => (ErrorMsg.error (ParseState.ext (yypos, yypos))
-                            ("'" ^ yytext ^ "' is not yet supported");
-                          lex ());
-<INITIAL> "++"        => (ErrorMsg.error (ParseState.ext (yypos, yypos))
-                            ("'" ^ yytext ^ "' is not yet supported");
-                          lex ());
+<INITIAL> "!"         => (Tokens.BANG (yypos, yypos + size yytext));
+<INITIAL> "~"         => (Tokens.TILDE (yypos, yypos + size yytext));
+
+<INITIAL> "--"        => (Tokens.MINUSMINUS (yypos, yypos + size yytext));
+<INITIAL> "++"        => (Tokens.PLUSPLUS (yypos, yypos + size yytext));
 
 <INITIAL> "return"    => (Tokens.RETURN (yypos, yypos + size yytext));
+<INITIAL> "while"     => (Tokens.WHILE (yypos, yypos + size yytext));
+<INITIAL> "if"        => (Tokens.IF (yypos, yypos + size yytext));
+<INITIAL> "else"      => (Tokens.ELSE (yypos, yypos + size yytext));
+<INITIAL> "break"     => (Tokens.BREAK (yypos, yypos + size yytext));
+<INITIAL> "continue"  => (Tokens.CONTINUE (yypos, yypos + size yytext));
+<INITIAL> "for"       => (Tokens.FOR (yypos, yypos + size yytext));
 <INITIAL> "int"       => (Tokens.INT (yypos, yypos + size yytext));
+<INITIAL> "bool"      => (Tokens.BOOL (yypos, yypos + size yytext));
+<INITIAL> "true"      => (Tokens.TRUE (yypos, yypos + size yytext));
+<INITIAL> "false"     => (Tokens.FALSE (yypos, yypos + size yytext));
 
 <INITIAL> {decnum}    => (number Word32Signed.fromString (yytext, yypos));
 <INITIAL> {hexnum}    => (number Word32Signed.fromHexString (yytext, yypos));
@@ -115,7 +141,8 @@ ws = [\ \t\011\013\n\012];
                           end);
 
 <INITIAL> "/*"        => (YYBEGIN COMMENT; enterComment yypos; lex());
-<INITIAL> "*/"        => (ErrorMsg.error (ParseState.ext (yypos, yypos)) "unbalanced comments";
+<INITIAL> "*/"        => (ErrorMsg.error (ParseState.ext (yypos, yypos)) \
+                                          "unbalanced comments";
                           lex());
 
 <INITIAL> "//"        => (YYBEGIN COMMENT_LINE; lex());
@@ -124,7 +151,8 @@ ws = [\ \t\011\013\n\012];
                           lex ());
 
 <COMMENT> "/*"        => (enterComment yypos; lex());
-<COMMENT> "*/"        => (if exitComment () then YYBEGIN INITIAL else (); lex());
+<COMMENT> "*/"        => (if exitComment () then YYBEGIN INITIAL else ();
+                          lex());
 <COMMENT> \n          => (ParseState.newline yypos; lex ());
 <COMMENT> .           => (lex());
 
