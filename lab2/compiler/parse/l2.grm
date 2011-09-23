@@ -75,8 +75,8 @@ fun check_main (sym, lpos, rpos) prog =
  | binop    of A.binop
  | unop     of A.unop
  | postop   of A.binop
- | simpopt  of A.stm option
- | elseopt  of A.stm option
+ | simpopt  of A.stm
+ | elseopt  of A.stm
  | typ      of A.typ
 
 %verbose       (* print summary of errors *)
@@ -127,13 +127,11 @@ simp       : lvalue asnop exp %prec ASNOP
                                                 A.Const(Word32.fromInt 1)),
                                              (lvalueleft, lvalueright))))
 
-simpopt    :                           (NONE)
-           | simp                      (SOME (marks (simp, (simpleft,
-                                                            simpright))))
+simpopt    :                           (A.Nop)
+           | simp                      (marks (simp, (simpleft, simpright)))
 
-elseopt    :                           (NONE)
-           | ELSE stmt                 (SOME (marks (stmt, (ELSEleft,
-                                                            stmtright))))
+elseopt    :                           (A.Nop)
+           | ELSE stmt                 (marks (stmt, (ELSEleft, stmtright)))
 
 control    : IF LPAREN exp RPAREN stmt elseopt  (A.If(exp, stmt, elseopt))
            | WHILE LPAREN exp RPAREN stmt       (A.While (exp, stmt))

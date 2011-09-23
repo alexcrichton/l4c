@@ -53,9 +53,9 @@ sig
    | Marked of exp Mark.marked
   and stm =
      Assign  of ident * exp
-   | If      of exp * stm * stm option
+   | If      of exp * stm * stm
    | While   of exp * stm
-   | For     of stm option * exp * stm option * stm
+   | For     of stm * exp * stm * stm
    | Continue
    | Break
    | Return  of exp
@@ -115,9 +115,9 @@ struct
    | Marked of exp Mark.marked
   and stm =
      Assign  of ident * exp
-   | If      of exp * stm * stm option
+   | If      of exp * stm * stm
    | While   of exp * stm
-   | For     of stm option * exp * stm option * stm
+   | For     of stm * exp * stm * stm
    | Continue
    | Break
    | Return  of exp
