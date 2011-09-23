@@ -15,15 +15,15 @@ use vars qw($COMPILER $COMPILER_EXEC $COMPILER_ARGS $LEXT $GCC $RUNTIME
             $GCC_TIMEOUT $RUN_TIMEOUT $TEST_SUITES_PATH $MAX_VALIDATE_SCORE
             $MIN_TESTS &tests_grade $CMPL_GRADE);
 
-our $COMPILER       = "l1c";        # name of compiler to generate
-our $COMPILER_EXEC  = "bin/l1c";    # compiler executable
+our $COMPILER       = "l2c";        # name of compiler to generate
+our $COMPILER_EXEC  = "bin/l2c";    # compiler executable
 our $COMPILER_ARGS  = "";
-our $LEXT           = "l1";         # source filename extension
+our $LEXT           = "l2";         # source filename extension
 our $GCC            = "gcc -m64";   # gcc executable and default flags
-our $RUNTIME        = "l1rt.c";     # runtime system for linking against asm file
+our $RUNTIME        = "l2rt.c";     # runtime system for linking against asm file
 
 our $REF_COMPILER = "/afs/cs.cmu.edu/academic/class/15411-f11/bin/cc0";
-our $REF_COMPILER_ARGS = " -C 5 -r l1rt";
+our $REF_COMPILER_ARGS = " -C 4 -r l2rt";
 
 our $MAKE_TIMEOUT       = 100;  # timeout for making compiler
 our $COMPILER_TIMEOUT   = 5;    # timeout for running compiler
@@ -34,7 +34,7 @@ our $RUN_TIMEOUT        = 5;    # timeout for running compiled executable
 our $TEST_SUITES_PATH = "..";
 
 our $MAX_VALIDATE_SCORE = 20;    # maximal score for test case validation
-our $MIN_TESTS          = 6;     # minimum number of tests to submit
+our $MIN_TESTS          = 14;    # minimum number of tests to submit
 
 my $MAX_SCORE0 = 20;        # maximal score for compiler, test suite 0
 my $MAX_SCORE1 = 50;        # maximal score for compiler, test suite 1
