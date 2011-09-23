@@ -1,0 +1,640 @@
+
+state 0:
+
+	program : . INT IDENT LPAREN RPAREN LBRACE stmts RBRACE 
+
+	INT	shift 1
+
+	program	goto 51
+
+	.	error
+
+
+state 1:
+
+	program : INT . IDENT LPAREN RPAREN LBRACE stmts RBRACE 
+
+	IDENT	shift 2
+
+
+	.	error
+
+
+state 2:
+
+	program : INT IDENT . LPAREN RPAREN LBRACE stmts RBRACE 
+
+	LPAREN	shift 3
+
+
+	.	error
+
+
+state 3:
+
+	program : INT IDENT LPAREN . RPAREN LBRACE stmts RBRACE 
+
+	RPAREN	shift 4
+
+
+	.	error
+
+
+state 4:
+
+	program : INT IDENT LPAREN RPAREN . LBRACE stmts RBRACE 
+
+	LBRACE	shift 5
+
+
+	.	error
+
+
+state 5:
+
+	program : INT IDENT LPAREN RPAREN LBRACE . stmts RBRACE 
+
+	IDENT	shift 14
+	RETURN	shift 13
+	INT	shift 12
+	LPAREN	shift 11
+
+	stmts	goto 10
+	decl	goto 9
+	stmt	goto 8
+	lvalue	goto 7
+	simp	goto 6
+
+	.	reduce by rule 3
+
+
+state 6:
+
+	stmt : simp . SEMI 
+
+	SEMI	shift 15
+
+
+	.	error
+
+
+state 7:
+
+	simp : lvalue . asnop exp 
+
+	ASSIGN	shift 22
+	PLUSEQ	shift 21
+	MINUSEQ	shift 20
+	STAREQ	shift 19
+	SLASHEQ	shift 18
+	PERCENTEQ	shift 17
+
+	asnop	goto 16
+
+	.	error
+
+
+state 8:
+
+	stmts : stmt . stmts 
+
+	IDENT	shift 14
+	RETURN	shift 13
+	INT	shift 12
+	LPAREN	shift 11
+
+	stmts	goto 23
+	decl	goto 9
+	stmt	goto 8
+	lvalue	goto 7
+	simp	goto 6
+
+	.	reduce by rule 3
+
+
+state 9:
+
+	stmt : decl . SEMI 
+
+	SEMI	shift 24
+
+
+	.	error
+
+
+state 10:
+
+	program : INT IDENT LPAREN RPAREN LBRACE stmts . RBRACE 
+
+	RBRACE	shift 25
+
+
+	.	error
+
+
+state 11:
+
+	lvalue : LPAREN . lvalue RPAREN 
+
+	IDENT	shift 14
+	LPAREN	shift 11
+
+	lvalue	goto 26
+
+	.	error
+
+
+state 12:
+
+	decl : INT . IDENT 
+	decl : INT . IDENT ASSIGN exp 
+
+	IDENT	shift 27
+
+
+	.	error
+
+
+state 13:
+
+	stmt : RETURN . exp SEMI 
+
+	INTCONST	shift 32
+	IDENT	shift 31
+	MINUS	shift 30
+	LPAREN	shift 29
+
+	exp	goto 28
+
+	.	error
+
+
+state 14:
+
+	lvalue : IDENT .  (reduce by rule 8)
+
+
+
+	.	reduce by rule 8
+
+
+state 15:
+
+	stmt : simp SEMI .  (reduce by rule 5)
+
+
+
+	.	reduce by rule 5
+
+
+state 16:
+
+	simp : lvalue asnop . exp 
+
+	INTCONST	shift 32
+	IDENT	shift 31
+	MINUS	shift 30
+	LPAREN	shift 29
+
+	exp	goto 33
+
+	.	error
+
+
+state 17:
+
+	asnop : PERCENTEQ .  (reduce by rule 25)
+
+
+
+	.	reduce by rule 25
+
+
+state 18:
+
+	asnop : SLASHEQ .  (reduce by rule 24)
+
+
+
+	.	reduce by rule 24
+
+
+state 19:
+
+	asnop : STAREQ .  (reduce by rule 23)
+
+
+
+	.	reduce by rule 23
+
+
+state 20:
+
+	asnop : MINUSEQ .  (reduce by rule 22)
+
+
+
+	.	reduce by rule 22
+
+
+state 21:
+
+	asnop : PLUSEQ .  (reduce by rule 21)
+
+
+
+	.	reduce by rule 21
+
+
+state 22:
+
+	asnop : ASSIGN .  (reduce by rule 20)
+
+
+
+	.	reduce by rule 20
+
+
+state 23:
+
+	stmts : stmt stmts .  (reduce by rule 4)
+
+
+
+	.	reduce by rule 4
+
+
+state 24:
+
+	stmt : decl SEMI .  (reduce by rule 7)
+
+
+
+	.	reduce by rule 7
+
+
+state 25:
+
+	program : INT IDENT LPAREN RPAREN LBRACE stmts RBRACE .  (reduce by rule 0)
+
+
+
+	.	reduce by rule 0
+
+
+state 26:
+
+	lvalue : LPAREN lvalue . RPAREN 
+
+	RPAREN	shift 34
+
+
+	.	error
+
+
+state 27:
+
+	decl : INT IDENT .  (reduce by rule 1)
+	decl : INT IDENT . ASSIGN exp 
+
+	ASSIGN	shift 35
+
+
+	.	reduce by rule 1
+
+
+state 28:
+
+	stmt : RETURN exp . SEMI 
+	exp : exp . PLUS exp 
+	exp : exp . MINUS exp 
+	exp : exp . STAR exp 
+	exp : exp . SLASH exp 
+	exp : exp . PERCENT exp 
+
+	SEMI	shift 41
+	PLUS	shift 40
+	MINUS	shift 39
+	STAR	shift 38
+	SLASH	shift 37
+	PERCENT	shift 36
+
+
+	.	error
+
+
+state 29:
+
+	exp : LPAREN . exp RPAREN 
+
+	INTCONST	shift 32
+	IDENT	shift 31
+	MINUS	shift 30
+	LPAREN	shift 29
+
+	exp	goto 42
+
+	.	error
+
+
+state 30:
+
+	exp : MINUS . exp 
+
+	INTCONST	shift 32
+	IDENT	shift 31
+	MINUS	shift 30
+	LPAREN	shift 29
+
+	exp	goto 43
+
+	.	error
+
+
+state 31:
+
+	exp : IDENT .  (reduce by rule 13)
+
+
+
+	.	reduce by rule 13
+
+
+state 32:
+
+	exp : INTCONST .  (reduce by rule 12)
+
+
+
+	.	reduce by rule 12
+
+
+state 33:
+
+	simp : lvalue asnop exp .  (reduce by rule 10)
+	exp : exp . PLUS exp 
+	exp : exp . MINUS exp 
+	exp : exp . STAR exp 
+	exp : exp . SLASH exp 
+	exp : exp . PERCENT exp 
+
+	PLUS	shift 40
+	MINUS	shift 39
+	STAR	shift 38
+	SLASH	shift 37
+	PERCENT	shift 36
+
+
+	.	reduce by rule 10
+
+
+state 34:
+
+	lvalue : LPAREN lvalue RPAREN .  (reduce by rule 9)
+
+
+
+	.	reduce by rule 9
+
+
+state 35:
+
+	decl : INT IDENT ASSIGN . exp 
+
+	INTCONST	shift 32
+	IDENT	shift 31
+	MINUS	shift 30
+	LPAREN	shift 29
+
+	exp	goto 44
+
+	.	error
+
+
+state 36:
+
+	exp : exp PERCENT . exp 
+
+	INTCONST	shift 32
+	IDENT	shift 31
+	MINUS	shift 30
+	LPAREN	shift 29
+
+	exp	goto 45
+
+	.	error
+
+
+state 37:
+
+	exp : exp SLASH . exp 
+
+	INTCONST	shift 32
+	IDENT	shift 31
+	MINUS	shift 30
+	LPAREN	shift 29
+
+	exp	goto 46
+
+	.	error
+
+
+state 38:
+
+	exp : exp STAR . exp 
+
+	INTCONST	shift 32
+	IDENT	shift 31
+	MINUS	shift 30
+	LPAREN	shift 29
+
+	exp	goto 47
+
+	.	error
+
+
+state 39:
+
+	exp : exp MINUS . exp 
+
+	INTCONST	shift 32
+	IDENT	shift 31
+	MINUS	shift 30
+	LPAREN	shift 29
+
+	exp	goto 48
+
+	.	error
+
+
+state 40:
+
+	exp : exp PLUS . exp 
+
+	INTCONST	shift 32
+	IDENT	shift 31
+	MINUS	shift 30
+	LPAREN	shift 29
+
+	exp	goto 49
+
+	.	error
+
+
+state 41:
+
+	stmt : RETURN exp SEMI .  (reduce by rule 6)
+
+
+
+	.	reduce by rule 6
+
+
+state 42:
+
+	exp : LPAREN exp . RPAREN 
+	exp : exp . PLUS exp 
+	exp : exp . MINUS exp 
+	exp : exp . STAR exp 
+	exp : exp . SLASH exp 
+	exp : exp . PERCENT exp 
+
+	PLUS	shift 40
+	MINUS	shift 39
+	STAR	shift 38
+	SLASH	shift 37
+	PERCENT	shift 36
+	RPAREN	shift 50
+
+
+	.	error
+
+
+state 43:
+
+	exp : exp . PLUS exp 
+	exp : exp . MINUS exp 
+	exp : exp . STAR exp 
+	exp : exp . SLASH exp 
+	exp : exp . PERCENT exp 
+	exp : MINUS exp .  (reduce by rule 19)
+
+
+
+	.	reduce by rule 19
+
+
+state 44:
+
+	decl : INT IDENT ASSIGN exp .  (reduce by rule 2)
+	exp : exp . PLUS exp 
+	exp : exp . MINUS exp 
+	exp : exp . STAR exp 
+	exp : exp . SLASH exp 
+	exp : exp . PERCENT exp 
+
+	PLUS	shift 40
+	MINUS	shift 39
+	STAR	shift 38
+	SLASH	shift 37
+	PERCENT	shift 36
+
+
+	.	reduce by rule 2
+
+
+state 45:
+
+	exp : exp . PLUS exp 
+	exp : exp . MINUS exp 
+	exp : exp . STAR exp 
+	exp : exp . SLASH exp 
+	exp : exp . PERCENT exp 
+	exp : exp PERCENT exp .  (reduce by rule 18)
+
+
+
+	.	reduce by rule 18
+
+
+state 46:
+
+	exp : exp . PLUS exp 
+	exp : exp . MINUS exp 
+	exp : exp . STAR exp 
+	exp : exp . SLASH exp 
+	exp : exp SLASH exp .  (reduce by rule 17)
+	exp : exp . PERCENT exp 
+
+
+
+	.	reduce by rule 17
+
+
+state 47:
+
+	exp : exp . PLUS exp 
+	exp : exp . MINUS exp 
+	exp : exp . STAR exp 
+	exp : exp STAR exp .  (reduce by rule 16)
+	exp : exp . SLASH exp 
+	exp : exp . PERCENT exp 
+
+
+
+	.	reduce by rule 16
+
+
+state 48:
+
+	exp : exp . PLUS exp 
+	exp : exp . MINUS exp 
+	exp : exp MINUS exp .  (reduce by rule 15)
+	exp : exp . STAR exp 
+	exp : exp . SLASH exp 
+	exp : exp . PERCENT exp 
+
+	STAR	shift 38
+	SLASH	shift 37
+	PERCENT	shift 36
+
+
+	.	reduce by rule 15
+
+
+state 49:
+
+	exp : exp . PLUS exp 
+	exp : exp PLUS exp .  (reduce by rule 14)
+	exp : exp . MINUS exp 
+	exp : exp . STAR exp 
+	exp : exp . SLASH exp 
+	exp : exp . PERCENT exp 
+
+	STAR	shift 38
+	SLASH	shift 37
+	PERCENT	shift 36
+
+
+	.	reduce by rule 14
+
+
+state 50:
+
+	exp : LPAREN exp RPAREN .  (reduce by rule 11)
+
+
+
+	.	reduce by rule 11
+
+
+state 51:
+
+
+	EOF	accept
+
+
+	.	error
+
+56 of 148 action table entries left after compaction
+23 goto table entries
