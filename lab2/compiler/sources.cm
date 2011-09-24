@@ -18,7 +18,8 @@ Group is
   parse/l2.grm.sml
   parse/parse.sml
 
-  type/typechecker.sml
+  analysis/typechecker.sml
+  analysis/returnchecker.sml
 
   trans/temp.sml
   trans/tree.sml

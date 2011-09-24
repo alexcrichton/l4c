@@ -98,8 +98,10 @@ struct
     val _ = Flag.guard flag_ast
         (fn () => say (Ast.Print.pp_program ast)) ()
 
-    val _ = Flag.guard flag_verbose say "Checking..."
+    val _ = P.startTimer "Analyzing..."
     val _ = P.time ("Typechecking", fn () => TypeChecker.typecheck ast)
+    val _ = P.time ("Returns", fn () => ReturnChecker.returncheck ast)
+    val _ = P.stopTimer ()
 
     val _ = Flag.guard flag_verbose say "Translating..."
     val ir = P.time ("Translating", fn () => Trans.translate ast)

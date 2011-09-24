@@ -56,22 +56,22 @@ struct
     | tc_exp env (A.Marked marked_exp) ext =
         tc_exp env (Mark.data marked_exp) (Mark.ext marked_exp)
 
-  (* tc_stm : A.typ Symbol.table -> Ast.stm -> Mark.ext option -> bool -> bool *)
+  (* tc_stm : A.typ Symbol.table -> Ast.stm -> Mark.ext option -> bool -> () *)
   fun tc_stm env (A.Assign (id,e)) ext _ =
         (case Symbol.look env id
-           of SOME t => (tc_ensure env (e, t) ext; false)
+           of SOME t => tc_ensure env (e, t) ext
             | NONE   => raise Fail ("Variable " ^ Symbol.name id ^ " undeclared"))
     | tc_stm env (A.If (e,s1,s2)) ext lp =
-        (tc_ensure env (e,A.BOOL) ext; tc_stm env s1 ext lp andalso tc_stm env s2 ext lp)
+        (tc_ensure env (e,A.BOOL) ext; tc_stm env s1 ext lp; tc_stm env s2 ext lp)
     | tc_stm env (A.While (e,s)) ext _ =
-        (tc_ensure env (e,A.BOOL) ext; tc_stm env s ext true; false)
+        (tc_ensure env (e,A.BOOL) ext; tc_stm env s ext true)
     | tc_stm env (A.For (s,e,s1,s2)) ext lp =
-        (tc_ensure env (e,A.BOOL) ext; tc_stm env s ext lp; tc_stm env s1 ext true; tc_stm env s2 ext true; false)
-    | tc_stm _ A.Continue _ lp = if lp then false else raise Fail "Continue outside of loop"
-    | tc_stm _ A.Break _ lp = if lp then false else raise Fail "Break outside of loop"
-    | tc_stm env (A.Return e) ext _ = (tc_ensure env (e,A.INT) ext; true)
-    | tc_stm _ A.Nop _ _ = false
-    | tc_stm env (A.Seq (s1,s2)) ext lp = tc_stm env s1 ext lp orelse tc_stm env s2 ext lp
+        (tc_ensure env (e,A.BOOL) ext; tc_stm env s ext lp; tc_stm env s1 ext true; tc_stm env s2 ext true)
+    | tc_stm _ A.Continue _ lp = if lp then () else raise Fail "Continue outside of loop"
+    | tc_stm _ A.Break _ lp = if lp then () else raise Fail "Break outside of loop"
+    | tc_stm env (A.Return e) ext _ = tc_ensure env (e,A.INT) ext
+    | tc_stm _ A.Nop _ _ = ()
+    | tc_stm env (A.Seq (s1,s2)) ext lp = (tc_stm env s1 ext lp; tc_stm env s2 ext lp)
     | tc_stm env (A.Declare (id,t,s)) ext lp =
         (case Symbol.look env id
            of SOME _ => raise Fail ("Redeclared variable " ^ Symbol.name id)
@@ -79,9 +79,6 @@ struct
     | tc_stm env (A.Markeds marked_stm) _ lp =
         tc_stm env (Mark.data marked_stm) (Mark.ext marked_stm) lp
 
-  fun typecheck prog =
-        if tc_stm Symbol.empty prog NONE false then ()
-        else (ErrorMsg.error NONE "main does not return\n";
-              raise ErrorMsg.Error)
+  fun typecheck prog = tc_stm Symbol.empty prog NONE false
 
 end
