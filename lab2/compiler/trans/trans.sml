@@ -21,21 +21,42 @@ struct
     | trans_oper A.TIMES = T.MUL
     | trans_oper A.DIVIDEDBY = T.DIV
     | trans_oper A.MODULO = T.MOD
-    | trans_oper A.NEGATIVE = T.SUB (* unary to binary! *)
+    | trans_oper A.LESS = T.LT
+    | trans_oper A.LESSEQ = T.LTE
+    | trans_oper A.EQUALS = T.EQ
+    | trans_oper A.NEQUALS = T.NEQ
+    | trans_oper A.BAND = T.AND
+    | trans_oper A.BOR = T.OR
+    | trans_oper A.XOR = T.XOR
+    | trans_oper A.LSHIFT = T.LSH
+    | trans_oper A.RSHIFT = T.RSH
+    | trans_oper _ = raise Fail "Invalid binop translation"
 
-  and trans_exp env (A.Var(id)) =
-      (* after type-checking, id must be declared; do not guard lookup *)
-  T.TEMP (Symbol.look' env id)
-    | trans_exp env (A.ConstExp c) = T.CONST(c)
-    | trans_exp env (A.OpExp(oper, [e1, e2])) =
-  T.BINOP(trans_oper oper, trans_exp env e1, trans_exp env e2)
-    | trans_exp env (A.OpExp(A.NEGATIVE, [e])) =
-  T.BINOP(trans_oper A.NEGATIVE, T.CONST(Word32Signed.ZERO), trans_exp env e)
+  fun trans_exp env (A.Var id) = T.TEMP (Symbol.look' env id)
+    | trans_exp env (A.Bool b) = T.CONST (Word32.fromInt (if b then 1 else 0))
+    | trans_exp env (A.Const w) = T.CONST w
+    | trans_exp env (A.BinaryOp (A.GREATER, e1, e2)) =
+        trans_exp env (A.BinaryOp (A.LESS, e2, e1))
+    | trans_exp env (A.BinaryOp (A.GREATEREQ, e1, e2)) =
+        trans_exp env (A.BinaryOp (A.LESSEQ, e2, e1))
+    | trans_exp env (A.BinaryOp (A.LAND, e1, e2)) =
+        trans_exp env (A.Ternary (e1, e2, A.Bool false))
+    | trans_exp env (A.BinaryOp (A.LOR, e1, e2)) =
+        trans_exp env (A.Ternary (e1, A.Bool true, e2))
+    | trans_exp env (A.BinaryOp (oper, e1, e2)) =
+        T.BINOP (trans_oper oper, trans_exp env e1, trans_exp env e2)
+    | trans_exp env (A.UnaryOp (A.NEGATIVE, e)) =
+        trans_exp env (A.BinaryOp (A.MINUS, A.Const Word32Signed.ZERO, e))
+    | trans_exp env (A.UnaryOp (A.INVERT, e)) =
+        trans_exp env (A.BinaryOp (A.XOR, A.Const (Word32.fromInt ~1), e))
+    | trans_exp env (A.UnaryOp (A.BANG, e)) =
+        trans_exp env (A.BinaryOp (A.XOR, A.Const (Word32.fromInt 1), e))
+    | trans_exp env (A.Ternary (e1, e2, e3)) =
+        T.TERN (trans_exp env e1, trans_exp env e2, trans_exp env e3)
     | trans_exp env (A.Marked(marked_exp)) =
-  trans_exp env (Mark.data marked_exp)
-    (* anything else should be impossible *)
+        trans_exp env (Mark.data marked_exp)
 
-  (* trans_stms : Temp.temp Symbol.table -> A.stm list -> Tree.stm list
+  (* trans_stm : Temp.temp Symbol.table -> A.stm list -> T.program
    *
    * Translates statements from the AST to the IL representation.
    *
@@ -43,30 +64,35 @@ struct
    * @param stms the list of statements to convert from the AST
    * @return a list of statements in the IL.
    *)
-  fun trans_stms env (A.Assign(id,e)::stms) = let
-          val (env', t) = case Symbol.look env id
-                            of SOME tmp => (env, tmp)
-                             | NONE => let val tmp = Temp.new () in
-                                         (Symbol.bind env (id, tmp), tmp)
-                                       end
-        in
-          T.MOVE(T.TEMP(t), trans_exp env e) :: trans_stms env' stms
-        end
-    | trans_stms env (A.Declare _::stms) = trans_stms env stms
-    | trans_stms env (A.Init (id,e)::stms) =
-        trans_stms env (A.Assign(id,e)::stms)
-    | trans_stms env (A.Return e::_) =
-        (* ignore code after return *)
-        T.RETURN (trans_exp env e) :: nil
-    | trans_stms env (A.Markeds (marked_stm)::stms) =
-      trans_stms env ((Mark.data marked_stm)::stms)
+  fun trans_stm env (A.Assign(id,e)) _ =
+        [T.MOVE (T.TEMP (Symbol.look' env id), trans_exp env e)]
+    | trans_stm env (A.If(e,s1,s2)) cs =
+        [T.IF (trans_exp env e, trans_stm env s1 cs, trans_stm env s2 cs)]
+    | trans_stm env (A.While (e,s)) _ =
+        [T.WHILE (trans_exp env e, trans_stm env s [])]
+    | trans_stm env (A.For (s1, e, s2, s3)) cs =
+        (trans_stm env s1 []) @
+        [T.WHILE (trans_exp env e, trans_stm env s2 (trans_stm env s3 []))]
+    | trans_stm env A.Continue cs = cs @ [T.CONTINUE]
+    | trans_stm env A.Break _ = [T.BREAK]
+    | trans_stm env (A.Return e) _ = [T.RETURN (trans_exp env e)]
+    | trans_stm env (A.Seq (s1,s2)) cs =
+        (trans_stm env s1 cs) @ (trans_stm env s2 cs)
+    | trans_stm env (A.Declare (id,_,s)) cs = let
+        val env' = Symbol.bind env (id, Temp.new ())
+      in
+        trans_stm env' s cs
+      end
+    | trans_stm env (A.Markeds marked_stm) cs =
+        trans_stm env (Mark.data marked_stm) cs
+    | trans_stm env A.Nop _ = []
 
-  (* translate : Ast.program -> Tree.stm list
+  (* translate : Ast.program -> T.program
    *
    * Translates an abstract syntax tree into the intermediate language.
    * @param prog the AST program
    * @return a list of statements in the intermediate language.
    *)
-  fun translate prog = trans_stms Symbol.empty prog
+  fun translate prog = trans_stm Symbol.empty prog []
 
 end

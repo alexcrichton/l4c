@@ -1,4 +1,4 @@
-(* L1 Compiler
+(* L2 Compiler
  * Abstract Syntax Trees
  * Author: Alex Vaynberg
  * Modified: Frank Pfenning <fp@cs.cmu.edu>

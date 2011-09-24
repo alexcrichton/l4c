@@ -8,22 +8,26 @@
 signature TREE =
 sig
 
-  datatype binop = ADD | SUB | MUL | DIV | MOD
+  datatype binop = ADD | SUB | MUL | DIV | MOD | LT | LTE | EQ | NEQ
+                 | AND | OR | XOR | LSH | RSH
 
   datatype exp = 
-      CONST of Word32.word
-    | TEMP of Temp.temp
+      TEMP of Temp.temp
+    | CONST of Word32.word
     | BINOP of binop * exp * exp
+    | TERN of exp * exp * exp
   and stm =
       MOVE of exp * exp
+    | IF of exp * stm list * stm list
+    | WHILE of exp * stm list
+    | CONTINUE
+    | BREAK
     | RETURN of exp
 
   type program = stm list
 
   structure Print :
   sig
-    val pp_exp : exp -> string
-    val pp_stm : stm -> string
     val pp_program : program -> string
   end
 end
@@ -31,14 +35,20 @@ end
 structure Tree :> TREE =
 struct
 
-  datatype binop = ADD | SUB | MUL | DIV | MOD
+  datatype binop = ADD | SUB | MUL | DIV | MOD | LT | LTE | EQ | NEQ
+                 | AND | OR | XOR | LSH | RSH
 
   datatype exp = 
-      CONST of Word32.word
-    | TEMP of Temp.temp
+      TEMP of Temp.temp
+    | CONST of Word32.word
     | BINOP of binop * exp * exp
+    | TERN of exp * exp * exp
   and stm =
       MOVE of exp * exp
+    | IF of exp * stm list * stm list
+    | WHILE of exp * stm list
+    | CONTINUE
+    | BREAK
     | RETURN of exp
 
   type program = stm list
@@ -46,7 +56,8 @@ struct
   structure Print = 
   struct
 
-    fun pp_binop ADD = "+"
+    fun pp_program _ = "TODO"
+    (*fun pp_binop ADD = "+"
       | pp_binop SUB = "-"
       | pp_binop MUL = "*"
       | pp_binop DIV = "/"
@@ -63,6 +74,6 @@ struct
 	  "return " ^ pp_exp e
 
     fun pp_program (nil) = ""
-      | pp_program (stm::stms) = pp_stm stm ^ "\n" ^ pp_program stms
+      | pp_program (stm::stms) = pp_stm stm ^ "\n" ^ pp_program stms*)
   end
 end

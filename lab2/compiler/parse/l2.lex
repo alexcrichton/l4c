@@ -1,4 +1,4 @@
-(* L1 Compiler
+(* L2 Compiler
  * Lexer
  * Author: Kaustuv Chaudhuri <kaustuv+@cs.cmu.edu>
  * Modified: Frank Pfenning <fp@cs.cmu.edu>
@@ -56,7 +56,7 @@ in
 end
 
 %%
-%header (functor L1LexFn(structure Tokens : L1_TOKENS));
+%header (functor L1LexFn(structure Tokens : L2_TOKENS));
 %full
 %s COMMENT COMMENT_LINE;
 
@@ -141,7 +141,7 @@ ws = [\ \t\011\013\n\012];
                           end);
 
 <INITIAL> "/*"        => (YYBEGIN COMMENT; enterComment yypos; lex());
-<INITIAL> "*/"        => (ErrorMsg.error (ParseState.ext (yypos, yypos)) \
+<INITIAL> "*/"        => (ErrorMsg.error (ParseState.ext (yypos, yypos))
                                           "unbalanced comments";
                           lex());
 

@@ -1,5 +1,5 @@
-(* L1 Compiler
- * L1 grammar
+(* L2 Compiler
+ * L2 grammar
  * Author: Kaustuv Chaudhuri <kaustuv+@cs.cmu.edu>
  * Modified: Frank Pfenning <fp@cs.cmu.edu>
  *
@@ -106,17 +106,16 @@ block      : LBRACE stmts RBRACE        (stmts)
 typ        : INT                        (A.INT)
            | BOOL                       (A.BOOL)
 
-decl       : typ IDENT                  (A.Declare (IDENT, typ, A.Nop))
-           | typ IDENT ASSIGN exp       (A.Declare (IDENT, typ,
-                                                     A.Assign(IDENT, exp)))
-
-stmts      :                            (A.Nop)
-           | stmt stmts                 (A.Seq (stmt, stmts))
+stmts      :                                 (A.Nop)
+           | typ IDENT SEMI stmts            (A.Declare (IDENT, typ, stmts))
+           | typ IDENT ASSIGN exp SEMI stmts (A.Declare (IDENT, typ,
+                                                A.Seq(A.Assign(IDENT, exp),
+                                                      stmts)))
+           | stmt stmts                      (A.Seq (stmt, stmts))
 
 stmt       : simp SEMI                  (marks (simp, (simpleft, simpright)))
            | control                    (marks (control, (controlleft,
                                                           controlright)))
-           | decl SEMI                  (marks (decl, (declleft, declright)))
            | block                      (marks (block, (blockleft, blockright)))
 
 simp       : lvalue asnop exp %prec ASNOP
