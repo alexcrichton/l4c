@@ -133,34 +133,63 @@ struct
    *)
   structure Print =
   struct
-    (*fun pp_ident id = Symbol.name id
+    fun pp_ident id = Symbol.name id
+    fun pp_typ BOOL = "bool"
+      | pp_typ INT  = "int"
 
-    fun pp_oper PLUS = "+"
-      | pp_oper MINUS = "-"
-      | pp_oper TIMES = "*"
+    fun pp_unop NEGATIVE = "-"
+      | pp_unop INVERT   = "~"
+      | pp_unop BANG     = "!"
+
+    fun pp_oper PLUS      = "+"
+      | pp_oper MINUS     = "-"
+      | pp_oper TIMES     = "*"
       | pp_oper DIVIDEDBY = "/"
-      | pp_oper MODULO = "%"
-      | pp_oper NEGATIVE = "-"
+      | pp_oper MODULO    = "%"
+      | pp_oper LESS      = "<"
+      | pp_oper LESSEQ    = "<="
+      | pp_oper GREATER   = ">"
+      | pp_oper GREATEREQ = ">="
+      | pp_oper EQUALS    = "=="
+      | pp_oper NEQUALS   = "!="
+      | pp_oper LAND      = "&&"
+      | pp_oper LOR       = "||"
+      | pp_oper BAND      = "&"
+      | pp_oper XOR       = "^"
+      | pp_oper BOR       = "|"
+      | pp_oper LSHIFT    = "<<"
+      | pp_oper RSHIFT    = ">>"
 
-    fun pp_exp (Var(id)) = pp_ident id
-      | pp_exp (ConstExp(c)) = Word32Signed.toString c
-      | pp_exp (OpExp(oper, [e])) =
-    pp_oper oper ^ "(" ^ pp_exp e ^ ")"
-      | pp_exp (OpExp(oper, [e1,e2])) =
-          "(" ^ pp_exp e1 ^ " " ^ pp_oper oper
-          ^ " " ^ pp_exp e2 ^ ")"
-      | pp_exp (Marked(marked_exp)) =
-    pp_exp (Mark.data marked_exp)
+    fun pp_exp (Var id) = pp_ident id
+      | pp_exp (Const c) = Word32Signed.toString c
+      | pp_exp (Bool b) = if b then "true" else "false"
+      | pp_exp (BinaryOp (oper, e1, e2)) =
+          "(" ^ pp_exp e1 ^ " " ^ pp_oper oper ^ " " ^ pp_exp e2 ^ ")"
+      | pp_exp (UnaryOp (oper, e)) = pp_unop oper ^ "(" ^ pp_exp e ^ ")"
+      | pp_exp (Ternary (e1, e2, e3)) =
+          "((" ^ pp_exp e1 ^ ") ? (" ^ pp_exp e2 ^ ") : (" ^ pp_exp e3 ^ "))"
+      | pp_exp (Marked(marked_exp)) = pp_exp (Mark.data marked_exp)
 
-    fun pp_stm (Assign (id,e)) = pp_ident id ^ " = " ^ pp_exp e ^ ";"
+    fun tab str = "  " ^ (String.translate
+      (fn c => if c = #"\n" then "\n  " else (String.str c)) str)
+
+    fun pp_stm (Assign (id, e)) = pp_ident id ^ " = " ^ pp_exp e ^ ""
+      | pp_stm (If (e, s1, s2)) =
+          "if (" ^ pp_exp e ^ ") {\n" ^ tab(pp_stm s1) ^ "\n} else {\n" ^
+          pp_stm s2 ^ "\n}"
+      | pp_stm (While (e, s)) = "while (" ^ tab(pp_exp e) ^ ") {\n" ^
+          pp_stm s ^ " }"
+      | pp_stm (For (s1, e, s2, s3)) = "for (" ^ pp_stm s1 ^ "; " ^ pp_exp e ^
+          "; " ^ pp_stm s2 ^ ") {\n" ^ tab(pp_stm s3) ^ "\n}"
+      | pp_stm Continue = "continue;"
+      | pp_stm Break = "break;"
+      | pp_stm Nop = ""
+      | pp_stm (Seq (s1, s2)) = (pp_stm s1) ^ "\n" ^ (pp_stm s2)
       | pp_stm (Return e) = "return " ^ pp_exp e ^ ";"
+      | pp_stm (Declare (id, t, s)) = pp_typ t ^ " " ^ pp_ident id ^ "\n" ^
+          pp_stm s
       | pp_stm (Markeds (marked_stm)) = pp_stm (Mark.data marked_stm)
-      | pp_stm (Declare d) = "int " ^ pp_ident d ^ ";"
-      | pp_stm (Init (d, exp)) = "int " ^ pp_ident d ^ " = " ^ pp_exp exp ^ ";"
 
-    fun pp_stms nil = ""
-      | pp_stms (s::ss) = pp_stm s ^ "\n" ^ pp_stms ss*)
-
-    fun pp_program stms = "TODO" (*"{\n" ^ pp_stms stms ^ "}"*)
+    fun pp_program prog = "int main() {\n" ^ tab (pp_stm prog) ^ "\n}\n"
   end
 end
