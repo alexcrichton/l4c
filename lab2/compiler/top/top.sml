@@ -116,10 +116,10 @@ struct
        one underscore. Unix gcc, however, expects these two. As a compromise,
        output '.globl' for both and have a _l1_main and a __l1_main *)
     val assem = [Assem.DIRECTIVE(".file\t\"" ^ source ^ "\""),
-                 Assem.DIRECTIVE(".globl _l1_main"),
-                 Assem.DIRECTIVE(".globl __l1_main"),
-                 Assem.DIRECTIVE("_l1_main:"),
-                 Assem.DIRECTIVE("__l1_main:")]
+                 Assem.DIRECTIVE(".globl _c0_main"),
+                 Assem.DIRECTIVE(".globl __c0_main"),
+                 Assem.DIRECTIVE("_c0_main:"),
+                 Assem.DIRECTIVE("__c0_main:")]
           @ assem
           @ [Assem.DIRECTIVE ".ident\t\"15-411 L1 reference compiler\""]
     val code = P.time ("Formatting", fn () => String.concat (List.map (Assem.format) assem))
