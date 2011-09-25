@@ -11,7 +11,7 @@ sig
   datatype binop = ADD | SUB | MUL | DIV | MOD | LT | LTE | EQ | NEQ
                  | AND | OR | XOR | LSH | RSH
 
-  datatype exp = 
+  datatype exp =
       TEMP of Temp.temp
     | CONST of Word32.word
     | BINOP of binop * exp * exp
@@ -38,7 +38,7 @@ struct
   datatype binop = ADD | SUB | MUL | DIV | MOD | LT | LTE | EQ | NEQ
                  | AND | OR | XOR | LSH | RSH
 
-  datatype exp = 
+  datatype exp =
       TEMP of Temp.temp
     | CONST of Word32.word
     | BINOP of binop * exp * exp
@@ -53,8 +53,11 @@ struct
 
   type program = stm list
 
-  structure Print = 
+  structure Print =
   struct
+
+    fun tab str = "  " ^ (String.translate
+      (fn c => if c = #"\n" then "\n  " else (String.str c)) str)
 
     fun pp_binop ADD = "+"
       | pp_binop SUB = "-"
@@ -71,19 +74,19 @@ struct
       | pp_binop LSH = "<<"
       | pp_binop RSH = ">>"
 
-    fun pp_exp (CONST(x)) = Word32Signed.toString x
-      | pp_exp (TEMP(t)) = Temp.name t
+    fun pp_exp (CONST x) = Word32Signed.toString x
+      | pp_exp (TEMP t) = Temp.name t
       | pp_exp (BINOP (binop, e1, e2)) =
-	        "(" ^ pp_exp e1 ^ " " ^ pp_binop binop ^ " " ^ pp_exp e2 ^ ")"
+          "(" ^ pp_exp e1 ^ " " ^ pp_binop binop ^ " " ^ pp_exp e2 ^ ")"
       | pp_exp (TERN (e1, e2, e3)) =
           "(" ^ pp_exp e1 ^ " ? " ^ pp_exp e2 ^ " : " ^ pp_exp e3 ^ ")"
 
     fun pp_stm (MOVE (e1,e2)) = pp_exp e1 ^ " = " ^ pp_exp e2
       | pp_stm (IF (e, s1, s2)) = "if " ^ pp_exp e ^ " {\n" ^
-                                  pp_program s1 ^ "} else {\n" ^
-                                  pp_program s2 ^ "}"
+                                  tab(pp_program s1) ^ "\n} else {\n" ^
+                                  tab(pp_program s2) ^ "\n}"
       | pp_stm (WHILE (e, s)) = "while " ^ pp_exp e ^ " {\n" ^
-                                pp_program s ^ "}"
+                                tab(pp_program s) ^ "\n}"
       | pp_stm CONTINUE = "continue"
       | pp_stm BREAK = "break"
       | pp_stm (RETURN e) = "return " ^ pp_exp e

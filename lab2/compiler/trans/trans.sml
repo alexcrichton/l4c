@@ -16,21 +16,21 @@ struct
   structure A = Ast
   structure T = Tree
 
-  fun trans_oper A.PLUS = T.ADD
-    | trans_oper A.MINUS = T.SUB
-    | trans_oper A.TIMES = T.MUL
+  fun trans_oper A.PLUS      = T.ADD
+    | trans_oper A.MINUS     = T.SUB
+    | trans_oper A.TIMES     = T.MUL
     | trans_oper A.DIVIDEDBY = T.DIV
-    | trans_oper A.MODULO = T.MOD
-    | trans_oper A.LESS = T.LT
-    | trans_oper A.LESSEQ = T.LTE
-    | trans_oper A.EQUALS = T.EQ
-    | trans_oper A.NEQUALS = T.NEQ
-    | trans_oper A.BAND = T.AND
-    | trans_oper A.BOR = T.OR
-    | trans_oper A.XOR = T.XOR
-    | trans_oper A.LSHIFT = T.LSH
-    | trans_oper A.RSHIFT = T.RSH
-    | trans_oper _ = raise Fail "Invalid binop translation"
+    | trans_oper A.MODULO    = T.MOD
+    | trans_oper A.LESS      = T.LT
+    | trans_oper A.LESSEQ    = T.LTE
+    | trans_oper A.EQUALS    = T.EQ
+    | trans_oper A.NEQUALS   = T.NEQ
+    | trans_oper A.BAND      = T.AND
+    | trans_oper A.BOR       = T.OR
+    | trans_oper A.XOR       = T.XOR
+    | trans_oper A.LSHIFT    = T.LSH
+    | trans_oper A.RSHIFT    = T.RSH
+    | trans_oper _           = raise Fail "Invalid binop translation"
 
   fun trans_exp env (A.Var id) = T.TEMP (Symbol.look' env id)
     | trans_exp env (A.Bool b) = T.CONST (Word32.fromInt (if b then 1 else 0))
