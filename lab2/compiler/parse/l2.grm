@@ -123,10 +123,13 @@ typ        : INT                        (A.INT)
            | BOOL                       (A.BOOL)
 
 stmts      :                                 (A.Nop)
-           | typ IDENT SEMI stmts            (A.Declare (IDENT, typ, stmts))
-           | typ IDENT ASSIGN exp SEMI stmts (A.Declare (IDENT, typ,
-                                                A.Seq(A.Assign(IDENT, exp),
-                                                      stmts)))
+           | typ IDENT SEMI stmts            (marks (A.Declare (IDENT, typ,
+                                                                stmts),
+                                                     (typleft, IDENTright)))
+           | typ IDENT ASSIGN exp SEMI stmts (marks (A.Declare (IDENT, typ,
+                                                     A.Seq(A.Assign(IDENT, exp),
+                                                           stmts)),
+                                                     (typleft, expright)))
            | stmt stmts                      (A.Seq (stmt, stmts))
 
 stmt       : simp SEMI                  (marks (simp, (simpleft, simpright)))

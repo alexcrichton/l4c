@@ -22,7 +22,13 @@ structure TypeChecker :> TYPE_CHECK =
 struct
   structure A = Ast
 
-  fun tc_equal (t1, t2) _ = if t1 = t2 then () else raise Fail "Tycon mismatch"
+  fun typ_name A.BOOL = "bool"
+    | typ_name A.INT  = "int"
+
+  fun tc_equal (t1, t2) ext = if t1 = t2 then () else (
+        ErrorMsg.error ext ("type mismatch, " ^ typ_name t1 ^ " != " ^
+                            typ_name t2);
+        raise ErrorMsg.Error)
   fun tc_ensure env (e,t) ext = tc_equal (t, tc_exp env e ext) ext
 
   (* tc_exp : A.typ Symbol.table -> Ast.exp -> Mark.ext option -> A.typ *)
@@ -31,29 +37,35 @@ struct
          of NONE => (ErrorMsg.error ext ("undeclared variable `" ^
                       Symbol.name id ^ "'"); raise ErrorMsg.Error )
           | SOME t => t)
-    | tc_exp env (A.Bool _) ext = A.BOOL
-    | tc_exp env (A.Const _) ext = A.INT
-    | tc_exp env (A.BinaryOp (A.LESSEQ,e1,e2)) ext = tc_exp env (A.BinaryOp (A.LESS,e1,e2)) ext
-    | tc_exp env (A.BinaryOp (A.GREATER,e1,e2)) ext = tc_exp env (A.BinaryOp (A.LESS,e1,e2)) ext
-    | tc_exp env (A.BinaryOp (A.GREATEREQ,e1,e2)) ext = tc_exp env (A.BinaryOp (A.LESS,e1,e2)) ext
+    | tc_exp _ (A.Bool _) _ = A.BOOL
+    | tc_exp _ (A.Const _) _ = A.INT
+    | tc_exp env (A.BinaryOp (A.LESSEQ,e1,e2)) ext =
+        tc_exp env (A.BinaryOp (A.LESS,e1,e2)) ext
+    | tc_exp env (A.BinaryOp (A.GREATER,e1,e2)) ext =
+        tc_exp env (A.BinaryOp (A.LESS,e1,e2)) ext
+    | tc_exp env (A.BinaryOp (A.GREATEREQ,e1,e2)) ext =
+        tc_exp env (A.BinaryOp (A.LESS,e1,e2)) ext
     | tc_exp env (A.BinaryOp (A.LESS,e1,e2)) ext =
         (tc_ensure env (e1, A.INT) ext; tc_ensure env (e2, A.INT) ext; A.BOOL)
-    | tc_exp env (A.BinaryOp (A.NEQUALS,e1,e2)) ext = tc_exp env (A.BinaryOp (A.EQUALS,e1,e2)) ext
+    | tc_exp env (A.BinaryOp (A.NEQUALS,e1,e2)) ext =
+        tc_exp env (A.BinaryOp (A.EQUALS,e1,e2)) ext
     | tc_exp env (A.BinaryOp (A.EQUALS,e1,e2)) ext =
         (tc_ensure env (e1, tc_exp env e2 ext) ext; A.BOOL)
-    | tc_exp env (A.BinaryOp (A.LAND,e1,e2)) ext = tc_exp env (A.BinaryOp (A.LOR,e1,e2)) ext
+    | tc_exp env (A.BinaryOp (A.LAND,e1,e2)) ext =
+        tc_exp env (A.BinaryOp (A.LOR,e1,e2)) ext
     | tc_exp env (A.BinaryOp (A.LOR,e1,e2)) ext =
         (tc_ensure env (e1, A.BOOL) ext; tc_ensure env (e2, A.BOOL) ext; A.BOOL)
     | tc_exp env (A.BinaryOp (_,e1,e2)) ext =
         (tc_ensure env (e1, A.INT) ext; tc_ensure env (e2, A.INT) ext; A.INT)
-    | tc_exp env (A.UnaryOp (A.BANG,e)) ext = (tc_ensure env (e, A.BOOL) ext; A.BOOL)
+    | tc_exp env (A.UnaryOp (A.BANG,e)) ext =
+        (tc_ensure env (e, A.BOOL) ext; A.BOOL)
     | tc_exp env (A.UnaryOp (_,e)) ext = (tc_ensure env (e, A.INT) ext; A.INT)
     | tc_exp env (A.Ternary (e1,e2,e3)) ext = let
         val t2 = tc_exp env e2 ext
       in
         tc_ensure env (e1, A.BOOL) ext; tc_ensure env (e3, t2) ext; t2
       end
-    | tc_exp env (A.Marked marked_exp) ext =
+    | tc_exp env (A.Marked marked_exp) _ =
         tc_exp env (Mark.data marked_exp) (Mark.ext marked_exp)
 
   (* tc_stm : A.typ Symbol.table -> Ast.stm -> Mark.ext option -> bool -> () *)
@@ -67,8 +79,12 @@ struct
         (tc_ensure env (e,A.BOOL) ext; tc_stm env s ext true)
     | tc_stm env (A.For (s,e,s1,s2)) ext lp =
         (tc_ensure env (e,A.BOOL) ext; tc_stm env s ext lp; tc_stm env s1 ext true; tc_stm env s2 ext true)
-    | tc_stm _ A.Continue _ lp = if lp then () else raise Fail "Continue outside of loop"
-    | tc_stm _ A.Break _ lp = if lp then () else raise Fail "Break outside of loop"
+    | tc_stm _ A.Continue ext lp = if lp then () else (
+        ErrorMsg.error ext "'continue' outside of a loop is not allowed";
+        raise ErrorMsg.Error)
+    | tc_stm _ A.Break ext lp = if lp then () else (
+        ErrorMsg.error ext "'break' outside of a loop is not allowed";
+        raise ErrorMsg.Error)
     | tc_stm env (A.Return e) ext _ = tc_ensure env (e,A.INT) ext
     | tc_stm _ A.Nop _ _ = ()
     | tc_stm env (A.Seq (s1,s2)) ext lp = (tc_stm env s1 ext lp; tc_stm env s2 ext lp)
