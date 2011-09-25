@@ -31,6 +31,12 @@ fun check_main (sym, lpos, rpos) prog =
         (ErrorMsg.error (ParseState.ext (lpos, rpos))
                          "Function must be called main"; prog)
 
+fun convert_exp2 (exp1, left) (SOME binop, exp2, NONE, right) =
+      mark (A.BinaryOp(binop, exp1, exp2), (left, right))
+  | convert_exp2 (exp1, left) (NONE, exp2, SOME exp3, right) =
+      mark (A.Ternary(exp1, exp2, exp3), (left, right))
+  | convert_exp2 _ _ = raise Fail "Invalid input to convert_exp2!"
+
 %%
 %header (functor L1LrValsFn (structure Token : TOKEN))
 
@@ -57,7 +63,7 @@ fun check_main (sym, lpos, rpos) prog =
  * We need dummy terminals if we wish to assign a precedence
  * to a rule that does not correspond to the precedence of
  * the rightmost terminal in that rule.
- * Implicit in this is that precedence can only be infered
+ * Implicit in this is that precedence can only be inferred
  * terminals. Therefore, don't try to assign precedence to "rules"
  *)
 
@@ -72,12 +78,12 @@ fun check_main (sym, lpos, rpos) prog =
  | block    of A.stm
  | exp      of A.exp
  | asnop    of A.binop option
- | binop    of A.binop
  | unop     of A.unop
  | postop   of A.binop
  | simpopt  of A.stm
  | elseopt  of A.stm
  | typ      of A.typ
+ | exp2     of A.binop option * A.exp * A.exp option * int
 
 %verbose       (* print summary of errors *)
 %pos int       (* positions *)
@@ -88,9 +94,19 @@ fun check_main (sym, lpos, rpos) prog =
 %name L2
 
 (* The precedence grows down! *)
+%right ASNOP
+%right QUESTION COLON
+%left PIPEPIPE
+%left ANDAND
+%left PIPE
+%left CARET
+%left AND
+%left EQUALS NEQUALS
+%left LESS LESSEQ GREATER GREATEREQ
+%left LSHIFT RSHIFT
 %left PLUS MINUS
 %left STAR SLASH PERCENT
-%right UNARY
+%right UNARY MINUSMINUS PLUSPLUS
 %left LPAREN
 
 %%
@@ -154,10 +170,27 @@ exp        : LPAREN exp RPAREN          (exp)
                                                (FALSEleft, FALSEright)))
            | unop exp %prec UNARY       (mark (A.UnaryOp(unop, exp),
                                                (unopleft, expright)))
-           | exp binop exp              (mark (A.BinaryOp (binop, exp1, exp2),
-                                               (exp1left,exp2right)))
-           | exp QUESTION exp COLON exp (mark (A.Ternary (exp1, exp2, exp3),
-                                                  (exp1left, exp3right)))
+           | exp exp2                   (convert_exp2 (exp, expleft) exp2)
+
+exp2       : PLUS exp         (SOME(A.PLUS), exp, NONE, expright)
+           | MINUS exp        (SOME(A.MINUS), exp, NONE, expright)
+           | STAR exp         (SOME(A.TIMES), exp, NONE, expright)
+           | SLASH exp        (SOME(A.DIVIDEDBY), exp, NONE, expright)
+           | PERCENT exp      (SOME(A.MODULO), exp, NONE, expright)
+           | LESS exp         (SOME(A.LESS), exp, NONE, expright)
+           | LESSEQ exp       (SOME(A.LESSEQ), exp, NONE, expright)
+           | GREATER exp      (SOME(A.GREATER), exp, NONE, expright)
+           | GREATEREQ exp    (SOME(A.GREATEREQ), exp, NONE, expright)
+           | EQUALS exp       (SOME(A.EQUALS), exp, NONE, expright)
+           | NEQUALS exp      (SOME(A.NEQUALS), exp, NONE, expright)
+           | ANDAND exp       (SOME(A.LAND), exp, NONE, expright)
+           | PIPEPIPE exp     (SOME(A.LOR), exp, NONE, expright)
+           | AND exp          (SOME(A.BAND), exp, NONE, expright)
+           | CARET exp        (SOME(A.XOR), exp, NONE, expright)
+           | PIPE exp         (SOME(A.BOR), exp, NONE, expright)
+           | LSHIFT exp       (SOME(A.LSHIFT), exp, NONE, expright)
+           | RSHIFT exp       (SOME(A.RSHIFT), exp, NONE, expright)
+           | QUESTION exp COLON exp     (NONE, exp1, SOME exp2, exp2right)
 
 asnop      : ASSIGN                     (NONE)
            | PLUSEQ                     (SOME(A.PLUS))
@@ -170,25 +203,6 @@ asnop      : ASSIGN                     (NONE)
            | OREQ                       (SOME(A.BOR))
            | LSHIFTEQ                   (SOME(A.LSHIFT))
            | RSHIFTEQ                   (SOME(A.RSHIFT))
-
-binop      : PLUS                       (A.PLUS)
-           | MINUS                      (A.MINUS)
-           | STAR                       (A.TIMES)
-           | SLASH                      (A.DIVIDEDBY)
-           | PERCENT                    (A.MODULO)
-           | LESS                       (A.LESS)
-           | LESSEQ                     (A.LESSEQ)
-           | GREATER                    (A.GREATER)
-           | GREATEREQ                  (A.GREATEREQ)
-           | EQUALS                     (A.EQUALS)
-           | NEQUALS                    (A.NEQUALS)
-           | ANDAND                     (A.LAND)
-           | PIPEPIPE                   (A.LOR)
-           | AND                        (A.BAND)
-           | CARET                      (A.XOR)
-           | PIPE                       (A.BOR)
-           | LSHIFT                     (A.LSHIFT)
-           | RSHIFT                     (A.RSHIFT)
 
 unop       : BANG                       (A.BANG)
            | TILDE                      (A.INVERT)
