@@ -151,7 +151,7 @@ elseopt    :                           (A.Nop)
 control    : IF LPAREN exp RPAREN stmt elseopt  (A.If(exp, stmt, elseopt))
            | WHILE LPAREN exp RPAREN stmt       (A.While (exp, stmt))
            | FOR LPAREN simpopt SEMI exp SEMI simpopt RPAREN stmt
-                                          (A.For (simpopt, exp, simpopt, stmt))
+                                        (A.For (simpopt1, exp, simpopt2, stmt))
            | CONTINUE SEMI   (marks (A.Continue, (CONTINUEleft, CONTINUEright)))
            | BREAK SEMI      (marks (A.Break, (BREAKleft, BREAKright)))
            | RETURN exp SEMI (A.Return exp)
