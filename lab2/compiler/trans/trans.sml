@@ -70,9 +70,12 @@ struct
         [T.IF (trans_exp env e, trans_stm env s1 cs, trans_stm env s2 cs)]
     | trans_stm env (A.While (e,s)) _ =
         [T.WHILE (trans_exp env e, trans_stm env s [])]
-    | trans_stm env (A.For (s1, e, s2, s3)) cs =
+    | trans_stm env (A.For (s1, e, s2, s3)) cs = let
+        val s2' = trans_stm env s2 []
+      in
         (trans_stm env s1 []) @
-        [T.WHILE (trans_exp env e, trans_stm env s2 (trans_stm env s3 []))]
+        [T.WHILE (trans_exp env e, (trans_stm env s3 s2') @ s2')]
+      end
     | trans_stm env A.Continue cs = cs @ [T.CONTINUE]
     | trans_stm env A.Break _ = [T.BREAK]
     | trans_stm env (A.Return e) _ = [T.RETURN (trans_exp env e)]
