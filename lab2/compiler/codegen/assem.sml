@@ -1,17 +1,7 @@
-(* L1 Compiler
- * Assembly language
- * Author: Kaustuv Chaudhuri <kaustuv+@andrew.cmu.edu>
- * Modified By: Alex Vaynberg <alv@andrew.cmu.edu>
- * Modified: Frank Pfenning <fp@cs.cmu.edu>
- *
- * Currently just a pseudo language with 3-operand
- * instructions and arbitrarily many temps
- *
- * We write
- *
- * BINOP  operand1 <- operand2,operand3
- * MOV    operand1 <- operand2
- *
+(* L2 Compiler
+ * Assem
+ * Author: Alex Crichton <acrichto@andrew.cmu.edu>
+ * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
 
 signature ASSEM =

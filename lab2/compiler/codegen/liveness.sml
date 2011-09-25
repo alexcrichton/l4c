@@ -1,3 +1,9 @@
+(* L2 Compiler
+ * Liveness
+ * Author: Alex Crichton <acrichto@andrew.cmu.edu>
+ * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
+ *)
+
 structure TempSet = BinarySetFn(Temp)
 
 signature LIVENESS =

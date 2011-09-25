@@ -1,3 +1,8 @@
+(* L2 Compiler
+ * Allocation
+ * Author: Alex Crichton <acrichto@andrew.cmu.edu>
+ * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
+ *)
 
 signature ALLOCATION =
 sig

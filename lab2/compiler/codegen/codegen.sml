@@ -1,10 +1,7 @@
-(* L1 Compiler
- * Assembly Code Generator for FAKE assembly
- * Author: Alex Vaynberg <alv@andrew.cmu.edu>
- * Based on code by: Kaustuv Chaudhuri <kaustuv+@cs.cmu.edu>
- * Modified: Frank Pfenning <fp@cs.cmu.edu>
- *
- * Implements a "convenient munch" algorithm
+(* L2 Compiler
+ * Codegen
+ * Author: Alex Crichton <acrichto@andrew.cmu.edu>
+ * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
 
 signature CODEGEN =

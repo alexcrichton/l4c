@@ -1,4 +1,8 @@
-(*
+(* L2 Compiler
+ * Graph
+ * Author: Alex Crichton <acrichto@andrew.cmu.edu>
+ * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
+ *
  * This file contains a graph representation used in register allocation to
  * store the interferences
  *)
@@ -42,7 +46,7 @@ struct
   fun empty default = (default, HT.mkTable (fn t => Word.fromInt (Temp.number t),
                                   fn (t1, t2) => Temp.compare (t1, t2) = EQUAL)
                                   (100, NotFound))
-  
+
   (*
    * Adds all of the given nodes to the graph and inserts edges between them
    * such that the subgraph containing just the given nodes is fully connected.
