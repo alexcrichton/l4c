@@ -1,8 +1,7 @@
-(* L1 Compiler
- * AST -> IR Translator
- * Author: Kaustuv Chaudhuri <kaustuv+@cs.cmu.edu>
- * Modified by: Alex Vaynberg <alv@andrew.cmu.edu>
- * Modified: Frank Pfenning <fp@cs.cmu.edu>
+(* L2 Compiler
+ * AST -> IR translator
+ * Author: Alex Crichton <acrichto@andrew.cmu.edu>
+ * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
 
 signature TRANS =

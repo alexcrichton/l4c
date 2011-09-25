@@ -1,8 +1,7 @@
-(* L1 Compiler
- * IR Trees
- * Author: Kaustuv Chaudhuri <kaustuv+@cs.cmu.edu>
- * Modified: Alex Vaynberg <alv@andrew.cmu.edu>
- * Modified: Frank Pfenning <fp@cs.cmu.edu>
+(* L2 Compiler
+ * IR Tree
+ * Author: Alex Crichton <acrichto@andrew.cmu.edu>
+ * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
 
 signature TREE =
