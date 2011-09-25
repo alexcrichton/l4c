@@ -20,11 +20,12 @@ struct
 
   fun test_mod() =
     equals (Codegen.codegen [T.RETURN (T.BINOP(T.MOD, zero, zero))])
-      ("\tmovl $0, %ebx\n\tmovl $0, %eax\n\tcltd\n\tidivl %ebx\n" ^
-       "\tmovl %edx, %eax\n\tret\n")
+      ("\tmovl $0, %ebx\n\tmovl $0, %ecx\n\tmovl %ebx, %eax\n\tcltd\n" ^
+       "\tidivl %ecx\n\tmovl %edx, %eax\n\tret\n")
   fun test_div() =
     equals (Codegen.codegen [T.RETURN (T.BINOP(T.DIV, zero, zero))])
-      "\tmovl $0, %ebx\n\tmovl $0, %eax\n\tcltd\n\tidivl %ebx\n\tret\n"
+      ("\tmovl $0, %ebx\n\tmovl $0, %ecx\n\tmovl %ebx, %eax\n\tcltd\n" ^
+       "\tidivl %ecx\n\tret\n")
 
   val tests = [("test_div", test_div), ("test_mod", test_mod)]
 
