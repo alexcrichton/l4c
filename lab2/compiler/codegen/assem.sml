@@ -6,6 +6,8 @@
 
 signature ASSEM =
 sig
+  type label
+
   datatype reg = EAX | EBX  | ECX  | EDX  | EDI  | ESI  | R8D
                | R9D | R10D | R11D | R12D | R13D | R14D | R15D
                | STACK of int
@@ -15,21 +17,28 @@ sig
    | REG of reg
    | TEMP of Temp.temp
 
-  datatype operation = ADD | SUB | MUL | DIV | MOD
+  datatype operation = ADD | SUB | MUL | DIV | MOD | CMP
+                     | AND | OR  | XOR | LSH | RSH
+
+  datatype condition = LT | LTE | GT | GTE | EQ | NEQ
 
   datatype instr =
      BINOP of operation * operand * operand * operand
    | MOV of operand * operand
+   | JMP of condition option * label
    | RET
    | ASM of string
+   | LABEL of label
    | DIRECTIVE of string
    | COMMENT of string
 
+  val label : unit -> label
   val format : instr -> string
 end
 
 structure Assem :> ASSEM =
 struct
+  type label = int
 
   datatype reg = EAX | EBX  | ECX  | EDX  | EDI  | ESI  | R8D
                | R9D | R10D | R11D | R12D | R13D | R14D | R15D
@@ -40,13 +49,18 @@ struct
    | REG of reg
    | TEMP of Temp.temp
 
-  datatype operation = ADD | SUB | MUL | DIV | MOD
+  datatype operation = ADD | SUB | MUL | DIV | MOD | CMP
+                     | AND | OR  | XOR | LSH | RSH
+
+  datatype condition = LT | LTE | GT | GTE | EQ | NEQ
 
   datatype instr =
      BINOP of operation * operand * operand * operand
    | MOV of operand * operand
+   | JMP of condition option * label
    | RET
    | ASM of string
+   | LABEL of label
    | DIRECTIVE of string
    | COMMENT of string
 
@@ -83,6 +97,12 @@ struct
     | format_binop MUL = "imull"
     | format_binop DIV = "idivl"
     | format_binop MOD = "idivl"
+    | format_binop CMP = "cmpl"
+    | format_binop AND = "andl"
+    | format_binop OR  = "orl"
+    | format_binop XOR = "xorl"
+    | format_binop LSH = "sall"
+    | format_binop RSH = "sarl"
 
   (* format_operand : operand -> string
    *
@@ -190,5 +210,11 @@ struct
       in
         String.concat (map finstr (instr_expand instr))
       end
+
+  local
+    val nextLabel = ref 0
+  in
+    fun label () = (nextLabel := (!nextLabel) + 1; !nextLabel)
+  end
 
 end
