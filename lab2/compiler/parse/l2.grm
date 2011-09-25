@@ -106,7 +106,7 @@ fun convert_exp2 (exp1, left) (SOME binop, exp2, NONE, right) =
 %left LSHIFT RSHIFT
 %left PLUS MINUS
 %left STAR SLASH PERCENT
-%right UNARY MINUSMINUS PLUSPLUS
+%right UNARY
 %left LPAREN
 
 %%
@@ -137,8 +137,8 @@ stmt       : simp SEMI                  (marks (simp, (simpleft, simpright)))
 simp       : lvalue asnop exp %prec ASNOP
                                        (expand_asnop (lvalue, asnop, exp)
                                                      (lvalueleft, expright))
-           | lvalue postop            (A.Assign(lvalue,
-                                       mark (A.BinaryOp(postop, A.Var(lvalue),
+           | lvalue postop %prec UNARY (A.Assign(lvalue,
+                                        mark (A.BinaryOp(postop, A.Var(lvalue),
                                                 A.Const(Word32.fromInt 1)),
                                              (lvalueleft, lvalueright))))
 
