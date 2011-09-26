@@ -1,0 +1,14 @@
+//test exception 8
+int main() {
+  int i;
+  int j;
+  for (i = 5; i > 0; i--) {
+    j = 0;
+    while (true) {
+      if (j == 42)
+        break;
+      j++;
+    }
+  }
+  return j / i;
+}

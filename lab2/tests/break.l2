@@ -1,0 +1,26 @@
+//test return 2310
+int main() {
+  int x;
+  x = 0;
+  while (true) {
+    while (true) {
+      while (true) {
+        while (true) {
+          while (true) {
+            x = 2;
+            break;
+          }
+          x *= 3;
+          break;
+        }
+        x *= 5;
+        break;
+      }
+      x *= 7;
+      break;
+    }
+    x *= 11;
+    break;
+  }
+  return x;
+}
