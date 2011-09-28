@@ -1,4 +1,4 @@
-#test return 100
+//test return 100
 
 int main ()
 {

@@ -1,4 +1,4 @@
-#test error
+//test error
 // declaration out of scope
 int main()
 {

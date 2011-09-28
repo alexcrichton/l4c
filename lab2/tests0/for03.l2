@@ -1,4 +1,4 @@
-#test error
+//test error
 
 // variable j in step case not initialized if i is odd
 int main ()

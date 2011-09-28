@@ -1,4 +1,4 @@
-#test return 1234567
+//test return 1234567
 
 int main ()
 {

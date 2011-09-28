@@ -1,4 +1,4 @@
-#test error
+//test error
 // liveness bleeding
 int main()
 {

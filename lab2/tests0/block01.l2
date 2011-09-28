@@ -1,4 +1,4 @@
-#test error
+//test error
 int main()
 {
 	int x = 0;
