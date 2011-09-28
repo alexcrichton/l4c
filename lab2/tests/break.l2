@@ -1,7 +1,6 @@
 //test return 2310
 int main() {
-  int x;
-  x = 0;
+  int x = 0;
   while (true) {
     while (true) {
       while (true) {
