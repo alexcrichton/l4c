@@ -20,6 +20,7 @@ Group is
 
   analysis/typechecker.sml
   analysis/returnchecker.sml
+  analysis/initchecker.sml
 
   trans/temp.sml
   trans/tree.sml

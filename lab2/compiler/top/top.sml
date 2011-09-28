@@ -102,6 +102,8 @@ struct
     val _ = P.startTimer "Analyzing..."
     val _ = P.time ("Typechecking", fn () => TypeChecker.typecheck ast)
     val _ = P.time ("Returns", fn () => ReturnChecker.returncheck ast)
+    val _ = P.time ("Initialization",
+                    fn () => InitializationChecker.initializationcheck ast)
     val _ = P.stopTimer ()
 
     val _ = Flag.guard flag_verbose say "Translating..."
