@@ -95,6 +95,7 @@ struct
 
     val _ = Flag.guard flag_verbose say ("Parsing... " ^ source)
     val ast = P.time ("Parsing   ", fn () => Parse.parse source)
+    val ast = P.time ("Elaborating", fn () => Ast.elaborate ast)
     val _ = Flag.guard flag_ast
         (fn () => say (Ast.Print.pp_program ast)) ()
 
