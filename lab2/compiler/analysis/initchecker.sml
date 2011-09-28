@@ -21,8 +21,6 @@ struct
    *
    * @param prog the program to transform
    * @param an AST without any for loops (they're converted to while loops)
-   *
-   * @TODO: somehow preserve mark information
    *)
   fun transform (A.For (s1, e, s2, s3)) _ =
         A.Seq (s1, A.While (e, transform s3 s2))

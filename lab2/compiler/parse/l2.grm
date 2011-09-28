@@ -167,7 +167,7 @@ control    : IF LPAREN exp RPAREN stmt elseopt  (A.If(exp, stmt, elseopt))
                                         (A.For (simpopt, exp, step, stmt))
            | CONTINUE SEMI   (marks (A.Continue, (CONTINUEleft, CONTINUEright)))
            | BREAK SEMI      (marks (A.Break, (BREAKleft, BREAKright)))
-           | RETURN exp SEMI (A.Return exp)
+           | RETURN exp SEMI (marks (A.Return exp, (RETURNleft, expright)))
 
 lvalue     : IDENT                      (IDENT)
            | LPAREN lvalue RPAREN       (lvalue)

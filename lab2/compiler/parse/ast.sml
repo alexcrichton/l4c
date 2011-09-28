@@ -150,9 +150,11 @@ struct
     | elaborate (Seq (Declare (id, typ, s1), s2)) =
         Declare (id, typ, Seq (s1, elaborate s2))
     | elaborate (Seq (Markeds mark, s2)) =
-        elaborate (Seq (Mark.data mark, s2))
+        Markeds (Mark.mark' (elaborate (Seq (Mark.data mark, s2)),
+                             Mark.ext mark))
     | elaborate (Seq (s1, Markeds mark)) =
-        elaborate (Seq (s1, Mark.data mark))
+        Markeds (Mark.mark' (elaborate (Seq (s1, Mark.data mark)),
+                             Mark.ext mark))
     | elaborate (Seq (s1, s2)) = Seq (elaborate s1, elaborate s2)
     | elaborate stm = stm
 
