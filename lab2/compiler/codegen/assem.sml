@@ -20,7 +20,7 @@ sig
   datatype operation = ADD | SUB | MUL | DIV | MOD | CMP
                      | AND | OR  | XOR | LSH | RSH
 
-  datatype condition = LT | LTE | GT | GTE | EQ | NEQ
+  datatype condition = LT | LTE | EQ | NEQ | AL
 
   datatype instr =
      BINOP of operation * operand * operand * operand
