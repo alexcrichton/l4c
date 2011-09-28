@@ -61,7 +61,7 @@ struct
   and tc_exp env (A.Var id) ext =
       (case Symbol.look env id
          of NONE => (ErrorMsg.error ext ("undeclared variable `" ^
-                      Symbol.name id ^ "'"); raise ErrorMsg.Error )
+                      Symbol.name id ^ "'"); raise ErrorMsg.Error)
           | SOME t => t)
     | tc_exp _ (A.Bool _) _ = A.BOOL
     | tc_exp _ (A.Const _) _ = A.INT
@@ -109,7 +109,9 @@ struct
   fun tc_stm env (A.Assign (id,e)) ext _ =
         (case Symbol.look env id
            of SOME t => tc_ensure env (e, t) ext
-            | NONE   => raise Fail ("Variable " ^ Symbol.name id ^ " undeclared"))
+            | NONE   => (ErrorMsg.error ext ("Variable " ^ Symbol.name id ^
+                                             " undeclared"));
+                         raise ErrorMsg.Error)
     | tc_stm env (A.If (e,s1,s2)) ext lp =
         (tc_ensure env (e,A.BOOL) ext; tc_stm env s1 ext lp;
          tc_stm env s2 ext lp)
@@ -130,8 +132,10 @@ struct
         (tc_stm env s1 ext lp; tc_stm env s2 ext lp)
     | tc_stm env (A.Declare (id,t,s)) ext lp =
         (case Symbol.look env id
-           of SOME _ => raise Fail ("Redeclared variable " ^ Symbol.name id)
-            | NONE   => tc_stm (Symbol.bind env (id, t)) s ext lp)
+           of NONE   => tc_stm (Symbol.bind env (id, t)) s ext lp
+            | SOME _ => (ErrorMsg.error ext ("Redeclared variable: " ^
+                                             Symbol.name id);
+                         raise ErrorMsg.Error))
     | tc_stm env (A.Markeds marked_stm) _ lp =
         tc_stm env (Mark.data marked_stm) (Mark.ext marked_stm) lp
 
