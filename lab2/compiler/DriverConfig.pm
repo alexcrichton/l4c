@@ -10,20 +10,26 @@ use strict;
 use warnings;
 
 ## how we make these truly global
-use vars qw($COMPILER $COMPILER_EXEC $COMPILER_ARGS $LEXT $GCC $RUNTIME
+use vars qw($LAB $COMPILER $COMPILER_EXEC $COMPILER_ARGS @LEXTS $GCC $RUNTIME
             $REF_COMPILER $REF_COMPILER_ARGS $MAKE_TIMEOUT $COMPILER_TIMEOUT
             $GCC_TIMEOUT $RUN_TIMEOUT $TEST_SUITES_PATH $MAX_VALIDATE_SCORE
             $MIN_TESTS &tests_grade $CMPL_GRADE);
 
-our $COMPILER       = "l2c";        # name of compiler to generate
-our $COMPILER_EXEC  = "bin/l2c";    # compiler executable
-our $COMPILER_ARGS  = "";
-our $LEXT           = "l2";         # source filename extension
-our $GCC            = "gcc -m64";   # gcc executable and default flags
-our $RUNTIME        = "l2rt.c";     # runtime system for linking against asm file
+our $LAB             = 2;
 
+our $COMPILER       = "l${LAB}c";                       # name of compiler to generate
+our $COMPILER_EXEC  = "bin/$COMPILER";                  # compiler executable
+our $COMPILER_ARGS  = "";
+our @LEXTS          = reverse map {"l$_"} (1 .. $LAB);  # source filename extensions
+
+my $rt_stem = "l${LAB}rt";
+
+our $GCC            = "gcc -m64";       # gcc executable and default flags
+our $RUNTIME        = "$rt_stem.c";   # runtime system for linking against asm file
+
+my $c0_level = 6 - $LAB;
 our $REF_COMPILER = "/afs/cs.cmu.edu/academic/class/15411-f11/bin/cc0";
-our $REF_COMPILER_ARGS = " -C 4 -r l2rt";
+our $REF_COMPILER_ARGS = " -C $c0_level -r $rt_stem";
 
 our $MAKE_TIMEOUT       = 100;  # timeout for making compiler
 our $COMPILER_TIMEOUT   = 5;    # timeout for running compiler
@@ -41,9 +47,9 @@ my $MAX_SCORE1 = 50;        # maximal score for compiler, test suite 1
 my $MAX_SCORE2 = 10;        # maximal score for compiler, test suite 2
 my $TESTS1_N = 10;      # first n failing suite 1 tests...
 my $TESTS1_PTS = 2;     # ...are worth this many points each
-my $TESTS0_MIN = 6;     # number of error cases in tests0
-my $TESTS1_MIN = 73;    # number of error cases in tests1
-my $TESTS2_MIN = 67;    # number of error cases in tests2
+my $TESTS0_MIN = 16;    # number of error cases in tests0
+my $TESTS1_MIN = 156;   # number of error cases in tests1
+my $TESTS2_MIN = 190;   # number of error cases in tests2
 
 sub tests_grade {
     my $tried = shift;

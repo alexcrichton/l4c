@@ -103,7 +103,7 @@ sub grade_tests {
 
     if (!@Testfiles) {
         $grading = 1;
-        @Testfiles = glob "$TEST_SUITES_PATH/tests/*.$LEXT";
+        @Testfiles = glob "$TEST_SUITES_PATH/tests/*.l$LAB";
     }
 
     foreach my $test (@Testfiles) {
@@ -172,7 +172,10 @@ sub grade_compiler {
     my %results = ();
     foreach my $suite (@Opt_Suite) {
         printf("-- Running $suite --\n");
-        my @files = glob "$TEST_SUITES_PATH/$suite/*.$LEXT";
+        my @files;
+        foreach my $lext (@LEXTS) {
+            push @files, glob "$TEST_SUITES_PATH/$suite/*.$lext";
+        }
         ($tried, $succeeded, @failedhere) = run_suite(@files);
         push @failed, @failedhere;
         $results{$suite} = [$tried, $succeeded];
@@ -237,7 +240,8 @@ sub run_suite {
 sub test {
     my $file = shift;
     my ($directive, $expected, $valid, $error, $asm_file, $result, $line);
-    my ($command, $compiler_result, $assembler_result);
+    my $command;
+    my $ret;
     if (-e "a.out") { unlink "a.out" or die "could not remove a.out\n"; }
     if (-e "a.result") { unlink "a.result" or die "could not remove a.result\n"; }
 
@@ -254,62 +258,23 @@ sub test {
             or die "could not rename $asm_file from previous compilation\n";}
 
     $command = "$COMPILER_EXEC $COMPILER_ARGS $file";
-    $compiler_result = system_with_timeout($COMPILER_TIMEOUT, "$command");
+    $result = system_with_timeout($COMPILER_TIMEOUT, "$command", $Opt_Autograding);
 
-    if ($directive eq "error") {
-        if ($compiler_result == 0) {
-            return fail("Compilation unexpectedly succeeded on $file.\n");
-        } else {
-            return pass("Compilation failed on $file as expected.\n");
-        }
-    }
-
-    if ($compiler_result != 0) {
-        return fail("Compilation unexpectedly failed on $file.\n");
+    # the 0 means "this is not the reference compiler"
+    $ret = grade_compilation($file, $result, $directive, $expected, 0);
+    if (defined $ret) {
+        return $ret;
     }
 
     $command = "$GCC $asm_file $RUNTIME";
-    $assembler_result = system_with_timeout($GCC_TIMEOUT, $command);
-    if ($assembler_result != 0) {
+    $result = system_with_timeout($GCC_TIMEOUT, $command, $Opt_Autograding);
+    if ($result != 0) {
         return fail("Assembly failed on $file.\n");
     }
 
-    $result = system_with_timeout($RUN_TIMEOUT, "./a.out 2>&1 > a.result");
-    $result = ($result >> 8) & 0x7F; # because shell return code
+    $result = system_with_timeout($RUN_TIMEOUT, "./a.out 2>&1 > a.result", $Opt_Autograding);
     
-    if ($directive eq "exception") {
-        if ($expected ne "") {
-            $expected = $expected+0;  # convert to integer, for sanity's sake
-            if ($result == $expected) {
-                return pass("Execution of binary raised appropriate exception $result.\n");
-            }
-            else {
-                return fail("Execution of binary raised inappropriate exception $result; expected $expected.\n");
-            }
-        }
-        elsif ($result != 0) {
-            return pass("Execution of binary raised exception $result.\n");
-        } else {
-            return fail("Execution of binary unexpectedly succeeded.\n");
-        }
-    } elsif ($directive eq "return") {
-        if ($result != 0) {
-            return fail("Execution of binary unexpectedly failed with exception $result.\n");
-        }
-
-        # if a.result does not exist, $all_of_file = ''
-        my $all_of_file = read_file("a.result");
-        chomp $all_of_file;
-        if ($all_of_file eq $expected) {
-            return pass("Correct result\n");
-        } else {
-            return fail("Result '$all_of_file' differs from expected answer '$expected'.\n");
-        }
-    }
-
-    printf("I can't be here (test $file)! Inconcievable!\n");
-    printf("Send mail to course staff, please.\n");
-    return fail("");
+    return grade_execution($file, $result, $directive, $expected);
 }
 
 ###
@@ -320,6 +285,7 @@ sub validate {
     my $file = shift;
     my ($directive, $expected, $result, $valid, $error);
     my ($command, $compiler_result, $res_known, $res_quarantine, $res_crash);
+    my $ret;
 
     if (-e "a.out") { unlink "a.out" or die "could not remove a.out\n"; }
     if (-e "a.result") { unlink "a.result" or die "could not remove a.result\n"; }
@@ -333,52 +299,89 @@ sub validate {
     }
 
     $command = "$REF_COMPILER $REF_COMPILER_ARGS $file";
-    $compiler_result = system_with_timeout($COMPILER_TIMEOUT, "$command");
-    $res_known = 256;
-    $res_quarantine = 512;
-    $res_crash = 254;
-    #print $compiler_result;
+    $result = system_with_timeout($COMPILER_TIMEOUT, "$command", $Opt_Autograding);
 
-    if ($compiler_result == $res_crash) {
+    # the 1 means "this is the reference compiler"
+    $ret = grade_compilation($file, $result, $directive, $expected, 1);
+    if (defined $ret) {
+        return $ret;
+    }
+
+    $result = system_with_timeout($RUN_TIMEOUT, "./a.out 2>&1 > a.result", $Opt_Autograding);
+
+    return grade_execution($file, $result, $directive, $expected);
+}
+
+###
+# $ret = grade_compilation($file, $result, $directive, $expected, $is_ref);
+# if (defined $ret) {
+#     return $ret;
+# }
+#
+sub grade_compilation {
+    my $file = shift;
+    my $result = shift;
+    my $directive = shift;
+    my $expected = shift;
+    my $is_ref_compiler = shift;
+
+    my $res_known = 1;
+    my $res_quarantine = 2;
+    my $res_crash = 3;
+
+    $result = ($result >> 8) & 0x7F; # shift because shell return code
+
+    if ($is_ref_compiler && $result == $res_crash) {
         return fail("Compilation crashed: reference compiler bug!\n"
                    ."Send mail to the course staff, please.\n");
     }
 
     if ($directive eq "error") {
-        if ($compiler_result == 0) {
+        if ($result == 0) {
             return fail("Compilation unexpectedly succeeded on $file.\n");
         }
-        if ($compiler_result == $res_known) {
+        if (!$is_ref_compiler || $result == $res_known) {
             return pass("Compilation failed on $file as expected.\n");
         }
-        if ($compiler_result == $res_quarantine) {
+        if ($result == $res_quarantine) {
             return fail("Future language features used in $file.\n");
         }
-        return fail("Mysterious error $compiler_result.\n"
+        return fail("Mysterious error $result.\n"
                    ."Send mail to course staff, please.\n");
     }
 
-    if ($compiler_result != 0) {
+    if ($result != 0) {
         ## build error, but we didn't have an error directive.
         ## bail now.
-        if ($compiler_result == $res_known) {
+        if (!$is_ref_compiler || $result == $res_known) {
             return fail("Compilation unexpectedly failed on $file.\n");
         }
-        if ($compiler_result == $res_quarantine) {
+        if ($result == $res_quarantine) {
             return fail("Future language features used in $file.\n");
         }
-        return fail("Mysterious error $compiler_result.\n"
+        return fail("Mysterious error $result.\n"
                    ."Send mail to course staff, please.\n");
     }
 
-    $result = system_with_timeout($RUN_TIMEOUT, "./a.out 2>&1 > a.result");
+    return undef;
+}
+
+###
+# return grade_execution($file, $result, $directive, $expected);
+#
+sub grade_execution {
+    my $file = shift;
+    my $result = shift;
+    my $directive = shift;
+    my $expected = shift;
+
     $result = ($result >> 8) & 0x7F; # shift because shell return code
 
     if ($directive eq "exception") {
         if ($result == 0) {
             return fail("Execution of binary unexpectedly succeeded.\n");
         }
-        if ($expected eq "") {
+        if (!defined $expected) {
             return pass("Execution of binary raised exception $result.\n");
         }
         $expected = $expected+0;  # convert to integer, for sanity's sake
@@ -411,7 +414,7 @@ sub validate {
 #
 sub make_compiler {
     my $result;
-    if (system_with_timeout($MAKE_TIMEOUT, "make $COMPILER") != 0) {
+    if (system_with_timeout($MAKE_TIMEOUT, "make $COMPILER", $Opt_Autograding) != 0) {
         die "make did not succeed\n";
     }
     if (!-e "$COMPILER_EXEC" || !-x "$COMPILER_EXEC") {
@@ -480,9 +483,12 @@ sub read_testdirective {
     my ($test, $directive, $value);
     open(MYFILE, "<$file") or die "can't open test file: $file\n";
     $line = <MYFILE>;
+    $line =~ s/\s*$//;
     ($test, $directive, $value) = split(/\s+/, $line, 3);
     if ($test eq "//test") {
-        chomp $value;
+        if (defined $value) {
+            chomp $value;
+        }
         return ($directive, $value);
     } else {
         return (undef, undef);

@@ -44,10 +44,12 @@ sub report_result ($$) {
 }
 
 ###
-# system_with_timeout ($secs, $command)
+# system_with_timeout ($secs, $command, $quiet)
 # executes system($command) and returns its value
 # or raises SIGALRM if it takes more than $secs
 # taken from Perl 5.8.8 documentation of "alarm" and perlipc
+#
+# if $quiet is set, closes stdout and stderr in the child.
 #
 # possible alternative:
 # $result = system("ulimit -t <timeout>; prog> /tmp/$$_temp_file 2>/dev/null");
@@ -55,6 +57,7 @@ sub report_result ($$) {
 sub system_with_timeout {
     my $secs = shift;
     my $command = shift;
+    my $quiet = shift;
     my $result;
     my $kid;
 
@@ -62,6 +65,12 @@ sub system_with_timeout {
     my $p = fork();
     if ( $p == 0 ) { 
         # child
+        if ($quiet) {
+            close STDOUT;
+            close STDERR;
+            open(STDOUT, ">/dev/null");
+            open(STDERR, ">/dev/null");
+        }
         setpgid(0,0);
         exec("${command}");
         # I think the below comment is a little bit full of lies
@@ -95,7 +104,9 @@ sub system_with_timeout {
     }
 
     ## We had a timeout
-    printd(0, "%% Timeout after $secs seconds\n");
+    if (!$quiet) {
+        printd(0, "%% Timeout after $secs seconds\n");
+    }
     kill('KILL', -$p);      # kill all members of process group
     $kid = 0;
     while ($kid >= 0) {     # 0 means some children are still running
@@ -105,7 +116,7 @@ sub system_with_timeout {
         }
     }
     printd(2, "%% reaped all children\n");
-    return 14;              # return SIGALRM to signal timeout
+    return $?;              # return SIGALRM to signal timeout
 }
 
 ###
