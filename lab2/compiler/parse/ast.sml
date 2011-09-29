@@ -145,6 +145,8 @@ struct
         Declare (id, typ, elaborate (For (s1, e, s2, s3)))
     | elaborate (For (Markeds mark, e, s2, s3)) =
         elaborate (For (Mark.data mark, e, s2, s3))
+    | elaborate (For (s1, e, s2, s3)) =
+        For (elaborate s1, e, elaborate s2, elaborate s3)
     | elaborate (If (e, s1, s2)) = If (e, elaborate s1, elaborate s2)
     | elaborate (While (e, s)) = While (e, elaborate s)
     | elaborate (Seq (Declare (id, typ, s1), s2)) =
