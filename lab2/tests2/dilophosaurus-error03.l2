@@ -1,0 +1,9 @@
+//test error
+
+int main ()
+{
+  while (true) break;
+  if(true)
+    break;
+  else return 0;
+}

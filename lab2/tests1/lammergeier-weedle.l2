@@ -1,0 +1,7 @@
+//test exception
+int main() {
+	for (int i = 0; 1 / 0 == 7; i++) {
+		break;
+	}
+	return 0;
+}

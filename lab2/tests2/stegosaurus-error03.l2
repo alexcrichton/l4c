@@ -1,0 +1,21 @@
+//test error
+/* Frumious continues */
+
+int main () {
+  int a;
+  a = 2;
+  
+  if (false) {
+    while (false) {
+      break;
+    }
+    while (true) {
+      while (false) {
+        a = 3;
+      }
+      break;
+    }
+    continue;
+  }
+  return 2;
+}

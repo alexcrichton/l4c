@@ -1,0 +1,14 @@
+//test error
+/* Verify that returns inside of loops don't count as returns.
+ * if there is a break and a return in the loop. */
+
+int main()
+{
+	int x;
+
+	for (x = 0; x < 42; x++) {
+		if (x == 7) {
+			return x;
+		}
+	}
+}

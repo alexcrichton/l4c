@@ -1,0 +1,14 @@
+//test return 10
+
+int main ()
+{
+    int a;
+    int b;
+
+    for (a = 0; a >= a; a += 1) {
+        if (a == 10) {
+            break;
+        }
+    }
+    return 10;
+}
