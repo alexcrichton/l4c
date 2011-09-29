@@ -187,7 +187,6 @@ struct
               AS.BINOP (oper, map_op op1, map_op op2, map_op op3)
           | map_instr (AS.MOV (op1, op2)) = AS.MOV (map_op op1, map_op op2)
           | map_instr (AS.MOVFLAG (op1, c)) = AS.MOVFLAG (map_op op1, c)
-          | map_instr (AS.JMPC (l, op1)) = AS.JMPC (l, map_op op1)
           | map_instr i = i
       in
         map map_instr L
@@ -231,7 +230,8 @@ struct
         val graph = G.empty {color = 0, weight = 0}
         val () = P.time ("Make graph", fn () => make_graph  (live, L) graph)
         val () = P.time ("Update weights", fn () => update_weights graph)
-        val order = P.time ("Generate SEO", fn () => generate_seo graph (G.getNodes graph))
+        val order = P.time ("Generate SEO", fn () => generate_seo graph
+                                                     (G.getNodes graph))
         val () = P.time ("Coloring", fn () => color graph order)
         val L' = P.time ("Apply coloring", fn () => apply_coloring L graph)
       in

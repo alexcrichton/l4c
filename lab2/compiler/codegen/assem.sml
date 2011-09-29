@@ -18,7 +18,7 @@ sig
    | TEMP of Temp.temp
 
   datatype operation = ADD | SUB | MUL | DIV | MOD | CMP
-                     | AND | OR  | XOR | LSH | RSH
+                     | AND | OR  | XOR | LSH | RSH | TST
 
   datatype condition = LT | LTE | EQ | NEQ
 
@@ -26,8 +26,7 @@ sig
      BINOP of operation * operand * operand * operand
    | MOV of operand * operand
    | MOVFLAG of operand * condition
-   | JMPC of label * operand
-   | JMP of label
+   | JMP of label * condition option
    | RET
    | ASM of string
    | LABEL of label
@@ -55,7 +54,7 @@ struct
    | TEMP of Temp.temp
 
   datatype operation = ADD | SUB | MUL | DIV | MOD | CMP
-                     | AND | OR  | XOR | LSH | RSH
+                     | AND | OR  | XOR | LSH | RSH | TST
 
   datatype condition = LT | LTE | EQ | NEQ
 
@@ -63,13 +62,18 @@ struct
      BINOP of operation * operand * operand * operand
    | MOV of operand * operand
    | MOVFLAG of operand * condition
-   | JMPC of label * operand
-   | JMP of label
+   | JMP of label * condition option
    | RET
    | ASM of string
    | LABEL of label
    | DIRECTIVE of string
    | COMMENT of string
+
+   (* Commonly used registers *)
+   val eax  = REG EAX
+   val edx  = REG EDX
+   val ecx  = REG ECX
+   val r15d = REG R15D
 
   (* format_reg : reg -> string
    *
@@ -99,12 +103,12 @@ struct
    * @return the string representation of the lowest byte of the given
    *         register in x86
    *)
-  fun format_reg8 EAX = "%al"
-    | format_reg8 EBX = "%bl"
-    | format_reg8 ECX = "%cl"
-    | format_reg8 EDX = "%dl"
-    | format_reg8 R8D = "%r8b"
-    | format_reg8 R9D = "%r9b"
+  fun format_reg8 EAX  = "%al"
+    | format_reg8 EBX  = "%bl"
+    | format_reg8 ECX  = "%cl"
+    | format_reg8 EDX  = "%dl"
+    | format_reg8 R8D  = "%r8b"
+    | format_reg8 R9D  = "%r9b"
     | format_reg8 R10D = "%r10b"
     | format_reg8 R11D = "%r11b"
     | format_reg8 R12D = "%r12b"
@@ -130,14 +134,15 @@ struct
     | format_binop XOR = "xorl"
     | format_binop LSH = "sall"
     | format_binop RSH = "sarl"
+    | format_binop TST = "testl"
 
   (* format_operand : operand -> string
    *
    * @param operand the operand to convert
    * @return the string representation of the given operand in x86 assembly
    *)
-  fun format_operand (IMM n)  = "$" ^ Word32Signed.toString(n)
-    | format_operand (TEMP t) = Temp.name(t)
+  fun format_operand (IMM n)  = "$" ^ Word32Signed.toString n
+    | format_operand (TEMP t) = Temp.name t
     | format_operand (REG r)  = format_reg r
 
   (* format_operand8 : operand -> string
@@ -145,18 +150,21 @@ struct
    * @param operand the operand to convert
    * @return the string representation of the given operand in x86 assembly
    *)
-  fun format_operand8 (REG r)  = format_reg8 r
-    | format_operand8 oper = format_operand oper
+  fun format_operand8 (REG r) = format_reg8 r
+    | format_operand8 oper    = format_operand oper
 
-  (* format_condition : condition -> string
+  (* format_condition : condition option -> string
    *
    * @param condition the condition to convert
    * @return the string representation of the given condition
    *)
-  fun format_condition LT = "l"
-    | format_condition LTE = "le"
-    | format_condition EQ = "e"
-    | format_condition NEQ = "ne"
+  fun format_condition (SOME LT)  = "jge"
+    | format_condition (SOME LTE) = "jg"
+    | format_condition (SOME EQ)  = "jnz"
+    | format_condition (SOME NEQ) = "jz"
+    | format_condition NONE = "jmp"
+
+  fun format_label i = ".l" ^ Int.toString i
 
   (* format_instr : instr -> string
    *
@@ -180,13 +188,12 @@ struct
           "movl " ^ format_operand (REG s) ^ ", " ^ format_operand (REG d)
     | format_instr (MOV(d, s)) =
         "movl " ^ format_operand s ^ ", " ^ format_operand d
-    | format_instr (JMP l) = "jmp .l" ^ Int.toString l
-    | format_instr (JMPC (l,_)) = "jne .l" ^ Int.toString l
+    | format_instr (JMP (l, jmp)) = format_condition jmp ^ " " ^ format_label l
     | format_instr (MOVFLAG (d,_)) = "movzbl " ^ format_operand8 d ^
                                      ", " ^ format_operand d
     | format_instr (ASM str) = str
     | format_instr (DIRECTIVE str) = str
-    | format_instr (LABEL l) = ".l" ^ Int.toString l ^ ":"
+    | format_instr (LABEL l) = format_label l ^ ":"
     | format_instr (COMMENT str) = "/* " ^ str ^ "*/"
     | format_instr (RET) = "ret"
 
@@ -200,71 +207,54 @@ struct
    * @param I the instruction to expand
    * @return L a list of instructions which should be passed to format_intstr
    *)
-  fun instr_expand (BINOP (DIV, d, s1, s2)) = [
-        MOV (REG(EAX), s1), (* DIV and MOD are odd X86 instructions... *)
-        ASM "cltd",
-        BINOP (DIV, d, s1, s2),
-        MOV (d, REG(EAX))
-      ]
-    | instr_expand (BINOP (MOD, d, s1, s2)) = [
-        MOV (REG(EAX), s1),
-        ASM "cltd",
-        BINOP (DIV, d, s1, s2),
-        MOV (d, REG(EDX))
-      ]
-    | instr_expand (BINOP (LSH, d, s1, s2)) = [
-        MOV (REG ECX, s2),
-        MOV (d, s1),
-        BINOP (LSH, d, s1, REG ECX)
-      ]
-    | instr_expand (BINOP (RSH, d, s1, s2)) = [
-        MOV (REG ECX, s2),
-        MOV (d, s1),
-        BINOP (RSH, d, s1, REG ECX)
-      ]
-    (* If we assume the destination of a binop is always a register, then the
-       clause below this one is much easier *)
-    | instr_expand (BINOP (oper, REG (STACK n), s1, s2)) = [
-        MOV (REG R15D, s1),
-        BINOP (oper, REG R15D, REG R15D, s2),
-        MOV (REG (STACK n), REG R15D)
-      ]
+  fun instr_expand (oper as BINOP (DIV, d, s1, s2)) = [
+        MOV (eax, s1), ASM "cltd", oper, MOV (d, eax)]
+    | instr_expand (oper as BINOP (MOD, d, s1, s2)) = [
+        MOV (eax, s1), ASM "cltd", oper, MOV (d, edx)]
+    (* Assume the destination of all binary operations is in a register *)
+    | instr_expand (BINOP (oper, d as REG (STACK _), s1, s2)) =
+        [MOV (r15d, s1)] @ instr_expand (BINOP (oper, r15d, r15d, s2)) @
+        [MOV (d, r15d)]
+    | instr_expand (BINOP (CMP, _, s1 as REG (STACK _), s2 as REG (STACK _))) =
+        [MOV (r15d, s1), BINOP (CMP, r15d, r15d, s2)]
+    | instr_expand (BINOP (CMP, _, s1, s2)) =
+        [BINOP (CMP, s1, s1, s2)]
+    | instr_expand (BINOP (LSH, REG ECX, s1, s2 as REG _)) = [
+        MOV (ecx, s2), MOV (r15d, s1), BINOP (LSH, r15d, s1, ecx), MOV (ecx, r15d)]
+    | instr_expand (BINOP (RSH, REG ECX, s1, s2 as REG _)) = [
+        MOV (ecx, s2), MOV (r15d, s1), BINOP (RSH, r15d, s1, ecx), MOV (ecx, r15d)]
+    | instr_expand (BINOP (LSH, d, s1, s2 as REG _)) = [
+        MOV (ecx, s2), MOV (d, s1), BINOP (LSH, d, s1, ecx)]
+    | instr_expand (BINOP (RSH, d, s1, s2 as REG _)) = [
+        MOV (ecx, s2), MOV (d, s1), BINOP (RSH, d, s1, ecx)]
     (* Sometimes we can clobber the destination, but not if one of the operands
        is also the destination. Another special case is a form of subtraction
        where we can't override one of the operands. To get around this, we
        perform subtraction the other way and then negate the result. *)
-    | instr_expand (BINOP (oper, REG d, s1, REG s2)) =
+    | instr_expand (binop as BINOP (oper, REG d, s1, REG s2)) =
         if d = s2 andalso oper = SUB then [
           BINOP (SUB, REG d, REG s2, s1),
-          ASM ("neg " ^ format_operand (REG d))
-        ] else if d = s2 then [
-          BINOP (oper, REG d, REG s2, s1)
+          ASM ("neg " ^ format_operand (REG d))]
+        else if d = s2 then [BINOP (oper, REG d, REG s2, s1)]
+        else [MOV (REG d, s1), binop]
+    | instr_expand (binop as BINOP (oper, d, s1, s2)) = [MOV (d, s1), binop]
+    | instr_expand (MOVFLAG (oper, cond)) = let
+        val instr = case cond of LT => "setl" | LTE => "setle"
+                               | EQ => "sete" | NEQ => "setne"
+      in
+        (* Can't use set<c> on stack, edi, or esi... *)
+        if (case oper of REG (STACK _) => true | REG ESI => true
+                       | REG EDI => true | _ => false) then [
+          ASM (instr ^ " " ^ format_operand8 r15d),
+          MOVFLAG (r15d, cond), MOV (oper, r15d)
         ] else [
-          MOV (REG d, s1),
-          BINOP (oper, REG d, s1, REG s2)
+          ASM (instr ^ " " ^ format_operand8 oper),
+          MOVFLAG (oper, cond)
         ]
-    | instr_expand (BINOP (oper, d, s1, s2)) = [
-        MOV (d, s1),
-        BINOP (oper, d, s1, s2)
-      ]
-    | instr_expand (MOVFLAG (oper, cond)) =
-      if (case oper of REG (STACK _) => true | REG ESI => true | REG EDI => true | _ => false) then [
-        ASM ("set" ^ format_condition cond ^ " " ^ format_reg8 R15D),
-        MOVFLAG (REG R15D, cond),
-        MOV (oper, REG R15D)
-      ] else [
-        ASM ("set" ^ format_condition cond ^ " " ^ format_operand8 oper),
-        MOVFLAG (oper, cond)
-      ]
+      end
     (* Can't move between two memory locations... *)
-    | instr_expand (MOV (REG (STACK n1), REG (STACK n2))) = [
-        MOV (REG R15D, REG (STACK n2)),
-        MOV (REG (STACK n1), REG R15D)
-      ]
-    | instr_expand (JMPC (l,s)) = [
-        ASM ("cmpl $1, " ^ format_operand s),
-        JMPC (l,s)
-      ]
+    | instr_expand (MOV (s1 as REG (STACK _), s2 as REG (STACK _))) = [
+        MOV (r15d, s2), MOV (s1, r15d)]
     | instr_expand i = [i]
 
   (* format : instr -> string
@@ -280,7 +270,7 @@ struct
         fun finstr i =  let val s = format_instr i in
                           if s = "" then s else
                           (case i of (DIRECTIVE _) => ""
-                                   | (LABEL l) => ""
+                                   | (LABEL _)     => ""
                                    | _ => "\t") ^ s ^ "\n"
                         end
       in
@@ -298,7 +288,6 @@ struct
   end
 
   fun labelEqual (l1, l2) = (l1 = l2)
-
   fun labelHash l = Word.fromInt l
 
 end

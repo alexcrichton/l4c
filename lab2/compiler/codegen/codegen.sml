@@ -35,15 +35,19 @@ struct
     | munch_exp d (T.TEMP t)  = [AS.MOV(d, AS.TEMP(t))]
     | munch_exp d (T.BINOP (binop, e1, e2)) = munch_binop d (binop, e1, e2)
     | munch_exp d (T.TERN (e, et, ef)) = let
-        val lFalse = AS.label ()
-        val lEnd = AS.label ()
-        val t = AS.TEMP(Temp.new())
-        val cond = munch_exp t e @ [AS.JMPC (lFalse, t)]
-        val et' = munch_exp d et
-        val ef' = munch_exp d ef
+        val (lFalse, lEnd) = (AS.label(), AS.label())
+        val cond = munch_conditional lFalse e
       in
-        cond @ et' @ [AS.JMP lEnd, AS.LABEL lFalse] @ ef' @ [AS.LABEL lEnd]
+        cond @ munch_exp d et @ [AS.JMP (lEnd, NONE), AS.LABEL lFalse] @
+          munch_exp d ef @ [AS.LABEL lEnd]
       end
+
+  and munch_half oper (T.TEMP t) = (AS.TEMP t, [])
+    (*| munch_half oper (e as T.CONST n) =
+        if oper <> AS.DIV andalso oper <> AS.MOD then (AS.IMM n, [])
+        else let val t = AS.TEMP(Temp.new()) in (t, munch_exp t e) end*)
+    | munch_half oper e =
+        let val t = AS.TEMP(Temp.new()) in (t, munch_exp t e) end
 
   (* munch_binop : AS.operand -> T.binop * T.exp * T.exp -> AS.instr list *)
   (* munch_binop d (binop, e1, e2)
@@ -52,27 +56,10 @@ struct
    *)
   and munch_binop d (binop, e1, e2) =
       let
-        (* gen_temp : T.exp -> AS.operand * AS.instr list
-         * Generates a temp variable to hold the result of T.exp and returns the
-         * instructions necessary to create the temp.
-         *)
-        fun gen_temp e =
-          let val t = AS.TEMP(Temp.new()) in (t, munch_exp t e) end
-        (* calculate : T.exp -> AS.operand * AS.instr list
-         * Takes an expression and returns the minimal number of instructions
-         * to get it into a destination operand. For CONSTs and TEMPs, this
-         * attempts to return just that destination. We have to make a special
-         * exception for the DIV and MOD operations, however, because their
-         * arguments must be a register, not an IMM.
-         *)
-        fun calculate (T.TEMP t)  = (AS.TEMP t, [])
-          | calculate (T.CONST n) =
-              if binop = T.DIV orelse binop = T.MOD then gen_temp (T.CONST n)
-              else (AS.IMM n, [])
-          | calculate e = gen_temp e
-        val (t1, t1instrs) = calculate e1
-        val (t2, t2instrs) = calculate e2
-        val instr = AS.BINOP (munch_op binop, d, t1, t2)
+        val oper = munch_op binop
+        val (t1, t1instrs) = munch_half oper e1
+        val (t2, t2instrs) = munch_half oper e2
+        val instr = AS.BINOP (oper, d, t1, t2)
       in
         t1instrs @ t2instrs @
         (case binop
@@ -83,6 +70,32 @@ struct
             | _     => [instr])
       end
 
+  and munch_conditional dest (T.CONST w) =
+        if Word32Signed.ZERO <> w then [] else [AS.JMP(dest, NONE)]
+    | munch_conditional dest (T.TEMP n) =
+        [AS.BINOP (AS.TST, AS.REG AS.EAX, AS.TEMP n, AS.TEMP n),
+         AS.JMP(dest, SOME(AS.NEQ))]
+    | munch_conditional dest (T.BINOP (oper, e1, e2)) = let
+        val (t1, t1instrs) = munch_half AS.CMP e1
+        val (t2, t2instrs) = munch_half AS.CMP e2
+        val cond = case oper of T.LT => AS.LT | T.LTE => AS.LTE
+                              | T.EQ => AS.EQ | T.NEQ => AS.NEQ
+                              | T.XOR => AS.NEQ
+                              | _ => raise Fail "wut?"
+      in
+        t1instrs @ t2instrs @
+          [AS.BINOP (AS.CMP, AS.REG AS.EAX, t1, t2), AS.JMP(dest, SOME cond)]
+      end
+    | munch_conditional dest (T.TERN (e, et, ef)) = let
+        val (falsel, endl) = (AS.label(), AS.label())
+      in
+        munch_conditional falsel e @
+        munch_conditional dest et @
+        [AS.JMP (endl, NONE), AS.LABEL falsel] @
+        munch_conditional dest ef @
+        [AS.LABEL endl]
+      end
+
   (* munch_stm : AS.label -> AS.label -> T.stm -> AS.instr list
    *
    * Converts a statement of the IL into a list of assembly instructions.
@@ -91,28 +104,25 @@ struct
    * @return L a list of abstract assembly instructions with temps
    *)
   fun munch_stm _ _ (T.MOVE (T.TEMP t1, e2)) = munch_exp (AS.TEMP t1) e2
-    (* return e is implemented as %eax <- e *)
     | munch_stm _ _ (T.RETURN e) = munch_exp (AS.REG AS.EAX) e @ [AS.RET]
-    | munch_stm l _ T.CONTINUE =  [AS.JMP l]
-    | munch_stm _ l T.BREAK = [AS.JMP l]
+    | munch_stm l _ T.CONTINUE   = [AS.JMP (l, NONE)]
+    | munch_stm _ l T.BREAK      = [AS.JMP (l, NONE)]
     | munch_stm _ _ (T.WHILE (e, S)) = let
-        val lStart = AS.label ()
-        val lEnd = AS.label ()
-        val t = AS.TEMP(Temp.new())
-        val cond = munch_exp t e @ [AS.JMPC (lEnd, t)]
+        val (lStart, lEnd) = (AS.label (), AS.label ())
+        val cond = munch_conditional lEnd e
         val body = munch_stmts lStart lEnd S
       in
-        (AS.LABEL lStart)::cond @ body @ [AS.JMP lStart, AS.LABEL lEnd]
+        (AS.LABEL lStart) :: cond @ body @
+          [AS.JMP (lStart, NONE), AS.LABEL lEnd]
       end
     | munch_stm c b (T.IF (e, S, S')) = let
-        val lElse = AS.label ()
-        val lEnd = AS.label ()
-        val t = AS.TEMP(Temp.new())
-        val cond = munch_exp t e @ [AS.JMPC (lElse, t)]
+        val (lElse, lEnd) = (AS.label (), AS.label ())
+        val cond = munch_conditional lElse e
         val bdy = munch_stmts c b S
         val els = munch_stmts c b S'
       in
-        cond @ bdy @ [AS.JMP lEnd, AS.LABEL lElse] @ els @ [AS.LABEL lEnd]
+        cond @ bdy @ [AS.JMP (lEnd, NONE), AS.LABEL lElse] @ els @
+          [AS.LABEL lEnd]
       end
     | munch_stm _ _ _ = raise Fail "Invalid IR"
   and munch_stmts c b stmts = foldr (op @) [] (map (munch_stm c b) stmts)

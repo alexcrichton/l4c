@@ -42,8 +42,7 @@ struct
   |   rulegen f (l, A.MOV(A.REG _, s)) = ([s], NONE, [l + 1])
   |   rulegen f (l, A.MOVFLAG(A.TEMP d, _)) = ([], SOME d, [l + 1])
   |   rulegen f (l, A.MOVFLAG(A.REG _, _)) = ([], NONE, [l + 1])
-  |   rulegen f (l, A.JMP lbl) = ([], NONE, [f lbl])
-  |   rulegen f (l, A.JMPC (lbl, d)) = ([d], NONE, [f lbl, l + 1])
+  |   rulegen f (l, A.JMP (lbl, _)) = ([], NONE, [f lbl, l + 1])
   |   rulegen f (l, A.DIRECTIVE _) = ([], NONE, [l + 1])
   |   rulegen f (l, A.COMMENT _) = ([], NONE, [l + 1])
   |   rulegen f (l, A.RET) = ([], NONE, [])
@@ -141,9 +140,9 @@ struct
     |   give_labels i (a::L) = (i, a)::(give_labels (i + 1) L)
 
     val rules = List.map (rulegen (HT.lookup assem_labels)) (give_labels 0 L)
-    val rulesets = List.map (fn (rule) => (rule, ref TempSet.empty)) rules
+    val rulesets = List.map (fn rule => (rule, ref TempSet.empty)) rules
   in
-    (munge rulesets (fn (label) =>
+    (munge rulesets (fn label =>
        (#2 (List.nth (rulesets, label))) handle Subscript => ref TempSet.empty
      ));
     List.map (fn (_, r) => !r) rulesets
