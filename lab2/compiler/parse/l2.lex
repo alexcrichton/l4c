@@ -77,6 +77,8 @@ ws = [\ \t\011\013\012];
 <INITIAL> ")"         => (Tokens.RPAREN (yypos, yypos + size yytext));
 
 <INITIAL> ";"         => (Tokens.SEMI (yypos, yypos + size yytext));
+<INITIAL> "?"         => (Tokens.QUESTION (yypos, yypos + size yytext));
+<INITIAL> ":"         => (Tokens.COLON (yypos, yypos + size yytext));
 
 <INITIAL> "="         => (Tokens.ASSIGN (yypos, yypos + size yytext));
 <INITIAL> "+="        => (Tokens.PLUSEQ (yypos, yypos + size yytext));
