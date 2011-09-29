@@ -1,4 +1,4 @@
 SSA?
   -reusing variables in assign statements?
 
-checking variable initialization?
+If shift by immediate, don't use cl

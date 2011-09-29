@@ -110,8 +110,8 @@ struct
         (case Symbol.look env id
            of SOME t => tc_ensure env (e, t) ext
             | NONE   => (ErrorMsg.error ext ("Variable " ^ Symbol.name id ^
-                                             " undeclared"));
-                         raise ErrorMsg.Error)
+                                             " undeclared");
+                         raise ErrorMsg.Error))
     | tc_stm env (A.If (e,s1,s2)) ext lp =
         (tc_ensure env (e,A.BOOL) ext; tc_stm env s1 ext lp;
          tc_stm env s2 ext lp)

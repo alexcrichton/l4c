@@ -95,13 +95,17 @@ struct
 
     val _ = Flag.guard flag_verbose say ("Parsing... " ^ source)
     val ast = P.time ("Parsing   ", fn () => Parse.parse source)
+    val _ = Flag.guard flag_verbose say ("Elaborating... " ^ source)
     val ast = P.time ("Elaborating", fn () => Ast.elaborate ast)
     val _ = Flag.guard flag_ast
         (fn () => say (Ast.Print.pp_program ast)) ()
 
     val _ = P.startTimer "Analyzing..."
+    val _ = Flag.guard flag_verbose say ("Typechecking... " ^ source)
     val _ = P.time ("Typechecking", fn () => TypeChecker.typecheck ast)
+    val _ = Flag.guard flag_verbose say ("Returns... " ^ source)
     val _ = P.time ("Returns", fn () => ReturnChecker.returncheck ast)
+    val _ = Flag.guard flag_verbose say ("Initialization... " ^ source)
     val _ = P.time ("Initialization",
                     fn () => InitializationChecker.initializationcheck ast)
     val _ = P.stopTimer ()

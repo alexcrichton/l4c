@@ -25,15 +25,20 @@ sig
   datatype instr =
      BINOP of operation * operand * operand * operand
    | MOV of operand * operand
-   | JMP of condition option * label
+   | MOVFLAG of operand * condition
+   | JMPC of label * operand
+   | JMP of label
    | RET
    | ASM of string
    | LABEL of label
    | DIRECTIVE of string
    | COMMENT of string
 
-  val label : unit -> label
   val format : instr -> string
+  
+  val label : unit -> label
+  val labelEqual : label * label -> bool
+  val labelHash : label -> word
 end
 
 structure Assem :> ASSEM =
@@ -57,7 +62,9 @@ struct
   datatype instr =
      BINOP of operation * operand * operand * operand
    | MOV of operand * operand
-   | JMP of condition option * label
+   | MOVFLAG of operand * condition
+   | JMPC of label * operand
+   | JMP of label
    | RET
    | ASM of string
    | LABEL of label
@@ -86,6 +93,26 @@ struct
     (* We'll have a stack frame eventually... *)
     | format_reg (STACK n) = "-" ^ Int.toString (n * 4) ^ "(%rsp)"
 
+  (* format_reg8 : reg -> string
+   *
+   * @param reg the register to convert to a name
+   * @return the string representation of the lowest byte of the given
+   *         register in x86
+   *)
+  fun format_reg8 EAX = "%al"
+    | format_reg8 EBX = "%bl"
+    | format_reg8 ECX = "%cl"
+    | format_reg8 EDX = "%dl"
+    | format_reg8 R8D = "%r8b"
+    | format_reg8 R9D = "%r9b"
+    | format_reg8 R10D = "%r10b"
+    | format_reg8 R11D = "%r11b"
+    | format_reg8 R12D = "%r12b"
+    | format_reg8 R13D = "%r13b"
+    | format_reg8 R14D = "%r14b"
+    | format_reg8 R15D = "%r15b"
+    | format_reg8 r = raise Fail ("Cannot get lower 8 bits of " ^ format_reg r)
+
   (* format_binop : operation -> string
    *
    * @param oper the operation to convert to a string
@@ -109,9 +136,27 @@ struct
    * @param operand the operand to convert
    * @return the string representation of the given operand in x86 assembly
    *)
-  fun format_operand (IMM(n))  = "$" ^ Word32Signed.toString(n)
-    | format_operand (TEMP(t)) = Temp.name(t)
-    | format_operand (REG(r))  = format_reg r
+  fun format_operand (IMM n)  = "$" ^ Word32Signed.toString(n)
+    | format_operand (TEMP t) = Temp.name(t)
+    | format_operand (REG r)  = format_reg r
+
+  (* format_operand8 : operand -> string
+   *
+   * @param operand the operand to convert
+   * @return the string representation of the given operand in x86 assembly
+   *)
+  fun format_operand8 (REG r)  = format_reg8 r
+    | format_operand8 oper = format_operand oper
+
+  (* format_condition : condition -> string
+   *
+   * @param condition the condition to convert
+   * @return the string representation of the given condition
+   *)
+  fun format_condition LT = "l"
+    | format_condition LTE = "le"
+    | format_condition EQ = "e"
+    | format_condition NEQ = "ne"
 
   (* format_instr : instr -> string
    *
@@ -124,7 +169,8 @@ struct
    * @return the instruction formatted.
    *)
   fun format_instr (BINOP(oper, d, s1, s2)) =
-      format_binop oper ^ " " ^ format_operand s2 ^
+      format_binop oper ^ " " ^ (if oper = LSH orelse oper = RSH then
+                                 format_operand8 s2 else format_operand s2) ^
       (if oper = DIV orelse oper = MOD then "" else ", " ^ format_operand d)
     | format_instr (MOV(TEMP _, _)) = ""
     (* If we're moving between the same registers, then no need to format
@@ -134,8 +180,13 @@ struct
           "movl " ^ format_operand (REG s) ^ ", " ^ format_operand (REG d)
     | format_instr (MOV(d, s)) =
         "movl " ^ format_operand s ^ ", " ^ format_operand d
+    | format_instr (JMP l) = "jmp .l" ^ Int.toString l
+    | format_instr (JMPC (l,_)) = "jne .l" ^ Int.toString l
+    | format_instr (MOVFLAG (d,_)) = "movzbl " ^ format_operand8 d ^
+                                     ", " ^ format_operand d
     | format_instr (ASM str) = str
     | format_instr (DIRECTIVE str) = str
+    | format_instr (LABEL l) = ".l" ^ Int.toString l ^ ":"
     | format_instr (COMMENT str) = "/* " ^ str ^ "*/"
     | format_instr (RET) = "ret"
 
@@ -160,6 +211,16 @@ struct
         ASM "cltd",
         BINOP (DIV, d, s1, s2),
         MOV (d, REG(EDX))
+      ]
+    | instr_expand (BINOP (LSH, d, s1, s2)) = [
+        MOV (REG ECX, s2),
+        MOV (d, s1),
+        BINOP (LSH, d, s1, REG ECX)
+      ]
+    | instr_expand (BINOP (RSH, d, s1, s2)) = [
+        MOV (REG ECX, s2),
+        MOV (d, s1),
+        BINOP (RSH, d, s1, REG ECX)
       ]
     (* If we assume the destination of a binop is always a register, then the
        clause below this one is much easier *)
@@ -186,10 +247,23 @@ struct
         MOV (d, s1),
         BINOP (oper, d, s1, s2)
       ]
+    | instr_expand (MOVFLAG (oper, cond)) =
+      if (case oper of REG (STACK _) => true | REG ESI => true | REG EDI => true | _ => false) then [
+        ASM ("set" ^ format_condition cond ^ " " ^ format_reg8 R15D),
+        MOVFLAG (REG R15D, cond),
+        MOV (oper, REG R15D)
+      ] else [
+        ASM ("set" ^ format_condition cond ^ " " ^ format_operand8 oper),
+        MOVFLAG (oper, cond)
+      ]
     (* Can't move between two memory locations... *)
     | instr_expand (MOV (REG (STACK n1), REG (STACK n2))) = [
         MOV (REG R15D, REG (STACK n2)),
         MOV (REG (STACK n1), REG R15D)
+      ]
+    | instr_expand (JMPC (l,s)) = [
+        ASM ("cmpl $1, " ^ format_operand s),
+        JMPC (l,s)
       ]
     | instr_expand i = [i]
 
@@ -205,16 +279,26 @@ struct
   fun format instr = let
         fun finstr i =  let val s = format_instr i in
                           if s = "" then s else
-                          (case i of (DIRECTIVE _) => "" | _ => "\t") ^ s ^ "\n"
+                          (case i of (DIRECTIVE _) => ""
+                                   | (LABEL l) => ""
+                                   | _ => "\t") ^ s ^ "\n"
                         end
       in
         String.concat (map finstr (instr_expand instr))
       end
 
+  (* label : unit -> label
+   *
+   * Creates and returns a new label
+   *)
   local
     val nextLabel = ref 0
   in
     fun label () = (nextLabel := (!nextLabel) + 1; !nextLabel)
   end
+
+  fun labelEqual (l1, l2) = (l1 = l2)
+
+  fun labelHash l = Word.fromInt l
 
 end

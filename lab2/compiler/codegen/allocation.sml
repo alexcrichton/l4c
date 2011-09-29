@@ -48,6 +48,8 @@ struct
         val set' = case i
                      of (AS.BINOP (AS.DIV, _, _, _)) => precolor [1,4] set
                       | (AS.BINOP (AS.MOD, _, _, _)) => precolor [1,4] set
+                      | (AS.BINOP (AS.LSH, _, _, _)) => precolor [3] set
+                      | (AS.BINOP (AS.RSH, _, _, _)) => precolor [3] set
                       | _ => set
         (* create part of the graph *)
         val () = G.addClique graph set'
@@ -184,6 +186,8 @@ struct
         fun map_instr (AS.BINOP (oper, op1, op2, op3)) =
               AS.BINOP (oper, map_op op1, map_op op2, map_op op3)
           | map_instr (AS.MOV (op1, op2)) = AS.MOV (map_op op1, map_op op2)
+          | map_instr (AS.MOVFLAG (op1, c)) = AS.MOVFLAG (map_op op1, c)
+          | map_instr (AS.JMPC (l, op1)) = AS.JMPC (l, map_op op1)
           | map_instr i = i
       in
         map map_instr L

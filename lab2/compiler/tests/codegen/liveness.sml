@@ -19,6 +19,7 @@ struct
   |   equals nil nil = ()
   |   equals _ _ = raise Failure
 
+  val l1 = A.label ()
   val t1 = tmp()
   val t2 = tmp()
   val t3 = tmp()
@@ -42,13 +43,18 @@ struct
                             [[t1, t2, t3], [t3, t4], [t2, t3]]
 
   fun test_div () =
-    equals (Liveness.compute [adiv (t1, t2, t3)]) [[t1, t2, t3]]
+    equals (Liveness.compute [adiv (t1, t2, t3)]) [[t2, t3]]
+
+  fun test_movflag () =
+    equals (Liveness.compute [A.LABEL l1, A.MOVFLAG (t1, A.LT), A.JMPC (l1, t1)])
+                             [[], [], [t1]]
 
   val tests = [("test_comments_and_directives", test_comments_and_directives),
                ("test_binops", test_binops),
                ("test_mov_has_interfere", test_mov_has_interfere),
                ("test_mov_has_interfere2", test_mov_has_interfere2),
                ("test_mov_has_interfere3", test_mov_has_interfere3),
-               ("test_div", test_div)]
+               ("test_div", test_div),
+               ("test_movflag", test_movflag)]
 
 end

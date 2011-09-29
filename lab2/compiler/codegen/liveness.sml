@@ -17,6 +17,7 @@ structure Liveness :> LIVENESS =
 struct
 
   structure A = Assem
+  structure HT = HashTable
 
   type temp  = Temp.temp
   type label = int
@@ -29,20 +30,25 @@ struct
    *)
   type rule = A.operand list * temp option * label list
 
-  (* rulegen : (label * Assem.instr) -> rule
+  (* rulegen : (A.label -> label) -> (label * Assem.instr) -> rule
    *
    * @param l the label of the current instruction
    * @param i the instruction to generate a rule for
    * @return a rule representing the current instruction
    *)
-  fun rulegen (l, A.BINOP(_, A.TEMP d, s1, s2)) = ([s1, s2], SOME d, [l + 1])
-  |   rulegen (l, A.BINOP(_, _, s1, s2)) = ([s1, s2], NONE, [l + 1])
-  |   rulegen (l, A.MOV(A.TEMP(d), s)) = ([s], SOME d, [l + 1])
-  |   rulegen (l, A.MOV(A.REG(_), s)) = ([s], NONE, [l + 1])
-  |   rulegen (l, A.DIRECTIVE(_)) = ([], NONE, [l + 1])
-  |   rulegen (l, A.COMMENT(_)) = ([], NONE, [l + 1])
-  |   rulegen (l, A.RET) = ([], NONE, [])
-  |   rulegen (_, i) = raise BadInstruction i
+  fun rulegen f (l, A.BINOP(_, A.TEMP d, s1, s2)) = ([s1, s2], SOME d, [l + 1])
+  |   rulegen f (l, A.BINOP(_, _, s1, s2)) = ([s1, s2], NONE, [l + 1])
+  |   rulegen f (l, A.MOV(A.TEMP d, s)) = ([s], SOME d, [l + 1])
+  |   rulegen f (l, A.MOV(A.REG _, s)) = ([s], NONE, [l + 1])
+  |   rulegen f (l, A.MOVFLAG(A.TEMP d, _)) = ([], SOME d, [l + 1])
+  |   rulegen f (l, A.MOVFLAG(A.REG _, _)) = ([], NONE, [l + 1])
+  |   rulegen f (l, A.JMP lbl) = ([], NONE, [f lbl])
+  |   rulegen f (l, A.JMPC (lbl, d)) = ([d], NONE, [f lbl, l + 1])
+  |   rulegen f (l, A.DIRECTIVE _) = ([], NONE, [l + 1])
+  |   rulegen f (l, A.COMMENT _) = ([], NONE, [l + 1])
+  |   rulegen f (l, A.RET) = ([], NONE, [])
+  |   rulegen f (l, A.LABEL _) = ([], NONE, [l + 1])
+  |   rulegen f (_, i) = raise BadInstruction i
 
   (* add_uses : temp list -> TempSet ref -> bool
    *
@@ -121,6 +127,9 @@ struct
    *         live variables at that instruction.
    *)
   fun compute L = let
+    val assem_labels = HT.mkTable (A.labelHash, A.labelEqual)
+                                  (32, Fail "Label not found")
+
     (* give_labels : label -> rule list -> (label * rule) list
      *
      * @param int the initial label to give out
@@ -128,9 +137,10 @@ struct
      * @return a list of pairs of labels and rules
      *)
     fun give_labels _ [] = []
+    |   give_labels i ((a as A.LABEL l)::L) = (HT.insert assem_labels (l, i); (i, a)::(give_labels (i + 1) L))
     |   give_labels i (a::L) = (i, a)::(give_labels (i + 1) L)
 
-    val rules = List.map rulegen (give_labels 0 L)
+    val rules = List.map (rulegen (HT.lookup assem_labels)) (give_labels 0 L)
     val rulesets = List.map (fn (rule) => (rule, ref TempSet.empty)) rules
   in
     (munge rulesets (fn (label) =>
