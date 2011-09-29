@@ -72,7 +72,7 @@ sig
     val pp_program : program -> string
   end
 
-  val elaborate : program -> program;
+  val elaborate : program -> program
 
 end
 
