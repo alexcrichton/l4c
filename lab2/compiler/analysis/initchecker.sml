@@ -23,7 +23,7 @@ struct
    * @param an AST without any for loops (they're converted to while loops)
    *)
   fun transform (A.For (s1, e, s2, s3)) _ =
-        A.Seq (s1, A.While (e, transform s3 s2))
+        A.Seq (s1, A.While (e, A.Seq(transform s3 s2, s2)))
     | transform (A.If (e, s1, s2)) rep =
         A.If (e, transform s1 rep, transform s2 rep)
     | transform (A.While (e, s)) _ = A.While (e, transform s A.Nop)
