@@ -8,25 +8,33 @@ signature LABEL =
 sig
   type label
 
-  val reset : unit -> unit  (* resets label numbering *)
-  val new : unit -> label  (* returns a unique new label *)
-  val name : label -> string  (* returns the name of a label *)
-  val number : label -> int (* returns the unique identifier *)
-  val compare : label * label -> order (* comparison function *)
+  val new : string -> label
+  val name : label -> string
+  val number : label -> int
+  val compare : label * label -> order
 end
 
 structure Label :> LABEL =
 struct
-  type label = int
+  type label = string * int
 
   local
     val counter = ref 1
   in
-    fun reset () = (counter := 1)
-    fun new () = !counter before (counter := !counter + 1)
+    (* new : string -> label
+     *
+     * Creates a new label with the brief description. The description should
+     * be able to become a valid assembly label when output as a string. A
+     * unique integer will also be associated with this label, so care need
+     * not be taken to create a unique string. The label will be the result
+     * of the concatenation of the label and the number
+     *
+     * @param str the string description of this label.
+     *)
+    fun new str = (str, !counter) before (counter := !counter + 1)
   end
 
-  fun name t = ".l" ^ Int.toString t
-  fun number t = t
-  fun compare (t1, t2) = Int.compare (t1, t2)
+  fun name (s, t) = "." ^ s ^ Int.toString t
+  fun number (s, t) = t
+  fun compare ((_, t1), (_, t2)) = Int.compare (t1, t2)
 end
