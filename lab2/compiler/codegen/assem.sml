@@ -61,11 +61,11 @@ struct
    | DIRECTIVE of string
    | COMMENT of string
 
-  (* Commonly used registers *)
-  val eax  = REG EAX
-  val edx  = REG EDX
-  val ecx  = REG ECX
-  val r15d = REG R15D
+   (* Commonly used registers *)
+   val eax  = REG EAX
+   val edx  = REG EDX
+   val ecx  = REG ECX
+   val r15d = REG R15D
 
   (* format_reg : reg -> string
    *
@@ -206,6 +206,8 @@ struct
         [MOV (d, r15d)]
     | instr_expand (BINOP (CMP, _, s1 as REG (STACK _), s2 as REG (STACK _))) =
         [MOV (r15d, s1), BINOP (CMP, r15d, r15d, s2)]
+    | instr_expand (BINOP (CMP, _, s1, s2)) =
+        [BINOP (CMP, s1, s1, s2)]
     | instr_expand (BINOP (LSH, REG ECX, s1, s2 as REG _)) = [
         MOV (ecx, s2), MOV (r15d, s1), BINOP (LSH, r15d, s1, ecx), MOV (ecx, r15d)]
     | instr_expand (BINOP (RSH, REG ECX, s1, s2 as REG _)) = [
