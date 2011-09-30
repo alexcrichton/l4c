@@ -36,9 +36,10 @@ struct
     | munch_exp d (T.BINOP (binop, e1, e2)) = munch_binop d (binop, e1, e2)
 
   and munch_half oper (T.TEMP t) = (AS.TEMP t, [])
-    (*| munch_half oper (e as T.CONST n) =
-        if oper <> AS.DIV andalso oper <> AS.MOD then (AS.IMM n, [])
-        else let val t = AS.TEMP(Temp.new()) in (t, munch_exp t e) end*)
+    | munch_half (AS.DIV | AS.MOD | AS.CMP) (e as T.CONST n) = let
+        val t = AS.TEMP(Temp.new())
+      in (t, munch_exp t e) end
+    | munch_half _ (e as T.CONST n) = (AS.IMM n, [])
     | munch_half oper e =
         let val t = AS.TEMP(Temp.new()) in (t, munch_exp t e) end
 

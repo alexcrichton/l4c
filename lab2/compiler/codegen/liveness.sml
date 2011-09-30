@@ -137,7 +137,8 @@ struct
      * @return a list of pairs of labels and rules
      *)
     fun give_labels _ [] = []
-    |   give_labels i ((a as A.LABEL l)::L) = (HT.insert labels (l, i); (i, a)::(give_labels (i + 1) L))
+    |   give_labels i ((a as A.LABEL l)::L) = (HT.insert labels (l, i);
+                                               (i, a)::(give_labels (i + 1) L))
     |   give_labels i (a::L) = (i, a)::(give_labels (i + 1) L)
 
     val rules = List.map (rulegen (HT.lookup labels)) (give_labels 0 L)

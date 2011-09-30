@@ -142,6 +142,8 @@ struct
    * @return the string representation of the given operand in x86 assembly
    *)
   fun format_operand8 (REG r) = format_reg8 r
+    | format_operand8 (IMM n) =
+        format_operand (IMM (Word32.andb (n, Word32.fromInt 31)))
     | format_operand8 oper    = format_operand oper
 
   (* format_condition : condition option -> string
