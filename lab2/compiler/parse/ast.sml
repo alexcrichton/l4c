@@ -165,7 +165,7 @@ struct
 
   (* remove_for : program -> program
    *
-   * Transforms an AST to make it easier to perform initialization analysis on.
+   * Transforms an AST to make it easier to perform analysis on.
    * This involves changing for loops to while loops.
    *
    * @param prog the program to transform
@@ -180,8 +180,7 @@ struct
     | remove_for (Markeds mark) s =
         Markeds (Mark.mark' (remove_for (Mark.data mark) s, Mark.ext mark))
     | remove_for (Seq (s1, s2)) r = Seq (remove_for s1 r, remove_for s2 r)
-    | remove_for (Declare (id, typ, s)) r =
-        Declare (id, typ, remove_for s r)
+    | remove_for (Declare (id, typ, s)) r = Declare (id, typ, remove_for s r)
     | remove_for s _ = s
 
   (* print programs and expressions in source form
