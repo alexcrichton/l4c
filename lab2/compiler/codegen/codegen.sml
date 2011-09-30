@@ -66,7 +66,7 @@ struct
   and munch_conditional dest (T.CONST w) =
         if Word32Signed.ZERO = w then [] else [AS.JMP(dest, NONE)]
     | munch_conditional dest (T.TEMP n) =
-        [AS.BINOP (AS.CMP, AS.REG AS.EAX, AS.TEMP n, AS.IMM Word32Signed.ZERO),
+        [AS.BINOP (AS.CMP, AS.TEMP n, AS.TEMP n, AS.IMM Word32Signed.ZERO),
          AS.JMP(dest, SOME(AS.NEQ))]
     | munch_conditional dest (T.BINOP (oper, e1, e2)) = let
         val (t1, t1instrs) = munch_half AS.CMP e1
@@ -77,7 +77,7 @@ struct
                               | _ => raise Fail "wut?"
       in
         t1instrs @ t2instrs @
-          [AS.BINOP (AS.CMP, AS.REG AS.EAX, t1, t2), AS.JMP(dest, SOME cond)]
+          [AS.BINOP (AS.CMP, t1, t1, t2), AS.JMP(dest, SOME cond)]
       end
 
   (* munch_stm : T.stm -> AS.instr list
