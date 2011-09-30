@@ -45,12 +45,11 @@ struct
             in
               precolor L set'
             end
-        val set' = case i
-                     of (AS.BINOP (AS.DIV, _, _, _)) => precolor [1,4] set
-                      | (AS.BINOP (AS.MOD, _, _, _)) => precolor [1,4] set
-                      | (AS.BINOP (AS.LSH, _, _, _)) => precolor [3] set
-                      | (AS.BINOP (AS.RSH, _, _, _)) => precolor [3] set
-                      | _ => set
+        val set' =
+            case i
+              of (AS.BINOP ((AS.DIV | AS.MOD), _, _, _)) => precolor [1,4] set
+               | (AS.BINOP ((AS.LSH | AS.RSH), _, _, _)) => precolor [3] set
+               | _ => set
         (* create part of the graph *)
         val () = G.addClique graph set'
       in
