@@ -14,13 +14,10 @@ sig
       TEMP of Temp.temp
     | CONST of Word32.word
     | BINOP of binop * exp * exp
-    | TERN of exp * exp * exp
   and stm =
       MOVE of exp * exp
-    | IF of exp * stm list * stm list
-    | WHILE of exp * stm list
-    | CONTINUE
-    | BREAK
+    | LABEL of Label.label
+    | GOTO  of Label.label * exp option
     | RETURN of exp
 
   type program = stm list
@@ -41,13 +38,10 @@ struct
       TEMP of Temp.temp
     | CONST of Word32.word
     | BINOP of binop * exp * exp
-    | TERN of exp * exp * exp
   and stm =
       MOVE of exp * exp
-    | IF of exp * stm list * stm list
-    | WHILE of exp * stm list
-    | CONTINUE
-    | BREAK
+    | LABEL of Label.label
+    | GOTO  of Label.label * exp option
     | RETURN of exp
 
   type program = stm list
@@ -77,17 +71,12 @@ struct
       | pp_exp (TEMP t) = Temp.name t
       | pp_exp (BINOP (binop, e1, e2)) =
           "(" ^ pp_exp e1 ^ " " ^ pp_binop binop ^ " " ^ pp_exp e2 ^ ")"
-      | pp_exp (TERN (e1, e2, e3)) =
-          "(" ^ pp_exp e1 ^ " ? " ^ pp_exp e2 ^ " : " ^ pp_exp e3 ^ ")"
 
-    fun pp_stm (MOVE (e1,e2)) = pp_exp e1 ^ " = " ^ pp_exp e2
-      | pp_stm (IF (e, s1, s2)) = "if " ^ pp_exp e ^ " {\n" ^
-                                  tab(pp_program s1) ^ "\n} else {\n" ^
-                                  tab(pp_program s2) ^ "\n}"
-      | pp_stm (WHILE (e, s)) = "while " ^ pp_exp e ^ " {\n" ^
-                                tab(pp_program s) ^ "\n}"
-      | pp_stm CONTINUE = "continue"
-      | pp_stm BREAK = "break"
+    fun pp_stm (MOVE (e1,e2)) = pp_exp e1 ^ " <- " ^ pp_exp e2
+      | pp_stm (LABEL l) = Label.name l
+      | pp_stm (GOTO (l, NONE)) = "goto " ^ Label.name l
+      | pp_stm (GOTO (l, SOME exp)) =
+          "if (" ^ pp_exp exp ^ ") goto " ^ Label.name l
       | pp_stm (RETURN e) = "return " ^ pp_exp e
 
     and pp_program [] = ""

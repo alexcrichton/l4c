@@ -127,6 +127,7 @@ struct
         ErrorMsg.error ext "'break' outside of a loop is not allowed";
         raise ErrorMsg.Error)
     | tc_stm env (A.Return e) ext _ = tc_ensure env (e,A.INT) ext
+    | tc_stm env (A.Express e) ext _ = (tc_exp env e ext; ())
     | tc_stm _ A.Nop _ _ = ()
     | tc_stm env (A.Seq (s1,s2)) ext lp =
         (tc_stm env s1 ext lp; tc_stm env s2 ext lp)

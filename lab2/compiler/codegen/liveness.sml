@@ -126,8 +126,9 @@ struct
    *         live variables at that instruction.
    *)
   fun compute L = let
-    val assem_labels = HT.mkTable (A.labelHash, A.labelEqual)
-                                  (32, Fail "Label not found")
+    val labels = HT.mkTable (fn i => Word.fromInt (Label.number i),
+                             fn (i1, i2) => Label.compare (i1, i2) = EQUAL)
+                            (32, Fail "Label not found")
 
     (* give_labels : label -> rule list -> (label * rule) list
      *
@@ -136,10 +137,10 @@ struct
      * @return a list of pairs of labels and rules
      *)
     fun give_labels _ [] = []
-    |   give_labels i ((a as A.LABEL l)::L) = (HT.insert assem_labels (l, i); (i, a)::(give_labels (i + 1) L))
+    |   give_labels i ((a as A.LABEL l)::L) = (HT.insert labels (l, i); (i, a)::(give_labels (i + 1) L))
     |   give_labels i (a::L) = (i, a)::(give_labels (i + 1) L)
 
-    val rules = List.map (rulegen (HT.lookup assem_labels)) (give_labels 0 L)
+    val rules = List.map (rulegen (HT.lookup labels)) (give_labels 0 L)
     val rulesets = List.map (fn rule => (rule, ref TempSet.empty)) rules
   in
     (munge rulesets (fn label =>

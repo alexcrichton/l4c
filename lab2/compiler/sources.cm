@@ -22,6 +22,7 @@ Group is
   analysis/returnchecker.sml
   analysis/initchecker.sml
 
+  trans/label.sml
   trans/temp.sml
   trans/tree.sml
   trans/trans.sml

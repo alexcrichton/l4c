@@ -14,27 +14,6 @@ structure InitializationChecker :> INITIALIZATION_CHECK =
 struct
   structure A = Ast
 
-  (* transform : A.program -> A.program
-   *
-   * Transforms an AST to make it easier to perform initialization analysis on.
-   * This involves changing for loops to while loops.
-   *
-   * @param prog the program to transform
-   * @param an AST without any for loops (they're converted to while loops)
-   *)
-  fun transform (A.For (s1, e, s2, s3)) _ =
-        A.Seq (s1, A.While (e, A.Seq(transform s3 s2, s2)))
-    | transform (A.If (e, s1, s2)) rep =
-        A.If (e, transform s1 rep, transform s2 rep)
-    | transform (A.While (e, s)) _ = A.While (e, transform s A.Nop)
-    | transform A.Continue s = A.Seq (s, A.Continue)
-    | transform (A.Markeds mark) s =
-        A.Markeds (Mark.mark' (transform (Mark.data mark) s, Mark.ext mark))
-    | transform (A.Seq (s1, s2)) r = A.Seq (transform s1 r, transform s2 r)
-    | transform (A.Declare (id, typ, s)) r =
-        A.Declare (id, typ, transform s r)
-    | transform s _ = s
-
   (* exp_uses : Symbol.symbol -> A.exp -> bool
    *
    * Tests whether an expression uses a symbol at any point.
@@ -68,6 +47,7 @@ struct
     | defines _ A.Continue = true
     | defines _ A.Nop = false
     | defines _ (A.Return _) = true
+    | defines _ (A.Express _) = false
     | defines sym (A.Seq (s1, s2)) = defines sym s1 orelse defines sym s2
     | defines _ (A.For (_, _, _, _)) = raise Fail "No for loops!"
     | defines sym (A.Markeds mark) = defines sym (Mark.data mark)
@@ -90,6 +70,7 @@ struct
     | live _ A.Break = false
     | live _ A.Continue = false
     | live _ A.Nop = false
+    | live sym (A.Express e) = exp_uses sym e
     | live sym (A.Return e) = exp_uses sym e
     | live sym (A.Seq (s1, s2)) =
         live sym s1 orelse (live sym s2 andalso not (defines sym s1))
@@ -126,6 +107,6 @@ struct
    * @param p the program to check
    * @raise ErrorMsg.Error if a variable is used before initialization
    *)
-  fun initializationcheck p = analyze (transform p A.Nop) NONE
+  fun initializationcheck p = analyze (A.remove_for p A.Nop) NONE
 
 end

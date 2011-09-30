@@ -6,8 +6,6 @@
 
 signature ASSEM =
 sig
-  type label
-
   datatype reg = EAX | EBX  | ECX  | EDX  | EDI  | ESI  | R8D
                | R9D | R10D | R11D | R12D | R13D | R14D | R15D
                | STACK of int
@@ -18,7 +16,7 @@ sig
    | TEMP of Temp.temp
 
   datatype operation = ADD | SUB | MUL | DIV | MOD | CMP
-                     | AND | OR  | XOR | LSH | RSH | TST
+                     | AND | OR  | XOR | LSH | RSH
 
   datatype condition = LT | LTE | EQ | NEQ
 
@@ -26,24 +24,18 @@ sig
      BINOP of operation * operand * operand * operand
    | MOV of operand * operand
    | MOVFLAG of operand * condition
-   | JMP of label * condition option
+   | JMP of Label.label * condition option
    | RET
    | ASM of string
-   | LABEL of label
+   | LABEL of Label.label
    | DIRECTIVE of string
    | COMMENT of string
 
   val format : instr -> string
-  
-  val label : unit -> label
-  val labelEqual : label * label -> bool
-  val labelHash : label -> word
 end
 
 structure Assem :> ASSEM =
 struct
-  type label = int
-
   datatype reg = EAX | EBX  | ECX  | EDX  | EDI  | ESI  | R8D
                | R9D | R10D | R11D | R12D | R13D | R14D | R15D
                | STACK of int
@@ -54,7 +46,7 @@ struct
    | TEMP of Temp.temp
 
   datatype operation = ADD | SUB | MUL | DIV | MOD | CMP
-                     | AND | OR  | XOR | LSH | RSH | TST
+                     | AND | OR  | XOR | LSH | RSH
 
   datatype condition = LT | LTE | EQ | NEQ
 
@@ -62,10 +54,10 @@ struct
      BINOP of operation * operand * operand * operand
    | MOV of operand * operand
    | MOVFLAG of operand * condition
-   | JMP of label * condition option
+   | JMP of Label.label * condition option
    | RET
    | ASM of string
-   | LABEL of label
+   | LABEL of Label.label
    | DIRECTIVE of string
    | COMMENT of string
 
@@ -134,7 +126,6 @@ struct
     | format_binop XOR = "xorl"
     | format_binop LSH = "sall"
     | format_binop RSH = "sarl"
-    | format_binop TST = "testl"
 
   (* format_operand : operand -> string
    *
@@ -158,13 +149,11 @@ struct
    * @param condition the condition to convert
    * @return the string representation of the given condition
    *)
-  fun format_condition (SOME LT)  = "jge"
-    | format_condition (SOME LTE) = "jg"
-    | format_condition (SOME EQ)  = "jnz"
-    | format_condition (SOME NEQ) = "jz"
+  fun format_condition (SOME LT)  = "jl"
+    | format_condition (SOME LTE) = "jle"
+    | format_condition (SOME EQ)  = "jz"
+    | format_condition (SOME NEQ) = "jnz"
     | format_condition NONE = "jmp"
-
-  fun format_label i = ".l" ^ Int.toString i
 
   (* format_instr : instr -> string
    *
@@ -188,12 +177,12 @@ struct
           "movl " ^ format_operand (REG s) ^ ", " ^ format_operand (REG d)
     | format_instr (MOV(d, s)) =
         "movl " ^ format_operand s ^ ", " ^ format_operand d
-    | format_instr (JMP (l, jmp)) = format_condition jmp ^ " " ^ format_label l
+    | format_instr (JMP (l, jmp)) = format_condition jmp ^ " " ^ Label.name l
     | format_instr (MOVFLAG (d,_)) = "movzbl " ^ format_operand8 d ^
                                      ", " ^ format_operand d
     | format_instr (ASM str) = str
     | format_instr (DIRECTIVE str) = str
-    | format_instr (LABEL l) = format_label l ^ ":"
+    | format_instr (LABEL l) = Label.name l ^ ":"
     | format_instr (COMMENT str) = "/* " ^ str ^ "*/"
     | format_instr (RET) = "ret"
 
@@ -276,18 +265,5 @@ struct
       in
         String.concat (map finstr (instr_expand instr))
       end
-
-  (* label : unit -> label
-   *
-   * Creates and returns a new label
-   *)
-  local
-    val nextLabel = ref 0
-  in
-    fun label () = (nextLabel := (!nextLabel) + 1; !nextLabel)
-  end
-
-  fun labelEqual (l1, l2) = (l1 = l2)
-  fun labelHash l = Word.fromInt l
 
 end

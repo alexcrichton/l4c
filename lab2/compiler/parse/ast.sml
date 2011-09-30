@@ -56,6 +56,7 @@ sig
    | If      of exp * stm * stm
    | While   of exp * stm
    | For     of stm * exp * stm * stm
+   | Express of exp
    | Continue
    | Break
    | Return  of exp
@@ -72,7 +73,8 @@ sig
     val pp_program : program -> string
   end
 
-  val elaborate : program -> program
+  val elaborate  : program -> program
+  val remove_for : program -> stm -> program
 
 end
 
@@ -120,6 +122,7 @@ struct
    | If      of exp * stm * stm
    | While   of exp * stm
    | For     of stm * exp * stm * stm
+   | Express of exp
    | Continue
    | Break
    | Return  of exp
@@ -159,6 +162,27 @@ struct
                              Mark.ext mark))
     | elaborate (Seq (s1, s2)) = Seq (elaborate s1, elaborate s2)
     | elaborate stm = stm
+
+  (* remove_for : program -> program
+   *
+   * Transforms an AST to make it easier to perform initialization analysis on.
+   * This involves changing for loops to while loops.
+   *
+   * @param prog the program to transform
+   * @param an AST without any for loops (they're converted to while loops)
+   *)
+  fun remove_for (For (s1, e, s2, s3)) _ =
+        Seq (s1, While (e, Seq(remove_for s3 s2, s2)))
+    | remove_for (If (e, s1, s2)) rep =
+        If (e, remove_for s1 rep, remove_for s2 rep)
+    | remove_for (While (e, s)) _ = While (e, remove_for s Nop)
+    | remove_for Continue s = Seq (s, Continue)
+    | remove_for (Markeds mark) s =
+        Markeds (Mark.mark' (remove_for (Mark.data mark) s, Mark.ext mark))
+    | remove_for (Seq (s1, s2)) r = Seq (remove_for s1 r, remove_for s2 r)
+    | remove_for (Declare (id, typ, s)) r =
+        Declare (id, typ, remove_for s r)
+    | remove_for s _ = s
 
   (* print programs and expressions in source form
    * using redundant parentheses to clarify precedence
@@ -216,6 +240,7 @@ struct
       | pp_stm Continue = "continue"
       | pp_stm Break = "break"
       | pp_stm Nop = ""
+      | pp_stm (Express e) = pp_exp e
       | pp_stm (Seq (s1, s2)) = pp_stm s1 ^ "\n" ^ pp_stm s2
       | pp_stm (Return e) = "return " ^ pp_exp e ^ ";"
       | pp_stm (Declare (id, t, s)) = pp_typ t ^ " " ^ pp_ident id ^ "\n" ^

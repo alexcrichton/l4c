@@ -145,6 +145,7 @@ simp       : lvalue asnop exp %prec ASNOP
                                                 A.Const(Word32.fromInt 1)),
                                              (lvalueleft, lvalueright))))
            | decl                      (decl)
+           | exp                       (A.Express exp)
 
 step       :                           (A.Nop)
            | lvalue asnop exp %prec ASNOP
