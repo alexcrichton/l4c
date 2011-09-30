@@ -196,26 +196,20 @@ struct
    * @param I the instruction to expand
    * @return L a list of instructions which should be passed to format_intstr
    *)
-  fun instr_expand (oper as BINOP (DIV, d, s1, s2)) = [
-        MOV (eax, s1), ASM "cltd", oper, MOV (d, eax)]
-    | instr_expand (oper as BINOP (MOD, d, s1, s2)) = [
-        MOV (eax, s1), ASM "cltd", oper, MOV (d, edx)]
+  fun instr_expand (oper as BINOP (i as (DIV | MOD), d, s1, s2)) = [
+        MOV (eax, s1), ASM "cltd", oper, MOV (d, if i = DIV then eax else edx)]
     (* Assume the destination of all binary operations is in a register *)
     | instr_expand (BINOP (oper, d as REG (STACK _), s1, s2)) =
         [MOV (r15d, s1)] @ instr_expand (BINOP (oper, r15d, r15d, s2)) @
         [MOV (d, r15d)]
     | instr_expand (BINOP (CMP, _, s1 as REG (STACK _), s2 as REG (STACK _))) =
         [MOV (r15d, s1), BINOP (CMP, r15d, r15d, s2)]
-    | instr_expand (BINOP (CMP, _, s1, s2)) =
-        [BINOP (CMP, s1, s1, s2)]
-    | instr_expand (BINOP (LSH, REG ECX, s1, s2 as REG _)) = [
-        MOV (ecx, s2), MOV (r15d, s1), BINOP (LSH, r15d, s1, ecx), MOV (ecx, r15d)]
-    | instr_expand (BINOP (RSH, REG ECX, s1, s2 as REG _)) = [
-        MOV (ecx, s2), MOV (r15d, s1), BINOP (RSH, r15d, s1, ecx), MOV (ecx, r15d)]
-    | instr_expand (BINOP (LSH, d, s1, s2 as REG _)) = [
-        MOV (ecx, s2), MOV (d, s1), BINOP (LSH, d, s1, ecx)]
-    | instr_expand (BINOP (RSH, d, s1, s2 as REG _)) = [
-        MOV (ecx, s2), MOV (d, s1), BINOP (RSH, d, s1, ecx)]
+    | instr_expand (BINOP (CMP, _, s1, s2)) = [BINOP (CMP, s1, s1, s2)]
+    | instr_expand (BINOP (sh as (LSH | RSH), REG ECX, s1, s2 as REG _)) = [
+        MOV (ecx, s2), MOV (r15d, s1), BINOP (sh, r15d, r15d, ecx),
+        MOV (ecx, r15d)]
+    | instr_expand (BINOP (sh as (LSH | RSH), d, s1, s2 as REG _)) = [
+        MOV (ecx, s2), MOV (d, s1), BINOP (sh, d, s1, ecx)]
     (* Sometimes we can clobber the destination, but not if one of the operands
        is also the destination. Another special case is a form of subtraction
        where we can't override one of the operands. To get around this, we
@@ -226,7 +220,7 @@ struct
           ASM ("neg " ^ format_operand (REG d))]
         else if d = s2 then [BINOP (oper, REG d, REG s2, s1)]
         else [MOV (REG d, s1), binop]
-    | instr_expand (binop as BINOP (oper, d, s1, s2)) = [MOV (d, s1), binop]
+    | instr_expand (inst as BINOP (oper, d, s1, s2)) = [MOV (d, s1), inst]
     | instr_expand (MOVFLAG (oper, cond)) = let
         val instr = case cond of LT => "setl" | LTE => "setle"
                                | EQ => "sete" | NEQ => "setne"
