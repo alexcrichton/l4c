@@ -13,7 +13,9 @@ sig
   val reset : unit -> unit	(* resets temp numbering *)
   val new : unit -> temp	(* returns a unique new temp *)
   val name : temp -> string	(* returns the name of a temp *)
-  val number : temp -> int (* returns the unique identifier *)
+  val number : temp -> int
+  val hash : temp -> word (* returns the hashcode of this temp *)
+  val equals : temp * temp -> bool (* checks whether the temps are in order *)
   val compare : temp * temp -> order (* comparison function *)
 end
 
@@ -30,9 +32,13 @@ struct
     fun new () = !counter before ( counter := !counter + 1 )
   end
 
+  fun number t = t
+
   fun name t = "%t" ^ Int.toString t
 
-  fun number t = t
-		      
-  fun compare (t1,t2) = Int.compare (t1,t2)
+  fun hash t = Word.fromInt t
+
+  fun compare ts = Int.compare ts
+  
+  fun equals ts = (compare ts = EQUAL)
 end

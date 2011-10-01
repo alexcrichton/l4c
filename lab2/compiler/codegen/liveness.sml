@@ -126,8 +126,7 @@ struct
    *         live variables at that instruction.
    *)
   fun compute L = let
-    val labels = HT.mkTable (fn i => Word.fromInt (Label.number i),
-                             fn (i1, i2) => Label.compare (i1, i2) = EQUAL)
+    val labels = HT.mkTable (Label.hash, Label.equal)
                             (32, Fail "Label not found")
 
     (* give_labels : label -> rule list -> (label * rule) list
