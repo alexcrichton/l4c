@@ -15,8 +15,38 @@ translation. We also decided to add neededness analysis to our compiler for L2.
 Parsing/Elaboration
 ===================
 
+L2 required significant changes to the parser not only for the extra constructs,
+but also the addition of all bitops and conditional operators. Our AST changed
+to add all of the new constructs, and we chose to use the AST outlined in the
+handout. The parser does most of the work, but it still required elaboration
+to form the raw output of the parser into a well-formed AST.
+
+Elaboration was implemented as outlined in the handout with few alterations. The
+difficult aspect of this was preserving the Mark information in the correct
+location. Dealing with Mark data also made pattern matching difficult. It was
+not an option to throw away this data, however, because analysis with useful
+error messages still needed to be performed.
+
+At this stage, only the form of the AST is elaborated. The main change is so
+the Define scopes are correct. Having correct Define statements makes further
+analysis much easier.
+
 Initialization Checking
 =======================
+
+With the addition of control statements, initialization became much more tricky
+than a bool as to whether a variable had been assigned to yet. The handout,
+however, was very thorough in describing how initialization checking should
+occur. We directly implemented the methods outlined and did not factor in
+performance. It seems that the initialization checking is slightly inefficient
+because there's a lot of traveling down the AST and back up, but we haven't
+run into any performance problems yet, so we don't plan on trying to optimize
+soon.
+
+For initialization checking, we stripped out all for loops from the AST and
+replaced them with while loops. This functionality is used elsewhere (the IR
+translator), so it's located in ast.sml and works by carrying around a second
+argument of what should come before a continue if one is seen.
 
 Return Checking
 ===============
@@ -29,3 +59,23 @@ Neededness Analysis
 
 Assembly Representation
 =======================
+
+Our choice of IR made our IR -> Assem translation fairly easy. The hard part
+was dealing with conditional jumps. We created a new method 'munch_conditional'
+which will jump to a specified destination if the expression is evaluated to
+being true. This allowed fairly compact representation of expressions and
+generated assembly which wasn't grossly inefficient.
+
+Another problem we ran into was dealing with 'bool c = a < b'. With some
+creative use of the 'set' and 'movzbl' instructions, we were able to move
+the result of a conditional expression into an assignment.
+
+Our method for formatting assembly instructions also got a bit out of hand in
+this lab. The idea of expanding instructions after allocation is not working out
+well any more, and is the first thing we will tackle in the next lab.
+
+Liveness and Allocation didn't need many updates. Liveness only needed to know
+the rulesets for the new instructions, and Allocation only needed to know that
+%ecx is a precolored register for shifting operations. We've also determined
+that our method of precoloring is becoming out of hand, and is another priority
+in the next lab to clean up.

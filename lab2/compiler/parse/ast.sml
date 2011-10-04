@@ -157,9 +157,6 @@ struct
     | elaborate (Seq (Markeds mark, s2)) =
         Markeds (Mark.mark' (elaborate (Seq (Mark.data mark, s2)),
                              Mark.ext mark))
-    | elaborate (Seq (s1, Markeds mark)) =
-        Markeds (Mark.mark' (elaborate (Seq (s1, Mark.data mark)),
-                             Mark.ext mark))
     | elaborate (Seq (s1, s2)) = Seq (elaborate s1, elaborate s2)
     | elaborate stm = stm
 
