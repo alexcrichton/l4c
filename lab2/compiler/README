@@ -1,0 +1,31 @@
+(* README
+ * Author: Alex Crichton <acrichto@andrew.cmu.edu>
+ * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
+ *)
+
+-----------------------------------------------------------------------
+Lab 2
+-----------------------------------------------------------------------
+
+For lab 2 we implemented control statements for L2. These included if, for,
+while, break, and continue. The major parts of our compiler that had to change
+were the initialization checking, return checking, parsing, IR, and assembly
+translation. We also decided to add neededness analysis to our compiler for L2.
+
+Parsing/Elaboration
+===================
+
+Initialization Checking
+=======================
+
+Return Checking
+===============
+
+Intermediate Language
+=====================
+
+Neededness Analysis
+===================
+
+Assembly Representation
+=======================
