@@ -161,6 +161,10 @@ struct
    * @param stmts a list of statements in the intermediate language
    * @return a list of instructions with allocated registers
    *)
-  fun codegen stmts = Allocation.allocate (munch_stmts stmts)
+  fun codegen stmts = let
+        val stmts' = Profile.time ("Munching", fn () => munch_stmts stmts)
+      in
+        Allocation.allocate stmts'
+      end
 
 end

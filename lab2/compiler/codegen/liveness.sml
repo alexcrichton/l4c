@@ -110,7 +110,7 @@ struct
    * Runs 'process' on the given list until process returns false.
    *)
   fun munge rulesets f =
-    if process rulesets f then munge rulesets f else ()
+    if Profile.time ("process", fn () => process rulesets f) then munge rulesets f else ()
 
   (* compute : Assem.instr list -> OS.set list
    *
@@ -134,7 +134,7 @@ struct
                                                (i, a)::(give_labels (i + 1) L))
       | give_labels i (a::L) = (i, a)::(give_labels (i + 1) L)
 
-    val rules = List.map (rulegen (HT.lookup labels)) (give_labels 0 L)
+    val rules = Profile.time ("rulegen", fn () => List.map (rulegen (HT.lookup labels)) (give_labels 0 L))
     val rulesets = List.map (fn rule => (rule, ref OS.empty)) rules
   in
     (munge rulesets (fn label =>
