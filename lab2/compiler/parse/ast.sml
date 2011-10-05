@@ -228,7 +228,7 @@ struct
     fun pp_stm (Assign (id, e)) = pp_ident id ^ " = " ^ pp_exp e ^ ""
       | pp_stm (If (e, s1, s2)) =
           "if (" ^ pp_exp e ^ ") {\n" ^ tab(pp_stm s1) ^ "\n} else {\n" ^
-          pp_stm s2 ^ "\n}"
+          tab(pp_stm s2) ^ "\n}"
       | pp_stm (While (e, s)) = "while (" ^ tab(pp_exp e) ^ ") {\n" ^
           pp_stm s ^ " }"
       | pp_stm (For (s1, e, s2, s3)) = "for (" ^ pp_stm s1 ^ "; " ^ pp_exp e ^
