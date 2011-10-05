@@ -231,9 +231,6 @@ struct
       format_binop oper ^ " " ^ (if oper = LSH orelse oper = RSH then
                                  format_operand8 s else format_operand s) ^
       (if oper = DIV orelse oper = MOD then "" else ", " ^ format_operand d)
-    (*| format_instr (MOV(TEMP _, _)) = ""*)
-    (* If we're moving between the same registers, then no need to format
-       the result, we can optimize the instruction away *)
     | format_instr (MOV(REG d, REG s)) =
         if d = s then "" else
           "movl " ^ format_operand (REG s) ^ ", " ^ format_operand (REG d)
