@@ -7,7 +7,6 @@
 signature ALLOCATION =
 sig
   val allocate : Assem.instr list -> Assem.instr list
-  exception AllocationExn of string
 end
 
 (*
@@ -18,7 +17,6 @@ end
  *)
 structure Allocation :> ALLOCATION =
 struct
-  exception AllocationExn of string
   structure AS = Assem
   structure G = Graph
   structure P = Profile
@@ -54,8 +52,8 @@ struct
       in
         make_graph (S, L) graph
       end
-    | make_graph _ _ = raise AllocationExn ("Instruction list and temp list " ^
-                                            "should be the same size")
+    | make_graph _ _ = raise Fail ("Instruction list and temp list " ^
+                                   "should be the same size")
 
   (* update_weights : graph -> unit
    * Updates the weights of all nodes in the graph
@@ -186,7 +184,7 @@ struct
   fun filter_temps L = let
         fun isTemp (AS.TEMP _) = true | isTemp _ = false
         fun hasTemps (AS.MOV (o1, o2)) =
-              if (isTemp o2) then raise AllocationExn "Live temp not allocated"
+              if (isTemp o2) then raise Fail "Live temp not allocated"
               else (isTemp o1)
           | hasTemps (AS.BINOP (oper, o1, o2)) = false
           | hasTemps _ = false
