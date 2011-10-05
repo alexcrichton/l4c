@@ -14,6 +14,7 @@ struct
 
   structure A = Assem
   structure HT = HashTable
+  structure OS = OperandSet
 
   type label = int
 
@@ -42,29 +43,29 @@ struct
         if s = "cltd" then ([A.REG A.EDX], SOME(A.REG A.EDX), [l + 1])
         else ([], NONE, [l + 1])
 
-  (* add_uses : OperandSet.set -> OperandSet.set ref -> bool
+  (* add_uses : OS.set -> OS.set ref -> bool
    *
-   * @param L a list of temps to add to the set
-   * @param set the set of temps to add to
-   * @return true if any temp was added
+   * @param L a list of operands to add to the set
+   * @param set the set of operands to add to
+   * @return true if any operand was added
    *)
   fun add_uses L set = let
-    val set' = OperandSet.union (!set, L)
+    val set' = OS.union (!set, L)
   in
-    if OperandSet.numItems(set') = OperandSet.numItems (!set) then false
+    if OS.numItems(set') = OS.numItems (!set) then false
     else (set := set'; true)
   end
 
-  (* add_succ : (temp option * (label -> OperandSet.set ref)) -> label list
-   *             -> OperandSet.set ref -> bool
+  (* add_succ : (A.operand option * (label -> OS.set ref)) -> label list
+   *             -> OS.set ref -> bool
    *
-   * Add all successor temps to the current set of live temps.
+   * Add all successor operands to the current set of live operands.
    *
-   * @param def a temp which is defined on the current line or NONE
+   * @param def an operand which is defined on the current line or NONE
    * @param f a function which goes from a label to the currently known set of
-   *        live variables at that line.
+   *        live operands at that line.
    * @param L a list of labels which the currently line can go to.
-   * @param set the set of live temps at the current line.
+   * @param set the set of live operands at the current line.
    * @return true if anything was added to the set
    *)
   fun add_succ _ nil _ = false
@@ -72,51 +73,51 @@ struct
     (* Recursively add in all other successors first *)
     val added = add_succ (def, f) L set
 
-    (* If our current line defines a temp, then we should not be adding that
+    (* If our current line defines an operand, then we should not be adding that
        temp to the list of live variables in the set. Generate a list of
        temps the current successor line will add to our set *)
     val succ_set =
       case def
-        of SOME(t) => (OperandSet.delete (!(f x), t) handle NotFound => !(f x))
-         | _     => !(f x)
+        of SOME t => (OS.delete (!(f x), t) handle NotFound => !(f x))
+         | _      => !(f x)
     val added_succ = add_uses succ_set set
   in added orelse added_succ end
 
-  (* process : (rule * OperandSet.set ref) list -> (label -> OperandSet.set ref)
+  (* process : (rule * OS.set ref) list -> (label -> OS.set ref)
    *           -> bool
    *
    * @param rule list a list of pairs of rules and corresponding currently
-   *        known TempSet.set references of interefering variables.
+   *        known OS.set references of interefering operands.
    * @param rule_fn the function which goes from a label to the currently known
    *        set of live variables for that function.
-   * @return true if any temp was ever added to any live set for any instruction
+   * @return true if any operand was ever added to any live set for any
+   *         instruction
    *)
   fun process (((uses, def, succ), set)::L) rule_fn = let
     (* Recursively process all other rules first (heuristically better) *)
     val changed = process L rule_fn
 
-    (* Extract all A.TEMP instances in the operands we use for this rule *)
-    val added_uses = add_uses (OperandSet.addList (OperandSet.empty, uses)) set
+    val added_uses = add_uses (OS.addList (OS.empty, uses)) set
     val added_succ = add_succ (def, rule_fn) succ set
   in
     changed orelse added_uses orelse added_succ
   end
   |  process _ _ = false
 
-  (* munge : (rule * OperandSet.set ref) list ->
-   *         (label -> OperandSet.set ref) -> unit
+  (* munge : (rule * OS.set ref) list ->
+   *         (label -> OS.set ref) -> unit
    *
    * Runs 'process' on the given list until process returns false.
    *)
   fun munge rulesets f =
     if process rulesets f then munge rulesets f else ()
 
-  (* compute : Assem.instr list -> OperandSet.set list
+  (* compute : Assem.instr list -> OS.set list
    *
    * Performs liveness analysis on the given list of instructions.
    * @param L the list of assembly instructions with temps
-   * @return a same-size list where each temp set corresponds to the list of
-   *         live variables at that instruction.
+   * @return a same-size list where each operand set corresponds to the list of
+   *         live operands at that instruction.
    *)
   fun compute L = let
     val labels = HT.mkTable (Label.hash, Label.equal)
@@ -129,16 +130,15 @@ struct
      * @return a list of pairs of labels and rules
      *)
     fun give_labels _ [] = []
-    |   give_labels i ((a as A.LABEL l)::L) = (HT.insert labels (l, i);
+      | give_labels i ((a as A.LABEL l)::L) = (HT.insert labels (l, i);
                                                (i, a)::(give_labels (i + 1) L))
-    |   give_labels i (a::L) = (i, a)::(give_labels (i + 1) L)
+      | give_labels i (a::L) = (i, a)::(give_labels (i + 1) L)
 
     val rules = List.map (rulegen (HT.lookup labels)) (give_labels 0 L)
-    val rulesets = List.map (fn rule => (rule, ref OperandSet.empty)) rules
+    val rulesets = List.map (fn rule => (rule, ref OS.empty)) rules
   in
     (munge rulesets (fn label =>
-       (#2 (List.nth (rulesets, label)))
-          handle Subscript => ref OperandSet.empty
+       (#2 (List.nth (rulesets, label))) handle Subscript => ref OS.empty
      ));
     List.map (fn (_, s) => !s) rulesets
   end
