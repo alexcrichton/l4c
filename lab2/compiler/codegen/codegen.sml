@@ -33,30 +33,10 @@ struct
    *)
   fun munch_exp d (T.CONST n) = [AS.MOV(d, AS.IMM(n))]
     | munch_exp d (T.TEMP t)  = [AS.MOV(d, AS.TEMP(t))]
-    | munch_exp d (T.BINOP (binop, e1, e2)) = munch_binop d (binop, e1, e2)
-
-  and munch_half oper (T.TEMP t) = (AS.TEMP t, [])
-    | munch_half (AS.DIV | AS.MOD | AS.CMP) (e as T.CONST n) = let
-        val t = AS.TEMP(Temp.new())
-      in (t, munch_exp t e) end
-    | munch_half _ (e as T.CONST n) = (AS.IMM n, [])
-    | munch_half oper e =
-        let val t = AS.TEMP(Temp.new()) in (t, munch_exp t e) end
-
-  (* munch_binop : AS.operand -> T.binop * T.exp * T.exp -> AS.instr list *)
-  (* munch_binop d (binop, e1, e2)
-   * generates instruction to achieve d <- e1 binop e2
-   * d must be TEMP(t) or REG(r)
-   *)
-  and munch_binop d (binop, e1, e2) =
-      let
+    | munch_exp d (T.BINOP (binop, e1, e2)) = let
         val oper = munch_op binop
         val (t1, t1instrs) = munch_half oper e1
         val (t2, t2instrs) = munch_half oper e2
-        fun eq_ops (AS.TEMP t1, AS.TEMP t2) = Temp.equals (t1, t2)
-          | eq_ops (AS.REG a, AS.REG b) = (a = b)
-          | eq_ops _ = false
-
         val instrs =
           case binop
             of (T.DIV | T.MOD) =>
@@ -64,20 +44,9 @@ struct
                   AS.BINOP (oper, AS.REG AS.EAX, t2),
                   AS.MOV (d, AS.REG (if binop = T.DIV then AS.EAX else AS.EDX))]
              | (T.RSH | T.LSH) =>
-                if eq_ops (d, t2) then let val t = AS.TEMP (Temp.new()) in
-                   [AS.MOV (t, t1), AS.MOV (AS.REG AS.ECX, t2),
-                    AS.BINOP (oper, t, AS.REG AS.ECX), AS.MOV (d, t)]
-                  end
-                else
                   [AS.MOV (d, t1), AS.MOV (AS.REG AS.ECX, t2),
                    AS.BINOP (oper, d, AS.REG AS.ECX)]
-             | _ => if not(eq_ops (d, t2)) then
-                      [AS.MOV (d, t1), AS.BINOP (oper, d, t2)]
-                    else if binop <> T.SUB then
-                      [AS.MOV (d, t2), AS.BINOP (oper, d, t1)]
-                    else let val t = AS.TEMP (Temp.new()) in
-                      [AS.MOV (t, t1), AS.BINOP (oper, t, t2), AS.MOV (d, t)]
-                    end
+             | _ => [AS.MOV (d, t1), AS.BINOP (oper, d, t2)]
       in
         t1instrs @ t2instrs @ (case binop
            of T.LT  => instrs @ [AS.MOVFLAG (d, AS.LT)]
@@ -87,11 +56,30 @@ struct
             | _     => instrs)
       end
 
+  and munch_half (AS.DIV | AS.CMP | AS.MOD) e = let
+        val t = AS.TEMP (Temp.new())
+      in
+        (t, munch_exp t e)
+      end
+    | munch_half _ (T.CONST n) = (AS.IMM n, [])
+    | munch_half _ e = let val t = AS.TEMP (Temp.new()) in
+        (t, munch_exp t e)
+      end
+
+  (* munch_conditional : Label.label -> T.exp -> AS.instr list
+   *
+   * Given a destination label and an expression, computes the instructions
+   * such that the label is jumped to if the expression is true.
+   *
+   * @param dest the destination label if the expression is true
+   * @param exp  the IR expression to be evaluated
+   * @return the instruction list to jump if necessary
+   *)
   and munch_conditional dest (T.CONST w) =
         if Word32Signed.ZERO = w then [] else [AS.JMP(dest, NONE)]
     | munch_conditional dest (T.TEMP n) =
         [AS.BINOP (AS.CMP, AS.TEMP n, AS.IMM Word32Signed.ZERO),
-         AS.JMP(dest, SOME(AS.NEQ))]
+         AS.JMP(dest, SOME AS.NEQ)]
     | munch_conditional dest (T.BINOP (oper, e1, e2)) = let
         val (t1, t1instrs) = munch_half AS.CMP e1
         val (t2, t2instrs) = munch_half AS.CMP e2

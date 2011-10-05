@@ -2,6 +2,8 @@ Group is
   $/basis.cm
   $/smlnj-lib.cm
   $/ml-yacc-lib.cm
+  $smlnj/MLRISC/Graphs.cm
+  $smlnj/MLRISC/Lib.cm
 
   util/mark.sml
   util/flag.sml
@@ -32,6 +34,5 @@ Group is
   codegen/codegen.sml 
   codegen/liveness.sml
   codegen/allocation.sml
-  codegen/graph.sml
 
   top/top.sml
