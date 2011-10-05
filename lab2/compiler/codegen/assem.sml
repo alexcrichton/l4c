@@ -124,12 +124,6 @@ struct
     | compare (TEMP _, _) = LESS
     | compare (_, TEMP _) = GREATER
 
-  (* Commonly used registers *)
-  val eax  = REG EAX
-  val edx  = REG EDX
-  val ecx  = REG ECX
-  val r15d = REG R15D
-
   (* format_reg : reg -> string
    *
    * @param reg the register to convert to a name
@@ -250,6 +244,8 @@ struct
     | format_instr (LABEL l) = Label.name l ^ ":"
     | format_instr (COMMENT str) = "/* " ^ str ^ "*/"
     | format_instr (RET) = "ret"
+
+  val r15d = REG R15D
 
   (* instr_expand : instr -> instr list
    *
