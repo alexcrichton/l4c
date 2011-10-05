@@ -189,7 +189,7 @@ struct
    *)
   fun format_operand8 (REG r) = format_reg8 r
     | format_operand8 (IMM n) =
-        format_operand (IMM (Word32.andb (n, Word32.fromInt 31)))
+        format_operand (IMM (Word32.andb (n, Word32.fromInt 255)))
     | format_operand8 oper    = format_operand oper
 
   (* format_condition : condition option -> string
@@ -244,27 +244,8 @@ struct
    * @param I the instruction to expand
    * @return L a list of instructions which should be passed to format_intstr
    *)
-  fun instr_expand (*(oper as BINOP (i as (DIV | MOD), d, s)) = [
-          MOV (eax, d), ASM "cltd", oper, MOV (d, if i = DIV then eax else edx)]
-      (* Assume the destination of all binary operations is in a register *)
-      | instr_expand*) (BINOP (oper, d as REG (STACK _), s)) =
-        [MOV (r15d, d)] @ instr_expand (BINOP (oper, r15d, s)) @
-        [MOV (d, r15d)]
-    | instr_expand (BINOP (sh as (LSH | RSH), REG ECX, s)) = [
-        MOV (r15d, ecx), MOV (ecx, s), BINOP (sh, r15d, ecx), MOV (ecx, r15d)]
-    | instr_expand (BINOP (sh as (LSH | RSH), d, s as REG _)) =
-        [MOV (ecx, s), BINOP (sh, d, ecx)]
-    (* Sometimes we can clobber the destination, but not if one of the operands
-       is also the destination. Another special case is a form of subtraction
-       where we can't override one of the operands. To get around this, we
-       perform subtraction the other way and then negate the result. *)
-    (*| instr_expand (binop as BINOP (oper, REG d, s1, REG s2)) =
-        if d = s2 andalso oper = SUB then [
-          BINOP (SUB, REG d, REG s2, s1),
-          ASM ("neg " ^ format_operand (REG d))]
-        else if d = s2 then [BINOP (oper, REG d, REG s2, s1)]
-        else [MOV (REG d, s1), binop]*)
-    (*| instr_expand (inst as BINOP (oper, d, s1, s2)) = [MOV (d, s1), inst]*)
+  fun instr_expand (BINOP (oper, d as REG (STACK _), s)) =
+        [MOV (r15d, d), BINOP (oper, r15d, s), MOV (d, r15d)]
     | instr_expand (MOVFLAG (oper, cond)) = let
         val instr = case cond of LT => "setl" | LTE => "setle"
                                | EQ => "sete" | NEQ => "setne"
