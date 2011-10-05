@@ -1,13 +1,7 @@
-(* L2 Compiler
+(* L3 Compiler
  * Lexer
- * Author: Kaustuv Chaudhuri <kaustuv+@cs.cmu.edu>
- * Modified: Frank Pfenning <fp@cs.cmu.edu>
- *
- * Modified: Anand Subramanian <asubrama@andrew.cmu.edu> Fall 2010
- * Lexes forward compatible fragment of C0
- *
- * Update this file to lex the necessary keywords and other tokens
- * in order to make the grammar forward compatible with C0.
+ * Author: Alex Crichton <acrichto@andrew.cmu.edu>
+ * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
 
 structure A = Ast
@@ -56,7 +50,7 @@ in
 end
 
 %%
-%header (functor L1LexFn(structure Tokens : L2_TOKENS));
+%header (functor L1LexFn(structure Tokens : L3_TOKENS));
 %full
 %s COMMENT COMMENT_LINE;
 

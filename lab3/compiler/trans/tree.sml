@@ -1,4 +1,4 @@
-(* L2 Compiler
+(* L3 Compiler
  * IR Tree
  * Author: Alex Crichton <acrichto@andrew.cmu.edu>
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>

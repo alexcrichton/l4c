@@ -1,10 +1,7 @@
-(* L2 Compiler
- * L2 grammar
- * Author: Kaustuv Chaudhuri <kaustuv+@cs.cmu.edu>
- * Modified: Frank Pfenning <fp@cs.cmu.edu>
- *
- * Modified: Anand Subramanian <asubrama@andrew.cmu.edu> Fall 2010
- * Now conforms to the L1 fragment of C0
+(* L3 Compiler
+ * L3 grammar
+ * Author: Alex Crichton <acrichto@andrew.cmu.edu>
+ * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
 
 structure A = Ast
@@ -92,7 +89,7 @@ fun convert_exp2 (exp1, left) (SOME binop, exp2, NONE, right) =
 %eop EOF       (* which terminal ends parsing? *)
 %noshift EOF   (* we should never shift an EOF *)
 
-%name L2
+%name L3
 
 (* The precedence grows down! *)
 %right ASNOP

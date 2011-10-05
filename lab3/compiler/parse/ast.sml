@@ -1,15 +1,7 @@
-(* L2 Compiler
+(* L3 Compiler
  * Abstract Syntax Trees
- * Author: Alex Vaynberg
- * Modified: Frank Pfenning <fp@cs.cmu.edu>
- *
- * Modified: Anand Subramanian <asubrama@andrew.cmu.edu> Fall 2010
- * Forward compatible fragment of C0
- *
- * Consider using smlnj's pretty printing library --
- * you might find it useful to deal with indentation, spacing, etc.
- * This is especially useful for large programs when string concatenation
- * may get very slow.
+ * Author: Alex Crichton <acrichto@andrew.cmu.edu>
+ * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
 
 signature AST =

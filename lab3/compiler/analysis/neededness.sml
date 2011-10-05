@@ -1,4 +1,4 @@
-(* L2 Compiler
+(* L3 Compiler
  * Neededness Analysis / Dead Code Elimination
  * Author: Alex Crichton <acrichto@andrew.cmu.edu>
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
@@ -49,7 +49,7 @@ struct
     | rulegen _ _ = raise Fail "Inalid instruction"
 
   (* lookup_needed : label list -> (label -> TS.set ref) -> TS.set -> TS.set
-   * 
+   *
    * Returns the union of the set of all needed variables for the list of
    * labels given.
    *)

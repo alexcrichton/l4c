@@ -1,4 +1,4 @@
-(* L2 Compiler
+(* L3 Compiler
  * Helper for compilation
  * Author: Kaustuv Chaudhuri <kaustuv+@cs.cmu.edu>
  *)
