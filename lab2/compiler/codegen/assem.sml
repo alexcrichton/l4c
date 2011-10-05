@@ -86,7 +86,7 @@ struct
     | reg_num R12D = 11
     | reg_num R13D = 12
     | reg_num R14D = 13
-    | reg_num (STACK n) = n - 13
+    | reg_num (STACK n) = n + 13
     | reg_num R15D = raise Fail "r15d is a scary register"
 
   (* num_reg : int -> reg
