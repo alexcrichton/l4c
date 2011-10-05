@@ -151,11 +151,14 @@ struct
    * @param reg the register to convert to a name
    * @return the string representation of the lowest byte of the given
    *         register in x86
+   * @see http://msdn.microsoft.com/en-us/library/ff561499(v=vs.85).aspx
    *)
   fun format_reg8 EAX  = "%al"
     | format_reg8 EBX  = "%bl"
     | format_reg8 ECX  = "%cl"
     | format_reg8 EDX  = "%dl"
+    | format_reg8 ESI  = "%sil"
+    | format_reg8 EDI  = "%dil"
     | format_reg8 R8D  = "%r8b"
     | format_reg8 R9D  = "%r9b"
     | format_reg8 R10D = "%r10b"
