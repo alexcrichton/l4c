@@ -1,0 +1,226 @@
+(* L2 Compiler
+ * L2 grammar
+ * Author: Kaustuv Chaudhuri <kaustuv+@cs.cmu.edu>
+ * Modified: Frank Pfenning <fp@cs.cmu.edu>
+ *
+ * Modified: Anand Subramanian <asubrama@andrew.cmu.edu> Fall 2010
+ * Now conforms to the L1 fragment of C0
+ *)
+
+structure A = Ast
+
+(* for simplicity, we only mark expressions, not statements *)
+
+(* mark e with region (left, right) in source file *)
+fun mark (e, (left, right)) = A.Marked (Mark.mark' (e, ParseState.ext (left, right)))
+fun marks (s, (left, right)) = A.Markeds (Mark.mark' (s, ParseState.ext (left, right)))
+
+(* expand_asnop (id, "op=", exp) region = "id = id op exps"
+ * or = "id = exp" if asnop is "="
+ * syntactically expands a compound assignment operator
+ *)
+fun expand_asnop (id, NONE, exp) (left, right) =
+      A.Assign(id, exp)
+  | expand_asnop (id, SOME(oper), exp) (left, right) =
+      A.Assign(id, mark(A.BinaryOp(oper, A.Var(id), exp), (left, right)))
+
+fun check_main (sym, lpos, rpos) prog =
+      if (Symbol.name sym) = "main" then
+        prog
+      else
+        (ErrorMsg.error (ParseState.ext (lpos, rpos))
+                         "Function must be called main"; prog)
+
+fun convert_exp2 (exp1, left) (SOME binop, exp2, NONE, right) =
+      mark (A.BinaryOp(binop, exp1, exp2), (left, right))
+  | convert_exp2 (exp1, left) (NONE, exp2, SOME exp3, right) =
+      mark (A.Ternary(exp1, exp2, exp3), (left, right))
+  | convert_exp2 _ _ = raise Fail "Invalid input to convert_exp2!"
+
+%%
+%header (functor L1LrValsFn (structure Token : TOKEN))
+
+%term
+   EOF
+ | SEMI
+ | INTCONST of Word32.word
+ | IDENT    of Symbol.symbol
+ | TRUE | FALSE
+ | INT | BOOL
+ | PLUS | MINUS | STAR | SLASH | PERCENT
+ | PLUSPLUS | MINUSMINUS
+ | AND | PIPE | BANG | CARET | LSHIFT | RSHIFT | TILDE
+ | ANDAND | PIPEPIPE | EQUALS | NEQUALS
+ | ASSIGN | PLUSEQ | MINUSEQ | STAREQ | SLASHEQ | PERCENTEQ
+ | XOREQ | ANDEQ | OREQ | LSHIFTEQ | RSHIFTEQ
+ | LESS | LESSEQ | GREATER | GREATEREQ
+ | LBRACE | RBRACE
+ | LPAREN | RPAREN
+ | IF | ELSE | WHILE | FOR | CONTINUE | BREAK | RETURN
+ | QUESTION | COLON
+ | UNARY | ASNOP
+(* UNARY and ASNOP are dummy terminals.
+ * We need dummy terminals if we wish to assign a precedence
+ * to a rule that does not correspond to the precedence of
+ * the rightmost terminal in that rule.
+ * Implicit in this is that precedence can only be inferred
+ * terminals. Therefore, don't try to assign precedence to "rules"
+ *)
+
+%nonterm
+   program  of A.program
+ | stmts    of A.stm
+ | decl     of A.stm
+ | stmt     of A.stm
+ | lvalue   of A.ident
+ | simp     of A.stm
+ | control  of A.stm
+ | block    of A.stm
+ | exp      of A.exp
+ | asnop    of A.binop option
+ | unop     of A.unop
+ | postop   of A.binop
+ | step     of A.stm
+ | simpopt  of A.stm
+ | elseopt  of A.stm
+ | typ      of A.typ
+ | exp2     of A.binop option * A.exp * A.exp option * int
+
+%verbose       (* print summary of errors *)
+%pos int       (* positions *)
+%start program (* what is the top-most non-terminal expected to be ? *)
+%eop EOF       (* which terminal ends parsing? *)
+%noshift EOF   (* we should never shift an EOF *)
+
+%name L2
+
+(* The precedence grows down! *)
+%right ASNOP
+%right QUESTION COLON
+%left PIPEPIPE
+%left ANDAND
+%left PIPE
+%left CARET
+%left AND
+%left EQUALS NEQUALS
+%left LESS LESSEQ GREATER GREATEREQ
+%left LSHIFT RSHIFT
+%left PLUS MINUS
+%left STAR SLASH PERCENT
+%right UNARY
+%left LPAREN
+
+%%
+
+(* note that MAIN is not intended to be a keyword.
+ * the current rule is an expedient hack for forward compatability *)
+program    : INT IDENT LPAREN RPAREN block
+                                      (check_main (IDENT, IDENTleft, IDENTright)
+                                                  block)
+
+block      : LBRACE stmts RBRACE        (stmts)
+
+typ        : INT                        (A.INT)
+           | BOOL                       (A.BOOL)
+
+decl       : typ IDENT                  (marks (A.Declare (IDENT, typ, A.Nop),
+                                                (typleft, IDENTright)))
+           | typ IDENT ASSIGN exp       (marks (A.Declare (IDENT, typ,
+                                                  A.Assign(IDENT, exp)),
+                                                (typleft, expright)))
+
+stmts      :                                 (A.Nop)
+           | stmt stmts                      (A.Seq (stmt, stmts))
+
+stmt       : simp SEMI                  (marks (simp, (simpleft, simpright)))
+           | control                    (marks (control, (controlleft,
+                                                          controlright)))
+           | block                      (marks (block, (blockleft, blockright)))
+
+simp       : lvalue asnop exp %prec ASNOP
+                                       (expand_asnop (lvalue, asnop, exp)
+                                                     (lvalueleft, expright))
+           | lvalue postop %prec UNARY (A.Assign(lvalue,
+                                        mark (A.BinaryOp(postop, A.Var(lvalue),
+                                                A.Const(Word32.fromInt 1)),
+                                             (lvalueleft, lvalueright))))
+           | decl                      (decl)
+           | exp                       (A.Express exp)
+
+step       :                           (A.Nop)
+           | lvalue asnop exp %prec ASNOP
+                                       (expand_asnop (lvalue, asnop, exp)
+                                                     (lvalueleft, expright))
+           | lvalue postop %prec UNARY  (A.Assign(lvalue,
+                                        mark (A.BinaryOp(postop, A.Var(lvalue),
+                                                A.Const(Word32.fromInt 1)),
+                                             (lvalueleft, lvalueright))))
+
+simpopt    :                           (A.Nop)
+           | simp                      (marks (simp, (simpleft, simpright)))
+
+elseopt    :                           (A.Nop)
+           | ELSE stmt                 (marks (stmt, (ELSEleft, stmtright)))
+
+control    : IF LPAREN exp RPAREN stmt elseopt  (A.If(exp, stmt, elseopt))
+           | WHILE LPAREN exp RPAREN stmt       (A.While (exp, stmt))
+           | FOR LPAREN simpopt SEMI exp SEMI step RPAREN stmt
+                                        (A.For (simpopt, exp, step, stmt))
+           | CONTINUE SEMI   (marks (A.Continue, (CONTINUEleft, CONTINUEright)))
+           | BREAK SEMI      (marks (A.Break, (BREAKleft, BREAKright)))
+           | RETURN exp SEMI (marks (A.Return exp, (RETURNleft, expright)))
+
+lvalue     : IDENT                      (IDENT)
+           | LPAREN lvalue RPAREN       (lvalue)
+
+exp        : LPAREN exp RPAREN          (exp)
+           | INTCONST                   (mark (A.Const(INTCONST),
+                                               (INTCONSTleft,INTCONSTright)))
+           | IDENT                      (mark (A.Var(IDENT),
+                                               (IDENTleft,IDENTright)))
+           | TRUE                       (mark (A.Bool(true),
+                                               (TRUEleft, TRUEright)))
+           | FALSE                      (mark (A.Bool(false),
+                                               (FALSEleft, FALSEright)))
+           | unop exp %prec UNARY       (mark (A.UnaryOp(unop, exp),
+                                               (unopleft, expright)))
+           | exp exp2                   (convert_exp2 (exp, expleft) exp2)
+
+exp2       : PLUS exp         (SOME(A.PLUS), exp, NONE, expright)
+           | MINUS exp        (SOME(A.MINUS), exp, NONE, expright)
+           | STAR exp         (SOME(A.TIMES), exp, NONE, expright)
+           | SLASH exp        (SOME(A.DIVIDEDBY), exp, NONE, expright)
+           | PERCENT exp      (SOME(A.MODULO), exp, NONE, expright)
+           | LESS exp         (SOME(A.LESS), exp, NONE, expright)
+           | LESSEQ exp       (SOME(A.LESSEQ), exp, NONE, expright)
+           | GREATER exp      (SOME(A.GREATER), exp, NONE, expright)
+           | GREATEREQ exp    (SOME(A.GREATEREQ), exp, NONE, expright)
+           | EQUALS exp       (SOME(A.EQUALS), exp, NONE, expright)
+           | NEQUALS exp      (SOME(A.NEQUALS), exp, NONE, expright)
+           | ANDAND exp       (SOME(A.LAND), exp, NONE, expright)
+           | PIPEPIPE exp     (SOME(A.LOR), exp, NONE, expright)
+           | AND exp          (SOME(A.BAND), exp, NONE, expright)
+           | CARET exp        (SOME(A.XOR), exp, NONE, expright)
+           | PIPE exp         (SOME(A.BOR), exp, NONE, expright)
+           | LSHIFT exp       (SOME(A.LSHIFT), exp, NONE, expright)
+           | RSHIFT exp       (SOME(A.RSHIFT), exp, NONE, expright)
+           | QUESTION exp COLON exp     (NONE, exp1, SOME exp2, exp2right)
+
+asnop      : ASSIGN                     (NONE)
+           | PLUSEQ                     (SOME(A.PLUS))
+           | MINUSEQ                    (SOME(A.MINUS))
+           | STAREQ                     (SOME(A.TIMES))
+           | SLASHEQ                    (SOME(A.DIVIDEDBY))
+           | PERCENTEQ                  (SOME(A.MODULO))
+           | ANDEQ                      (SOME(A.BAND))
+           | XOREQ                      (SOME(A.XOR))
+           | OREQ                       (SOME(A.BOR))
+           | LSHIFTEQ                   (SOME(A.LSHIFT))
+           | RSHIFTEQ                   (SOME(A.RSHIFT))
+
+unop       : BANG                       (A.BANG)
+           | TILDE                      (A.INVERT)
+           | MINUS                      (A.NEGATIVE)
+
+postop     : PLUSPLUS                   (A.PLUS)
+           | MINUSMINUS                 (A.MINUS)
