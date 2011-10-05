@@ -67,6 +67,12 @@ struct
 
   type ord_key = operand
 
+  (* reg_num : reg -> int
+   *
+   * Converts a register to it's specified number
+   * @param reg the register to convert
+   * @return the number corresponding to this register
+   *)
   fun reg_num EAX = 1
     | reg_num EBX = 2
     | reg_num ECX = 3
@@ -83,6 +89,12 @@ struct
     | reg_num (STACK n) = n - 13
     | reg_num R15D = raise Fail "r15d is a scary register"
 
+  (* num_reg : int -> reg
+   *
+   * Converts an integer to it's specified register
+   * @param x the number of the register
+   * @return the register corresponding to this number
+   *)
   fun num_reg 1  = EAX
     | num_reg 2  = EBX
     | num_reg 3  = ECX
@@ -95,10 +107,15 @@ struct
     | num_reg 10 = R11D
     | num_reg 11 = R12D
     | num_reg 12 = R13D
-    | num_reg 13 = R14D
-    (*| num_reg 14 = R15D*) (* TODO: use r15d if only 14 regs *)
+    | num_reg 13 = R14D (* TODO: use r15d if only 14 regs *)
     | num_reg x  = STACK (x - 13)
 
+  (* compare : (reg * reg) -> order
+   *
+   * Defines an ordering of registers so they can be inserted into sets.
+   * @param (r1, r2) the register pair to compare
+   * @return the comparison of r1 to r2
+   *)
   fun compare (REG r1, REG r2) = Int.compare (reg_num r1, reg_num r2)
     | compare (TEMP t1, TEMP t2) = Temp.compare (t1, t2)
     | compare (IMM w1, IMM w2) = Word32.compare (w1, w2)
