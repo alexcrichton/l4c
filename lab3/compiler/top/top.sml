@@ -145,8 +145,6 @@ struct
   end
     handle ErrorMsg.Error => ( say "Compilation failed" ; OS.Process.failure )
            | EXIT => OS.Process.failure
-           | Allocation.AllocationExn s => (say("Allocation Exception: " ^ s);
-                                            OS.Process.failure)
            | Fail s => (say("Fail: " ^ s); OS.Process.failure)
            | e => (say ("Unrecognized exception " ^ exnName e);
                    OS.Process.failure)
