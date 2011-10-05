@@ -30,7 +30,12 @@ sig
    | DIRECTIVE of string
    | COMMENT of string
 
+  type ord_key = operand
+
   val format : instr -> string
+  val compare : operand * operand -> order
+  val reg_num : reg -> int
+  val num_reg : int -> reg
 end
 
 structure Assem :> ASSEM =
@@ -60,11 +65,53 @@ struct
    | DIRECTIVE of string
    | COMMENT of string
 
-   (* Commonly used registers *)
-   val eax  = REG EAX
-   val edx  = REG EDX
-   val ecx  = REG ECX
-   val r15d = REG R15D
+  type ord_key = operand
+
+  fun reg_num EAX = 1
+    | reg_num EBX = 2
+    | reg_num ECX = 3
+    | reg_num EDX = 4
+    | reg_num EDI = 5
+    | reg_num ESI = 6
+    | reg_num R8D = 7
+    | reg_num R9D = 8
+    | reg_num R10D = 9
+    | reg_num R11D = 10
+    | reg_num R12D = 11
+    | reg_num R13D = 12
+    | reg_num R14D = 13
+    | reg_num (STACK n) = n - 13
+    | reg_num R15D = raise Fail "r15d is a scary register"
+
+  fun num_reg 1  = EAX
+    | num_reg 2  = EBX
+    | num_reg 3  = ECX
+    | num_reg 4  = EDX
+    | num_reg 5  = EDI
+    | num_reg 6  = ESI
+    | num_reg 7  = R8D
+    | num_reg 8  = R9D
+    | num_reg 9  = R10D
+    | num_reg 10 = R11D
+    | num_reg 11 = R12D
+    | num_reg 12 = R13D
+    | num_reg 13 = R14D
+    (*| num_reg 14 = R15D*) (* TODO: use r15d if only 14 regs *)
+    | num_reg x  = STACK (x - 13)
+
+  fun compare (REG r1, REG r2) = Int.compare (reg_num r1, reg_num r2)
+    | compare (TEMP t1, TEMP t2) = Temp.compare (t1, t2)
+    | compare (IMM w1, IMM w2) = Word32.compare (w1, w2)
+    | compare (IMM _, _)  = LESS
+    | compare (_, IMM _)  = GREATER
+    | compare (TEMP _, _) = LESS
+    | compare (_, TEMP _) = GREATER
+
+  (* Commonly used registers *)
+  val eax  = REG EAX
+  val edx  = REG EDX
+  val ecx  = REG ECX
+  val r15d = REG R15D
 
   (* format_reg : reg -> string
    *
@@ -170,7 +217,7 @@ struct
       format_binop oper ^ " " ^ (if oper = LSH orelse oper = RSH then
                                  format_operand8 s else format_operand s) ^
       (if oper = DIV orelse oper = MOD then "" else ", " ^ format_operand d)
-    | format_instr (MOV(TEMP _, _)) = ""
+    (*| format_instr (MOV(TEMP _, _)) = ""*)
     (* If we're moving between the same registers, then no need to format
        the result, we can optimize the instruction away *)
     | format_instr (MOV(REG d, REG s)) =
@@ -197,10 +244,10 @@ struct
    * @param I the instruction to expand
    * @return L a list of instructions which should be passed to format_intstr
    *)
-  fun instr_expand (oper as BINOP (i as (DIV | MOD), d, s)) = [
-        MOV (eax, d), ASM "cltd", oper, MOV (d, if i = DIV then eax else edx)]
-    (* Assume the destination of all binary operations is in a register *)
-    | instr_expand (BINOP (oper, d as REG (STACK _), s)) =
+  fun instr_expand (*(oper as BINOP (i as (DIV | MOD), d, s)) = [
+          MOV (eax, d), ASM "cltd", oper, MOV (d, if i = DIV then eax else edx)]
+      (* Assume the destination of all binary operations is in a register *)
+      | instr_expand*) (BINOP (oper, d as REG (STACK _), s)) =
         [MOV (r15d, d)] @ instr_expand (BINOP (oper, r15d, s)) @
         [MOV (d, r15d)]
     | instr_expand (BINOP (sh as (LSH | RSH), REG ECX, s)) = [
@@ -258,3 +305,5 @@ struct
       end
 
 end
+
+structure OperandSet = BinarySetFn(Assem)

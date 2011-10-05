@@ -53,16 +53,31 @@ struct
         val oper = munch_op binop
         val (t1, t1instrs) = munch_half oper e1
         val (t2, t2instrs) = munch_half oper e2
-        fun eq_ops (AS.TEMP t1, AS.TEMP t2) = Temp.equals (t2, t2)
+        fun eq_ops (AS.TEMP t1, AS.TEMP t2) = Temp.equals (t1, t2)
           | eq_ops (AS.REG a, AS.REG b) = (a = b)
           | eq_ops _ = false
 
         val instrs =
-          if not(eq_ops (d, t2)) then [AS.MOV (d, t1), AS.BINOP (oper, d, t2)]
-          else if binop <> T.SUB then [AS.MOV (d, t2), AS.BINOP (oper, d, t1)]
-          else let val t = AS.TEMP (Temp.new()) in
-            [AS.MOV (t, t1), AS.BINOP (oper, t, t2), AS.MOV (d, t)]
-          end
+          case binop
+            of (T.DIV | T.MOD) =>
+                 [AS.MOV (AS.REG AS.EAX, t1), AS.ASM "cltd",
+                  AS.BINOP (oper, AS.REG AS.EAX, t2),
+                  AS.MOV (d, AS.REG (if binop = T.DIV then AS.EAX else AS.EDX))]
+             | (T.RSH | T.LSH) =>
+                if eq_ops (d, t2) then let val t = AS.TEMP (Temp.new()) in
+                   [AS.MOV (t, t1), AS.MOV (AS.REG AS.ECX, t2),
+                    AS.BINOP (oper, t, AS.REG AS.ECX), AS.MOV (d, t)]
+                  end
+                else
+                  [AS.MOV (d, t1), AS.MOV (AS.REG AS.ECX, t2),
+                   AS.BINOP (oper, d, AS.REG AS.ECX)]
+             | _ => if not(eq_ops (d, t2)) then
+                      [AS.MOV (d, t1), AS.BINOP (oper, d, t2)]
+                    else if binop <> T.SUB then
+                      [AS.MOV (d, t2), AS.BINOP (oper, d, t1)]
+                    else let val t = AS.TEMP (Temp.new()) in
+                      [AS.MOV (t, t1), AS.BINOP (oper, t, t2), AS.MOV (d, t)]
+                    end
       in
         t1instrs @ t2instrs @ (case binop
            of T.LT  => instrs @ [AS.MOVFLAG (d, AS.LT)]

@@ -5,21 +5,21 @@
  * Modified: Frank Pfenning <fp@cs.cmu.edu>
  *)
 
-signature TEMP = 
+signature TEMP =
 sig
   type temp
   type ord_key = temp
 
-  val reset : unit -> unit	(* resets temp numbering *)
-  val new : unit -> temp	(* returns a unique new temp *)
-  val name : temp -> string	(* returns the name of a temp *)
+  val reset : unit -> unit  (* resets temp numbering *)
+  val new : unit -> temp  (* returns a unique new temp *)
+  val name : temp -> string  (* returns the name of a temp *)
   val number : temp -> int
   val hash : temp -> word (* returns the hashcode of this temp *)
   val equals : temp * temp -> bool (* checks whether the temps are in order *)
   val compare : temp * temp -> order (* comparison function *)
 end
 
-structure Temp :> TEMP = 
+structure Temp :> TEMP =
 struct
   type temp = int
   type ord_key = temp
@@ -39,6 +39,8 @@ struct
   fun hash t = Word.fromInt t
 
   fun compare ts = Int.compare ts
-  
+
   fun equals ts = (compare ts = EQUAL)
 end
+
+structure TempSet = BinarySetFn(Temp)

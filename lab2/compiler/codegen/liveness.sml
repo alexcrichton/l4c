@@ -4,13 +4,9 @@
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
 
-structure TempSet = BinarySetFn(Temp)
-
 signature LIVENESS =
 sig
-  val compute : Assem.instr list -> (TempSet.set * Assem.operand list) list
-
-  exception BadInstruction of Assem.instr
+  val compute : Assem.instr list -> OperandSet.set list
 end
 
 structure Liveness :> LIVENESS =
@@ -19,16 +15,14 @@ struct
   structure A = Assem
   structure HT = HashTable
 
-  type temp  = Temp.temp
   type label = int
-  exception BadInstruction of Assem.instr
 
   (* 3-tuple where the elements are:
    *    A.operand list - all x for use(l, x)
-   *    temp option - SOME x if def(l, x), or NONE
+   *    A.operand option - SOME x if def(l, x), or NONE
    *    label list - all l' where succ(l, l')
    *)
-  type rule = A.operand list * temp option * label list
+  type rule = A.operand list * A.operand option * label list
 
   (* rulegen : (A.label -> label) -> (label * Assem.instr) -> rule
    *
@@ -36,34 +30,33 @@ struct
    * @param i the instruction to generate a rule for
    * @return a rule representing the current instruction
    *)
-  fun rulegen f (l, A.BINOP(_, d as A.TEMP t, s)) = ([d, s], SOME t, [l + 1])
-  |   rulegen f (l, A.BINOP(_, d, s)) = ([d, s], NONE, [l + 1])
-  |   rulegen f (l, A.MOV(A.TEMP d, s)) = ([s], SOME d, [l + 1])
-  |   rulegen f (l, A.MOV(A.REG _, s)) = ([s], NONE, [l + 1])
-  |   rulegen f (l, A.MOVFLAG(A.TEMP d, _)) = ([], SOME d, [l + 1])
-  |   rulegen f (l, A.MOVFLAG(A.REG _, _)) = ([], NONE, [l + 1])
-  |   rulegen f (l, A.JMP (lbl, _)) = ([], NONE, [f lbl, l + 1])
-  |   rulegen f (l, A.DIRECTIVE _) = ([], NONE, [l + 1])
-  |   rulegen f (l, A.COMMENT _) = ([], NONE, [l + 1])
-  |   rulegen f (l, A.RET) = ([], NONE, [])
-  |   rulegen f (l, A.LABEL _) = ([], NONE, [l + 1])
-  |   rulegen f (_, i) = raise BadInstruction i
+  fun rulegen f (l, A.BINOP(_, d, s)) = ([d, s], SOME d, [l + 1])
+    | rulegen f (l, A.MOV(d, s)) = ([s], SOME d, [l + 1])
+    | rulegen f (l, A.MOVFLAG(d, _)) = ([], SOME d, [l + 1])
+    | rulegen f (l, A.JMP (lbl, _)) = ([], NONE, [f lbl, l + 1])
+    | rulegen f (l, A.DIRECTIVE _) = ([], NONE, [l + 1])
+    | rulegen f (l, A.COMMENT _) = ([], NONE, [l + 1])
+    | rulegen f (l, A.RET) = ([], NONE, [])
+    | rulegen f (l, A.LABEL _) = ([], NONE, [l + 1])
+    | rulegen f (l, A.ASM s) =
+        if s = "cltd" then ([A.REG A.EDX], SOME(A.REG A.EDX), [l + 1])
+        else ([], NONE, [l + 1])
 
-  (* add_uses : temp list -> TempSet ref -> bool
+  (* add_uses : OperandSet.set -> OperandSet.set ref -> bool
    *
    * @param L a list of temps to add to the set
    * @param set the set of temps to add to
    * @return true if any temp was added
    *)
   fun add_uses L set = let
-    val set' = TempSet.addList (!set, L)
+    val set' = OperandSet.union (!set, L)
   in
-    if TempSet.numItems(set') = TempSet.numItems (!set) then false
+    if OperandSet.numItems(set') = OperandSet.numItems (!set) then false
     else (set := set'; true)
   end
 
-  (* add_succ : (temp option * (label -> TempSet ref)) -> label list
-   *             -> TempSet ref -> bool
+  (* add_succ : (temp option * (label -> OperandSet.set ref)) -> label list
+   *             -> OperandSet.set ref -> bool
    *
    * Add all successor temps to the current set of live temps.
    *
@@ -75,20 +68,21 @@ struct
    * @return true if anything was added to the set
    *)
   fun add_succ _ nil _ = false
-  |   add_succ (def, f) (x::L) set = let
+    | add_succ (def, f) (x::L) set = let
     (* Recursively add in all other successors first *)
     val added = add_succ (def, f) L set
 
     (* If our current line defines a temp, then we should not be adding that
        temp to the list of live variables in the set. Generate a list of
        temps the current successor line will add to our set *)
-    val succ_set = case def of
-      SOME(t) => (TempSet.delete (!(f x), t) handle NotFound => !(f x))
-      | _     => !(f x)
-    val added_succ = add_uses (TempSet.listItems succ_set) set
+    val succ_set =
+      case def
+        of SOME(t) => (OperandSet.delete (!(f x), t) handle NotFound => !(f x))
+         | _     => !(f x)
+    val added_succ = add_uses succ_set set
   in added orelse added_succ end
 
-  (* process : (rule * TempSet.set ref) list -> (label -> TempSet.set ref)
+  (* process : (rule * OperandSet.set ref) list -> (label -> OperandSet.set ref)
    *           -> bool
    *
    * @param rule list a list of pairs of rules and corresponding currently
@@ -102,23 +96,22 @@ struct
     val changed = process L rule_fn
 
     (* Extract all A.TEMP instances in the operands we use for this rule *)
-    val temp_uses = List.foldl (fn (A.TEMP t, L) => t::L | (_, L)  => L)
-                               [] uses
-    val added_uses = add_uses temp_uses set
+    val added_uses = add_uses (OperandSet.addList (OperandSet.empty, uses)) set
     val added_succ = add_succ (def, rule_fn) succ set
   in
     changed orelse added_uses orelse added_succ
   end
   |  process _ _ = false
 
-  (* munge : (rule * TempSet.set ref) list -> (label -> TempSet.set ref) -> unit
+  (* munge : (rule * OperandSet.set ref) list ->
+   *         (label -> OperandSet.set ref) -> unit
    *
    * Runs 'process' on the given list until process returns false.
    *)
   fun munge rulesets f =
     if process rulesets f then munge rulesets f else ()
 
-  (* compute : Assem.instr list -> TempSet.set list
+  (* compute : Assem.instr list -> OperandSet.set list
    *
    * Performs liveness analysis on the given list of instructions.
    * @param L the list of assembly instructions with temps
@@ -141,14 +134,13 @@ struct
     |   give_labels i (a::L) = (i, a)::(give_labels (i + 1) L)
 
     val rules = List.map (rulegen (HT.lookup labels)) (give_labels 0 L)
-    val rulesets = List.map (fn rule => (rule, ref TempSet.empty)) rules
+    val rulesets = List.map (fn rule => (rule, ref OperandSet.empty)) rules
   in
     (munge rulesets (fn label =>
-       (#2 (List.nth (rulesets, label))) handle Subscript => ref TempSet.empty
+       (#2 (List.nth (rulesets, label)))
+          handle Subscript => ref OperandSet.empty
      ));
-    List.map (fn ((uses, _, _), s) =>
-      (!s, List.foldr (fn (i as A.REG _, L) => i :: L | (_, L) => L) [] uses)
-    ) rulesets
+    List.map (fn (_, s) => !s) rulesets
   end
 
 end
