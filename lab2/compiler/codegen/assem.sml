@@ -20,8 +20,7 @@ sig
 
   datatype condition = LT | LTE | EQ | NEQ
 
-  datatype instr =
-     BINOP of operation * operand * operand * operand
+  datatype instr = BINOP of operation * operand * operand
    | MOV of operand * operand
    | MOVFLAG of operand * condition
    | JMP of Label.label * condition option
@@ -51,7 +50,7 @@ struct
   datatype condition = LT | LTE | EQ | NEQ
 
   datatype instr =
-     BINOP of operation * operand * operand * operand
+     BINOP of operation * operand * operand
    | MOV of operand * operand
    | MOVFLAG of operand * condition
    | JMP of Label.label * condition option
@@ -167,9 +166,9 @@ struct
    * @param I the instruction to format
    * @return the instruction formatted.
    *)
-  fun format_instr (BINOP(oper, d, s1, s2)) =
+  fun format_instr (BINOP(oper, d, s)) =
       format_binop oper ^ " " ^ (if oper = LSH orelse oper = RSH then
-                                 format_operand8 s2 else format_operand s2) ^
+                                 format_operand8 s else format_operand s) ^
       (if oper = DIV orelse oper = MOD then "" else ", " ^ format_operand d)
     | format_instr (MOV(TEMP _, _)) = ""
     (* If we're moving between the same registers, then no need to format
@@ -198,31 +197,27 @@ struct
    * @param I the instruction to expand
    * @return L a list of instructions which should be passed to format_intstr
    *)
-  fun instr_expand (oper as BINOP (i as (DIV | MOD), d, s1, s2)) = [
-        MOV (eax, s1), ASM "cltd", oper, MOV (d, if i = DIV then eax else edx)]
+  fun instr_expand (oper as BINOP (i as (DIV | MOD), d, s)) = [
+        MOV (eax, d), ASM "cltd", oper, MOV (d, if i = DIV then eax else edx)]
     (* Assume the destination of all binary operations is in a register *)
-    | instr_expand (BINOP (oper, d as REG (STACK _), s1, s2)) =
-        [MOV (r15d, s1)] @ instr_expand (BINOP (oper, r15d, r15d, s2)) @
+    | instr_expand (BINOP (oper, d as REG (STACK _), s)) =
+        [MOV (r15d, d)] @ instr_expand (BINOP (oper, r15d, s)) @
         [MOV (d, r15d)]
-    | instr_expand (BINOP (CMP, _, s1 as REG (STACK _), s2 as REG (STACK _))) =
-        [MOV (r15d, s1), BINOP (CMP, r15d, r15d, s2)]
-    | instr_expand (BINOP (CMP, _, s1, s2)) = [BINOP (CMP, s1, s1, s2)]
-    | instr_expand (BINOP (sh as (LSH | RSH), REG ECX, s1, s2 as REG _)) = [
-        MOV (ecx, s2), MOV (r15d, s1), BINOP (sh, r15d, r15d, ecx),
-        MOV (ecx, r15d)]
-    | instr_expand (BINOP (sh as (LSH | RSH), d, s1, s2 as REG _)) = [
-        MOV (ecx, s2), MOV (d, s1), BINOP (sh, d, s1, ecx)]
+    | instr_expand (BINOP (sh as (LSH | RSH), REG ECX, s)) = [
+        MOV (r15d, ecx), MOV (ecx, s), BINOP (sh, r15d, ecx), MOV (ecx, r15d)]
+    | instr_expand (BINOP (sh as (LSH | RSH), d, s as REG _)) =
+        [MOV (ecx, s), BINOP (sh, d, ecx)]
     (* Sometimes we can clobber the destination, but not if one of the operands
        is also the destination. Another special case is a form of subtraction
        where we can't override one of the operands. To get around this, we
        perform subtraction the other way and then negate the result. *)
-    | instr_expand (binop as BINOP (oper, REG d, s1, REG s2)) =
+    (*| instr_expand (binop as BINOP (oper, REG d, s1, REG s2)) =
         if d = s2 andalso oper = SUB then [
           BINOP (SUB, REG d, REG s2, s1),
           ASM ("neg " ^ format_operand (REG d))]
         else if d = s2 then [BINOP (oper, REG d, REG s2, s1)]
-        else [MOV (REG d, s1), binop]
-    | instr_expand (inst as BINOP (oper, d, s1, s2)) = [MOV (d, s1), inst]
+        else [MOV (REG d, s1), binop]*)
+    (*| instr_expand (inst as BINOP (oper, d, s1, s2)) = [MOV (d, s1), inst]*)
     | instr_expand (MOVFLAG (oper, cond)) = let
         val instr = case cond of LT => "setl" | LTE => "setle"
                                | EQ => "sete" | NEQ => "setne"
@@ -238,8 +233,8 @@ struct
         ]
       end
     (* Can't move between two memory locations... *)
-    | instr_expand (MOV (s1 as REG (STACK _), s2 as REG (STACK _))) = [
-        MOV (r15d, s2), MOV (s1, r15d)]
+    | instr_expand (MOV (d as REG (STACK _), s as REG (STACK _))) = [
+        MOV (r15d, s), MOV (d, r15d)]
     | instr_expand i = [i]
 
   (* format : instr -> string

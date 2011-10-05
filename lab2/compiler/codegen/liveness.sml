@@ -8,7 +8,7 @@ structure TempSet = BinarySetFn(Temp)
 
 signature LIVENESS =
 sig
-  val compute : Assem.instr list -> TempSet.set list
+  val compute : Assem.instr list -> (TempSet.set * Assem.operand list) list
 
   exception BadInstruction of Assem.instr
 end
@@ -36,8 +36,8 @@ struct
    * @param i the instruction to generate a rule for
    * @return a rule representing the current instruction
    *)
-  fun rulegen f (l, A.BINOP(_, A.TEMP d, s1, s2)) = ([s1, s2], SOME d, [l + 1])
-  |   rulegen f (l, A.BINOP(_, _, s1, s2)) = ([s1, s2], NONE, [l + 1])
+  fun rulegen f (l, A.BINOP(_, d as A.TEMP t, s)) = ([d, s], SOME t, [l + 1])
+  |   rulegen f (l, A.BINOP(_, d, s)) = ([d, s], NONE, [l + 1])
   |   rulegen f (l, A.MOV(A.TEMP d, s)) = ([s], SOME d, [l + 1])
   |   rulegen f (l, A.MOV(A.REG _, s)) = ([s], NONE, [l + 1])
   |   rulegen f (l, A.MOVFLAG(A.TEMP d, _)) = ([], SOME d, [l + 1])
@@ -102,7 +102,7 @@ struct
     val changed = process L rule_fn
 
     (* Extract all A.TEMP instances in the operands we use for this rule *)
-    val temp_uses = List.foldl (fn (A.TEMP(t), L) => t::L | (_, L)  => L)
+    val temp_uses = List.foldl (fn (A.TEMP t, L) => t::L | (_, L)  => L)
                                [] uses
     val added_uses = add_uses temp_uses set
     val added_succ = add_succ (def, rule_fn) succ set
@@ -146,7 +146,9 @@ struct
     (munge rulesets (fn label =>
        (#2 (List.nth (rulesets, label))) handle Subscript => ref TempSet.empty
      ));
-    List.map (fn (_, r) => !r) rulesets
+    List.map (fn ((uses, _, _), s) =>
+      (!s, List.foldr (fn (i as A.REG _, L) => i :: L | (_, L) => L) [] uses)
+    ) rulesets
   end
 
 end

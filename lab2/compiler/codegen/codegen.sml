@@ -53,21 +53,29 @@ struct
         val oper = munch_op binop
         val (t1, t1instrs) = munch_half oper e1
         val (t2, t2instrs) = munch_half oper e2
-        val instr = AS.BINOP (oper, d, t1, t2)
+        fun eq_ops (AS.TEMP t1, AS.TEMP t2) = Temp.equals (t2, t2)
+          | eq_ops (AS.REG a, AS.REG b) = (a = b)
+          | eq_ops _ = false
+
+        val instrs =
+          if not(eq_ops (d, t2)) then [AS.MOV (d, t1), AS.BINOP (oper, d, t2)]
+          else if binop <> T.SUB then [AS.MOV (d, t2), AS.BINOP (oper, d, t1)]
+          else let val t = AS.TEMP (Temp.new()) in
+            [AS.MOV (t, t1), AS.BINOP (oper, t, t2), AS.MOV (d, t)]
+          end
       in
-        t1instrs @ t2instrs @
-        (case binop
-           of T.LT  => [instr, AS.MOVFLAG (d, AS.LT)]
-            | T.LTE => [instr, AS.MOVFLAG (d, AS.LTE)]
-            | T.EQ  => [instr, AS.MOVFLAG (d, AS.EQ)]
-            | T.NEQ => [instr, AS.MOVFLAG (d, AS.NEQ)]
-            | _     => [instr])
+        t1instrs @ t2instrs @ (case binop
+           of T.LT  => instrs @ [AS.MOVFLAG (d, AS.LT)]
+            | T.LTE => instrs @ [AS.MOVFLAG (d, AS.LTE)]
+            | T.EQ  => instrs @ [AS.MOVFLAG (d, AS.EQ)]
+            | T.NEQ => instrs @ [AS.MOVFLAG (d, AS.NEQ)]
+            | _     => instrs)
       end
 
   and munch_conditional dest (T.CONST w) =
         if Word32Signed.ZERO = w then [] else [AS.JMP(dest, NONE)]
     | munch_conditional dest (T.TEMP n) =
-        [AS.BINOP (AS.CMP, AS.REG AS.EAX, AS.TEMP n, AS.IMM Word32Signed.ZERO),
+        [AS.BINOP (AS.CMP, AS.TEMP n, AS.IMM Word32Signed.ZERO),
          AS.JMP(dest, SOME(AS.NEQ))]
     | munch_conditional dest (T.BINOP (oper, e1, e2)) = let
         val (t1, t1instrs) = munch_half AS.CMP e1
@@ -78,7 +86,7 @@ struct
                               | _ => raise Fail "wut?"
       in
         t1instrs @ t2instrs @
-          [AS.BINOP (AS.CMP, AS.REG AS.EAX, t1, t2), AS.JMP(dest, SOME cond)]
+          [AS.BINOP (AS.CMP, t1, t2), AS.JMP(dest, SOME cond)]
       end
 
   (* munch_stm : T.stm -> AS.instr list

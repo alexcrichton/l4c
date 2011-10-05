@@ -24,6 +24,38 @@ struct
   structure P = Profile
   type node_data = {color:int, weight:int}
 
+  fun map_register AS.EAX = 1
+    | map_register AS.EBX = 2
+    | map_register AS.ECX = 3
+    | map_register AS.EDX = 4
+    | map_register AS.EDI = 5
+    | map_register AS.ESI = 6
+    | map_register AS.R8D = 7
+    | map_register AS.R9D = 8
+    | map_register AS.R10D = 9
+    | map_register AS.R11D = 10
+    | map_register AS.R12D = 11
+    | map_register AS.R13D = 12
+    | map_register AS.R14D = 13
+    | map_register (AS.STACK n) = n - 13
+    | map_register AS.R15D = raise Fail "r15d is a scary register"
+
+  fun map_color 1  = AS.EAX
+    | map_color 2  = AS.EBX
+    | map_color 3  = AS.ECX
+    | map_color 4  = AS.EDX
+    | map_color 5  = AS.EDI
+    | map_color 6  = AS.ESI
+    | map_color 7  = AS.R8D
+    | map_color 8  = AS.R9D
+    | map_color 9  = AS.R10D
+    | map_color 10 = AS.R11D
+    | map_color 11 = AS.R12D
+    | map_color 12 = AS.R13D
+    | map_color 13 = AS.R14D
+    (*| map_color 14 = AS.R15D*) (* TODO: use r15d if only 14 regs *)
+    | map_color x  = AS.STACK (x - 13)
+
   (* make_graph : (node_set list * instr list) -> graph -> unit
    * Converts the liveness information map into an interference graph.
    *
@@ -35,23 +67,25 @@ struct
    * @usage g should be an empty graph before calling this function
    *)
   fun make_graph ([], []) _ = ()
-    | make_graph (set::S, i::L) graph = let
+    | make_graph ((set, regs)::S, i::L) graph = let
         (* handle pre-coloring *)
         fun precolor [] set = set
           | precolor (c::L) set = let
               val t1 = Temp.new()
               val set' = TempSet.add (set, t1)
-              val () = G.setValue graph (t1, {color=c, weight=0})
+              val r = case c of AS.REG r => r | _ => raise Fail "not a reg!"
+              val () = G.setValue graph (t1, {color=(map_register r), weight=0})
             in
               precolor L set'
             end
-        val set' =
+        val set' = precolor regs set
+        val set'' =
             case i
-              of (AS.BINOP ((AS.DIV | AS.MOD), _, _, _)) => precolor [1,4] set
-               | (AS.BINOP ((AS.LSH | AS.RSH), _, _, _)) => precolor [3] set
-               | _ => set
+              of (AS.BINOP ((AS.DIV | AS.MOD), _, _)) => precolor [AS.REG AS.EAX, AS.REG AS.EDX] set'
+               | (AS.BINOP ((AS.LSH | AS.RSH), _, _)) => precolor [AS.REG AS.ECX] set'
+               | _ => set'
         (* create part of the graph *)
-        val () = G.addClique graph set'
+        val () = G.addClique graph set''
       in
         make_graph (S, L) graph
       end
@@ -161,58 +195,18 @@ struct
    * @return      L, with all temps replaced with their correct registers
    *)
   fun apply_coloring L graph = let
-        fun map_color 1  = AS.EAX (* We use these constants in make_graph *)
-          | map_color 2  = AS.EBX
-          | map_color 3  = AS.ECX
-          | map_color 4  = AS.EDX
-          | map_color 5  = AS.EDI
-          | map_color 6  = AS.ESI
-          | map_color 7  = AS.R8D
-          | map_color 8  = AS.R9D
-          | map_color 9  = AS.R10D
-          | map_color 10 = AS.R11D
-          | map_color 11 = AS.R12D
-          | map_color 12 = AS.R13D
-          | map_color 13 = AS.R14D
-          (*| map_color 14 = AS.R15D*) (* TODO: use r15d if only 14 regs *)
-          | map_color x  = AS.STACK (x - 13)
-
         fun map_op (AS.TEMP n) = (case #color ((G.getValue graph n):node_data)
                                     of 0 => AS.TEMP n
                                      | c => AS.REG (map_color c))
           | map_op operand     = operand
 
-        fun map_instr (AS.BINOP (oper, op1, op2, op3)) =
-              AS.BINOP (oper, map_op op1, map_op op2, map_op op3)
+        fun map_instr (AS.BINOP (oper, op1, op2)) =
+              AS.BINOP (oper, map_op op1, map_op op2)
           | map_instr (AS.MOV (op1, op2)) = AS.MOV (map_op op1, map_op op2)
           | map_instr (AS.MOVFLAG (op1, c)) = AS.MOVFLAG (map_op op1, c)
           | map_instr i = i
       in
         map map_instr L
-      end
-
-  (* filter_temps : instr list -> instr list
-   * Removes instructions from the instruction list that contain temporary
-   * registers. These temps were never assigned registers and thus are not
-   * live, so they can be deleted. The only exception is div and mod, which
-   * we are required to execute because they might cause an exception.
-   *
-   * @param L   The list of instructions
-   * @return    The original list with dead instructions removed
-   *)
-  fun filter_temps L = let
-        fun isTemp (AS.TEMP _) = true
-          | isTemp _           = false
-        fun hasTemps (AS.MOV (o1, o2)) =
-              if (isTemp o2) then raise AllocationExn "Live temp not allocated"
-              else (isTemp o1)
-          | hasTemps (AS.BINOP (oper, o1, o2, o3)) =
-              if (isTemp o2) orelse (isTemp o3) then
-                raise AllocationExn "Live temp not allocated"
-              else oper <> AS.DIV andalso oper <> AS.MOD andalso (isTemp o1)
-          | hasTemps _ = false
-      in
-        List.filter (fn i => not (hasTemps i)) L
       end
 
   (* allocate : instr list -> instr list
@@ -232,8 +226,7 @@ struct
         val order = P.time ("Generate SEO", fn () => generate_seo graph
                                                      (G.getNodes graph))
         val () = P.time ("Coloring", fn () => color graph order)
-        val L' = P.time ("Apply coloring", fn () => apply_coloring L graph)
       in
-        P.time ("Filter temps", fn () => filter_temps L')
+        P.time ("Apply coloring", fn () => apply_coloring L graph)
       end
 end
