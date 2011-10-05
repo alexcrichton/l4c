@@ -259,23 +259,18 @@ struct
    *)
   fun instr_expand (BINOP (oper, d as REG (STACK _), s)) =
         [MOV (r15d, d), BINOP (oper, r15d, s), MOV (d, r15d)]
-    | instr_expand (MOVFLAG (oper, cond)) = let
+    | instr_expand (MOVFLAG (d, cond)) = let
         val instr = case cond of LT => "setl" | LTE => "setle"
                                | EQ => "sete" | NEQ => "setne"
       in
-        (* Can't use set<c> on stack, edi, or esi... *)
-        if (case oper of REG (STACK _) => true | REG ESI => true
-                       | REG EDI => true | _ => false) then [
-          ASM (instr ^ " " ^ format_operand8 r15d),
-          MOVFLAG (r15d, cond), MOV (oper, r15d)
-        ] else [
-          ASM (instr ^ " " ^ format_operand8 oper),
-          MOVFLAG (oper, cond)
-        ]
+        case d of REG (STACK _) =>
+              [ASM (instr ^ " " ^ format_operand8 r15d),
+               MOVFLAG (r15d, cond), MOV (d, r15d)]
+           | _ => [ASM (instr ^ " " ^ format_operand8 d), MOVFLAG (d, cond)]
       end
     (* Can't move between two memory locations... *)
-    | instr_expand (MOV (d as REG (STACK _), s as REG (STACK _))) = [
-        MOV (r15d, s), MOV (d, r15d)]
+    | instr_expand (MOV (d as REG (STACK _), s as REG (STACK _))) =
+        [MOV (r15d, s), MOV (d, r15d)]
     | instr_expand i = [i]
 
   (* format : instr -> string
