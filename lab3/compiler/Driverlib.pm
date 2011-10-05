@@ -116,7 +116,7 @@ sub system_with_timeout {
         }
     }
     printd(2, "%% reaped all children\n");
-    return $?;              # return SIGALRM to signal timeout
+    return (14 << 8);              # return SIGALRM to signal timeout
 }
 
 ###

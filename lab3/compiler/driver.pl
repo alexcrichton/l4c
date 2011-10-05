@@ -20,13 +20,17 @@ use File::Copy;
 use Getopt::Long;
 use Pod::Usage;
 
+use Term::ANSIColor;
+
 ############################################################
 
 ###
 # Declarations and Initialization
 #
 our $Opt_Autograding    = 0;    # -A, autograding, hidden flag for autograder
+our $Opt_Color          = "auto"; # -c, color
 our $Opt_Debug          = 0;    # -d <debug> (default 0)
+our $Opt_FailFast       = 0;    # -f, --fail-fast
 our $Opt_Help           = 0;    # -h, help
 our $Opt_Make           = 1;    # -m, build compiler (on by default)
 our @Opt_Suite          = ();   # -s <dir>, 
@@ -43,7 +47,9 @@ my $result          = "";   # result string for Autolab server
 
 my $success = GetOptions (
     'autograde'     => \$Opt_Autograding,
+    'color=s'       => \$Opt_Color,
     'debug=i'       => \$Opt_Debug,
+    'fail-fast!'    => \$Opt_FailFast,
     'help'          => \$Opt_Help,
     'make!'         => \$Opt_Make,
     'suite=s@'      => \@Opt_Suite,
@@ -55,6 +61,16 @@ pod2usage(1) if $Opt_Help;
 
 @Testfiles = @ARGV;
 $DEBUG = $Opt_Debug;
+
+if ($Opt_Color eq "auto") {
+	$Opt_Color = -t STDOUT;
+}
+elsif ($Opt_Color eq "on") {
+	$Opt_Color = 1;
+}
+else {
+	$Opt_Color = 0;
+}
 
 if (@Opt_Suite && @ARGV) {
     die "Not allowed to specify a suite *and* individual tests!";
@@ -154,6 +170,10 @@ sub grade_compiler {
     # individual tests
     if (@Testfiles) {
         ($tried, $succeeded, @failed) = run_suite(@Testfiles);
+        if ($Opt_FailFast && @failed) {
+            printf("Not running remaining tests.\n");
+            return;
+        }
         printf("\n-- Summary --\n");
         if (@failed) {
             printf("Tests failed:\n");
@@ -178,7 +198,15 @@ sub grade_compiler {
         }
         ($tried, $succeeded, @failedhere) = run_suite(@files);
         push @failed, @failedhere;
+        if (@failed && $Opt_FailFast) {
+            last;
+        }
         $results{$suite} = [$tried, $succeeded];
+    }
+
+    if ($Opt_FailFast && @failed) {
+        printf("Not running remaining tests.\n");
+        return;
     }
 
     printf("\n-- Summary --\n");
@@ -227,6 +255,9 @@ sub run_suite {
         }
         else {
             push @failed, $test;
+            if ($Opt_FailFast) {
+                last;
+            }
         }
     }
     return ($tried, $succeeded, @failed);
@@ -260,19 +291,23 @@ sub test {
     $command = "$COMPILER_EXEC $COMPILER_ARGS $file";
     $result = system_with_timeout($COMPILER_TIMEOUT, "$command", $Opt_Autograding);
 
+    if ($result == 0) {
+        $command = "$GCC $asm_file $RUNTIME";
+        $result = system_with_timeout($GCC_TIMEOUT, $command, $Opt_Autograding);
+    }
+
     # the 0 means "this is not the reference compiler"
     $ret = grade_compilation($file, $result, $directive, $expected, 0);
     if (defined $ret) {
         return $ret;
     }
 
-    $command = "$GCC $asm_file $RUNTIME";
-    $result = system_with_timeout($GCC_TIMEOUT, $command, $Opt_Autograding);
-    if ($result != 0) {
-        return fail("Assembly failed on $file.\n");
+    $command = "./a.out 2> a.output > a.result";
+    my $in_file = in_suffix($file);
+    if (-f $in_file) {
+        $command .= " < $in_file";
     }
-
-    $result = system_with_timeout($RUN_TIMEOUT, "./a.out 2>&1 > a.result", $Opt_Autograding);
+    $result = system_with_timeout($RUN_TIMEOUT, $command, $Opt_Autograding);
     
     return grade_execution($file, $result, $directive, $expected);
 }
@@ -307,7 +342,12 @@ sub validate {
         return $ret;
     }
 
-    $result = system_with_timeout($RUN_TIMEOUT, "./a.out 2>&1 > a.result", $Opt_Autograding);
+    $command = "./a.out 2> a.output > a.result";
+    my $in_file = in_suffix($file);
+    if (-e $in_file) {
+        $command .= " < $in_file";
+    }
+    $result = system_with_timeout($RUN_TIMEOUT, $command, $Opt_Autograding);
 
     return grade_execution($file, $result, $directive, $expected);
 }
@@ -395,12 +435,23 @@ sub grade_execution {
             return fail("Execution of binary unexpectedly failed with exception $result.\n");
         }
         # if a.result does not exist, $all_of_file = ''
-        my $all_of_file = read_file("a.result");
-        chomp $all_of_file;
-        if ($all_of_file eq $expected) {
-            return pass("Correct result\n");
+        my $return = read_file("a.result");
+        chomp $return;
+        if ($return eq $expected) {
+            my $out_file = out_suffix($file);
+            if (! -e $out_file) {
+                return pass("Correct result\n");
+            }
+            my $output = read_file("a.output");
+            my $expected_output = read_file(out_suffix($file));
+            if ($output eq $expected_output) {
+                return pass("Correct result\n");
+            }
+            else {
+                return fail("Correct return value, but output differs from expected output\n");
+            }
         }
-        return fail("Result '$all_of_file' differs from expected answer '$expected'.\n");
+        return fail("Result '$return' differs from expected answer '$expected'.\n");
     }
 
     printf("I can't be here (test $file)! Inconcievable!\n");
@@ -430,8 +481,14 @@ sub make_compiler {
 sub printad {
     my $d = shift;
     my $msg = shift;
+    my $color = shift;
+
+    my $do_color = defined $color && $Opt_Color;
+
     unless ($Opt_Autograding) {
+        printd($d, color($color)) if $do_color;
         printd($d, $msg);
+        printd($d, color("reset")) if $do_color;
     }
 }
 
@@ -441,7 +498,7 @@ sub printad {
 sub pass {
     my $msg = shift;
     printad(1, $msg);
-    printad(0, "-- PASS --\n");
+    printad(0, "-- PASS --\n", "green");
     return 1;
 }
 
@@ -451,8 +508,20 @@ sub pass {
 sub fail {
     my $msg = shift;
     printad(0, $msg);
-    printad(0, "-- FAIL --\n");
+    printad(0, "-- FAIL --\n", "red");
     return 0;
+}
+
+sub suffix {
+    my $file = shift;
+    my $suffix = shift;
+    my @fields = split(/[.]/, $file);
+    if (scalar @fields == 1) {
+        return $fields[0].".".$suffix; # append ".s" if no extension
+    } else {
+        @fields[@fields-1]=$suffix; # replace extension with "s" otherwise
+        return join('.', @fields);
+    }
 }
 
 ###
@@ -460,13 +529,17 @@ sub fail {
 #
 sub asm_suffix {
     my $file = shift;
-    my @fields = split(/[.]/, $file);
-    if (scalar @fields == 1) {
-        return $fields[0].".s"; # append ".s" if no extension
-    } else {
-        @fields[@fields-1]="s"; # replace extension with "s" otherwise
-        return join('.', @fields);
-    }
+    suffix($file, "s");
+}
+
+sub in_suffix {
+    my $file = shift;
+    suffix($file, "in");
+}
+
+sub out_suffix {
+    my $file = shift;
+    suffix($file, "out");
 }
 
 ###
@@ -565,9 +638,17 @@ Run on all relevant tests when doing validation
 Emit grading output for Autolab. Also disables most test-by-test information,
 since Autolab will keel over and die if the grader produces too much output
 
+=item -c [on|off|auto], --color [on|off|auto]
+
+Make pass/fail messages colorful.
+
 =item -d <level>, --debug <level>
 
 Set debug level to <level> (default 0).
+
+=item -f, --fail-fast
+
+When one test fails, cease running tests.
 
 =item -h, --help
 
