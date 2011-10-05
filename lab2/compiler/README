@@ -51,11 +51,37 @@ argument of what should come before a continue if one is seen.
 Return Checking
 ===============
 
+We implemented return checking as described in the handout.
+
 Intermediate Language
 =====================
 
+The intermediate language we used was based off the IR discuessed in class. We
+use an assembly-like IR which makes analysis fairly straight forward and made
+code generation require minimal translation. The only deviation from lecture
+was that we place DIV and MOD with the other binops rather than making a
+separate stateful-binops statement. This makes the IR simpler but requires us
+to check for these operations in expressions and prevents us from assuming that
+expressions have no side-effects. We feel that the simpler IR justifies These
+draw backs for the time being.
+
 Neededness Analysis
 ===================
+
+We implemented the neededness analysis as described in the dataflow analysis
+lecture. We chose to implement neededness analysis mainly becuase our compiler
+was assigning to variables after liveness analysis thought they were dead.
+If you assign to a variable but never use it the liveness analysis will say
+that variable is not alive at the assignment so it will be assigned whatever
+register it had at a previous live range. If you leave this assignment in it
+may overwrite the value of another variable. Neededness analysis handles
+cases like this by deleting the assignment.
+
+Our implementation generates the nec, uses, def, succ, and side-effect rules
+for each statement in the program. These rules are then used to generate the
+needed variables at each line via the approach described in the handout.
+Once we have the needed variables we delete any lines that don't contain
+side-effects and don't define a variable needed on a successor statement.
 
 Assembly Representation
 =======================
