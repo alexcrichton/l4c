@@ -142,6 +142,13 @@ struct
 
   type program = gdecl list
 
+  fun resolve_typ types ext (TYPEDEF id) =
+       (case Symbol.look (!types) id
+          of SOME t => t
+           | NONE   => (ErrorMsg.error ext ("Undefined type: " ^
+                        Symbol.name id); raise ErrorMsg.Error))
+    | resolve_typ _ _ typ = typ
+
   (* elaborate : program -> program
    *
    * @param program the raw AST of the parser, a program which has not yet
@@ -149,36 +156,84 @@ struct
    *
    * @return an elaborated version of the AST which fixes structure the parser
    *         would have trouble knowing about
+   * @raise ErrorMsg.Error if the AST is invalid. Possible examples are
+   *        that any function/variables is called the same as a typdef
+   *        declaration, typedef declarations can't be resolved, etc.
    *)
-  fun elaborate_stm (Markeds mark) =
-        Markeds (Mark.mark' (elaborate_stm (Mark.data mark), Mark.ext mark))
-    | elaborate_stm (Declare (id, typ, stm)) = Declare (id, typ, elaborate_stm stm)
-    | elaborate_stm (For (Declare(id, typ, s1), e, s2, s3)) =
-        Declare (id, typ, elaborate_stm (For (s1, e, s2, s3)))
-    | elaborate_stm (For (Markeds mark, e, s2, s3)) =
-        elaborate_stm (For (Mark.data mark, e, s2, s3))
-    | elaborate_stm (For (s1, e, s2, s3)) =
-        For (elaborate_stm s1, e, elaborate_stm s2, elaborate_stm s3)
-    | elaborate_stm (If (e, s1, s2)) = If (e, elaborate_stm s1, elaborate_stm s2)
-    | elaborate_stm (While (e, s)) = While (e, elaborate_stm s)
-    | elaborate_stm (Seq (Declare (id, typ, s1), s2)) =
-        Declare (id, typ, Seq (s1, elaborate_stm s2))
-    | elaborate_stm (Seq (Markeds mark, s2)) =
-        Markeds (Mark.mark' (elaborate_stm (Seq (Mark.data mark, s2)),
+  fun elaborate prog = let
+        val (efuns, types, funs) = (ref Symbol.null, ref Symbol.empty,
+                                    ref Symbol.null)
+
+        val resolve = resolve_typ types
+
+        fun check_id ext id = case Symbol.look (!types) id
+              of SOME _ => (ErrorMsg.error ext ("'" ^ Symbol.name id ^
+                            "' already a type"); raise ErrorMsg.Error)
+               | NONE   => ()
+        and check_fun_id set ext id =
+            if Symbol.member set id then
+              (ErrorMsg.error ext ("Function '" ^ Symbol.name id ^
+               "' already defined"); raise ErrorMsg.Error)
+            else ()
+
+        fun elaborate_gdecl _ (Markedg mark) =
+              elaborate_gdecl (Mark.ext mark) (Mark.data mark)
+          | elaborate_gdecl ext (Fun (typ, id, params, body)) = let
+              fun elaborate_param (Declare (id, typ, s)) =
+                    (check_id ext id; Declare (id, resolve ext typ, s))
+                | elaborate_param (Markeds d) = elaborate_param (Mark.data d)
+                | elaborate_param _ = raise Fail "Invalid AST (elaborate_param)"
+
+              fun scope_param (Declare (id, typ, _), stm) =
+                    (check_id ext id; Declare (id, resolve ext typ, stm))
+                | scope_param (Markeds d, s) = scope_param (Mark.data d, s)
+                | scope_param _ = raise Fail "Invalid AST (elaborate_param)"
+
+              val body' = elaborate_stm (!types) body
+            in
+              (check_fun_id (!efuns) ext id; check_id ext id;
+               check_fun_id (!funs) ext id; funs := Symbol.add (!funs) id;
+               Fun (resolve ext typ, id,
+                    map elaborate_param params,
+                    foldr scope_param body' params))
+            end
+          | elaborate_gdecl ext (p as Typedef (id, typ)) =
+              (check_id ext id;
+               types := Symbol.bind (!types) (id, resolve ext typ); p)
+          | elaborate_gdecl ext (p as ExtDecl (typ, id, typs)) =
+              (check_id ext id; resolve ext typ; map (resolve ext) typs;
+               efuns := Symbol.add (!efuns) id; p)
+          | elaborate_gdecl ext (p as IntDecl (typ, id, typs)) =
+              (check_id ext id; resolve ext typ; map (resolve ext) typs; p)
+      in map (elaborate_gdecl NONE) prog end
+  and elaborate_stm env (Markeds mark) =
+        Markeds (Mark.mark' (elaborate_stm env (Mark.data mark), Mark.ext mark))
+    | elaborate_stm env (Declare (id, typ, stm)) =
+        (* TODO: extent information *)
+        (case Symbol.look env id
+           of SOME t => (ErrorMsg.error NONE ("Variable name is a type: " ^
+                         Symbol.name id); raise ErrorMsg.Error)
+            | NONE => let val t = resolve_typ (ref env) NONE typ in
+                        Declare (id, t, elaborate_stm env stm)
+                      end)
+    | elaborate_stm env (For (Declare(id, typ, s1), e, s2, s3)) =
+        elaborate_stm env (Declare (id, typ, For (s1, e, s2, s3)))
+    | elaborate_stm env (For (Markeds mark, e, s2, s3)) =
+        elaborate_stm env (For (Mark.data mark, e, s2, s3))
+    | elaborate_stm env (For (s1, e, s2, s3)) =
+        For (elaborate_stm env s1, e, elaborate_stm env s2,
+             elaborate_stm env s3)
+    | elaborate_stm env (If (e, s1, s2)) =
+        If (e, elaborate_stm env s1, elaborate_stm env s2)
+    | elaborate_stm env (While (e, s)) = While (e, elaborate_stm env s)
+    | elaborate_stm env (Seq (Declare (id, typ, s1), s2)) =
+        elaborate_stm env (Declare (id, typ, Seq (s1, s2)))
+    | elaborate_stm env (Seq (Markeds mark, s2)) =
+        Markeds (Mark.mark' (elaborate_stm env (Seq (Mark.data mark, s2)),
                              Mark.ext mark))
-    | elaborate_stm (Seq (s1, s2)) = Seq (elaborate_stm s1, elaborate_stm s2)
-    | elaborate_stm stm = stm
-  and elaborate_gdecl (Markedg mark) =
-        Markedg (Mark.mark' (elaborate_gdecl (Mark.data mark), Mark.ext mark))
-    | elaborate_gdecl (Fun (t, i, params, body)) = let
-        fun scope_params (Declare (id, typ, _), body) =
-              Declare (id, typ, elaborate_stm body)
-          | scope_params _ = raise Fail "Invalid AST"
-      in
-        Fun (t, i, params, foldr scope_params body params)
-      end
-    | elaborate_gdecl g = g
-  and elaborate prog = map elaborate_gdecl prog
+    | elaborate_stm env (Seq (s1, s2)) =
+        Seq (elaborate_stm env s1, elaborate_stm env s2)
+    | elaborate_stm _ stm = stm
 
   (* elaborate_external : program -> program
    *
@@ -197,7 +252,8 @@ struct
         (ErrorMsg.error ext "Headers can't define functions!";
          raise ErrorMsg.Error)
     | elaborate_ext_gdecl _ (IntDecl (t, id, typs)) = ExtDecl (t, id, typs)
-    | elaborate_ext_gdecl _ (ExtDecl (_, _, _)) = raise Fail "Invalid AST!"
+    | elaborate_ext_gdecl _ (ExtDecl (_, _, _)) =
+        raise Fail "Invalid AST (elaborate_ext_gdecl)"
     | elaborate_ext_gdecl _ (t as Typedef (_, _)) = t
 
   (* remove_for : program -> program
@@ -226,10 +282,10 @@ struct
    *)
   structure Print =
   struct
-  (*
     fun pp_ident id = Symbol.name id
     fun pp_typ BOOL = "bool"
       | pp_typ INT  = "int"
+      | pp_typ (TYPEDEF id)  = pp_ident id
 
     fun pp_unop NEGATIVE = "-"
       | pp_unop INVERT   = "~"
@@ -257,6 +313,8 @@ struct
     fun pp_exp (Var id) = pp_ident id
       | pp_exp (Const c) = Word32Signed.toString c
       | pp_exp (Bool b) = if b then "true" else "false"
+      | pp_exp (Call (id, E)) =
+          pp_ident id ^ "(" ^ foldr (fn (e, s) => s ^ ", " ^ pp_exp e) "" E ^ ")"
       | pp_exp (BinaryOp (oper, e1, e2)) =
           "(" ^ pp_exp e1 ^ " " ^ pp_oper oper ^ " " ^ pp_exp e2 ^ ")"
       | pp_exp (UnaryOp (oper, e)) = pp_unop oper ^ "(" ^ pp_exp e ^ ")"
@@ -285,8 +343,20 @@ struct
           tab(pp_stm s)
       | pp_stm (Markeds (marked_stm)) = pp_stm (Mark.data marked_stm)
 
-    fun pp_program prog = "int main {\n" ^ tab (pp_stm prog) ^ "\n}\n"
-    *)
-    fun pp_program _ = "Foo"
+    fun pp_adecl (Typedef (id, typ)) =
+          "typedef " ^ Symbol.name id ^ " " ^ pp_typ typ
+      | pp_adecl (Markedg d) = pp_adecl (Mark.data d)
+      | pp_adecl (IntDecl (t, i, L)) =
+          pp_typ t ^ " " ^ pp_ident i ^ "(" ^
+          (foldl (fn (a, s) => s ^ ", " ^ pp_typ a) "" L) ^ ")"
+      | pp_adecl (ExtDecl (t, i, L)) =
+          "extern " ^ pp_typ t ^ " " ^ pp_ident i ^ "(" ^
+          (foldl (fn (a, s) => s ^ ", " ^ pp_typ a) "" L) ^ ")"
+      | pp_adecl (Fun (t, i, L, s)) =
+          pp_typ t ^ " " ^ pp_ident i ^ "(" ^
+          (foldl (fn (a, s) => s ^ ", " ^ pp_stm a) "" L) ^ ") {\n" ^
+          tab(pp_stm s) ^ "\n}"
+
+    fun pp_program prog = foldl (fn (d, s) => s ^ pp_adecl d ^ "\n") "" prog
   end
 end
