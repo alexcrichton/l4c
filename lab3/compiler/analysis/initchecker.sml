@@ -99,6 +99,16 @@ struct
     | analyze (A.Markeds mark) _ = analyze (Mark.data mark) (Mark.ext mark)
     | analyze _ _ = ()
 
+  (* analyze_adecl : A.gdecl -> unit
+   *
+   * Analyzes a global declaration for intialization checking. This really only
+   * looks inside of function definitions.
+   * @see same args/raise as #analyze
+   *)
+  fun analyze_adecl (A.Fun (_, _, _, body)) =
+        analyze (A.remove_for body A.Nop) NONE
+    | analyze_adecl _ = ()
+
   (* initializationcheck : A.program -> unit
    *
    * Performs semantic analysis on the given program to make sure that all
@@ -107,7 +117,6 @@ struct
    * @param p the program to check
    * @raise ErrorMsg.Error if a variable is used before initialization
    *)
-  fun initializationcheck p = (*analyze (A.remove_for p A.Nop) NONE*)
-                              ()
+  fun initializationcheck prog = app analyze_adecl prog
 
 end
