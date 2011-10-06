@@ -198,7 +198,8 @@ struct
                     foldr scope_param body' params))
             end
           | elaborate_gdecl ext (p as Typedef (id, typ)) =
-              (check_id ext id;
+              (check_id ext id; check_fun_id (!efuns) ext id;
+               check_fun_id (!funs) ext id;
                types := Symbol.bind (!types) (id, resolve ext typ); p)
           | elaborate_gdecl ext (p as ExtDecl (typ, id, typs)) =
               (check_id ext id; resolve ext typ; map (resolve ext) typs;
