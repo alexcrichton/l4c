@@ -162,7 +162,7 @@ struct
         fun bind (A.Declare (id, _, _), e) = Symbol.bind e (id, Temp.new ())
           | bind _ = raise Fail "Invalid statement in function arguments"
         val e = foldl bind Symbol.empty args
-        val instrs = trans_stm e body (Label.new "_", Label.new "_")
+        val instrs = trans_stm e (A.remove_for body A.Nop) (Label.new "_", Label.new "_")
       in
         SOME (name, instrs)
       end
@@ -174,6 +174,6 @@ struct
    * @param prog the AST program
    * @return a list of statements in the intermediate language.
    *)
-  fun translate p = List.mapPartial translate_fun (A.remove_for p A.Nop)
+  fun translate p = List.mapPartial translate_fun p
 
 end
