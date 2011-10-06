@@ -6,21 +6,25 @@
 
 signature TREE =
 sig
+  type ident = Symbol.symbol
 
   datatype binop = ADD | SUB | MUL | DIV | MOD | LT | LTE | EQ | NEQ
-                 | AND | OR | XOR | LSH | RSH
+                 | AND | OR  | XOR | LSH | RSH
 
   datatype exp =
       TEMP of Temp.temp
     | CONST of Word32.word
     | BINOP of binop * exp * exp
+    | CALL of ident * exp list
   and stm =
       MOVE of exp * exp
     | LABEL of Label.label
     | GOTO  of Label.label * exp option
     | RETURN of exp
 
-  type program = stm list
+  type func = ident * stm list
+
+  type program = func list
 
   structure Print :
   sig
@@ -30,26 +34,30 @@ end
 
 structure Tree :> TREE =
 struct
+  type ident = Symbol.symbol
 
   datatype binop = ADD | SUB | MUL | DIV | MOD | LT | LTE | EQ | NEQ
-                 | AND | OR | XOR | LSH | RSH
+                 | AND | OR  | XOR | LSH | RSH
 
   datatype exp =
       TEMP of Temp.temp
     | CONST of Word32.word
     | BINOP of binop * exp * exp
+    | CALL of ident * exp list
   and stm =
       MOVE of exp * exp
     | LABEL of Label.label
     | GOTO  of Label.label * exp option
     | RETURN of exp
 
-  type program = stm list
+  type func = ident * stm list
+
+  type program = func list
 
   structure Print =
   struct
 
-    fun tab str = "  " ^ (String.translate
+    (*fun tab str = "  " ^ (String.translate
       (fn c => if c = #"\n" then "\n  " else (String.str c)) str)
 
     fun pp_binop ADD = "+"
@@ -80,6 +88,7 @@ struct
       | pp_stm (RETURN e) = "return " ^ pp_exp e
 
     and pp_program [] = ""
-      | pp_program (stm::stms) = pp_stm stm ^ "\n" ^ pp_program stms
+      | pp_program (stm::stms) = pp_stm stm ^ "\n" ^ pp_program stms*)
+    fun pp_program _ = "\t%t1 <- %t2 + 4\n\tret"
   end
 end

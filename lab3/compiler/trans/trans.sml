@@ -90,6 +90,17 @@ struct
          e3s @ [T.MOVE (t, e3'), T.GOTO (l2, NONE), T.LABEL l1] @
          e2s @ [T.MOVE (t, e2'), T.LABEL l2], t)
       end
+    | trans_exp env (A.Call (name, EL)) = let
+        fun ev (d, (instrs, dests)) = let
+              val (dinstrs, dest) = trans_exp env d
+            in
+              (dinstrs @ instrs, dest::dests)
+            end
+        val (instrs, args) = foldr ev ([], []) EL
+        val t = Temp.new ()
+      in
+        (instrs @ [T.MOVE (T.TEMP t, T.CALL (name, args))], T.TEMP t)
+      end
 
   (* trans_stm : Temp.temp Symbol.table -> A.stm -> Label.label * Label.label
                                         -> T.program
