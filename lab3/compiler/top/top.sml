@@ -57,7 +57,7 @@ struct
         desc=G.NoArg (fn () => Flag.set flag_profile),
         help="profile the compiler"},
        {short = "l", long=["header"],
-        desc=G.NoArg (fn () => Flag.set flag_header),
+        desc=G.ReqArg (fn s => Flag.sets (flag_header, s), "foo"),
         help="header file for the program"}
       ]
 
@@ -98,7 +98,7 @@ struct
     val _ = P.startTimer "Compiling"
 
     fun parse_header () = let
-          val file = Flag.show flag_header
+          val file = Flag.svalue flag_header
           val ast = Parse.parse file
         in Ast.elaborate_external ast end
 
@@ -106,9 +106,9 @@ struct
                          Flag.branch flag_header (parse_header, fn () => []) ())
 
     val _ = Flag.guard flag_verbose say ("Parsing... " ^ source)
-    val ast = P.time ("Parsing   ", fn () => Parse.parse source)
+    val ast = header @ P.time ("Parsing   ", fn () => Parse.parse source)
     val _ = Flag.guard flag_verbose say ("Elaborating... " ^ source)
-    val ast = header @ P.time ("Elaborating", fn () => Ast.elaborate ast)
+    val ast = P.time ("Elaborating", fn () => Ast.elaborate ast)
     val _ = Flag.guard flag_ast
         (fn () => say (Ast.Print.pp_program ast)) ()
 

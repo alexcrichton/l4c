@@ -12,8 +12,10 @@ sig
   val not : flag -> flag	(* reverses the meaning of flag being set *)
 
   val set : flag -> unit	(* set a flag *)
+  val sets : (flag * string) -> unit	(* set a flag *)
   val unset : flag -> unit	(* unset a flag *)
   val isset : flag -> bool	(* check if the flag is set *)
+  val svalue : flag -> string
 
   val guard : flag -> ('a -> unit) -> 'a -> unit 
 				(* return a function that runs only if flag is set *)
@@ -30,16 +32,23 @@ end
 
 structure Flag :> FLAG =
 struct
-  datatype flag = FLAG of {name : string, value : bool ref, post : bool -> bool}
+  datatype flag = FLAG of {name : string,
+                           value : bool ref,
+                           post : bool -> bool,
+                           svalue : string ref}
 
-  fun flag name = FLAG {name = name, value = ref false, post = fn b => b}
+  fun flag name = FLAG {name = name, value = ref false, post = fn b => b,
+                        svalue = ref ""}
 
   fun set (FLAG f) = #value f := true
+  fun sets (FLAG f, str) = (#svalue f := str; #value f := true)
   fun unset (FLAG f) = #value f := false
-  fun not (FLAG {name, value, post}) =
-	FLAG {name = name, value = value, post = fn b => Bool.not (post b)}
+  fun not (FLAG {name, value, post, svalue}) =
+	FLAG {name = name, value = value, post = fn b => Bool.not (post b),
+	      svalue = svalue}
 
   fun isset (FLAG f) = (#post f) (! (#value f))
+  fun svalue (FLAG f) = !(#svalue f)
 
   fun guard fl f x = if isset fl then f x else ()
   fun guards fls f x = if List.all isset fls then f x else ()
