@@ -75,7 +75,7 @@ sig
 
   val elaborate  : program -> program
   val elaborate_external : program -> program
-  val remove_for : program -> stm -> program
+  val remove_for : stm -> stm -> stm
 
 end
 
@@ -257,15 +257,16 @@ struct
         raise Fail "Invalid AST (elaborate_ext_gdecl)"
     | elaborate_ext_gdecl _ (t as Typedef (_, _)) = t
 
-  (* remove_for : program -> program
+  (* remove_for : stm -> stm -> stm
    *
    * Transforms an AST to make it easier to perform analysis on.
    * This involves changing for loops to while loops.
    *
-   * @param prog the program to transform
+   * @param stm the statement to transform
+   * @param stm what to replace Continues with (Nop if invoked the first time)
    * @param an AST without any for loops (they're converted to while loops)
    *)
-  (*fun remove_for (For (s1, e, s2, s3)) _ =
+  fun remove_for (For (s1, e, s2, s3)) _ =
           Seq (s1, While (e, Seq(remove_for s3 s2, s2)))
       | remove_for (If (e, s1, s2)) rep =
           If (e, remove_for s1 rep, remove_for s2 rep)
@@ -275,8 +276,7 @@ struct
           Markeds (Mark.mark' (remove_for (Mark.data mark) s, Mark.ext mark))
       | remove_for (Seq (s1, s2)) r = Seq (remove_for s1 r, remove_for s2 r)
       | remove_for (Declare (id, typ, s)) r = Declare (id, typ, remove_for s r)
-      | remove_for s _ = s*)
-  fun remove_for p _ = p
+      | remove_for s _ = s
 
   (* print programs and expressions in source form
    * using redundant parentheses to clarify precedence
