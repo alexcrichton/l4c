@@ -19,6 +19,13 @@ struct
    *)
   fun typ_name A.BOOL = "bool"
     | typ_name A.INT  = "int"
+    | typ_name (A.TYPEDEF ident) = Symbol.name ident
+
+  fun typs_equal (A.BOOL, A.BOOL) = true
+    | typs_equal (A.INT, A.INT)   = true
+    | typs_equal (A.TYPEDEF id1, A.TYPEDEF id2) =
+        Symbol.compare (id1, id2) = EQUAL
+    | typs_equal _ = false
 
   (* tc_equal : A.typ * A.typ -> Mark.ext option -> unit
    *
@@ -27,7 +34,7 @@ struct
    *
    * @raise ErrorMsg.Error if the types are not equal
    *)
-  fun tc_equal (t1, t2) ext = if t1 = t2 then () else (
+  fun tc_equal (t1, t2) ext = if typs_equal (t1, t2) then () else (
         ErrorMsg.error ext ("type mismatch, " ^ typ_name t1 ^ " != " ^
                             typ_name t2);
         raise ErrorMsg.Error)
