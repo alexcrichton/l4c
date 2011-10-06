@@ -163,8 +163,18 @@ struct
                              Mark.ext mark))
     | elaborate_stm (Seq (s1, s2)) = Seq (elaborate_stm s1, elaborate_stm s2)
     | elaborate_stm stm = stm
-  
-  fun elaborate x = x
+  and elaborate_gdecl (Markedg mark) =
+        Markedg (Mark.mark' (elaborate_gdecl (Mark.data mark), Mark.ext mark))
+    | elaborate_gdecl (gdecl as Func (_, _, _, NONE)) = gdecl
+    | elaborate_gdecl (Func (t, i, params, SOME body)) = let
+        fun scope_params (Declare (id, typ, _), body) =
+              Declare (id, typ, elaborate_stm body)
+          | scope_params _ = raise Fail "Invalid AST"
+      in
+        Func (t, i, params, SOME(foldr scope_params body params))
+      end
+    | elaborate_gdecl g = g
+  and elaborate prog = map elaborate_gdecl prog
 
   (* remove_for : program -> program
    *
@@ -175,16 +185,16 @@ struct
    * @param an AST without any for loops (they're converted to while loops)
    *)
   (*fun remove_for (For (s1, e, s2, s3)) _ =
-        Seq (s1, While (e, Seq(remove_for s3 s2, s2)))
-    | remove_for (If (e, s1, s2)) rep =
-        If (e, remove_for s1 rep, remove_for s2 rep)
-    | remove_for (While (e, s)) _ = While (e, remove_for s Nop)
-    | remove_for Continue s = Seq (s, Continue)
-    | remove_for (Markeds mark) s =
-        Markeds (Mark.mark' (remove_for (Mark.data mark) s, Mark.ext mark))
-    | remove_for (Seq (s1, s2)) r = Seq (remove_for s1 r, remove_for s2 r)
-    | remove_for (Declare (id, typ, s)) r = Declare (id, typ, remove_for s r)
-    | remove_for s _ = s*)
+          Seq (s1, While (e, Seq(remove_for s3 s2, s2)))
+      | remove_for (If (e, s1, s2)) rep =
+          If (e, remove_for s1 rep, remove_for s2 rep)
+      | remove_for (While (e, s)) _ = While (e, remove_for s Nop)
+      | remove_for Continue s = Seq (s, Continue)
+      | remove_for (Markeds mark) s =
+          Markeds (Mark.mark' (remove_for (Mark.data mark) s, Mark.ext mark))
+      | remove_for (Seq (s1, s2)) r = Seq (remove_for s1 r, remove_for s2 r)
+      | remove_for (Declare (id, typ, s)) r = Declare (id, typ, remove_for s r)
+      | remove_for s _ = s*)
   fun remove_for p _ = p
 
   (* print programs and expressions in source form
