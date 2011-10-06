@@ -125,7 +125,7 @@ struct
    * @raise ErrorMsg.Error if there is a typecheck error
    * @return nothing
    *)
-  fun tc_stm (funs, env) (A.Assign (id,e)) ext _ =
+  fun tc_stm (funs, env) (A.Assign (id,e)) ext (_ : bool * A.typ) =
         (case Symbol.look env id
            of SOME t => tc_ensure (funs, env) (e, t) ext
             | NONE   => (ErrorMsg.error ext ("Variable " ^ Symbol.name id ^
@@ -134,18 +134,18 @@ struct
     | tc_stm env (A.If (e,s1,s2)) ext lp =
         (tc_ensure env (e,A.BOOL) ext; tc_stm env s1 ext lp;
          tc_stm env s2 ext lp)
-    | tc_stm env (A.While (e,s)) ext _ =
-        (tc_ensure env (e,A.BOOL) ext; tc_stm env s ext true)
-    | tc_stm env (A.For (s,e,s1,s2)) ext lp =
-        (tc_ensure env (e,A.BOOL) ext; tc_stm env s ext lp;
-         tc_stm env s1 ext true; tc_stm env s2 ext true)
-    | tc_stm _ A.Continue ext lp = if lp then () else (
+    | tc_stm env (A.While (e,s)) ext (_, typ) =
+        (tc_ensure env (e,A.BOOL) ext; tc_stm env s ext (true, typ))
+    | tc_stm env (A.For (s,e,s1,s2)) ext (lp, typ) =
+        (tc_ensure env (e,A.BOOL) ext; tc_stm env s ext (lp, typ);
+         tc_stm env s1 ext (true, typ); tc_stm env s2 ext (true, typ))
+    | tc_stm _ A.Continue ext (lp, _) = if lp then () else (
         ErrorMsg.error ext "'continue' outside of a loop is not allowed";
         raise ErrorMsg.Error)
-    | tc_stm _ A.Break ext lp = if lp then () else (
+    | tc_stm _ A.Break ext (lp, _) = if lp then () else (
         ErrorMsg.error ext "'break' outside of a loop is not allowed";
         raise ErrorMsg.Error)
-    | tc_stm env (A.Return e) ext _ = tc_ensure env (e, A.INT) ext
+    | tc_stm env (A.Return e) ext (_, typ) = tc_ensure env (e, typ) ext
     | tc_stm env (A.Express e) ext _ = (tc_exp env e ext; ())
     | tc_stm _ A.Nop _ _ = ()
     | tc_stm env (A.Seq (s1,s2)) ext lp =
@@ -179,7 +179,7 @@ struct
                                 | _ => raise Fail "Invalid AST (tc)") args
             in
               funs := Symbol.bind (!funs) (ident, (typ, types));
-              tc_stm (!funs, Symbol.empty) stm NONE false
+              tc_stm (!funs, Symbol.empty) stm NONE (false, typ)
             end
       in app tc_adecl L end
 
