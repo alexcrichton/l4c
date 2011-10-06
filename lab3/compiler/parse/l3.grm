@@ -31,6 +31,7 @@ fun check_main (sym, lpos, rpos) prog =
 
 fun extract_types [] = []
   | extract_types (A.Declare (_, typ, _) :: L) = typ :: extract_types L
+  | extract_types _ = raise Fail "Invalid types"
 
 fun convert_exp2 (exp1, left) (SOME binop, exp2, NONE, right) =
       mark (A.BinaryOp(binop, exp1, exp2), (left, right))

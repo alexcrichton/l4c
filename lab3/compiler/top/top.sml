@@ -31,10 +31,11 @@ struct
 
   (* see flag explanations below *)
   val flag_verbose = Flag.flag "verbose"
-  val flag_ast = Flag.flag "ast"
-  val flag_ir = Flag.flag "ir"
-  val flag_assem = Flag.flag "assem"
+  val flag_ast     = Flag.flag "ast"
+  val flag_ir      = Flag.flag "ir"
+  val flag_assem   = Flag.flag "assem"
   val flag_profile = Flag.flag "profile"
+  val flag_header  = Flag.flag "header"
 
   fun reset_flags () =
     List.app Flag.unset [flag_verbose, flag_ast,
@@ -54,7 +55,10 @@ struct
         help="pretty print the assembly before register allocaction"},
        {short = "", long=["profile"],
         desc=G.NoArg (fn () => Flag.set flag_profile),
-        help="profile the compiler"}
+        help="profile the compiler"},
+       {short = "l", long=["header"],
+        desc=G.NoArg (fn () => Flag.set flag_header),
+        help="header file for the program"}
       ]
 
   fun stem s = let
@@ -93,10 +97,18 @@ struct
     val _ = Flag.guard flag_profile P.enable ()
     val _ = P.startTimer "Compiling"
 
+    fun parse_header () = let
+          val file = Flag.show flag_header
+          val ast = Parse.parse file
+        in Ast.elaborate_external ast end
+
+    val header = P.time ("Header parsing", fn () =>
+                         Flag.branch flag_header (parse_header, fn () => []) ())
+
     val _ = Flag.guard flag_verbose say ("Parsing... " ^ source)
     val ast = P.time ("Parsing   ", fn () => Parse.parse source)
     val _ = Flag.guard flag_verbose say ("Elaborating... " ^ source)
-    val ast = P.time ("Elaborating", fn () => Ast.elaborate ast)
+    val ast = header @ P.time ("Elaborating", fn () => Ast.elaborate ast)
     val _ = Flag.guard flag_ast
         (fn () => say (Ast.Print.pp_program ast)) ()
 

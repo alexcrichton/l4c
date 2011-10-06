@@ -74,6 +74,7 @@ sig
   end
 
   val elaborate  : program -> program
+  val elaborate_external : program -> program
   val remove_for : program -> stm -> program
 
 end
@@ -178,6 +179,26 @@ struct
       end
     | elaborate_gdecl g = g
   and elaborate prog = map elaborate_gdecl prog
+
+  (* elaborate_external : program -> program
+   *
+   * Elaborates a parsed external file. This is meant to be called on parsed
+   * header files. It's not allowed for headers to define functions.
+   *
+   * @param prog the program to elaborate. All instances of an IntDecl are
+   *        converted to an ExtDecl
+   * @raise ErrorMsg.Error if the header defines any functions
+   *)
+  fun elaborate_external prog = map (elaborate_ext_gdecl NONE) prog
+  and elaborate_ext_gdecl _ (Markedg m) =
+        Markedg (Mark.mark' (elaborate_ext_gdecl (Mark.ext m) (Mark.data m),
+                             Mark.ext m))
+    | elaborate_ext_gdecl ext (Fun (_, _, _, _)) =
+        (ErrorMsg.error ext "Headers can't define functions!";
+         raise ErrorMsg.Error)
+    | elaborate_ext_gdecl _ (IntDecl (t, id, typs)) = ExtDecl (t, id, typs)
+    | elaborate_ext_gdecl _ (ExtDecl (_, _, _)) = raise Fail "Invalid AST!"
+    | elaborate_ext_gdecl _ (t as Typedef (_, _)) = t
 
   (* remove_for : program -> program
    *
