@@ -34,6 +34,16 @@ struct
           of (T.DIV|T.MOD) => (U', U', true)
            | _ => (U', N1 @ N2, s1 orelse s2)
       end
+    | rulegen_exp (T.CALL (_, L)) = let
+        fun merge (e, (U, _, s)) = let
+              val (U', _, s') = rulegen_exp e
+              val U'' = U @ U'
+            in
+              (U'', U'', true)
+            end
+      in
+        foldr merge ([], [], true) L
+      end
 
   fun rulegen _ (l, T.MOVE (T.TEMP t, e)) = let val (U, N, s) = rulegen_exp e in
         (U, SOME t, [l + 1], N, s)
