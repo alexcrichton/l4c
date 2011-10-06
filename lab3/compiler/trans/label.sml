@@ -9,6 +9,7 @@ sig
   type label
 
   val new : string -> label
+  val literal : string -> label
   val name : label -> string
   val hash : label -> word
   val equal : label * label -> bool
@@ -35,8 +36,10 @@ struct
     fun new str = (str, !counter) before (counter := !counter + 1)
   end
 
-  fun name (s, t) = "." ^ s ^ Int.toString t
-  fun hash (_, t) = Word.fromInt t
-  fun compare ((_, t1), (_, t2)) = Int.compare (t1, t2)
+  fun literal str = (str, 0)
+
+  fun name (s, t) = if t = 0 then s else "." ^ s ^ Int.toString t
+  fun hash label = HashString.hashString (name label)
+  fun compare (l1, l2) = String.compare (name l1, name l2)
   fun equal ts = (compare ts = EQUAL)
 end
