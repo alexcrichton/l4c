@@ -86,6 +86,8 @@ fun convert_exp2 (exp1, left) (SOME binop, exp2, NONE, right) =
  | control  of A.stm
  | block    of A.stm
  | exp      of A.exp
+ | exp2     of A.binop option * A.exp * A.exp option * int
+ | parexp   of A.exp
  | asnop    of A.binop option
  | unop     of A.unop
  | postop   of A.binop
@@ -93,7 +95,6 @@ fun convert_exp2 (exp1, left) (SOME binop, exp2, NONE, right) =
  | simpopt  of A.stm
  | elseopt  of A.stm
  | typ      of A.typ
- | exp2     of A.binop option * A.exp * A.exp option * int
 
 %verbose       (* print summary of errors *)
 %pos int       (* positions *)
@@ -210,11 +211,13 @@ arg_list   : LPAREN RPAREN                      ([])
 lvalue     : IDENT                      (IDENT)
            | LPAREN lvalue RPAREN       (lvalue)
 
-exp        : LPAREN exp RPAREN          (exp)
+exp        : lvalue                      (mark (A.Var(lvalue),
+                                                (lvalueleft,lvalueright)))
+           | parexp                      (parexp)
+
+parexp     : LPAREN parexp RPAREN (parexp)
            | INTCONST                   (mark (A.Const(INTCONST),
                                                (INTCONSTleft,INTCONSTright)))
-           | IDENT                      (mark (A.Var(IDENT),
-                                               (IDENTleft,IDENTright)))
            | TRUE                       (mark (A.Bool(true),
                                                (TRUEleft, TRUEright)))
            | FALSE                      (mark (A.Bool(false),
