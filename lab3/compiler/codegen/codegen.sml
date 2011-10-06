@@ -6,13 +6,14 @@
 
 signature CODEGEN =
 sig
-  val codegen : Tree.stm list -> Assem.instr list
+  val codegen : Tree.program -> Assem.instr list
 end
 
 structure Codegen :> CODEGEN =
 struct
   structure T = Tree
   structure AS = Assem
+  structure P = Profile
 
   fun munch_op T.ADD = AS.ADD
     | munch_op T.SUB = AS.SUB
@@ -152,7 +153,7 @@ struct
     | munch_stm _ = raise Fail "Invalid IR"
   and munch_stmts stmts = foldr (op @) [] (map munch_stm stmts)
 
-  (* codegen : T.stm list -> AS.instr list
+  (* codegen : T.program -> AS.instr list
    *
    * Performs code generation on a list of statements of the intermediate
    * language. The assembly instructions returned have no temps. The registers
@@ -161,10 +162,14 @@ struct
    * @param stmts a list of statements in the intermediate language
    * @return a list of instructions with allocated registers
    *)
-  fun codegen stmts = let
-        val stmts' = Profile.time ("Munching", fn () => munch_stmts stmts)
+  fun codegen program = let
+        fun geni (id, L) = let
+              val L' = P.time ("Munching", fn () => munch_stmts L)
+            in
+              AS.DIRECTIVE (Symbol.name id ^ ":") :: Allocation.allocate L'
+            end
       in
-        Allocation.allocate stmts'
+        foldr (op @) [] (map geni program)
       end
 
 end
