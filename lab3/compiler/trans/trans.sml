@@ -6,7 +6,7 @@
 
 signature TRANS =
 sig
-  val translate : Ast.program -> Tree.stm list
+  val translate : Ast.program -> Tree.program
 end
 
 structure Trans :> TRANS =
@@ -152,14 +152,28 @@ struct
     | trans_stm _ A.Nop _ = []
     | trans_stm _ (A.For (_, _, _, _)) _ = raise Fail "no for loops!"
 
+  (* translate_fun : Ast.gdecl -> T.func
+   *
+   * Translates an abstract syntax tree into the intermediate language.
+   * @param prog the AST program
+   * @return a list of statements in the intermediate language.
+   *)
+  fun translate_fun (A.Fun (_, name, args, body)) = let
+        fun bind (A.Declare (id, _, _), e) = Symbol.bind e (id, Temp.new ())
+          | bind _ = raise Fail "Invalid statement in function arguments"
+        val e = foldl bind Symbol.empty args
+        val instrs = trans_stm e body (Label.new "_", Label.new "_")
+      in
+        SOME (name, instrs)
+      end
+    | translate_fun _ = NONE
+  
   (* translate : Ast.program -> T.program
    *
    * Translates an abstract syntax tree into the intermediate language.
    * @param prog the AST program
    * @return a list of statements in the intermediate language.
    *)
-  fun translate prog = []
-  (*fun translate prog = trans_stm Symbol.empty (A.remove_for prog A.Nop)
-                                 (Label.new " ", Label.new " ")*)
+  fun translate p = List.mapPartial translate_fun (A.remove_for p A.Nop)
 
 end
