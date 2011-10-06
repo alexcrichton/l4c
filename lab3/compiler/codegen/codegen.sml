@@ -166,7 +166,7 @@ struct
         fun geni (id, L) = let
               val L' = P.time ("Munching", fn () => munch_stmts L)
             in
-              AS.DIRECTIVE (Symbol.name id ^ ":") :: Allocation.allocate L'
+              AS.LABEL(Label.literal (Symbol.name id)) :: Allocation.allocate L'
             end
       in
         foldr (op @) [] (map geni program)

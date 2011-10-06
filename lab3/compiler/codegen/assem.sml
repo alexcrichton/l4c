@@ -25,6 +25,7 @@ sig
    | MOVFLAG of operand * condition
    | JMP of Label.label * condition option
    | RET
+   | CALL of Label.label
    | ASM of string
    | LABEL of Label.label
    | DIRECTIVE of string
@@ -60,6 +61,7 @@ struct
    | MOVFLAG of operand * condition
    | JMP of Label.label * condition option
    | RET
+   | CALL of Label.label
    | ASM of string
    | LABEL of Label.label
    | DIRECTIVE of string
