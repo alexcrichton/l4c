@@ -23,8 +23,6 @@ struct
 
   fun typs_equal (A.BOOL, A.BOOL) = true
     | typs_equal (A.INT, A.INT)   = true
-    | typs_equal (A.TYPEDEF id1, A.TYPEDEF id2) =
-        Symbol.compare (id1, id2) = EQUAL
     | typs_equal _ = false
 
   (* tc_equal : A.typ * A.typ -> Mark.ext option -> unit
@@ -65,11 +63,25 @@ struct
    * @raise ErrorMsg.Error if there is a typecheck error
    * @return the type of the expression if it is well formed
    *)
-  and tc_exp env (A.Var id) ext =
+  and tc_exp (funs, env) (A.Var id) ext =
       (case Symbol.look env id
          of NONE => (ErrorMsg.error ext ("undeclared variable `" ^
                       Symbol.name id ^ "'"); raise ErrorMsg.Error)
           | SOME t => t)
+    | tc_exp (funs, env) (A.Call (id, args)) ext =
+      (case Symbol.look funs id
+         of NONE => (ErrorMsg.error ext ("undeclared function `" ^
+                      Symbol.name id ^ "'"); raise ErrorMsg.Error)
+          | SOME (t, types) => let
+                        fun tc_args ([], []) = ()
+                          | tc_args (e::E, t::T) =
+                              (tc_ensure (funs, env) (e, t) ext; tc_args (E, T))
+                          | tc_args _ = (ErrorMsg.error ext ("Wrong number of" ^
+                                         " variables for: " ^ Symbol.name id);
+                                         raise ErrorMsg.Error)
+                      in
+                        tc_args (args, types); t
+                      end)
     | tc_exp _ (A.Bool _) _ = A.BOOL
     | tc_exp _ (A.Const _) _ = A.INT
     | tc_exp env (A.BinaryOp (A.LESSEQ,e1,e2)) ext =
@@ -113,9 +125,9 @@ struct
    * @raise ErrorMsg.Error if there is a typecheck error
    * @return nothing
    *)
-  fun tc_stm env (A.Assign (id,e)) ext _ =
+  fun tc_stm (funs, env) (A.Assign (id,e)) ext _ =
         (case Symbol.look env id
-           of SOME t => tc_ensure env (e, t) ext
+           of SOME t => tc_ensure (funs, env) (e, t) ext
             | NONE   => (ErrorMsg.error ext ("Variable " ^ Symbol.name id ^
                                              " undeclared");
                          raise ErrorMsg.Error))
@@ -133,14 +145,14 @@ struct
     | tc_stm _ A.Break ext lp = if lp then () else (
         ErrorMsg.error ext "'break' outside of a loop is not allowed";
         raise ErrorMsg.Error)
-    | tc_stm env (A.Return e) ext _ = tc_ensure env (e,A.INT) ext
+    | tc_stm env (A.Return e) ext _ = tc_ensure env (e, A.INT) ext
     | tc_stm env (A.Express e) ext _ = (tc_exp env e ext; ())
     | tc_stm _ A.Nop _ _ = ()
     | tc_stm env (A.Seq (s1,s2)) ext lp =
         (tc_stm env s1 ext lp; tc_stm env s2 ext lp)
-    | tc_stm env (A.Declare (id,t,s)) ext lp =
+    | tc_stm (funs, env) (A.Declare (id,t,s)) ext lp =
         (case Symbol.look env id
-           of NONE   => tc_stm (Symbol.bind env (id, t)) s ext lp
+           of NONE   => tc_stm (funs, Symbol.bind env (id, t)) s ext lp
             | SOME _ => (ErrorMsg.error ext ("Redeclared variable: " ^
                                              Symbol.name id);
                          raise ErrorMsg.Error))
@@ -154,7 +166,21 @@ struct
    *
    * @param prog the program to typecheck
    *)
-  fun typecheck prog = (*tc_stm Symbol.empty prog NONE false*)
-                       ()
+  fun typecheck L = let
+        val funs = ref Symbol.empty
+        fun tc_adecl (A.Markedg data) = tc_adecl (Mark.data data)
+          | tc_adecl (A.ExtDecl (typ, id, types)) =
+              funs := Symbol.bind (!funs) (id, (typ, types))
+          | tc_adecl (A.IntDecl (typ, id, types)) =
+              funs := Symbol.bind (!funs) (id, (typ, types))
+          | tc_adecl (A.Typedef (_, _)) = ()
+          | tc_adecl (A.Fun (typ, ident, args, stm)) = let
+              val types = map (fn (A.Declare (_, t, _)) => t
+                                | _ => raise Fail "Invalid AST (tc)") args
+            in
+              funs := Symbol.bind (!funs) (ident, (typ, types));
+              tc_stm (!funs, Symbol.empty) stm NONE false
+            end
+      in app tc_adecl L end
 
 end
