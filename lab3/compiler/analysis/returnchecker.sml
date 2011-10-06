@@ -37,7 +37,7 @@ struct
    * @raise ErrorMsg.Error if the program does not return
    *)
   fun returncheck [] = ()
-    | returncheck ((A.Func (_, name, _, SOME f))::G) = if returns f then ()
+    | returncheck ((A.Fun (_, name, _, f))::G) = if returns f then ()
         else (ErrorMsg.error NONE ("Function " ^ Symbol.name name ^
                                    " does not return"))
     | returncheck (g::G) = returncheck G

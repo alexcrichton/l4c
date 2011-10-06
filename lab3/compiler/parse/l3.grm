@@ -29,6 +29,9 @@ fun check_main (sym, lpos, rpos) prog =
         (ErrorMsg.error (ParseState.ext (lpos, rpos))
                          "Function must be called main"; prog)
 
+fun extract_types [] = []
+  | extract_types (A.Declare (_, typ, _) :: L) = typ :: extract_types L
+
 fun convert_exp2 (exp1, left) (SOME binop, exp2, NONE, right) =
       mark (A.BinaryOp(binop, exp1, exp2), (left, right))
   | convert_exp2 (exp1, left) (NONE, exp2, SOME exp3, right) =
@@ -133,10 +136,10 @@ gdecl      : fdecl                      (fdecl)
            | fdef                       (fdef)
            | typedef                    (typedef)
 
-fdecl      : typ IDENT param_list SEMI  (markg (A.Func (typ, IDENT, param_list, NONE),
+fdecl      : typ IDENT param_list SEMI  (markg (A.IntDecl (typ, IDENT, extract_types param_list),
                                                (typleft, SEMIright)))
 
-fdef       : typ IDENT param_list block (markg (A.Func (typ, IDENT, param_list, SOME block),
+fdef       : typ IDENT param_list block (markg (A.Fun (typ, IDENT, param_list, block),
                                                (typleft, param_listright)))
 
 typedef    : TYPEDEF IDENT typ          (markg (A.Typedef (IDENT, typ), (TYPEDEFleft, typright)))

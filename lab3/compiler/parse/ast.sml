@@ -59,7 +59,9 @@ sig
    | Markeds of stm Mark.marked
 
   datatype gdecl =
-     Func of typ * ident * stm list * stm option
+     Fun of typ * ident * stm list * stm
+   | ExtDecl of typ * ident * typ list
+   | IntDecl of typ * ident * typ list
    | Typedef of ident * typ
    | Markedg of gdecl Mark.marked
 
@@ -131,7 +133,9 @@ struct
    | Markeds of stm Mark.marked
 
   datatype gdecl =
-     Func of typ * ident * stm list * stm option
+     Fun of typ * ident * stm list * stm
+   | ExtDecl of typ * ident * typ list
+   | IntDecl of typ * ident * typ list
    | Typedef of ident * typ
    | Markedg of gdecl Mark.marked
 
@@ -165,13 +169,12 @@ struct
     | elaborate_stm stm = stm
   and elaborate_gdecl (Markedg mark) =
         Markedg (Mark.mark' (elaborate_gdecl (Mark.data mark), Mark.ext mark))
-    | elaborate_gdecl (gdecl as Func (_, _, _, NONE)) = gdecl
-    | elaborate_gdecl (Func (t, i, params, SOME body)) = let
+    | elaborate_gdecl (Fun (t, i, params, body)) = let
         fun scope_params (Declare (id, typ, _), body) =
               Declare (id, typ, elaborate_stm body)
           | scope_params _ = raise Fail "Invalid AST"
       in
-        Func (t, i, params, SOME(foldr scope_params body params))
+        Fun (t, i, params, foldr scope_params body params)
       end
     | elaborate_gdecl g = g
   and elaborate prog = map elaborate_gdecl prog
