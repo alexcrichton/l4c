@@ -13,7 +13,7 @@ end;
 structure TypeChecker :> TYPE_CHECK =
 struct
   structure A = Ast
-(*
+
   (* typ_name : A.typ -> string
    * Helper method to get a string description of a type
    *)
@@ -146,7 +146,7 @@ struct
                          raise ErrorMsg.Error))
     | tc_stm env (A.Markeds marked_stm) _ lp =
         tc_stm env (Mark.data marked_stm) (Mark.ext marked_stm) lp
-*)
+
   (* typecheck : A.program -> unit
    *
    * Performs static analysis on the program to typecheck it. An error is raised
