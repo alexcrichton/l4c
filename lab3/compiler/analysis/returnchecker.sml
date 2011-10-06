@@ -36,7 +36,8 @@ struct
    * @param prog the program to check
    * @raise ErrorMsg.Error if the program does not return
    *)
-  fun returncheck prog = if returns prog then () else (
-      ErrorMsg.error NONE "Program does not return"; raise ErrorMsg.Error)
+  fun returncheck prog = ()
+  (*fun returncheck prog = if returns prog then () else (
+      ErrorMsg.error NONE "Program does not return"; raise ErrorMsg.Error)*)
 
 end

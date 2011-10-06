@@ -147,7 +147,8 @@ struct
    * @param prog the AST program
    * @return a list of statements in the intermediate language.
    *)
-  fun translate prog = trans_stm Symbol.empty (A.remove_for prog A.Nop)
-                                 (Label.new " ", Label.new " ")
+  fun translate prog = []
+  (*fun translate prog = trans_stm Symbol.empty (A.remove_for prog A.Nop)
+                                 (Label.new " ", Label.new " ")*)
 
 end

@@ -11,6 +11,7 @@ structure A = Ast
 (* mark e with region (left, right) in source file *)
 fun mark (e, (left, right)) = A.Marked (Mark.mark' (e, ParseState.ext (left, right)))
 fun marks (s, (left, right)) = A.Markeds (Mark.mark' (s, ParseState.ext (left, right)))
+fun markg (d, (left, right)) = A.Markedg (Mark.mark' (d, ParseState.ext (left, right)))
 
 (* expand_asnop (id, "op=", exp) region = "id = id op exps"
  * or = "id = exp" if asnop is "="
@@ -53,7 +54,8 @@ fun convert_exp2 (exp1, left) (SOME binop, exp2, NONE, right) =
  | LESS | LESSEQ | GREATER | GREATEREQ
  | LBRACE | RBRACE
  | LPAREN | RPAREN
- | IF | ELSE | WHILE | FOR | CONTINUE | BREAK | RETURN
+ | COMMA
+ | IF | ELSE | WHILE | FOR | CONTINUE | BREAK | RETURN | TYPEDEF
  | QUESTION | COLON
  | UNARY | ASNOP
 (* UNARY and ASNOP are dummy terminals.
@@ -66,6 +68,16 @@ fun convert_exp2 (exp1, left) (SOME binop, exp2, NONE, right) =
 
 %nonterm
    program  of A.program
+ | gdecls   of A.gdecl list
+ | gdecl    of A.gdecl
+ | fdecl    of A.gdecl
+ | fdef     of A.gdecl
+ | typedef  of A.gdecl
+ | param    of A.stm
+ | param_list_follow  of A.stm list
+ | param_list         of A.stm list
+ | arg_list_follow    of A.exp list
+ | arg_list           of A.exp list
  | stmts    of A.stm
  | decl     of A.stm
  | stmt     of A.stm
@@ -111,14 +123,36 @@ fun convert_exp2 (exp1, left) (SOME binop, exp2, NONE, right) =
 
 (* note that MAIN is not intended to be a keyword.
  * the current rule is an expedient hack for forward compatability *)
-program    : INT IDENT LPAREN RPAREN block
-                                      (check_main (IDENT, IDENTleft, IDENTright)
-                                                  block)
+program    : gdecls                     (gdecls)
+
+gdecls     :                            ([])
+           | gdecl gdecls               (gdecl::gdecls)
+
+gdecl      : fdecl                      (fdecl)
+           | fdef                       (fdef)
+           | typedef                    (typedef)
+
+fdecl      : typ IDENT param_list SEMI  (markg (A.Func (typ, IDENT, param_list, NONE),
+                                               (typleft, SEMIright)))
+
+fdef       : typ IDENT param_list block (markg (A.Func (typ, IDENT, param_list, SOME block),
+                                               (typleft, param_listright)))
+
+typedef    : TYPEDEF IDENT typ          (markg (A.Typedef (IDENT, typ), (TYPEDEFleft, typright)))
+
+param      : typ IDENT                  (marks (A.Declare (IDENT, typ, A.Nop), (typleft, IDENTright)))
+
+param_list_follow :                                 ([])
+                  | COMMA param param_list_follow   (param::param_list_follow)
+
+param_list : LPAREN RPAREN                          ([])
+           | LPAREN param param_list_follow RPAREN  (param::param_list_follow)
 
 block      : LBRACE stmts RBRACE        (stmts)
 
 typ        : INT                        (A.INT)
            | BOOL                       (A.BOOL)
+           | IDENT                      (A.TYPEDEF IDENT)
 
 decl       : typ IDENT                  (marks (A.Declare (IDENT, typ, A.Nop),
                                                 (typleft, IDENTright)))
@@ -167,6 +201,12 @@ control    : IF LPAREN exp RPAREN stmt elseopt  (A.If(exp, stmt, elseopt))
            | BREAK SEMI      (marks (A.Break, (BREAKleft, BREAKright)))
            | RETURN exp SEMI (marks (A.Return exp, (RETURNleft, expright)))
 
+arg_list_follow :                               ([])
+                | COMMA exp arg_list_follow     (exp::arg_list_follow)
+
+arg_list   : LPAREN RPAREN                      ([])
+           | LPAREN exp arg_list_follow RPAREN  (exp::arg_list_follow)
+
 lvalue     : IDENT                      (IDENT)
            | LPAREN lvalue RPAREN       (lvalue)
 
@@ -182,6 +222,8 @@ exp        : LPAREN exp RPAREN          (exp)
            | unop exp %prec UNARY       (mark (A.UnaryOp(unop, exp),
                                                (unopleft, expright)))
            | exp exp2                   (convert_exp2 (exp, expleft) exp2)
+           | IDENT arg_list             (mark (A.Call (IDENT, arg_list),
+                                              (IDENTleft, arg_listright)))
 
 exp2       : PLUS exp         (SOME(A.PLUS), exp, NONE, expright)
            | MINUS exp        (SOME(A.MINUS), exp, NONE, expright)

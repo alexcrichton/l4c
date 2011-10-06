@@ -65,6 +65,8 @@ ws = [\ \t\011\013\012];
 <INITIAL> {ws}+       => (lex ());
 <INITIAL> \n          => (ParseState.newline(yypos); lex());
 
+<INITIAL> ","         => (Tokens.COMMA (yypos, yypos + size yytext));
+
 <INITIAL> "{"         => (Tokens.LBRACE (yypos, yypos + size yytext));
 <INITIAL> "}"         => (Tokens.RBRACE (yypos, yypos + size yytext));
 <INITIAL> "("         => (Tokens.LPAREN (yypos, yypos + size yytext));
@@ -122,6 +124,7 @@ ws = [\ \t\011\013\012];
 <INITIAL> "bool"      => (Tokens.BOOL (yypos, yypos + size yytext));
 <INITIAL> "true"      => (Tokens.TRUE (yypos, yypos + size yytext));
 <INITIAL> "false"     => (Tokens.FALSE (yypos, yypos + size yytext));
+<INITIAL> "typedef"     => (Tokens.TYPEDEF (yypos, yypos + size yytext));
 
 <INITIAL> {decnum}    => (number Word32Signed.fromString (yytext, yypos));
 <INITIAL> {hexnum}    => (number Word32Signed.fromHexString (yytext, yypos));

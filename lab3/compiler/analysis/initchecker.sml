@@ -107,6 +107,7 @@ struct
    * @param p the program to check
    * @raise ErrorMsg.Error if a variable is used before initialization
    *)
-  fun initializationcheck p = analyze (A.remove_for p A.Nop) NONE
+  fun initializationcheck p = (*analyze (A.remove_for p A.Nop) NONE*)
+                              ()
 
 end

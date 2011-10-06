@@ -8,7 +8,7 @@ signature AST =
 sig
   type ident = Symbol.symbol
 
-  datatype typ = INT | BOOL
+  datatype typ = INT | BOOL | TYPEDEF of ident
 
   datatype unop =
      NEGATIVE
@@ -42,6 +42,7 @@ sig
    | BinaryOp of binop * exp * exp
    | UnaryOp of unop * exp
    | Ternary of exp * exp * exp
+   | Call of ident * exp list
    | Marked of exp Mark.marked
   and stm =
      Assign  of ident * exp
@@ -57,7 +58,12 @@ sig
    | Declare of ident * typ * stm
    | Markeds of stm Mark.marked
 
-  type program = stm
+  datatype gdecl =
+     Func of typ * ident * stm list * stm option
+   | Typedef of ident * typ
+   | Markedg of gdecl Mark.marked
+
+  type program = gdecl list
 
   (* print as source, with redundant parentheses *)
   structure Print :
@@ -74,7 +80,7 @@ structure Ast :> AST =
 struct
   type ident = Symbol.symbol
 
-  datatype typ = INT | BOOL
+  datatype typ = INT | BOOL | TYPEDEF of ident
 
   datatype unop =
      NEGATIVE
@@ -108,6 +114,7 @@ struct
    | BinaryOp of binop * exp * exp
    | UnaryOp of unop * exp
    | Ternary of exp * exp * exp
+   | Call of ident * exp list
    | Marked of exp Mark.marked
   and stm =
      Assign  of ident * exp
@@ -123,7 +130,12 @@ struct
    | Declare of ident * typ * stm
    | Markeds of stm Mark.marked
 
-  type program = stm
+  datatype gdecl =
+     Func of typ * ident * stm list * stm option
+   | Typedef of ident * typ
+   | Markedg of gdecl Mark.marked
+
+  type program = gdecl list
 
   (* elaborate : program -> program
    *
@@ -133,24 +145,26 @@ struct
    * @return an elaborated version of the AST which fixes structure the parser
    *         would have trouble knowing about
    *)
-  fun elaborate (Markeds mark) =
-        Markeds (Mark.mark' (elaborate (Mark.data mark), Mark.ext mark))
-    | elaborate (Declare (id, typ, stm)) = Declare (id, typ, elaborate stm)
-    | elaborate (For (Declare(id, typ, s1), e, s2, s3)) =
-        Declare (id, typ, elaborate (For (s1, e, s2, s3)))
-    | elaborate (For (Markeds mark, e, s2, s3)) =
-        elaborate (For (Mark.data mark, e, s2, s3))
-    | elaborate (For (s1, e, s2, s3)) =
-        For (elaborate s1, e, elaborate s2, elaborate s3)
-    | elaborate (If (e, s1, s2)) = If (e, elaborate s1, elaborate s2)
-    | elaborate (While (e, s)) = While (e, elaborate s)
-    | elaborate (Seq (Declare (id, typ, s1), s2)) =
-        Declare (id, typ, Seq (s1, elaborate s2))
-    | elaborate (Seq (Markeds mark, s2)) =
-        Markeds (Mark.mark' (elaborate (Seq (Mark.data mark, s2)),
+  fun elaborate_stm (Markeds mark) =
+        Markeds (Mark.mark' (elaborate_stm (Mark.data mark), Mark.ext mark))
+    | elaborate_stm (Declare (id, typ, stm)) = Declare (id, typ, elaborate_stm stm)
+    | elaborate_stm (For (Declare(id, typ, s1), e, s2, s3)) =
+        Declare (id, typ, elaborate_stm (For (s1, e, s2, s3)))
+    | elaborate_stm (For (Markeds mark, e, s2, s3)) =
+        elaborate_stm (For (Mark.data mark, e, s2, s3))
+    | elaborate_stm (For (s1, e, s2, s3)) =
+        For (elaborate_stm s1, e, elaborate_stm s2, elaborate_stm s3)
+    | elaborate_stm (If (e, s1, s2)) = If (e, elaborate_stm s1, elaborate_stm s2)
+    | elaborate_stm (While (e, s)) = While (e, elaborate_stm s)
+    | elaborate_stm (Seq (Declare (id, typ, s1), s2)) =
+        Declare (id, typ, Seq (s1, elaborate_stm s2))
+    | elaborate_stm (Seq (Markeds mark, s2)) =
+        Markeds (Mark.mark' (elaborate_stm (Seq (Mark.data mark, s2)),
                              Mark.ext mark))
-    | elaborate (Seq (s1, s2)) = Seq (elaborate s1, elaborate s2)
-    | elaborate stm = stm
+    | elaborate_stm (Seq (s1, s2)) = Seq (elaborate_stm s1, elaborate_stm s2)
+    | elaborate_stm stm = stm
+  
+  fun elaborate x = x
 
   (* remove_for : program -> program
    *
@@ -160,7 +174,7 @@ struct
    * @param prog the program to transform
    * @param an AST without any for loops (they're converted to while loops)
    *)
-  fun remove_for (For (s1, e, s2, s3)) _ =
+  (*fun remove_for (For (s1, e, s2, s3)) _ =
         Seq (s1, While (e, Seq(remove_for s3 s2, s2)))
     | remove_for (If (e, s1, s2)) rep =
         If (e, remove_for s1 rep, remove_for s2 rep)
@@ -170,13 +184,15 @@ struct
         Markeds (Mark.mark' (remove_for (Mark.data mark) s, Mark.ext mark))
     | remove_for (Seq (s1, s2)) r = Seq (remove_for s1 r, remove_for s2 r)
     | remove_for (Declare (id, typ, s)) r = Declare (id, typ, remove_for s r)
-    | remove_for s _ = s
+    | remove_for s _ = s*)
+  fun remove_for p _ = p
 
   (* print programs and expressions in source form
    * using redundant parentheses to clarify precedence
    *)
   structure Print =
   struct
+  (*
     fun pp_ident id = Symbol.name id
     fun pp_typ BOOL = "bool"
       | pp_typ INT  = "int"
@@ -236,5 +252,7 @@ struct
       | pp_stm (Markeds (marked_stm)) = pp_stm (Mark.data marked_stm)
 
     fun pp_program prog = "int main {\n" ^ tab (pp_stm prog) ^ "\n}\n"
+    *)
+    fun pp_program _ = "Foo"
   end
 end
