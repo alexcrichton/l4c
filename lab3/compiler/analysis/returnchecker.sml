@@ -40,6 +40,7 @@ struct
     | returncheck ((A.Fun (_, name, _, f))::G) = if returns f then ()
         else (ErrorMsg.error NONE ("Function " ^ Symbol.name name ^
                                    " does not return"))
+    | returncheck ((A.Markedg data)::G) = returncheck ((Mark.data data)::G)
     | returncheck (g::G) = returncheck G
 
 end
