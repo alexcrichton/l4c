@@ -162,7 +162,8 @@ struct
         fun bind (A.Declare (id, _, _), e) = Symbol.bind e (id, Temp.new ())
           | bind _ = raise Fail "Invalid statement in function arguments"
         val e = foldl bind Symbol.empty args
-        val instrs = trans_stm e (A.remove_for body A.Nop) (Label.new "_", Label.new "_")
+        val instrs = trans_stm e (A.remove_for body A.Nop)
+                                 (Label.new "_", Label.new "_")
       in
         SOME (name, instrs)
       end
