@@ -4,4 +4,4 @@
  *)
 
 CM.make "sources.cm";
-SMLofNJ.exportFn ("bin/l2c.heap", Top.main);
+SMLofNJ.exportFn ("bin/l3c.heap", Top.main);

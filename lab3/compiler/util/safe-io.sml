@@ -1,4 +1,4 @@
-(* L1 Compiler
+(* L3 Compiler
  * Safe(r) I/O functions
  * Author: Frank Pfenning <fp@cs.cmu.edu>
  *)

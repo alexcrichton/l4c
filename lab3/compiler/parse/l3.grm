@@ -41,7 +41,7 @@ fun convert_exp2 (exp1, left) (SOME binop, exp2, NONE, right) =
   | convert_exp2 _ _ = raise Fail "Invalid input to convert_exp2!"
 
 %%
-%header (functor L1LrValsFn (structure Token : TOKEN))
+%header (functor L3LrValsFn (structure Token : TOKEN))
 
 %term
    EOF

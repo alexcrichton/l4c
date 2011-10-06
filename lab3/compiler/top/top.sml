@@ -1,4 +1,4 @@
-(* L1 Compiler
+(* L3 Compiler
  * Top Level Environment
  * Author: Kaustuv Chaudhuri <kaustuv+@cs.cmu.edu>
  * Modified: Alex Vaynberg <alv@andrew.cmu.edu>
@@ -145,7 +145,7 @@ struct
                  Assem.DIRECTIVE("_c0_main:"),
                  Assem.DIRECTIVE("__c0_main:")]
           @ assem
-          @ [Assem.DIRECTIVE ".ident\t\"15-411 L1 reference compiler\""]
+          @ [Assem.DIRECTIVE ".ident\t\"15-411 L3 reference compiler\""]
     val code = P.time ("Formatting", fn () => String.concat (List.map (Assem.format) assem))
 
     val afname = stem source ^ ".s"

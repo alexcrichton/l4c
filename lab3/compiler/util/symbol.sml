@@ -1,4 +1,4 @@
-(* L1 Compiler
+(* L3 Compiler
  * The symbol tables
  * Author: Kaustuv Chaudhuri <kaustuv+@cs.cmu.edu>
  *)

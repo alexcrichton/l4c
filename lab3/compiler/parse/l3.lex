@@ -50,7 +50,7 @@ in
 end
 
 %%
-%header (functor L1LexFn(structure Tokens : L3_TOKENS));
+%header (functor L3LexFn(structure Tokens : L3_TOKENS));
 %full
 %s COMMENT COMMENT_LINE;
 
