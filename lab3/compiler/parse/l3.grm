@@ -138,15 +138,19 @@ gdecl      : fdecl                      (fdecl)
            | fdef                       (fdef)
            | typedef                    (typedef)
 
-fdecl      : typ IDENT param_list SEMI  (markg (A.IntDecl (typ, IDENT, extract_types param_list),
+fdecl      : typ IDENT param_list SEMI  (markg (A.IntDecl (typ, IDENT,
+                                                      extract_types param_list),
                                                (typleft, SEMIright)))
 
-fdef       : typ IDENT param_list block (markg (A.Fun (typ, IDENT, param_list, block),
-                                               (typleft, param_listright)))
+fdef       : typ IDENT param_list block (markg (A.Fun (typ, IDENT, param_list,
+                                                       block),
+                                                (typleft, param_listright)))
 
-typedef    : TYPEDEF typ IDENT SEMI     (markg (A.Typedef (IDENT, typ), (TYPEDEFleft, typright)))
+typedef    : TYPEDEF typ IDENT SEMI     (markg (A.Typedef (IDENT, typ),
+                                                (TYPEDEFleft, typright)))
 
-param      : typ IDENT                  (marks (A.Declare (IDENT, typ, A.Nop), (typleft, IDENTright)))
+param      : typ IDENT                  (marks (A.Declare (IDENT, typ, A.Nop),
+                                                (typleft, IDENTright)))
 
 param_list_follow :                                 ([])
                   | COMMA param param_list_follow   (param::param_list_follow)
