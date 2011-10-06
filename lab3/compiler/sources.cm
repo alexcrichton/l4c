@@ -24,6 +24,7 @@ Group is
   analysis/returnchecker.sml
   analysis/initchecker.sml
   analysis/neededness.sml
+  analysis/mainchecker.sml
 
   trans/label.sml
   trans/temp.sml

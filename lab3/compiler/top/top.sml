@@ -117,6 +117,8 @@ struct
     val _ = P.time ("Typechecking", fn () => TypeChecker.typecheck ast)
     val _ = Flag.guard flag_verbose say ("Returns... " ^ source)
     val _ = P.time ("Returns", fn () => ReturnChecker.returncheck ast)
+    val _ = Flag.guard flag_verbose say ("Main... " ^ source)
+    val _ = P.time ("Main", fn () => MainChecker.maincheck ast)
     val _ = Flag.guard flag_verbose say ("Initialization... " ^ source)
     val _ = P.time ("Initialization",
                     fn () => InitializationChecker.initializationcheck ast)
