@@ -6,8 +6,6 @@
 
 signature CODEGEN =
 sig
-  val caller_regs : Assem.operand list
-  val callee_regs : Assem.operand list
   val codegen : Tree.program -> Assem.instr list
 end
 
@@ -17,10 +15,6 @@ struct
   structure AS = Assem
   structure P = Profile
 
-  fun r reg = AS.REG reg
-  val caller_regs = [r AS.EAX, r AS.ECX, r AS.EDX , r AS.ESI, r AS.EDI,
-                     r AS.R8D, r AS.R9D, r AS.R10D, r AS.R11D]
-  val callee_regs = [r AS.EBX, r AS.R12D, r AS.R13D, r AS.R14D, r AS.R15D]
 
   fun munch_op T.ADD = AS.ADD
     | munch_op T.SUB = AS.SUB
@@ -58,9 +52,9 @@ struct
                                    (t::T, (munch_exp t e) @ I)
                                  end
           val (T, I) = foldr eval ([], []) L
-          val temps = map (fn _ => AS.TEMP (Temp.new())) caller_regs
-          val pushes = ListPair.map (fn t => AS.MOV t) (temps, caller_regs)
-          val pops   = ListPair.map (fn t => AS.MOV t) (caller_regs, temps)
+          val temps = map (fn _ => AS.TEMP (Temp.new())) AS.caller_regs
+          val pushes = ListPair.map (fn t => AS.MOV t) (temps, AS.caller_regs)
+          val pops   = ListPair.map (fn t => AS.MOV t) (AS.caller_regs, temps)
           fun mv (AS.REG (AS.STACK _), s) = AS.PUSH s
             | mv t = AS.MOV t
           val moves = ListPair.map mv (List.tabulate (length T, arg_reg), T)
