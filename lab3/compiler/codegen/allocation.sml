@@ -249,8 +249,8 @@ struct
         (* The result of an unused DIV or MOD operation cannot be elimitated
            by neededness analysis, but it never gets colored, so throw it away
            here *)
-        add_rsp offset ::
-          foldr (fn (AS.RET, L) => add_rsp (~offset)::AS.RET::L
+        add_rsp (~offset) ::
+          foldr (fn (AS.RET, L) => add_rsp offset::AS.RET::L
                   | (i, L) => i::L)
                 [] (filter_temps L')
       end
