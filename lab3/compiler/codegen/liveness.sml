@@ -25,6 +25,8 @@ struct
    *)
   type rule = A.operand list * A.operand list * label list
 
+  val eax = A.REG A.EAX
+
   (* rulegen : (A.label -> label) -> (label * Assem.instr) -> rule
    *
    * @param l the label of the current instruction
@@ -41,7 +43,7 @@ struct
     | rulegen f (l, A.PUSH s) = ([s], [], [l + 1])
     | rulegen f (l, A.POP d) = ([], [d], [l + 1])
     | rulegen f (l, A.LABEL _) = ([], [], [l + 1])
-    | rulegen f (l, A.CALL _) = ([], [A.REG A.EAX], [l + 1])
+    | rulegen f (l, A.CALL _) = (eax::A.caller_regs, [], [l + 1])
     | rulegen f (l, A.ASM s) =
         if s = "cltd" then ([A.REG A.EDX], [A.REG A.EDX], [l + 1])
         else ([], [], [l + 1])

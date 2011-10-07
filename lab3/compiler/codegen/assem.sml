@@ -77,7 +77,7 @@ struct
 
   type ord_key = operand
 
-  val caller_regs = [REG EAX, REG ECX, REG EDX , REG ESI, REG EDI,
+  val caller_regs = [REG ECX, REG EDX , REG ESI, REG EDI,
                      REG R8D, REG R9D, REG R10D, REG R11D]
   val callee_regs = [REG EBX, REG R12D, REG R13D, REG R14D, REG R15D]
 
