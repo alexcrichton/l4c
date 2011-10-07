@@ -15,7 +15,6 @@ struct
   structure AS = Assem
   structure P = Profile
 
-
   fun munch_op T.ADD = AS.ADD
     | munch_op T.SUB = AS.SUB
     | munch_op T.MUL = AS.MUL
@@ -55,7 +54,7 @@ struct
           val temps = map (fn _ => AS.TEMP (Temp.new())) AS.caller_regs
           val pushes = ListPair.map (fn t => AS.MOV t) (temps, AS.caller_regs)
           val pops   = ListPair.map (fn t => AS.MOV t) (AS.caller_regs, temps)
-          fun mv (AS.REG (AS.STACK _), s) = AS.PUSH s
+          fun mv (AS.REG (AS.STACK _), s) = raise Fail "figure me out"
             | mv t = AS.MOV t
           val moves = ListPair.map mv (List.tabulate (length T, arg_reg), T)
           val post = if length L <= 6 then [] else [AS.BINOP (AS.ADD64, AS.REG AS.ESP,

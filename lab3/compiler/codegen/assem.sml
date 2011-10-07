@@ -22,8 +22,6 @@ sig
 
   datatype instr =
      BINOP of operation * operand * operand
-   | PUSH of operand
-   | POP of operand
    | MOV of operand * operand
    | MOVFLAG of operand * condition
    | JMP of Label.label * condition option
@@ -63,8 +61,6 @@ struct
 
   datatype instr =
      BINOP of operation * operand * operand
-   | PUSH of operand
-   | POP of operand
    | MOV of operand * operand
    | MOVFLAG of operand * condition
    | JMP of Label.label * condition option
@@ -81,63 +77,6 @@ struct
                      REG R8D, REG R9D, REG R10D, REG R11D]
   val callee_regs = [REG EBX, REG R12D, REG R13D, REG R14D, REG R15D]
 
-  (* reg_num : reg -> int
-   *
-   * Converts a register to it's specified number
-   * @param reg the register to convert
-   * @return the number corresponding to this register
-   *)
-  fun reg_num EAX = 1
-    | reg_num EBX = 2
-    | reg_num ECX = 3
-    | reg_num EDX = 4
-    | reg_num EDI = 5
-    | reg_num ESI = 6
-    | reg_num R8D = 7
-    | reg_num R9D = 8
-    | reg_num R10D = 9
-    | reg_num R11D = 10
-    | reg_num R12D = 11
-    | reg_num R13D = 12
-    | reg_num R14D = 13
-    | reg_num (STACK n) = n + 13
-    | reg_num R15D = raise Fail "r15d is a scary register"
-
-  (* num_reg : int -> reg
-   *
-   * Converts an integer to it's specified register
-   * @param x the number of the register
-   * @return the register corresponding to this number
-   *)
-  fun num_reg 1  = EAX
-    | num_reg 2  = EBX
-    | num_reg 3  = ECX
-    | num_reg 4  = EDX
-    | num_reg 5  = EDI
-    | num_reg 6  = ESI
-    | num_reg 7  = R8D
-    | num_reg 8  = R9D
-    | num_reg 9  = R10D
-    | num_reg 10 = R11D
-    | num_reg 11 = R12D
-    | num_reg 12 = R13D
-    | num_reg 13 = R14D (* TODO: use r15d if only 14 regs *)
-    | num_reg x  = STACK (x - 13)
-
-  (* compare : (reg * reg) -> order
-   *
-   * Defines an ordering of registers so they can be inserted into sets.
-   * @param (r1, r2) the register pair to compare
-   * @return the comparison of r1 to r2
-   *)
-  fun compare (REG r1, REG r2) = Int.compare (reg_num r1, reg_num r2)
-    | compare (TEMP t1, TEMP t2) = Temp.compare (t1, t2)
-    | compare (IMM w1, IMM w2) = Word32.compare (w1, w2)
-    | compare (IMM _, _)  = LESS
-    | compare (_, IMM _)  = GREATER
-    | compare (TEMP _, _) = LESS
-    | compare (_, TEMP _) = GREATER
-
   (* format_reg : reg -> string
    *
    * @param reg the register to convert to a name
@@ -149,8 +88,8 @@ struct
     | format_reg EDX = "%edx"
     | format_reg EDI = "%edi"
     | format_reg ESI = "%esi"
-    | format_reg ESP = "%esp"
-    | format_reg EBP = "%ebp"
+    | format_reg ESP = "%rsp"
+    | format_reg EBP = raise Fail "Bad %ebp"
     | format_reg R8D = "%r8d"
     | format_reg R9D = "%r9d"
     | format_reg R10D = "%r10d"
@@ -185,30 +124,6 @@ struct
     | format_reg8 R15D = "%r15b"
     | format_reg8 r = raise Fail ("Cannot get lower 8 bits of " ^ format_reg r)
 
-  (* format_reg64 : reg -> string
-   *
-   * @param reg the register to convert to a name
-   * @return the string representation of the 8-bytes of the given
-   *         register in x86
-   *)
-  fun format_reg64 EAX  = "%rax"
-    | format_reg64 EBX  = "%rbx"
-    | format_reg64 ECX  = "%rcx"
-    | format_reg64 EDX  = "%rdx"
-    | format_reg64 ESI  = "%rsi"
-    | format_reg64 EDI  = "%rdi"
-    | format_reg64 ESP  = "%rsp"
-    | format_reg64 EBP  = "%rbp"
-    | format_reg64 R8D  = "%r8"
-    | format_reg64 R9D  = "%r9"
-    | format_reg64 R10D = "%r10"
-    | format_reg64 R11D = "%r11"
-    | format_reg64 R12D = "%r12"
-    | format_reg64 R13D = "%r13"
-    | format_reg64 R14D = "%r14"
-    | format_reg64 R15D = "%r15"
-    | format_reg64 r = raise Fail ("Cannot get 8-bytes of " ^ format_reg r)
-
   (* format_binop : operation -> string
    *
    * @param oper the operation to convert to a string
@@ -226,6 +141,7 @@ struct
     | format_binop XOR = "xorl"
     | format_binop LSH = "sall"
     | format_binop RSH = "sarl"
+    | format_binop ADD64 = "addq"
 
   (* format_operand : operand -> string
    *
@@ -281,13 +197,10 @@ struct
                                      ", " ^ format_operand d
     | format_instr (CALL (l, _)) = "callq " ^ Label.name l
     | format_instr (ASM str) = str
-    | format_instr (PUSH (REG s)) = "pushq " ^ format_reg64 s
-    | format_instr (POP (REG d)) = "popq " ^ format_reg64 d
     | format_instr (DIRECTIVE str) = str
     | format_instr (LABEL l) = Label.name l ^ ":"
     | format_instr (COMMENT str) = "/* " ^ str ^ "*/"
     | format_instr (RET) = "ret"
-    | format_instr _ = raise Fail "Invalid instruction"
 
   val r15d = REG R15D
 
@@ -315,10 +228,6 @@ struct
     (* Can't move between two memory locations... *)
     | instr_expand (MOV (d as REG (STACK _), s as REG (STACK _))) =
         [MOV (r15d, s), MOV (d, r15d)]
-    | instr_expand (PUSH (s as REG (STACK _))) =
-        [MOV (r15d, s), PUSH (r15d)]
-    | instr_expand (POP (d as REG (STACK _))) =
-        [POP (r15d), MOV (d, r15d)]
     | instr_expand (LABEL l) =
         if Label.compare (l, Label.literal "main") <> EQUAL then [LABEL l]
         else [LABEL (Label.literal "_c0_main"), LABEL l]
@@ -343,6 +252,63 @@ struct
       in
         String.concat (map finstr (instr_expand instr))
       end
+
+  (* reg_num : reg -> int
+   *
+   * Converts a register to it's specified number
+   * @param reg the register to convert
+   * @return the number corresponding to this register
+   *)
+  fun reg_num EAX = 1
+    | reg_num EBX = 2
+    | reg_num ECX = 3
+    | reg_num EDX = 4
+    | reg_num EDI = 5
+    | reg_num ESI = 6
+    | reg_num R8D = 7
+    | reg_num R9D = 8
+    | reg_num R10D = 9
+    | reg_num R11D = 10
+    | reg_num R12D = 11
+    | reg_num R13D = 12
+    | reg_num R14D = 13
+    | reg_num (STACK n) = n + 13
+    | reg_num r = raise Fail (format_reg r ^ " is a scary register")
+
+  (* num_reg : int -> reg
+   *
+   * Converts an integer to it's specified register
+   * @param x the number of the register
+   * @return the register corresponding to this number
+   *)
+  fun num_reg 1  = EAX
+    | num_reg 2  = EBX
+    | num_reg 3  = ECX
+    | num_reg 4  = EDX
+    | num_reg 5  = EDI
+    | num_reg 6  = ESI
+    | num_reg 7  = R8D
+    | num_reg 8  = R9D
+    | num_reg 9  = R10D
+    | num_reg 10 = R11D
+    | num_reg 11 = R12D
+    | num_reg 12 = R13D
+    | num_reg 13 = R14D (* TODO: use r15d if only 14 regs *)
+    | num_reg x  = STACK (x - 13)
+
+  (* compare : (reg * reg) -> order
+   *
+   * Defines an ordering of registers so they can be inserted into sets.
+   * @param (r1, r2) the register pair to compare
+   * @return the comparison of r1 to r2
+   *)
+  fun compare (REG r1, REG r2) = Int.compare (reg_num r1, reg_num r2)
+    | compare (TEMP t1, TEMP t2) = Temp.compare (t1, t2)
+    | compare (IMM w1, IMM w2) = Word32.compare (w1, w2)
+    | compare (IMM _, _)  = LESS
+    | compare (_, IMM _)  = GREATER
+    | compare (TEMP _, _) = LESS
+    | compare (_, TEMP _) = GREATER
 
 end
 

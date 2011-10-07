@@ -235,10 +235,19 @@ struct
         val order = P.time ("Generate SEO", fn () => generate_seo graph_rec pq)
         val () = P.time ("Coloring", fn () => color graph_rec order)
         val L' = P.time ("Apply coloring", fn () => apply_coloring L graph_rec)
+        val max = foldl Int.max 0 (map (fn (_, d) => !(#color d))
+                                       (#nodes graph ()))
+        val stack_start = AS.reg_num (AS.STACK 0)
+        val (create, destroy) =
+              if max < stack_start then ([], [])
+              else ([AS.BINOP(AS.ADD64, AS.REG AS.ESP,
+                     AS.IMM (Word32.fromInt ((max - stack_start + 1) * 4)))],
+                    [AS.BINOP(AS.ADD64, AS.REG AS.ESP,
+                     AS.IMM (Word32.fromInt ((max - stack_start + 1) * ~4)))])
       in
         (* The result of an unused DIV or MOD operation cannot be elimitated
            by neededness analysis, but it never gets colored, so throw it away
            here *)
-        filter_temps L'
+        create @ filter_temps L' @ destroy
       end
 end

@@ -40,8 +40,6 @@ struct
     | rulegen f (l, A.DIRECTIVE _) = ([], [], [l + 1])
     | rulegen f (l, A.COMMENT _) = ([], [], [l + 1])
     | rulegen f (l, A.RET) = ([], [], [])
-    | rulegen f (l, A.PUSH s) = ([s], [], [l + 1])
-    | rulegen f (l, A.POP d) = ([], [d], [l + 1])
     | rulegen f (l, A.LABEL _) = ([], [], [l + 1])
     | rulegen f (l, A.CALL _) = (eax::A.caller_regs, [], [l + 1])
     | rulegen f (l, A.ASM s) =
