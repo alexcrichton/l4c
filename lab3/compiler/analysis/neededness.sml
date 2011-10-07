@@ -148,7 +148,7 @@ struct
    * Eliminates unneeded code from the given program
    *)
   fun eliminate prog = map eliminate_stms prog
-  and eliminate_stms (id, L) = let
+  and eliminate_stms (id, temps, L) = let
         val labels = HT.mkTable (Label.hash, Label.equal)
                                 (32, Fail "Label not found")
 
@@ -165,6 +165,6 @@ struct
                                   handle Subscript => ref TS.empty)
       in
         munge needed lbl_fn;
-        (id, filter needed L lbl_fn)
+        (id, temps, filter needed L lbl_fn)
       end
 end

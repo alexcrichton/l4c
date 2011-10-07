@@ -192,7 +192,7 @@ struct
    * @return a list of instructions with allocated registers
    *)
   fun codegen program = let
-        fun geni (id, L) = let
+        fun geni (id, T, L) = let
               val L' = P.time ("Munching", fn () => munch_stmts L)
             in
               (AS.LABEL id) :: Allocation.allocate L'

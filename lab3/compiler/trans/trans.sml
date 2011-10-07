@@ -161,16 +161,18 @@ struct
    * @return a list of statements in the intermediate language.
    *)
   fun translate_fun (A.Fun (_, name, args, body)) = let
-        fun bind (A.Declare (id, _, _), e) = Symbol.bind e (id, Temp.new ())
+        fun bind (A.Declare (id, _, _), (T, e)) = let val t = Temp.new() in
+              (t::T, Symbol.bind e (id, t))
+            end
           | bind _ = raise Fail "Invalid statement in function arguments"
-        val e = foldl bind Symbol.empty args
+        val (temps, e) = foldr bind ([], Symbol.empty) args
         val instrs = trans_stm e (A.remove_for body A.Nop)
                                  (Label.new "_", Label.new "_")
       in
-        SOME (ident_label name, instrs)
+        SOME (ident_label name, temps, instrs)
       end
     | translate_fun _ = NONE
-  
+
   (* translate : Ast.program -> T.program
    *
    * Translates an abstract syntax tree into the intermediate language.

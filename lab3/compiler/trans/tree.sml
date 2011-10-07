@@ -22,7 +22,7 @@ sig
     | GOTO  of Label.label * exp option
     | RETURN of exp
 
-  type func = Label.label * stm list
+  type func = Label.label * Temp.temp list * stm list
 
   type program = func list
 
@@ -50,7 +50,7 @@ struct
     | GOTO  of Label.label * exp option
     | RETURN of exp
 
-  type func = Label.label * stm list
+  type func = Label.label * Temp.temp list * stm list
 
   type program = func list
 
