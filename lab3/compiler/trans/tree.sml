@@ -15,14 +15,14 @@ sig
       TEMP of Temp.temp
     | CONST of Word32.word
     | BINOP of binop * exp * exp
-    | CALL of ident * exp list
+    | CALL of Label.label * exp list
   and stm =
       MOVE of exp * exp
     | LABEL of Label.label
     | GOTO  of Label.label * exp option
     | RETURN of exp
 
-  type func = ident * stm list
+  type func = Label.label * stm list
 
   type program = func list
 
@@ -43,14 +43,14 @@ struct
       TEMP of Temp.temp
     | CONST of Word32.word
     | BINOP of binop * exp * exp
-    | CALL of ident * exp list
+    | CALL of Label.label * exp list
   and stm =
       MOVE of exp * exp
     | LABEL of Label.label
     | GOTO  of Label.label * exp option
     | RETURN of exp
 
-  type func = ident * stm list
+  type func = Label.label * stm list
 
   type program = func list
 

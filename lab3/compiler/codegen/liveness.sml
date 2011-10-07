@@ -41,6 +41,7 @@ struct
     | rulegen f (l, A.PUSH s) = ([s], NONE, [l + 1])
     | rulegen f (l, A.POP d) = ([], SOME d, [l + 1])
     | rulegen f (l, A.LABEL _) = ([], NONE, [l + 1])
+    | rulegen f (l, A.CALL _) = ([], SOME (A.REG A.EAX), [l + 1])
     | rulegen f (l, A.ASM s) =
         if s = "cltd" then ([A.REG A.EDX], SOME(A.REG A.EDX), [l + 1])
         else ([], NONE, [l + 1])

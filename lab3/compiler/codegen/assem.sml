@@ -8,7 +8,7 @@ signature ASSEM =
 sig
   datatype reg = EAX | EBX  | ECX  | EDX  | EDI  | ESI  | R8D
                | R9D | R10D | R11D | R12D | R13D | R14D | R15D
-               | STACK of int
+               | STACK of int | ESP | EBP
 
   datatype operand =
      IMM of Word32.word
@@ -16,16 +16,19 @@ sig
    | TEMP of Temp.temp
 
   datatype operation = ADD | SUB | MUL | DIV | MOD | CMP
-                     | AND | OR  | XOR | LSH | RSH
+                     | AND | OR  | XOR | LSH | RSH | ADD64
 
   datatype condition = LT | LTE | EQ | NEQ
 
-  datatype instr = BINOP of operation * operand * operand
+  datatype instr =
+     BINOP of operation * operand * operand
+   | PUSH of operand
+   | POP of operand
    | MOV of operand * operand
    | MOVFLAG of operand * condition
    | JMP of Label.label * condition option
    | RET
-   | CALL of Label.label
+   | CALL of Label.label * int
    | ASM of string
    | LABEL of Label.label
    | DIRECTIVE of string
@@ -51,17 +54,19 @@ struct
    | TEMP of Temp.temp
 
   datatype operation = ADD | SUB | MUL | DIV | MOD | CMP
-                     | AND | OR  | XOR | LSH | RSH
+                     | AND | OR  | XOR | LSH | RSH | ADD64
 
   datatype condition = LT | LTE | EQ | NEQ
 
   datatype instr =
      BINOP of operation * operand * operand
+   | PUSH of operand
+   | POP of operand
    | MOV of operand * operand
    | MOVFLAG of operand * condition
    | JMP of Label.label * condition option
    | RET
-   | CALL of Label.label
+   | CALL of Label.label * int
    | ASM of string
    | LABEL of Label.label
    | DIRECTIVE of string
@@ -267,13 +272,15 @@ struct
     | format_instr (JMP (l, jmp)) = format_condition jmp ^ " " ^ Label.name l
     | format_instr (MOVFLAG (d,_)) = "movzbl " ^ format_operand8 d ^
                                      ", " ^ format_operand d
+    | format_instr (CALL (l, _)) = "callq " ^ Label.name l
     | format_instr (ASM str) = str
-    | format_instr (PUSH s) = "pushq " ^ format_reg64 s
-    | format_instr (POP d) = "popq " ^ format_reg64 d
+    | format_instr (PUSH (REG s)) = "pushq " ^ format_reg64 s
+    | format_instr (POP (REG d)) = "popq " ^ format_reg64 d
     | format_instr (DIRECTIVE str) = str
     | format_instr (LABEL l) = Label.name l ^ ":"
     | format_instr (COMMENT str) = "/* " ^ str ^ "*/"
     | format_instr (RET) = "ret"
+    | format_instr _ = raise Fail "Invalid instruction"
 
   val r15d = REG R15D
 
@@ -285,7 +292,7 @@ struct
    * operations always working on %eax and %edx.
    *
    * @param I the instruction to expand
-   * @return L a list of instructions which should be passed to format_intstr
+   * @return L a list of instructions which should be passed to format_instr
    *)
   fun instr_expand (BINOP (oper, d as REG (STACK _), s)) =
         [MOV (r15d, d), BINOP (oper, r15d, s), MOV (d, r15d)]

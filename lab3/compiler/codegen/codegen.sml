@@ -15,6 +15,11 @@ struct
   structure AS = Assem
   structure P = Profile
 
+  fun r reg = AS.REG reg
+  val caller_regs = [r AS.EAX, r AS.ECX, r AS.EDX , r AS.ESI, r AS.EDI,
+                     r AS.R8D, r AS.R9D, r AS.R10D, r AS.R11D]
+  val callee_regs = [r AS.EBX, r AS.R12D, r AS.R13D, r AS.R14D, r AS.R15D]
+
   fun munch_op T.ADD = AS.ADD
     | munch_op T.SUB = AS.SUB
     | munch_op T.MUL = AS.MUL
@@ -27,6 +32,14 @@ struct
     | munch_op T.RSH = AS.RSH
     | munch_op _     = AS.CMP (* LT, LTE, EQ, NEQ *)
 
+  fun arg_reg 0 = AS.REG AS.EDI
+    | arg_reg 1 = AS.REG AS.ESI
+    | arg_reg 2 = AS.REG AS.EDX
+    | arg_reg 3 = AS.REG AS.ECX
+    | arg_reg 4 = AS.REG AS.R8D
+    | arg_reg 5 = AS.REG AS.R9D
+    | arg_reg n = AS.REG (AS.STACK (n-6))
+
   (* munch_exp : AS.operand -> T.exp -> AS.instr list
    *
    * generates instructions to achieve d <- e, d must be TEMP(t) or REG(r)
@@ -38,6 +51,21 @@ struct
   fun munch_exp d (T.CONST n) = [AS.MOV(d, AS.IMM(n))]
     | munch_exp d (T.TEMP t)  = [AS.MOV(d, AS.TEMP(t))]
     | munch_exp d (T.BINOP (binop, e1, e2)) = munch_binop d (binop, e1, e2)
+    | munch_exp d (T.CALL (l, L)) = let
+          fun eval (e, (T, I)) = let val t = AS.TEMP (Temp.new()) in
+                                   (t::T, (munch_exp t e) @ I)
+                                 end
+          val (T, I) = foldr eval ([], []) L
+          val pushes = foldr (fn (r, L) => (AS.PUSH r)::L) [] caller_regs
+          val pops = foldl (fn (r, L) => (AS.POP r)::L) [] caller_regs
+          fun mv (AS.REG (AS.STACK _), s) = AS.PUSH s
+            | mv t = AS.MOV t
+          val moves = ListPair.map mv (List.tabulate (length T, arg_reg), T)
+          val post = if length L <= 6 then [] else [AS.BINOP (AS.ADD64, AS.REG AS.ESP,
+                                    AS.IMM (Word32.fromInt (8 * (length L - 6))))]
+        in
+          I @ pushes @ rev moves @ (AS.CALL (l, length L))::post @ pops
+        end
 
   (* munch_half : AS.binop -> T.exp -> (AS.operand * AS.instr list)
    *
@@ -166,7 +194,7 @@ struct
         fun geni (id, L) = let
               val L' = P.time ("Munching", fn () => munch_stmts L)
             in
-              AS.LABEL(Label.literal (Symbol.name id)) :: Allocation.allocate L'
+              (AS.LABEL id) :: Allocation.allocate L'
             end
       in
         foldr (op @) [] (map geni program)

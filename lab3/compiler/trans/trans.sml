@@ -15,6 +15,8 @@ struct
   structure A = Ast
   structure T = Tree
 
+  val ident_label = Label.literal o Symbol.name
+
   (* trans_oper : A.binop -> T.binop
    *
    * Translates an AST binop to a IR binop
@@ -99,7 +101,7 @@ struct
         val (instrs, args) = foldr ev ([], []) EL
         val t = Temp.new ()
       in
-        (instrs @ [T.MOVE (T.TEMP t, T.CALL (name, args))], T.TEMP t)
+        (instrs @ [T.MOVE (T.TEMP t, T.CALL (ident_label name, args))], T.TEMP t)
       end
 
   (* trans_stm : Temp.temp Symbol.table -> A.stm -> Label.label * Label.label
@@ -165,7 +167,7 @@ struct
         val instrs = trans_stm e (A.remove_for body A.Nop)
                                  (Label.new "_", Label.new "_")
       in
-        SOME (name, instrs)
+        SOME (ident_label name, instrs)
       end
     | translate_fun _ = NONE
   
