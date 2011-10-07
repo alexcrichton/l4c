@@ -312,6 +312,9 @@ struct
         [MOV (r15d, s), PUSH (r15d)]
     | instr_expand (POP (d as REG (STACK _))) =
         [POP (r15d), MOV (d, r15d)]
+    | instr_expand (LABEL l) =
+        if Label.compare (l, Label.literal "main") <> EQUAL then [LABEL l]
+        else [LABEL (Label.literal "_c0_main"), LABEL l]
     | instr_expand i = [i]
 
   (* format : instr -> string
