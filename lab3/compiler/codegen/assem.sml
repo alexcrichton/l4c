@@ -294,7 +294,7 @@ struct
     | num_reg 11 = R12D
     | num_reg 12 = R13D
     | num_reg 13 = R14D (* TODO: use r15d if only 14 regs *)
-    | num_reg x  = STACK (x - 13)
+    | num_reg x  = STACK (x - 14)
 
   (* compare : (reg * reg) -> order
    *
