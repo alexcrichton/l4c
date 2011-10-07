@@ -1,0 +1,6 @@
+//test error
+
+int foo(int a);
+int foo(bool b);
+
+int main() { return 3; }
