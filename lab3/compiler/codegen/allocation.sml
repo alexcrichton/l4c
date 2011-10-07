@@ -238,21 +238,20 @@ struct
         val max = foldl Int.max 0 (map (fn (_, d) => !(#color d))
                                        (#nodes graph ()))
         val stack_start = AS.reg_num (AS.STACK 0)
-        val (create, destroy) =
-              if max < stack_start then ([], [])
-              else let
-                val s = (max - stack_start + 1) * 4
-                val s = if s mod 16 = 8 then s else ((s + 8) div 16) * 16 + 8
-                val esp = AS.REG AS.ESP
-              in
-                ([AS.BINOP(AS.ADD64, esp, AS.IMM (Word32.fromInt s))],
-                 [AS.BINOP(AS.ADD64, esp, AS.IMM (Word32.fromInt (~s)))])
+        fun add_rsp i = AS.BINOP(AS.ADD64, AS.REG AS.ESP,
+                                 AS.IMM (Word32.fromInt i))
+        val offset =
+              if max < stack_start then 8
+              else let val s = (max - stack_start + 1) * 4 in
+                if s mod 16 = 8 then s else ((s + 8) div 16) * 16 + 8
               end
       in
         (* The result of an unused DIV or MOD operation cannot be elimitated
            by neededness analysis, but it never gets colored, so throw it away
            here *)
-        create @ foldr (fn (AS.RET, L) => destroy @ AS.RET::L | (i, L) => i::L)
-                        [] (filter_temps L')
+        add_rsp offset ::
+          foldr (fn (AS.RET, L) => add_rsp (~offset)::AS.RET::L
+                  | (i, L) => i::L)
+                [] (filter_temps L')
       end
 end
