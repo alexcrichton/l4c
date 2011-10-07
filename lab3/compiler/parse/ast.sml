@@ -187,7 +187,8 @@ struct
             in
               (check_fun_id (!efuns) ext id; check_id ext id;
                check_fun_id (!funs) ext id; funs := Symbol.add (!funs) id;
-               Fun (resolve ext typ, id, map elaborate_param params, body))
+               Fun (resolve ext typ, id, map elaborate_param params,
+                    elaborate_stm (!types) body))
             end
           | elaborate_gdecl ext (p as Typedef (id, typ)) =
               (check_id ext id; check_fun_id (!efuns) ext id;
