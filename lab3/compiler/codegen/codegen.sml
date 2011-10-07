@@ -6,6 +6,8 @@
 
 signature CODEGEN =
 sig
+  val caller_regs : Assem.operand list
+  val callee_regs : Assem.operand list
   val codegen : Tree.program -> Assem.instr list
 end
 
