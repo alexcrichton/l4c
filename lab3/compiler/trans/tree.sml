@@ -57,7 +57,7 @@ struct
   structure Print =
   struct
 
-    (*fun tab str = "  " ^ (String.translate
+    fun tab str = "  " ^ (String.translate
       (fn c => if c = #"\n" then "\n  " else (String.str c)) str)
 
     fun pp_binop ADD = "+"
@@ -79,6 +79,11 @@ struct
       | pp_exp (TEMP t) = Temp.name t
       | pp_exp (BINOP (binop, e1, e2)) =
           "(" ^ pp_exp e1 ^ " " ^ pp_binop binop ^ " " ^ pp_exp e2 ^ ")"
+      | pp_exp (CALL (l, L)) = let
+          val args = String.concatWith ", " (map pp_exp L)
+        in
+          Label.name l ^ "(" ^ args ^ ")"
+        end
 
     fun pp_stm (MOVE (e1,e2)) = pp_exp e1 ^ " <- " ^ pp_exp e2
       | pp_stm (LABEL l) = Label.name l
@@ -87,8 +92,10 @@ struct
           "if (" ^ pp_exp exp ^ ") goto " ^ Label.name l
       | pp_stm (RETURN e) = "return " ^ pp_exp e
 
+    fun pp_func (l, _, stms) = Label.name l ^ ":\n" ^
+                          tab (String.concatWith "\n" (map pp_stm stms)) ^ "\n\n"
+
     and pp_program [] = ""
-      | pp_program (stm::stms) = pp_stm stm ^ "\n" ^ pp_program stms*)
-    fun pp_program _ = "\t%t1 <- %t2 + 4\n\tret"
+      | pp_program (func::funcs) = pp_func func ^ pp_program funcs
   end
 end

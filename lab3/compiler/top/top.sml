@@ -126,7 +126,7 @@ struct
 
     val _ = Flag.guard flag_verbose say "Translating..."
     val ir' = P.time ("Translating", fn () => Trans.translate ast)
-    val _ = Flag.guard flag_ir (fn () => say (Tree.Print.pp_program ir')) ()
+    (*val _ = Flag.guard flag_ir (fn () => say (Tree.Print.pp_program ir')) ()*)
     val _ = Flag.guard flag_verbose say ("Neededness Analysis... " ^ source)
     val ir = P.time ("Neededness", fn () => Neededness.eliminate ir')
     val _ = Flag.guard flag_ir (fn () => say (Tree.Print.pp_program ir)) ()
