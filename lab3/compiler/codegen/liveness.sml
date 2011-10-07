@@ -23,7 +23,7 @@ struct
    *    A.operand option - SOME x if def(l, x), or NONE
    *    label list - all l' where succ(l, l')
    *)
-  type rule = A.operand list * A.operand option * label list
+  type rule = A.operand list * A.operand list * label list
 
   (* rulegen : (A.label -> label) -> (label * Assem.instr) -> rule
    *
@@ -31,20 +31,20 @@ struct
    * @param i the instruction to generate a rule for
    * @return a rule representing the current instruction
    *)
-  fun rulegen f (l, A.BINOP(_, d, s)) = ([d, s], SOME d, [l + 1])
-    | rulegen f (l, A.MOV(d, s)) = ([s], SOME d, [l + 1])
-    | rulegen f (l, A.MOVFLAG(d, _)) = ([], SOME d, [l + 1])
-    | rulegen f (l, A.JMP (lbl, _)) = ([], NONE, [f lbl, l + 1])
-    | rulegen f (l, A.DIRECTIVE _) = ([], NONE, [l + 1])
-    | rulegen f (l, A.COMMENT _) = ([], NONE, [l + 1])
-    | rulegen f (l, A.RET) = ([], NONE, [])
-    | rulegen f (l, A.PUSH s) = ([s], NONE, [l + 1])
-    | rulegen f (l, A.POP d) = ([], SOME d, [l + 1])
-    | rulegen f (l, A.LABEL _) = ([], NONE, [l + 1])
-    | rulegen f (l, A.CALL _) = ([], SOME (A.REG A.EAX), [l + 1])
+  fun rulegen f (l, A.BINOP(_, d, s)) = ([d, s], [d], [l + 1])
+    | rulegen f (l, A.MOV(d, s)) = ([s], [d], [l + 1])
+    | rulegen f (l, A.MOVFLAG(d, _)) = ([], [d], [l + 1])
+    | rulegen f (l, A.JMP (lbl, _)) = ([], [], [f lbl, l + 1])
+    | rulegen f (l, A.DIRECTIVE _) = ([], [], [l + 1])
+    | rulegen f (l, A.COMMENT _) = ([], [], [l + 1])
+    | rulegen f (l, A.RET) = ([], [], [])
+    | rulegen f (l, A.PUSH s) = ([s], [], [l + 1])
+    | rulegen f (l, A.POP d) = ([], [d], [l + 1])
+    | rulegen f (l, A.LABEL _) = ([], [], [l + 1])
+    | rulegen f (l, A.CALL _) = ([], [A.REG A.EAX], [l + 1])
     | rulegen f (l, A.ASM s) =
-        if s = "cltd" then ([A.REG A.EDX], SOME(A.REG A.EDX), [l + 1])
-        else ([], NONE, [l + 1])
+        if s = "cltd" then ([A.REG A.EDX], [A.REG A.EDX], [l + 1])
+        else ([], [], [l + 1])
 
   (* add_uses : OS.set -> OS.set ref -> bool
    *
@@ -79,10 +79,8 @@ struct
     (* If our current line defines an operand, then we should not be adding that
        temp to the list of live variables in the set. Generate a list of
        temps the current successor line will add to our set *)
-    val succ_set =
-      case def
-        of SOME t => (OS.delete (!(f x), t) handle NotFound => !(f x))
-         | _      => !(f x)
+    fun del_def (d, s) = OS.delete (s, d) handle NotFound => s
+    val succ_set = foldl del_def (!(f x)) def
     val added_succ = add_uses succ_set set
   in added orelse added_succ end
 
