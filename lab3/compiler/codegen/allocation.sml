@@ -240,14 +240,19 @@ struct
         val stack_start = AS.reg_num (AS.STACK 0)
         val (create, destroy) =
               if max < stack_start then ([], [])
-              else ([AS.BINOP(AS.ADD64, AS.REG AS.ESP,
-                     AS.IMM (Word32.fromInt ((max - stack_start + 1) * 4)))],
-                    [AS.BINOP(AS.ADD64, AS.REG AS.ESP,
-                     AS.IMM (Word32.fromInt ((max - stack_start + 1) * ~4)))])
+              else let
+                val s = (max - stack_start + 1) * 4
+                val s = if s mod 16 = 8 then s else ((s + 8) div 16) * 16 + 8
+                val esp = AS.REG AS.ESP
+              in
+                ([AS.BINOP(AS.ADD64, esp, AS.IMM (Word32.fromInt s))],
+                 [AS.BINOP(AS.ADD64, esp, AS.IMM (Word32.fromInt (~s)))])
+              end
       in
         (* The result of an unused DIV or MOD operation cannot be elimitated
            by neededness analysis, but it never gets colored, so throw it away
            here *)
-        create @ filter_temps L' @ destroy
+        create @ foldr (fn (AS.RET, L) => destroy @ AS.RET::L | (i, L) => i::L)
+                        [] (filter_temps L')
       end
 end
