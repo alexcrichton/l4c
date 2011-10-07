@@ -38,6 +38,8 @@ struct
     | rulegen f (l, A.DIRECTIVE _) = ([], NONE, [l + 1])
     | rulegen f (l, A.COMMENT _) = ([], NONE, [l + 1])
     | rulegen f (l, A.RET) = ([], NONE, [])
+    | rulegen f (l, A.PUSH s) = ([s], NONE, [l + 1])
+    | rulegen f (l, A.POP d) = ([], SOME d, [l + 1])
     | rulegen f (l, A.LABEL _) = ([], NONE, [l + 1])
     | rulegen f (l, A.ASM s) =
         if s = "cltd" then ([A.REG A.EDX], SOME(A.REG A.EDX), [l + 1])

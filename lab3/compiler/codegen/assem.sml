@@ -43,7 +43,7 @@ structure Assem :> ASSEM =
 struct
   datatype reg = EAX | EBX  | ECX  | EDX  | EDI  | ESI  | R8D
                | R9D | R10D | R11D | R12D | R13D | R14D | R15D
-               | STACK of int
+               | STACK of int | ESP | EBP
 
   datatype operand =
      IMM of Word32.word
@@ -137,6 +137,8 @@ struct
     | format_reg EDX = "%edx"
     | format_reg EDI = "%edi"
     | format_reg ESI = "%esi"
+    | format_reg ESP = "%esp"
+    | format_reg EBP = "%ebp"
     | format_reg R8D = "%r8d"
     | format_reg R9D = "%r9d"
     | format_reg R10D = "%r10d"
@@ -170,6 +172,30 @@ struct
     | format_reg8 R14D = "%r14b"
     | format_reg8 R15D = "%r15b"
     | format_reg8 r = raise Fail ("Cannot get lower 8 bits of " ^ format_reg r)
+
+  (* format_reg64 : reg -> string
+   *
+   * @param reg the register to convert to a name
+   * @return the string representation of the 8-bytes of the given
+   *         register in x86
+   *)
+  fun format_reg64 EAX  = "%rax"
+    | format_reg64 EBX  = "%rbx"
+    | format_reg64 ECX  = "%rcx"
+    | format_reg64 EDX  = "%rdx"
+    | format_reg64 ESI  = "%rsi"
+    | format_reg64 EDI  = "%rdi"
+    | format_reg64 ESP  = "%rsp"
+    | format_reg64 EBP  = "%rbp"
+    | format_reg64 R8D  = "%r8"
+    | format_reg64 R9D  = "%r9"
+    | format_reg64 R10D = "%r10"
+    | format_reg64 R11D = "%r11"
+    | format_reg64 R12D = "%r12"
+    | format_reg64 R13D = "%r13"
+    | format_reg64 R14D = "%r14"
+    | format_reg64 R15D = "%r15"
+    | format_reg64 r = raise Fail ("Cannot get 8-bytes of " ^ format_reg r)
 
   (* format_binop : operation -> string
    *
@@ -242,6 +268,8 @@ struct
     | format_instr (MOVFLAG (d,_)) = "movzbl " ^ format_operand8 d ^
                                      ", " ^ format_operand d
     | format_instr (ASM str) = str
+    | format_instr (PUSH s) = "pushq " ^ format_reg64 s
+    | format_instr (POP d) = "popq " ^ format_reg64 d
     | format_instr (DIRECTIVE str) = str
     | format_instr (LABEL l) = Label.name l ^ ":"
     | format_instr (COMMENT str) = "/* " ^ str ^ "*/"
@@ -273,6 +301,10 @@ struct
     (* Can't move between two memory locations... *)
     | instr_expand (MOV (d as REG (STACK _), s as REG (STACK _))) =
         [MOV (r15d, s), MOV (d, r15d)]
+    | instr_expand (PUSH (s as REG (STACK _))) =
+        [MOV (r15d, s), PUSH (r15d)]
+    | instr_expand (POP (d as REG (STACK _))) =
+        [POP (r15d), MOV (d, r15d)]
     | instr_expand i = [i]
 
   (* format : instr -> string
