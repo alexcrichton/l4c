@@ -56,8 +56,9 @@ struct
                                    (t::T, (munch_exp t e) @ I)
                                  end
           val (T, I) = foldr eval ([], []) L
-          val pushes = foldr (fn (r, L) => (AS.PUSH r)::L) [] caller_regs
-          val pops = foldl (fn (r, L) => (AS.POP r)::L) [] caller_regs
+          val temps = map (fn _ => AS.TEMP (Temp.new())) caller_regs
+          val pushes = ListPair.map (fn t => AS.MOV t) (temps, caller_regs)
+          val pops   = ListPair.map (fn t => AS.MOV t) (caller_regs, temps)
           fun mv (AS.REG (AS.STACK _), s) = AS.PUSH s
             | mv t = AS.MOV t
           val moves = ListPair.map mv (List.tabulate (length T, arg_reg), T)
