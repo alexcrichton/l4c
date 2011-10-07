@@ -192,13 +192,22 @@ struct
    *)
   fun codegen program = let
         fun geni (id, T, L) = let
-              val L' = P.time ("Munching", fn () => munch_stmts L)
-              val srcs  = List.tabulate (length T, arg_reg)
-              val dests = map (fn t => AS.TEMP t) T
-              val movs = ListPair.map (fn t => AS.MOV t) (dests, srcs)
+              val srcs     = List.tabulate (length T, arg_reg)
+              val dests    = map (fn t => AS.TEMP t) T
+              val argmvs   = ListPair.map (fn t => AS.MOV t) (dests, srcs)
+              val srcs'    = AS.callee_regs
+              val dests'   = map (fn _ => AS.TEMP (Temp.new())) AS.callee_regs
+              val saves    = ListPair.map (fn t => AS.MOV t) (dests', srcs')
+              val restores = ListPair.map (fn t => AS.MOV t) (srcs', dests')
+
+              fun alter_ret (AS.RET, L) = restores @ AS.RET :: L
+                | alter_ret (i, L) = i :: L
+
+              val L' = saves @ argmvs @ P.time ("Munching",
+                                                fn () => munch_stmts L)
             in
               if length T > 6 then raise Fail "7+ args = bad" else ();
-              (AS.LABEL id) :: Allocation.allocate (movs @ L')
+              (AS.LABEL id) :: Allocation.allocate (foldr alter_ret [] L')
             end
       in
         foldr (op @) [] (map geni program)
