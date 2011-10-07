@@ -38,7 +38,10 @@ struct
 
   fun literal str = (str, 0)
 
-  fun name (s, t) = if t = 0 then s else "." ^ s ^ Int.toString t
+  fun name (s, t) =
+        if t <> 0 then "." ^ s ^ Int.toString t
+        else if SMLofNJ.SysInfo.getOSName () = "Darwin" then "_" ^ s
+        else s
   fun hash label = HashString.hashString (name label)
   fun compare (l1, l2) = String.compare (name l1, name l2)
   fun equal ts = (compare ts = EQUAL)
