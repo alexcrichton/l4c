@@ -65,7 +65,8 @@ struct
           val post = if length L <= 6 then [] else [AS.BINOP (AS.ADD64, AS.REG AS.ESP,
                                     AS.IMM (Word32.fromInt (8 * (length L - 6))))]
         in
-          I @ pushes @ rev moves @ (AS.CALL (l, length L))::post @ pops
+          I @ pushes @ rev moves @ (AS.CALL (l, length L))::post @ pops @
+          [AS.MOV (d, AS.REG AS.EAX)]
         end
 
   (* munch_half : AS.binop -> T.exp -> (AS.operand * AS.instr list)
