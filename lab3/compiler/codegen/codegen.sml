@@ -151,6 +151,9 @@ struct
     | munch_conditional dest (T.TEMP n) =
         [AS.BINOP (AS.CMP, AS.TEMP n, AS.IMM Word32Signed.ZERO),
          AS.JMP(dest, SOME(AS.NEQ))]
+    | munch_conditional dest (f as T.CALL _) = let val t = Temp.new() in
+        munch_exp (AS.TEMP t) f @ munch_conditional dest (T.TEMP t)
+      end
     | munch_conditional dest (T.BINOP (oper, e1, e2)) = let
         val (t1, t1instrs) = munch_half AS.CMP e1
         val (t2, t2instrs) = munch_half AS.CMP e2

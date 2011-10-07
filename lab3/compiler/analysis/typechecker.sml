@@ -184,11 +184,12 @@ struct
               val types = map (fn (A.Declare (_, t, _)) => t
                                 | _ => raise Fail "Invalid AST (tc)") args
               fun bind_arg (A.Declare (id, t, _), env) =
-                    case Symbol.look env id
-                      of SOME t => (ErrorMsg.error ext ("Duplicate argument" ^
-                                    " name: " ^ Symbol.name id);
-                                    raise ErrorMsg.Error)
-                       | NONE => Symbol.bind env (id, t)
+                    (case Symbol.look env id
+                       of SOME t => (ErrorMsg.error ext ("Duplicate argument" ^
+                                     " name: " ^ Symbol.name id);
+                                     raise ErrorMsg.Error)
+                        | NONE => Symbol.bind env (id, t))
+                | bind_arg _ = raise Fail "Invalid AST (tc bind_arg)"
             in
               funs := Symbol.bind (!funs) (ident, (typ, types));
               tc_stm (!funs, foldl bind_arg Symbol.empty args) stm NONE
