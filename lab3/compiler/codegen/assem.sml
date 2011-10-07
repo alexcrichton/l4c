@@ -98,8 +98,7 @@ struct
     | format_reg R13D = "%r13d"
     | format_reg R14D = "%r14d"
     | format_reg R15D = "%r15d"
-    (* We'll have a stack frame eventually... *)
-    | format_reg (STACK n) = "-" ^ Int.toString (n * 4) ^ "(%rsp)"
+    | format_reg (STACK n) = Int.toString (n * 4) ^ "(%rsp)"
 
   (* format_reg8 : reg -> string
    *
