@@ -173,19 +173,27 @@ struct
    *)
   fun typecheck L = let
         val funs = ref Symbol.empty
-        fun tc_adecl (A.Markedg data) = tc_adecl (Mark.data data)
-          | tc_adecl (A.ExtDecl (typ, id, types)) =
+        fun tc_adecl _ (A.Markedg data) =
+              tc_adecl (Mark.ext data) (Mark.data data)
+          | tc_adecl ext (A.ExtDecl (typ, id, types)) =
               funs := Symbol.bind (!funs) (id, (typ, types))
-          | tc_adecl (A.IntDecl (typ, id, types)) =
+          | tc_adecl ext (A.IntDecl (typ, id, types)) =
               funs := Symbol.bind (!funs) (id, (typ, types))
-          | tc_adecl (A.Typedef (_, _)) = ()
-          | tc_adecl (A.Fun (typ, ident, args, stm)) = let
+          | tc_adecl ext (A.Typedef (_, _)) = ()
+          | tc_adecl ext (A.Fun (typ, ident, args, stm)) = let
               val types = map (fn (A.Declare (_, t, _)) => t
                                 | _ => raise Fail "Invalid AST (tc)") args
+              fun bind_arg (A.Declare (id, t, _), env) =
+                    case Symbol.look env id
+                      of SOME t => (ErrorMsg.error ext ("Duplicate argument" ^
+                                    " name: " ^ Symbol.name id);
+                                    raise ErrorMsg.Error)
+                       | NONE => Symbol.bind env (id, t)
             in
               funs := Symbol.bind (!funs) (ident, (typ, types));
-              tc_stm (!funs, Symbol.empty) stm NONE (false, typ)
+              tc_stm (!funs, foldl bind_arg Symbol.empty args) stm NONE
+                     (false, typ)
             end
-      in app tc_adecl L end
+      in app (tc_adecl NONE) L end
 
 end

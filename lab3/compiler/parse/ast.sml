@@ -184,18 +184,10 @@ struct
                 | elaborate_param (Markeds d) = elaborate_param (Mark.data d)
                 | elaborate_param _ = raise Fail "Invalid AST (elaborate_param)"
 
-              fun scope_param (Declare (id, typ, _), stm) =
-                    (check_id ext id; Declare (id, resolve ext typ, stm))
-                | scope_param (Markeds d, s) = scope_param (Mark.data d, s)
-                | scope_param _ = raise Fail "Invalid AST (elaborate_param)"
-
-              val body' = elaborate_stm (!types) body
             in
               (check_fun_id (!efuns) ext id; check_id ext id;
                check_fun_id (!funs) ext id; funs := Symbol.add (!funs) id;
-               Fun (resolve ext typ, id,
-                    map elaborate_param params,
-                    foldr scope_param body' params))
+               Fun (resolve ext typ, id, map elaborate_param params, body))
             end
           | elaborate_gdecl ext (p as Typedef (id, typ)) =
               (check_id ext id; check_fun_id (!efuns) ext id;
