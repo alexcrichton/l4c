@@ -41,7 +41,7 @@ struct
     | rulegen f (l, A.COMMENT _) = ([], [], [l + 1])
     | rulegen f (l, A.RET) = ([], [], [])
     | rulegen f (l, A.LABEL _) = ([], [], [l + 1])
-    | rulegen f (l, A.CALL _) = (eax::A.caller_regs, [], [l + 1])
+    | rulegen f (l, A.CALL _) = ([], eax::A.caller_regs, [l + 1])
     | rulegen f (l, A.ASM s) =
         if s = "cltd" then ([A.REG A.EDX], [A.REG A.EDX], [l + 1])
         else ([], [], [l + 1])
