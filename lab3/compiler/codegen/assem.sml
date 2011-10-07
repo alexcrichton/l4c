@@ -271,7 +271,8 @@ struct
     | reg_num R12D = 11
     | reg_num R13D = 12
     | reg_num R14D = 13
-    | reg_num (STACK n) = n + 13
+    | reg_num (STACK n) = n + 14
+    | reg_num R15D = 0
     | reg_num r = raise Fail (format_reg r ^ " is a scary register")
 
   (* num_reg : int -> reg
@@ -292,7 +293,7 @@ struct
     | num_reg 10 = R11D
     | num_reg 11 = R12D
     | num_reg 12 = R13D
-    | num_reg 13 = R14D (* TODO: use r15d if only 14 regs *)
+    | num_reg 13 = R14D
     | num_reg x  = STACK (x - 14)
 
   (* compare : (reg * reg) -> order
