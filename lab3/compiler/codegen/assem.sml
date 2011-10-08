@@ -38,7 +38,10 @@ sig
   val callee_regs : operand list
 
   val format : instr -> string
+  val format_operand : operand -> string
   val compare : operand * operand -> order
+  val oper_hash : operand -> word
+  val oper_equal : operand * operand -> bool
   val reg_num : reg -> int
   val num_reg : int -> reg
 end
@@ -296,9 +299,9 @@ struct
     | num_reg 13 = R14D
     | num_reg x  = STACK (x - 14)
 
-  (* compare : (reg * reg) -> order
+  (* compare : (operand * operand) -> order
    *
-   * Defines an ordering of registers so they can be inserted into sets.
+   * Defines an ordering of operands so they can be inserted into sets.
    * @param (r1, r2) the register pair to compare
    * @return the comparison of r1 to r2
    *)
@@ -309,6 +312,20 @@ struct
     | compare (_, IMM _)  = GREATER
     | compare (TEMP _, _) = LESS
     | compare (_, TEMP _) = GREATER
+
+  (* oper_equal : operand * operand -> bool
+   *
+   * Checks if two operands are equal
+   *)
+  fun oper_equal t = (compare t = EQUAL)
+
+  (* oper_hash : operand -> word
+   *
+   * Hashes an operand
+   *)
+  fun oper_hash (IMM _) = Word.fromInt ~1
+    | oper_hash (REG r) = Word.fromInt (reg_num r)
+    | oper_hash (TEMP t) = (Temp.hash t) + (Word.fromInt 15)
 
 end
 

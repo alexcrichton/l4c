@@ -11,13 +11,15 @@ end
 
 (*
  * The interference graph is represented as a map between nodes and
- * a list of that node's neighbors. Nodes in this case are Temp.temps.
+ * a list of that node's neighbors. Nodes in this case are T.temps.
  * There is also an ('a node_data) type that stores metadata of type 'a
  * about nodes.
  *)
 structure Allocation :> ALLOCATION =
 struct
   structure AS = Assem
+  structure T = Temp
+  structure IS = IntBinarySet
   structure G = Graph
   structure UDG = UndirectedGraph(DynArray)
   structure P = Profile
@@ -47,22 +49,20 @@ struct
               (if #has_edge graph (x, y) then () else #add_edge graph (x, y, 0);
                add_neighbors x L)
 
-        fun process_op (AS.TEMP t, L) = let
-              val id = case HT.find (#graph_info graph) t
+        fun process_op (AS.IMM _, L) = L
+          | process_op (oper, L) = let
+              val clr = case oper
+                          of AS.REG r => AS.reg_num r
+                           | _ => 0
+              val id = case HT.find (#graph_info graph) oper
                          of SOME id => id
                           | NONE => let val nid = #new_id graph () in
-                              insert (t, nid);
-                              #add_node graph (nid, {color=ref 0, weight=ref 0,
+                              insert (oper, nid);
+                              #add_node graph (nid, {color=ref clr, weight=ref 0,
                                                     in_seo=ref false});
                               nid
                             end
             in id :: L end
-          | process_op (AS.REG r, L) = let
-              val id = #new_id graph ()
-              val () = #add_node graph (id, {color=ref (AS.reg_num r),
-                                             weight=ref 0, in_seo=ref false})
-            in id :: L end
-          | process_op (_, L) = L
 
         val ids = OperandSet.foldr process_op [] set
       in
@@ -150,10 +150,10 @@ struct
         (* map nbrs to the neighbors' color *)
         fun cmapfn n = !(#color (#node_info graph n : node_data))
         val colors = foldl (fn (n, S) =>
-                            IntBinarySet.add (S, cmapfn n))
-                            IntBinarySet.empty nbrs
+                            IS.add (S, cmapfn n))
+                            IS.empty nbrs
         (* find the lowest number > 0 not in the set *)
-        val (clr, _) = IntBinarySet.foldl minNotIn (1, false) colors
+        val (clr, _) = IS.foldl minNotIn (1, false) colors
         val () = (#color (#node_info graph node : node_data)) := clr
       in
         color (G.GRAPH graph) SEO
@@ -167,14 +167,14 @@ struct
    * @return      L, with all temps replaced with their correct registers
    *)
   fun apply_coloring L (G.GRAPH graph) = let
-        fun get_color t = #color (
-          #node_info graph (HT.lookup (#graph_info graph) t) : node_data
+        fun get_color oper = #color (
+          #node_info graph (HT.lookup (#graph_info graph) oper) : node_data
         )
-        fun map_op (AS.TEMP t) = ((case !(get_color t)
-                                    of 0 => AS.TEMP t
-                                     | c => AS.REG (AS.num_reg c))
-                                   handle Fail _ => (AS.TEMP t))
-          | map_op operand     = operand
+        fun map_op (oper as (AS.TEMP t)) = ((case !(get_color oper)
+                                               of 0 => AS.TEMP t
+                                                | c => AS.REG (AS.num_reg c))
+                                             handle G.NotFound => (AS.TEMP t))
+          | map_op oper = oper
 
         fun map_instr (AS.BINOP (oper, op1, op2)) =
               AS.BINOP (oper, map_op op1, map_op op2)
@@ -185,7 +185,7 @@ struct
         map map_instr L
       end
 
-  (* filter_temps : instr list -> instr list
+  (* filter_instrs : instr list -> instr list
    * Removes instructions from the instruction list that contain temporary
    * registers. These temps were never assigned registers and thus are not
    * live, so they can be deleted. The only exception is div and mod, which
@@ -194,16 +194,40 @@ struct
    * @param L   The list of instructions
    * @return    The original list with dead instructions removed
    *)
-  fun filter_temps L = let
+  fun filter_instrs L = let
         fun isTemp (AS.TEMP _) = true | isTemp _ = false
         fun hasTemps (AS.MOV (o1, o2)) =
               if (isTemp o2) then raise Fail "Live temp not allocated"
               else (isTemp o1)
           | hasTemps (AS.BINOP (oper, o1, o2)) = false
           | hasTemps _ = false
+        fun fltr (AS.MOV (AS.REG r1, AS.REG r2)) = r1 <> r2
+          | fltr i = not (hasTemps i)
       in
-        List.filter (fn i => not (hasTemps i)) L
+        List.filter fltr L
       end
+
+  (* coalesce : graph -> instr -> unit
+   * Performs register coalescing on the given instruction
+   *)
+  fun coalesce _ (AS.MOV (_, AS.IMM _)) = ()
+    | coalesce (G.GRAPH g) (AS.MOV (d, s)) = (let
+        val table = #graph_info g
+        val ids as (did, sid) = (HT.lookup table d, HT.lookup table s)
+        fun cmapfn n = !(#color (#node_info g n : node_data))
+        val nbrs' = IS.addList (IS.fromList (#succ g did), #succ g sid)
+        val nbrs = IS.map cmapfn nbrs'
+        val (clr, _) = IS.foldl minNotIn (1, false) nbrs
+        val num_regs = AS.reg_num (AS.STACK 0) - 1
+      in
+        if AS.oper_equal (d, s) orelse #has_edge g ids orelse clr > num_regs
+        then () else (
+          #color (#node_info g sid : node_data) := clr;
+          #color (#node_info g did : node_data) := clr
+        )
+      end
+      handle G.NotFound => ())
+    | coalesce _ _ = ()
 
   (* allocate : instr list -> instr list
    * Returns the given instruction list with all temps and variables assigned
@@ -216,8 +240,8 @@ struct
    *)
   fun allocate L = let
         val live  = P.time ("Liveness", fn () => Liveness.compute L)
-        val table = HT.mkTable (Temp.hash, Temp.equals)
-                               (List.length L, Fail "temp not found!")
+        val table = HT.mkTable (AS.oper_hash, AS.oper_equal)
+                               (length L, G.NotFound)
         val graph_rec = UDG.graph ("allocation", table, 10 * (List.length L))
         val G.GRAPH graph = graph_rec
         val () = P.time ("Make graph", fn () => make_graph (live, L) graph_rec)
@@ -234,6 +258,7 @@ struct
 
         val order = P.time ("Generate SEO", fn () => generate_seo graph_rec pq)
         val () = P.time ("Coloring", fn () => color graph_rec order)
+        val () = P.time ("Coalescing", fn () => app (coalesce graph_rec) L)
         val L' = P.time ("Apply coloring", fn () => apply_coloring L graph_rec)
         val max = foldl Int.max 0 (map (fn (_, d) => !(#color d))
                                        (#nodes graph ()))
@@ -252,6 +277,6 @@ struct
         add_rsp (~offset) ::
           foldr (fn (AS.RET, L) => add_rsp offset::AS.RET::L
                   | (i, L) => i::L)
-                [] (filter_temps L')
+                [] (filter_instrs L')
       end
 end
