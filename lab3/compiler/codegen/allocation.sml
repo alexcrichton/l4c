@@ -6,7 +6,7 @@
 
 signature ALLOCATION =
 sig
-  val allocate : Assem.instr list -> Assem.instr list
+  val allocate : Assem.instr list -> (int * Assem.instr list)
 end
 
 (*
@@ -229,14 +229,15 @@ struct
       handle G.NotFound => ())
     | coalesce _ _ = ()
 
-  (* allocate : instr list -> instr list
+  (* allocate : instr list -> int * instr list
    * Returns the given instruction list with all temps and variables assigned
    * to specific registers or stack locations. This function will perform the
    * liveness analysis and register allocation.
    *
    * @param L   The list of instructions with temps
-   * @return    The original list of instructions with all temps replaced with
-   *            registers or stack locations
+   * @return    A pair of the number of used registers and the original list of
+   *            instructions with all temps replaced with registers or stack
+   *            locations
    *)
   fun allocate L = let
         val live  = P.time ("Liveness", fn () => Liveness.compute L)
@@ -262,21 +263,10 @@ struct
         val L' = P.time ("Apply coloring", fn () => apply_coloring L graph_rec)
         val max = foldl Int.max 0 (map (fn (_, d) => !(#color d))
                                        (#nodes graph ()))
-        val stack_start = AS.reg_num (AS.STACK 0)
-        fun add_rsp i = AS.BINOP(AS.ADD64, AS.REG AS.ESP,
-                                 AS.IMM (Word32.fromInt i))
-        val offset =
-              if max < stack_start then 8
-              else let val s = (max - stack_start + 1) * 4 in
-                if s mod 16 = 8 then s else ((s + 8) div 16) * 16 + 8
-              end
       in
         (* The result of an unused DIV or MOD operation cannot be elimitated
            by neededness analysis, but it never gets colored, so throw it away
            here *)
-        add_rsp (~offset) ::
-          foldr (fn (AS.RET, L) => add_rsp offset::AS.RET::L
-                  | (i, L) => i::L)
-                [] (filter_instrs L')
+        (max, filter_instrs L')
       end
 end

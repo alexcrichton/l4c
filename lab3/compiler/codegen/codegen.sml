@@ -33,7 +33,7 @@ struct
     | arg_reg 3 = AS.REG AS.ECX
     | arg_reg 4 = AS.REG AS.R8D
     | arg_reg 5 = AS.REG AS.R9D
-    | arg_reg n = AS.REG (AS.STACK (n-6))
+    | arg_reg n = raise Fail "args in stack locations is scary"
 
   (* munch_exp : AS.operand -> T.exp -> AS.instr list
    *
@@ -181,6 +181,52 @@ struct
     | munch_stm _ = raise Fail "Invalid IR"
   and munch_stmts stmts = foldr (op @) [] (map munch_stm stmts)
 
+  (* munch_function : Temp.temp list -> T.stm list -> AS.instr list
+   *
+   * Converts and IR function into allocated assembly.
+   * @param T the list of temps that are arguments to this function. The list
+   *        represents the order of the arguments as well.
+   * @param L the list of statements that comprise this function.
+   * @return the assembly instructions for the function
+   *)
+  fun munch_function (T, L) = let
+        (* Move the arguments to the function from their specified registers
+           into the temps of the arguments *)
+        val srcs     = List.tabulate (length T, arg_reg)
+        val dests    = map (fn t => AS.TEMP t) T
+        val argmvs   = ListPair.map (fn t => AS.MOV t) (dests, srcs)
+
+        val L' = P.time ("Munching", fn () => argmvs @ munch_stmts L)
+        val (max_reg, assem) = Allocation.allocate L'
+        val stack_loc = Int.max (max_reg + 1, AS.reg_num (AS.STACK 0))
+        (* Save/restore callee save registers *)
+        val save_srcs = List.filter (fn AS.REG r => max_reg >= AS.reg_num r
+                                      | _ => raise Fail "callee_regs bad")
+                                    AS.callee_regs
+        val save_dsts = List.tabulate (List.length save_srcs,
+                                    fn i => AS.REG (AS.num_reg (i + stack_loc)))
+        val saves    = ListPair.map (fn t => AS.MOV t) (save_dsts, save_srcs)
+        val restores = ListPair.map (fn t => AS.MOV t) (save_srcs, save_dsts)
+
+        (* Make sure we have a stack for this function *)
+        val stack_start = AS.reg_num (AS.STACK 0)
+        fun add_rsp i = AS.BINOP(AS.ADD64, AS.REG AS.ESP,
+                                 AS.IMM (Word32.fromInt i))
+
+        val max = stack_loc + (List.length save_srcs)
+        val offset =
+              if max < stack_start then 8
+              else let val s = (max - stack_start + 1) * 4 in
+                if s mod 16 = 8 then s else ((s + 8) div 16) * 16 + 8
+              end
+        val prologue = add_rsp (~offset) :: saves
+        val epilogue = restores @ [add_rsp offset]
+        fun alter_ret (AS.RET, L) = epilogue @ AS.RET :: L
+          | alter_ret (i, L) = i :: L
+      in
+        prologue @ foldr alter_ret [] assem
+      end
+
   (* codegen : T.program -> AS.instr list
    *
    * Performs code generation on a list of statements of the intermediate
@@ -192,22 +238,9 @@ struct
    *)
   fun codegen program = let
         fun geni (id, T, L) = let
-              val srcs     = List.tabulate (length T, arg_reg)
-              val dests    = map (fn t => AS.TEMP t) T
-              val argmvs   = ListPair.map (fn t => AS.MOV t) (dests, srcs)
-              val srcs'    = AS.callee_regs
-              val dests'   = map (fn _ => AS.TEMP (Temp.new())) AS.callee_regs
-              val saves    = ListPair.map (fn t => AS.MOV t) (dests', srcs')
-              val restores = ListPair.map (fn t => AS.MOV t) (srcs', dests')
-
-              fun alter_ret (AS.RET, L) = restores @ AS.RET :: L
-                | alter_ret (i, L) = i :: L
-
-              val L' = saves @ argmvs @ P.time ("Munching",
-                                                fn () => munch_stmts L)
             in
               if length T > 6 then raise Fail "7+ args = bad" else ();
-              (AS.LABEL id) :: Allocation.allocate (foldr alter_ret [] L')
+              (AS.LABEL id) :: munch_function (T, L)
             end
       in
         foldr (op @) [] (map geni program)
