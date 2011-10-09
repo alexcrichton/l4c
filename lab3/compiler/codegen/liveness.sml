@@ -26,6 +26,7 @@ struct
   type rule = A.operand list * A.operand list * label list
 
   val eax = A.REG A.EAX
+  val edx = A.REG A.EDX
 
   (* rulegen : (A.label -> label) -> (label * Assem.instr) -> rule
    *
@@ -33,17 +34,20 @@ struct
    * @param i the instruction to generate a rule for
    * @return a rule representing the current instruction
    *)
-  fun rulegen f (l, A.BINOP(_, d, s)) = ([d, s], [d], [l + 1])
+  fun rulegen f (l, A.BINOP((A.DIV|A.MOD), d, s)) = ([edx, d, s], [d], [l + 1])
+    | rulegen f (l, A.BINOP(_, d, s)) = ([d, s], [d], [l + 1])
+    | rulegen f (l, A.MOV(d, A.REG _)) = ([], [d], [l + 1])
     | rulegen f (l, A.MOV(d, s)) = ([s], [d], [l + 1])
     | rulegen f (l, A.MOVFLAG(d, _)) = ([], [d], [l + 1])
     | rulegen f (l, A.JMP (lbl, _)) = ([], [], [f lbl, l + 1])
     | rulegen f (l, A.DIRECTIVE _) = ([], [], [l + 1])
     | rulegen f (l, A.COMMENT _) = ([], [], [l + 1])
-    | rulegen f (l, A.RET) = ([eax], [], [])
+    | rulegen f (l, A.RET) = ([], [], [])
     | rulegen f (l, A.LABEL _) = ([], [], [l + 1])
-    | rulegen f (l, A.CALL _) = ([], eax::A.caller_regs, [l + 1])
+    | rulegen f (l, A.CALL (_, n)) = (List.tabulate (n, A.arg_reg),
+                                      eax::A.caller_regs, [l + 1])
     | rulegen f (l, A.ASM s) =
-        if s = "cltd" then ([A.REG A.EDX], [A.REG A.EDX], [l + 1])
+        if s = "cltd" then ([], [A.REG A.EDX], [l + 1])
         else ([], [], [l + 1])
 
   (* add_uses : OS.set -> OS.set ref -> bool
