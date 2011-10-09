@@ -229,11 +229,9 @@ struct
    * @return a list of instructions with allocated registers
    *)
   fun codegen program = let
-        fun geni (id, T, L) = let
-            in
-              if length T > 6 then raise Fail "7+ args = bad" else ();
-              (AS.LABEL id) :: munch_function (T, L)
-            end
+        fun geni (id, T, L) =
+              (if length T > 6 then raise Fail "7+ args = bad" else ();
+              (AS.LABEL id) :: munch_function (T, L))
       in
         foldr (op @) [] (map geni program)
       end
