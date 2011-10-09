@@ -37,11 +37,7 @@ struct
    *
    * @usage g should be an empty graph before calling this function
    *)
-  fun make_graph ([], []) _ = ()
-    | make_graph (set::S, i::L) (G.GRAPH graph) = let
-
-        val insert = HT.insert (#graph_info graph)
-
+  fun make_graph (G.GRAPH graph) (set, i) = let
         fun add_clique [] = ()
           | add_clique (x::L) = (add_neighbors x L; add_clique L)
         and add_neighbors _ [] = ()
@@ -51,25 +47,18 @@ struct
 
         fun process_op (AS.IMM _, L) = L
           | process_op (oper, L) = let
-              val clr = case oper
-                          of AS.REG r => AS.reg_num r
-                           | _ => 0
-              val id = case HT.find (#graph_info graph) oper
-                         of SOME id => id
-                          | NONE => let val nid = #new_id graph () in
-                              insert (oper, nid);
-                              #add_node graph (nid, {color=ref clr, weight=ref 0,
-                                                    in_seo=ref false});
-                              nid
-                            end
+              val clr = case oper of AS.REG r => AS.reg_num r | _ => 0
+              val id  = case HT.find (#graph_info graph) oper
+                          of SOME id => id
+                           | NONE => let val nid = #new_id graph () in
+                               HT.insert (#graph_info graph) (oper, nid);
+                               #add_node graph (nid, {color=ref clr,
+                                                     weight=ref 0,
+                                                     in_seo=ref false});
+                               nid
+                             end
             in id :: L end
-
-        val ids = OperandSet.foldr process_op [] set
-      in
-        add_clique ids; make_graph (S, L) (G.GRAPH graph)
-      end
-    | make_graph _ _ = raise Fail ("Instruction list and temp list " ^
-                                   "should be the same size")
+      in add_clique (OperandSet.foldr process_op [] set) end
 
   (* update_weights : graph -> unit
    * Updates the weights of all nodes in the graph
@@ -143,21 +132,15 @@ struct
    *        inserted into the coloring map already, and those nodes should not
    *        be included in the SEO.
    *)
-  fun color _ [] = ()
-    | color (G.GRAPH graph) (node::SEO) = let
+  fun color (G.GRAPH graph) node = let
         (* get the set of neighbors of node n *)
         val nbrs = #succ graph node
         (* map nbrs to the neighbors' color *)
         fun cmapfn n = !(#color (#node_info graph n : node_data))
-        val colors = foldl (fn (n, S) =>
-                            IS.add (S, cmapfn n))
-                            IS.empty nbrs
+        val colors = foldl (fn (n, S) => IS.add (S, cmapfn n)) IS.empty nbrs
         (* find the lowest number > 0 not in the set *)
         val (clr, _) = IS.foldl minNotIn (1, false) colors
-        val () = (#color (#node_info graph node : node_data)) := clr
-      in
-        color (G.GRAPH graph) SEO
-      end
+      in (#color (#node_info graph node : node_data)) := clr end
 
   (* apply_coloring : instr list -> 'a graph -> instr list
    *
@@ -244,9 +227,10 @@ struct
         val live  = P.time ("Liveness", fn () => Liveness.compute L)
         val table = HT.mkTable (AS.oper_hash, AS.oper_equal)
                                (length L, G.NotFound)
-        val graph_rec = UDG.graph ("allocation", table, 10 * (List.length L))
+        val graph_rec = UDG.graph ("allocation", table, List.length L)
         val G.GRAPH graph = graph_rec
-        val () = P.time ("Make graph", fn () => make_graph (live, L) graph_rec)
+        val () = P.time ("Make graph",
+                         fn () => ListPair.app (make_graph graph_rec) (live, L))
         val () = P.time ("Update weights", fn () => update_weights graph_rec)
 
         fun less (n1, n2) = let
@@ -259,8 +243,8 @@ struct
         val pq = PQ.fromGraph less graph_rec
 
         val order = P.time ("Generate SEO", fn () => generate_seo graph_rec pq)
-        val () = P.time ("Coloring", fn () => color graph_rec order)
-        (*val () = P.time ("Coalescing", fn () => app (coalesce graph_rec) L)*)
+        val () = P.time ("Coloring", fn () => app (color graph_rec) order)
+        val () = P.time ("Coalescing", fn () => app (coalesce graph_rec) L)
         val L' = P.time ("Apply coloring", fn () => apply_coloring L graph_rec)
         val max = foldl Int.max 0 (map (fn (_, d) => !(#color d))
                                        (#nodes graph ()))
