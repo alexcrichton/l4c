@@ -262,7 +262,6 @@ struct
         (* The result of an unused DIV or MOD operation cannot be elimitated
            by neededness analysis, but it never gets colored, so throw it away
            here *)
-        (*(max, filter_instrs L')*)
-        (max, L')
+        (max, filter_instrs L')
       end
 end
