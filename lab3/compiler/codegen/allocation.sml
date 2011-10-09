@@ -194,6 +194,8 @@ struct
    * Performs register coalescing on the given instruction
    *)
   fun coalesce _ (AS.MOV (_, AS.IMM _)) = ()
+    | coalesce g (AS.MOV (d as AS.REG _, s)) = coalesce g (AS.MOV (s, d))
+    | coalesce (G.GRAPH g) (AS.MOV (d, s as AS.REG r)) = ()
     | coalesce (G.GRAPH g) (AS.MOV (d, s)) = (let
         val table = #graph_info g
         val ids as (did, sid) = (HT.lookup table d, HT.lookup table s)
@@ -201,13 +203,21 @@ struct
         val nbrs' = IS.addList (IS.fromList (#succ g did), #succ g sid)
         val nbrs = IS.map cmapfn nbrs'
         val (clr, _) = IS.foldl minNotIn (1, false) nbrs
-        val num_regs = AS.reg_num (AS.STACK 0) - 1
+        val num_regs = AS.reg_num (AS.STACK 0)
       in
-        if AS.oper_equal (d, s) orelse #has_edge g ids orelse clr > num_regs
-        then () else (
+        if AS.oper_equal (d, s) orelse #has_edge g ids orelse clr >= num_regs
+        then () else let
+          val new_id = #new_id g ()
+          val data : node_data = #node_info g sid
+        in
           #color (#node_info g sid : node_data) := clr;
-          #color (#node_info g did : node_data) := clr
-        )
+          #remove_node g sid; #remove_node g did; #add_node g (new_id, data);
+          HT.appi (fn (oper, nid) =>
+                    if nid = sid orelse nid = did then
+                      HT.insert table (oper, new_id)
+                    else ()) table;
+          IS.app (fn n => #add_edge g (n, new_id, 0)) nbrs'
+        end
       end
       handle G.NotFound => ())
     | coalesce _ _ = ()
