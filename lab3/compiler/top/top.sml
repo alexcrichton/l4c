@@ -33,7 +33,7 @@ struct
   val flag_verbose = Flag.flag "verbose"
   val flag_ast     = Flag.flag "ast"
   val flag_ir      = Flag.flag "ir"
-  val flag_assem   = Flag.flag "assem"
+  val flag_assem   = Flag.flag "asm"
   val flag_profile = Flag.flag "profile"
   val flag_header  = Flag.flag "header"
 
@@ -50,7 +50,7 @@ struct
        {short = "", long=["dump-ir"],
         desc=G.NoArg (fn () => Flag.set flag_ir),
         help="pretty print the IR"},
-       {short = "", long=["dump-assem"],
+       {short = "", long=["dump-asm"],
         desc=G.NoArg (fn () => Flag.set flag_assem),
         help="pretty print the assembly before register allocaction"},
        {short = "", long=["profile"],
