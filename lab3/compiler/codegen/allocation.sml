@@ -240,6 +240,7 @@ struct
    *            locations
    *)
   fun allocate L = let
+        val _ = app (print o AS.format) L
         val live  = P.time ("Liveness", fn () => Liveness.compute L)
         val table = HT.mkTable (AS.oper_hash, AS.oper_equal)
                                (length L, G.NotFound)
@@ -259,7 +260,7 @@ struct
 
         val order = P.time ("Generate SEO", fn () => generate_seo graph_rec pq)
         val () = P.time ("Coloring", fn () => color graph_rec order)
-        val () = P.time ("Coalescing", fn () => app (coalesce graph_rec) L)
+        (*val () = P.time ("Coalescing", fn () => app (coalesce graph_rec) L)*)
         val L' = P.time ("Apply coloring", fn () => apply_coloring L graph_rec)
         val max = foldl Int.max 0 (map (fn (_, d) => !(#color d))
                                        (#nodes graph ()))
@@ -267,6 +268,7 @@ struct
         (* The result of an unused DIV or MOD operation cannot be elimitated
            by neededness analysis, but it never gets colored, so throw it away
            here *)
-        (max, filter_instrs L')
+        (*(max, filter_instrs L')*)
+        (max, L')
       end
 end
