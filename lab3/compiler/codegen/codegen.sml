@@ -27,14 +27,6 @@ struct
     | munch_op T.RSH = AS.RSH
     | munch_op _     = AS.CMP (* LT, LTE, EQ, NEQ *)
 
-  fun arg_reg 0 = AS.REG AS.EDI
-    | arg_reg 1 = AS.REG AS.ESI
-    | arg_reg 2 = AS.REG AS.EDX
-    | arg_reg 3 = AS.REG AS.ECX
-    | arg_reg 4 = AS.REG AS.R8D
-    | arg_reg 5 = AS.REG AS.R9D
-    | arg_reg n = raise Fail "args in stack locations is scary"
-
   (* munch_exp : AS.operand -> T.exp -> AS.instr list
    *
    * generates instructions to achieve d <- e, d must be TEMP(t) or REG(r)
@@ -56,7 +48,7 @@ struct
           val pops   = ListPair.map (fn t => AS.MOV t) (AS.caller_regs, temps)
           fun mv (AS.REG (AS.STACK _), s) = raise Fail "figure me out"
             | mv t = AS.MOV t
-          val moves = ListPair.map mv (List.tabulate (length T, arg_reg), T)
+          val moves = ListPair.map mv (List.tabulate (length T, AS.arg_reg), T)
           val post = if length L <= 6 then [] else [AS.BINOP (AS.ADD64, AS.REG AS.ESP,
                                     AS.IMM (Word32.fromInt (8 * (length L - 6))))]
         in
@@ -192,7 +184,7 @@ struct
   fun munch_function (T, L) = let
         (* Move the arguments to the function from their specified registers
            into the temps of the arguments *)
-        val srcs     = List.tabulate (length T, arg_reg)
+        val srcs     = List.tabulate (length T, AS.arg_reg)
         val dests    = map (fn t => AS.TEMP t) T
         val argmvs   = ListPair.map (fn t => AS.MOV t) (dests, srcs)
 

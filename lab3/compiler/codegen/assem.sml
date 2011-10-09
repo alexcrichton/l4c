@@ -44,6 +44,7 @@ sig
   val oper_equal : operand * operand -> bool
   val reg_num : reg -> int
   val num_reg : int -> reg
+  val arg_reg : int -> operand
 end
 
 structure Assem :> ASSEM =
@@ -201,7 +202,7 @@ struct
     | format_instr (COMMENT str) = "/* " ^ str ^ "*/"
     | format_instr (RET) = "ret"
 
-  val r15d = REG R15D
+  val swap = REG R11D
 
   (* instr_expand : instr -> instr list
    *
@@ -214,19 +215,19 @@ struct
    * @return L a list of instructions which should be passed to format_instr
    *)
   fun instr_expand (BINOP (oper, d as REG (STACK _), s)) =
-        [MOV (r15d, d), BINOP (oper, r15d, s), MOV (d, r15d)]
+        [MOV (swap, d), BINOP (oper, swap, s), MOV (d, swap)]
     | instr_expand (MOVFLAG (d, cond)) = let
         val instr = case cond of LT => "setl" | LTE => "setle"
                                | EQ => "sete" | NEQ => "setne"
       in
         case d of REG (STACK _) =>
-              [ASM (instr ^ " " ^ format_operand8 r15d),
-               MOVFLAG (r15d, cond), MOV (d, r15d)]
+              [ASM (instr ^ " " ^ format_operand8 swap),
+               MOVFLAG (swap, cond), MOV (d, swap)]
            | _ => [ASM (instr ^ " " ^ format_operand8 d), MOVFLAG (d, cond)]
       end
     (* Can't move between two memory locations... *)
     | instr_expand (MOV (d as REG (STACK _), s as REG (STACK _))) =
-        [MOV (r15d, s), MOV (d, r15d)]
+        [MOV (swap, s), MOV (d, swap)]
     | instr_expand (LABEL l) =
         if Label.compare (l, Label.literal "main") <> EQUAL then [LABEL l]
         else [LABEL (Label.literal "_c0_main"), LABEL l]
@@ -258,21 +259,21 @@ struct
    * @param reg the register to convert
    * @return the number corresponding to this register
    *)
-  fun reg_num EAX  = 1
-    | reg_num EBX  = 2
-    | reg_num R12D = 3
-    | reg_num R13D = 4
-    | reg_num R14D = 5
-    | reg_num ECX  = 6
-    | reg_num EDX  = 7
-    | reg_num EDI  = 8
-    | reg_num ESI  = 9
-    | reg_num R8D  = 10
-    | reg_num R9D  = 11
-    | reg_num R10D = 12
-    | reg_num R11D = 13
+  fun reg_num R11D = 0
+    | reg_num EAX  = 1
+    | reg_num ECX  = 2
+    | reg_num EDX  = 3
+    | reg_num ESI  = 4
+    | reg_num EDI  = 5
+    | reg_num R8D  = 6
+    | reg_num R9D  = 7
+    | reg_num R10D = 8
+    | reg_num EBX  = 9
+    | reg_num R12D = 10
+    | reg_num R13D = 11
+    | reg_num R14D = 12
+    | reg_num R15D = 13
     | reg_num (STACK n) = n + 14
-    | reg_num R15D = 100000
     | reg_num r = raise Fail (format_reg r ^ " is a scary register")
 
   (* num_reg : int -> reg
@@ -281,20 +282,33 @@ struct
    * @param x the number of the register
    * @return the register corresponding to this number
    *)
-  fun num_reg 1  = EAX
-    | num_reg 2  = EBX
-    | num_reg 3  = R12D
-    | num_reg 4  = R13D
-    | num_reg 5  = R14D
-    | num_reg 6  = ECX
-    | num_reg 7  = EDX
-    | num_reg 8  = EDI
-    | num_reg 9  = ESI
-    | num_reg 10 = R8D
-    | num_reg 11 = R9D
-    | num_reg 12 = R10D
-    | num_reg 13 = R11D
-    | num_reg x  = STACK (x - 14)
+  fun num_reg  0 = R11D
+    | num_reg  1 = EAX
+    | num_reg  2 = ECX
+    | num_reg  3 = EDX
+    | num_reg  4 = ESI
+    | num_reg  5 = EDI
+    | num_reg  6 = R8D
+    | num_reg  7 = R9D
+    | num_reg  8 = R10D
+    | num_reg  9 = EBX
+    | num_reg 10 = R12D
+    | num_reg 11 = R13D
+    | num_reg 12 = R14D
+    | num_reg 13 = R15D
+    | num_reg  n = STACK (n - 14)
+
+  (* arg_reg : int -> operand
+   *
+   * Maps an argument number to its register / stack location
+   *)
+  fun arg_reg 0 = REG EDI
+    | arg_reg 1 = REG ESI
+    | arg_reg 2 = REG EDX
+    | arg_reg 3 = REG ECX
+    | arg_reg 4 = REG R8D
+    | arg_reg 5 = REG R9D
+    | arg_reg n = raise Fail "args in stack locations is scary"
 
   (* compare : (operand * operand) -> order
    *
