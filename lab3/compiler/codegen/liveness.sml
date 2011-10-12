@@ -42,7 +42,7 @@ struct
     | rulegen f (l, A.JMP (lbl, _)) = ([], [], [f lbl, l + 1])
     | rulegen f (l, A.DIRECTIVE _) = ([], [], [l + 1])
     | rulegen f (l, A.COMMENT _) = ([], [], [l + 1])
-    | rulegen f (l, A.RET) = ([], [], [])
+    | rulegen f (l, A.RET) = (A.callee_regs, [], [])
     | rulegen f (l, A.LABEL _) = ([], [], [l + 1])
     | rulegen f (l, A.CALL (_, n)) = (List.tabulate (n, A.arg_reg),
                                       eax::A.caller_regs, [l + 1])
