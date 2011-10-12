@@ -179,41 +179,36 @@ struct
    * @return the assembly instructions for the function
    *)
   fun munch_function (T, L) = let
+        fun alter_ret post (AS.RET, L) = post @ AS.RET :: L
+          | alter_ret _ (i, L) = i :: L
         (* Move the arguments to the function from their specified registers
            into the temps of the arguments *)
         val srcs     = List.tabulate (length T, AS.arg_reg)
         val dests    = map (fn t => AS.TEMP t) T
         val argmvs   = ListPair.map (fn t => AS.MOV t) (dests, srcs)
 
-        val L' = P.time ("Munching", fn () => argmvs @ munch_stmts L)
-        val (max_reg, assem) = Allocation.allocate L'
-        val stack_loc = Int.max (max_reg + 1, AS.reg_num (AS.STACK 0))
         (* Save/restore callee save registers *)
-        val save_srcs = List.filter (fn AS.REG r => max_reg >= AS.reg_num r
-                                      | _ => raise Fail "callee_regs bad")
-                                    AS.callee_regs
-        val save_dsts = List.tabulate (List.length save_srcs,
-                                    fn i => AS.REG (AS.num_reg (i + stack_loc)))
+        val save_srcs = AS.callee_regs
+        val save_dsts = map (fn _ => AS.TEMP (Temp.new())) save_srcs
         val saves    = ListPair.map (fn t => AS.MOV t) (save_dsts, save_srcs)
         val restores = ListPair.map (fn t => AS.MOV t) (save_srcs, save_dsts)
+
+        val L' = P.time ("Munching", fn () => munch_stmts L)
+        val instrs = saves @ argmvs @ foldr (alter_ret restores) [] L'
+        val (max, assem) = Allocation.allocate instrs
 
         (* Make sure we have a stack for this function *)
         val stack_start = AS.reg_num (AS.STACK 0)
         fun add_rsp i = AS.BINOP(AS.ADD64, AS.REG AS.ESP,
                                  AS.IMM (Word32.fromInt i))
 
-        val max = stack_loc + (List.length save_srcs)
         val offset =
               if max < stack_start then 8
               else let val s = (max - stack_start + 1) * 4 in
                 if s mod 16 = 8 then s else ((s + 8) div 16) * 16 + 8
               end
-        val prologue = add_rsp (~offset) :: saves
-        val epilogue = restores @ [add_rsp offset]
-        fun alter_ret (AS.RET, L) = epilogue @ AS.RET :: L
-          | alter_ret (i, L) = i :: L
       in
-        prologue @ foldr alter_ret [] assem
+        add_rsp (~offset) :: foldr (alter_ret [add_rsp offset]) [] assem
       end
 
   (* codegen : T.program -> AS.instr list
