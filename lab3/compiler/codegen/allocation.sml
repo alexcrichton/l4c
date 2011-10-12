@@ -27,17 +27,16 @@ struct
   structure PQ = NodePriorityQueue(DynArray)
   type node_data = {color:int ref, weight:int ref, in_seo:bool ref}
 
-  (* make_graph : (node_set list * instr list) -> graph -> unit
+  (* make_graph : graph -> OperandSet-> unit
    * Converts the liveness information map into an interference graph.
    *
-   * @param S       The list of live node sets
-   * @param L       The liveness information list
    * @param graph   The current interference graph
+   * @param set     The live node set
    * @return        The complete interference graph
    *
    * @usage g should be an empty graph before calling this function
    *)
-  fun make_graph (G.GRAPH graph) (set, i) = let
+  fun make_graph (G.GRAPH graph) set = let
         fun add_clique [] = ()
           | add_clique (x::L) = (add_neighbors x L; add_clique L)
         and add_neighbors _ [] = ()
@@ -233,14 +232,14 @@ struct
    *            locations
    *)
   fun allocate L = let
-        val _ = app (print o AS.format) L
+        (*val _ = app (print o AS.format) L*)
         val live  = P.time ("Liveness", fn () => Liveness.compute L)
         val table = HT.mkTable (AS.oper_hash, AS.oper_equal)
                                (length L, G.NotFound)
         val graph_rec = UDG.graph ("allocation", table, List.length L)
         val G.GRAPH graph = graph_rec
         val () = P.time ("Make graph",
-                         fn () => ListPair.app (make_graph graph_rec) (live, L))
+                         fn () => app (make_graph graph_rec) live)
         val () = P.time ("Update weights", fn () => update_weights graph_rec)
 
         fun less (n1, n2) = let
