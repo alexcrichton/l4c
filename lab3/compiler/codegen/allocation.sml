@@ -193,9 +193,18 @@ struct
    * Performs register coalescing on the given instruction
    *)
   fun coalesce _ (AS.MOV (_, AS.IMM _)) = ()
-    | coalesce g (AS.MOV (d as AS.REG _, s)) = coalesce g (AS.MOV (s, d))
-    | coalesce (G.GRAPH g) (AS.MOV (d, s as AS.REG r)) = ()
-    | coalesce (G.GRAPH g) (AS.MOV (d, s)) = (let
+    | coalesce g (AS.MOV (d as AS.REG _, s as AS.TEMP _)) =
+        coalesce g (AS.MOV (s, d))
+    | coalesce (G.GRAPH g) (AS.MOV (d as AS.TEMP _, s as AS.REG r)) = (let
+        val table = #graph_info g
+        val ids as (did, _) = (HT.lookup table d, HT.lookup table s)
+        fun cmapfn n = !(#color (#node_info g n : node_data)) = AS.reg_num r
+      in
+        if #has_edge g ids orelse List.exists cmapfn (#succ g did) then () else
+          #color (#node_info g did : node_data) := AS.reg_num r
+      end
+      handle G.NotFound => ())
+    | coalesce (G.GRAPH g) (AS.MOV (d as AS.TEMP _, s as AS.TEMP _)) = (let
         val table = #graph_info g
         val ids as (did, sid) = (HT.lookup table d, HT.lookup table s)
         fun cmapfn n = !(#color (#node_info g n : node_data))
