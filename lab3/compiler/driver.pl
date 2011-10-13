@@ -534,12 +534,12 @@ sub asm_suffix {
 
 sub in_suffix {
     my $file = shift;
-    suffix($file, "in");
+	return "$file.in"
 }
 
 sub out_suffix {
     my $file = shift;
-    suffix($file, "out");
+	return "$file.out"
 }
 
 ###
