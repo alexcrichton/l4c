@@ -1,0 +1,13 @@
+//test return 9
+int main(){
+    int x = 0;
+    int i;
+    for(i = 0; i < 6; i++){
+    	  if(i % 2 == 0) continue;
+	  else
+		x += i;
+    }
+    return x;
+
+
+}

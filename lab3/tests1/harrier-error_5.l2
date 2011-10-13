@@ -1,0 +1,12 @@
+//test error
+
+int main()
+{
+    while (true)
+    {
+        if (true
+             return 3;
+        continue;
+    }
+    return 5;
+}

@@ -1,0 +1,18 @@
+//test return 2
+// ffi shenanigans
+
+int main()
+{
+  printchar(67);
+  printint(9);
+  printhex(255);
+  printfloat(3);
+  tofloat(3);
+  fromfloat(7);
+  fadd (99, 101);
+  fsub (99, 101);
+  fmul (99, 101);
+  fdiv (99, 101);
+
+  return 2;
+}

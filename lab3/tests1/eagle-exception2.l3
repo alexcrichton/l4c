@@ -1,0 +1,10 @@
+//test exception 8
+
+int mod0(int x, int y) {
+  if (y < 0) return 0;
+  return x % mod0(x+1, y-1);
+}
+
+int main() {
+  return mod0(500, 500);
+}

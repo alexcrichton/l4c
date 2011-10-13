@@ -1,0 +1,15 @@
+//test return 0
+
+typedef int somethingthatisnotint;
+
+int someboringfunctionname() {
+    return 1;
+}
+
+int main() {
+    somethingthatisnotint a = someboringfunctionname();
+    if(a > 0)
+        return 0;
+    else return 1;
+    somethingthatisnotint somethingoftypeint = someboringfunctionname();
+}

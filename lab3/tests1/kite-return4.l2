@@ -1,0 +1,13 @@
+//test return 33
+
+int main()
+{
+  int z = 0;
+  for(int x=0; x<10; x++)
+  {
+    if(x==5 || x==7)
+      continue;
+    z+=x;
+  }
+  return z;
+}

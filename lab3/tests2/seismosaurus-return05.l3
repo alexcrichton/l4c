@@ -1,0 +1,30 @@
+//test return -26508
+/*
+Pass lots of parameters to a function
+main is no longer a keyword, allow local vars to shadow functions
+*/
+typedef bool flag;
+typedef int number;
+
+int test(int main, int test, int y, int z, bool a, bool b, flag c, flag d,
+    number e, number f, number g, int h){
+
+    return (c && d) || b || a ? e : g+main*z;
+}
+
+int main(){
+    int main = 1;
+    int test2 = 2;
+    int y = 3;
+    int z = 4;
+    bool a = true;
+    bool b = false;
+    flag c = false;
+    flag d = true;
+    number e = -26508;
+    number f = 0;
+    number g = 1<<13;
+    int h = 3;
+
+    return test(main, test2, y, z, a, b, c, d, e, f, g, h);
+}

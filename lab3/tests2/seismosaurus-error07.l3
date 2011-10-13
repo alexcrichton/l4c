@@ -1,0 +1,14 @@
+//test error
+
+//Typedef in body
+
+int main() {
+	
+	bool b = true;
+
+	while (b) {
+		typedef int newtype;
+	}
+
+	return 10;	
+}

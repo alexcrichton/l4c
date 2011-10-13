@@ -1,0 +1,21 @@
+//test return 97
+// find largest prime below 100
+int main()
+{
+    int i = 2;
+    int j;
+    int max = 1;
+
+    for (; i < 100; i++)
+    {
+        for (j = 2; j < i; j++)
+        {
+            if (i % j == 0)
+                break;
+        }
+        if (j == i)
+            max = i;
+    }
+
+    return max;
+}

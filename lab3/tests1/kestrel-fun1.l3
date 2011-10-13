@@ -1,0 +1,29 @@
+//test return 42
+//  mutual recursion
+
+int fun1(int k);
+int fun2(int k);
+int fun3(int k);
+
+int fun1(int k)
+{
+  if (k == 0)
+    return 42;
+  return fun2(k);
+}
+
+int fun2(int k)
+{
+  return fun3(k);
+}
+
+int fun3(int k)
+{
+  return fun1(k-1);
+}
+
+int main()
+{
+  return fun1(10);
+}
+

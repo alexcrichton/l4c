@@ -1,0 +1,30 @@
+//test return 3
+
+int m1(int x);
+int m2(int y);
+
+int main()
+{
+int r = m1(9);
+return r;
+}
+
+int m1(int x)
+{
+if(x==0)
+return 3;
+else
+return m2(x-1);
+}
+
+int m2 (int y)
+{
+if (y==0) return 4;
+else
+return m1(y-2);
+}
+
+
+
+
+

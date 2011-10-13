@@ -1,0 +1,18 @@
+//test error
+
+typedef int y;
+
+int max(int x, y yy)
+{
+	return x < yy ? yy : x;
+}
+
+int max3(int x, y yy, int z)
+{
+	return max(x, max(yy, z));
+}
+
+int main()
+{
+	return max3(1, 2);
+}

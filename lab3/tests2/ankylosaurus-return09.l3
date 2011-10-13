@@ -1,0 +1,20 @@
+//test return 45
+// sums the digits
+int sum(int x);
+
+int main(){
+    int x = 123456789;
+    return sum(x);
+
+
+
+}
+
+int sum(int x){
+    if(x == 0) return 0;
+    return (x%10 + sum(x/10));
+
+
+
+
+}

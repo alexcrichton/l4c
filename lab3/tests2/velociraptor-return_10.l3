@@ -1,0 +1,16 @@
+//test return 5
+
+// You shouldn't be evaluating functions called after returning
+int mwahaha(int n) {
+  return (n / 0);
+}
+
+int main () {
+  if (1 == 1) {
+    return 5;
+  }
+  else {
+    int x = mwahaha(80);
+    return x;
+  }
+}

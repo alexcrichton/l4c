@@ -1,0 +1,53 @@
+//test return 42
+//Test function calls whose arguments can't fit in registers
+
+
+int function(int a1, int b1, int c1, int d1, int e1,
+			 int f1, int g1, int h1, int i1, int j1,
+			 int k1, int l1, int m1, int n1, int o1,
+			 int p1, int q1, int r1, int s1, int t1,
+			 int u1, int v1, int w1, int x1, int y1,
+			 int z1,
+			 int a2, int b2, int c2, int d2, int e2,
+			 int f2, int g2, int h2, int i2, int j2,
+			 int k2, int l2, int m2, int n2, int o2,
+			 int p2);
+
+int main()
+{
+	int sum = function(1,1,1,1,1,
+					   1,1,1,1,1,
+					   1,1,1,1,1,
+					   1,1,1,1,1,
+					   1,1,1,1,1,
+					   1,1,1,1,1,
+					   1,1,1,1,1,
+					   1,1,1,1,1,
+                       1,1);
+
+	printint(sum);
+	return sum;
+}
+
+
+
+
+int function(int a1, int b1, int c1, int d1, int e1,
+			 int f1, int g1, int h1, int i1, int j1,
+			 int k1, int l1, int m1, int n1, int o1,
+			 int p1, int q1, int r1, int s1, int t1,
+			 int u1, int v1, int w1, int x1, int y1,
+			 int z1,
+			 int a2, int b2, int c2, int d2, int e2,
+			 int f2, int g2, int h2, int i2, int j2,
+			 int k2, int l2, int m2, int n2, int o2,
+			 int p2)
+{
+	int sum = 0;
+	sum = sum + a1 + b1 + c1 + d1 + e1 + f1 + g1 + h1
+		 + i1 + j1 + k1 + l1 + m1 + n1 + o1 + p1 + q1
+         + r1 + s1 + t1 + u1 + v1 + w1 + x1 + y1 + z1;
+	sum = sum + a2 + b2 + c2 + d2 + e2 + f2 + g2 + h2
+		 + i2 + j2 + k2 + l2 + m2 + n2 + o2 + p2;
+	return sum;
+}

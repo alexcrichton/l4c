@@ -1,0 +1,12 @@
+//test return 4
+/* we should be able to nest declarations */
+int main(){
+    int a=4;
+    
+    while(true){
+      int b=4+4;
+
+      break;
+    }
+    return a;
+}

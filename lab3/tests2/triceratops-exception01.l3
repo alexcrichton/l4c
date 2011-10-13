@@ -1,0 +1,18 @@
+//test exception
+
+int tree(int a, int count) {
+    int res = 0;
+    if (count != 0) {
+        res += a + tree(a, count - 1);
+    }
+    return a / res;
+}
+
+int main () {
+    int x = 0;
+    int y = 0;
+    int res = 0;
+
+    res = tree(10, 10);
+    return res;
+}

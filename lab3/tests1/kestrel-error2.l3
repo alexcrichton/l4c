@@ -1,0 +1,16 @@
+//test error
+// function return type != var type
+
+bool check(int n)
+{
+  int result = 0;
+  for (int k = 1; k <= n; k++)
+    result += k;
+  return (result > 500);
+}
+
+int main()
+{
+  int thing = check(42);
+  return 1;
+}

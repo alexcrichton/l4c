@@ -1,0 +1,2507 @@
+//test return 124750
+
+typedef int a0;
+typedef a0 a1;
+typedef a1 a2;
+typedef a2 a3;
+typedef a3 a4;
+typedef a4 a5;
+typedef a5 a6;
+typedef a6 a7;
+typedef a7 a8;
+typedef a8 a9;
+typedef a9 a10;
+typedef a10 a11;
+typedef a11 a12;
+typedef a12 a13;
+typedef a13 a14;
+typedef a14 a15;
+typedef a15 a16;
+typedef a16 a17;
+typedef a17 a18;
+typedef a18 a19;
+typedef a19 a20;
+typedef a20 a21;
+typedef a21 a22;
+typedef a22 a23;
+typedef a23 a24;
+typedef a24 a25;
+typedef a25 a26;
+typedef a26 a27;
+typedef a27 a28;
+typedef a28 a29;
+typedef a29 a30;
+typedef a30 a31;
+typedef a31 a32;
+typedef a32 a33;
+typedef a33 a34;
+typedef a34 a35;
+typedef a35 a36;
+typedef a36 a37;
+typedef a37 a38;
+typedef a38 a39;
+typedef a39 a40;
+typedef a40 a41;
+typedef a41 a42;
+typedef a42 a43;
+typedef a43 a44;
+typedef a44 a45;
+typedef a45 a46;
+typedef a46 a47;
+typedef a47 a48;
+typedef a48 a49;
+typedef a49 a50;
+typedef a50 a51;
+typedef a51 a52;
+typedef a52 a53;
+typedef a53 a54;
+typedef a54 a55;
+typedef a55 a56;
+typedef a56 a57;
+typedef a57 a58;
+typedef a58 a59;
+typedef a59 a60;
+typedef a60 a61;
+typedef a61 a62;
+typedef a62 a63;
+typedef a63 a64;
+typedef a64 a65;
+typedef a65 a66;
+typedef a66 a67;
+typedef a67 a68;
+typedef a68 a69;
+typedef a69 a70;
+typedef a70 a71;
+typedef a71 a72;
+typedef a72 a73;
+typedef a73 a74;
+typedef a74 a75;
+typedef a75 a76;
+typedef a76 a77;
+typedef a77 a78;
+typedef a78 a79;
+typedef a79 a80;
+typedef a80 a81;
+typedef a81 a82;
+typedef a82 a83;
+typedef a83 a84;
+typedef a84 a85;
+typedef a85 a86;
+typedef a86 a87;
+typedef a87 a88;
+typedef a88 a89;
+typedef a89 a90;
+typedef a90 a91;
+typedef a91 a92;
+typedef a92 a93;
+typedef a93 a94;
+typedef a94 a95;
+typedef a95 a96;
+typedef a96 a97;
+typedef a97 a98;
+typedef a98 a99;
+typedef a99 a100;
+typedef a100 a101;
+typedef a101 a102;
+typedef a102 a103;
+typedef a103 a104;
+typedef a104 a105;
+typedef a105 a106;
+typedef a106 a107;
+typedef a107 a108;
+typedef a108 a109;
+typedef a109 a110;
+typedef a110 a111;
+typedef a111 a112;
+typedef a112 a113;
+typedef a113 a114;
+typedef a114 a115;
+typedef a115 a116;
+typedef a116 a117;
+typedef a117 a118;
+typedef a118 a119;
+typedef a119 a120;
+typedef a120 a121;
+typedef a121 a122;
+typedef a122 a123;
+typedef a123 a124;
+typedef a124 a125;
+typedef a125 a126;
+typedef a126 a127;
+typedef a127 a128;
+typedef a128 a129;
+typedef a129 a130;
+typedef a130 a131;
+typedef a131 a132;
+typedef a132 a133;
+typedef a133 a134;
+typedef a134 a135;
+typedef a135 a136;
+typedef a136 a137;
+typedef a137 a138;
+typedef a138 a139;
+typedef a139 a140;
+typedef a140 a141;
+typedef a141 a142;
+typedef a142 a143;
+typedef a143 a144;
+typedef a144 a145;
+typedef a145 a146;
+typedef a146 a147;
+typedef a147 a148;
+typedef a148 a149;
+typedef a149 a150;
+typedef a150 a151;
+typedef a151 a152;
+typedef a152 a153;
+typedef a153 a154;
+typedef a154 a155;
+typedef a155 a156;
+typedef a156 a157;
+typedef a157 a158;
+typedef a158 a159;
+typedef a159 a160;
+typedef a160 a161;
+typedef a161 a162;
+typedef a162 a163;
+typedef a163 a164;
+typedef a164 a165;
+typedef a165 a166;
+typedef a166 a167;
+typedef a167 a168;
+typedef a168 a169;
+typedef a169 a170;
+typedef a170 a171;
+typedef a171 a172;
+typedef a172 a173;
+typedef a173 a174;
+typedef a174 a175;
+typedef a175 a176;
+typedef a176 a177;
+typedef a177 a178;
+typedef a178 a179;
+typedef a179 a180;
+typedef a180 a181;
+typedef a181 a182;
+typedef a182 a183;
+typedef a183 a184;
+typedef a184 a185;
+typedef a185 a186;
+typedef a186 a187;
+typedef a187 a188;
+typedef a188 a189;
+typedef a189 a190;
+typedef a190 a191;
+typedef a191 a192;
+typedef a192 a193;
+typedef a193 a194;
+typedef a194 a195;
+typedef a195 a196;
+typedef a196 a197;
+typedef a197 a198;
+typedef a198 a199;
+typedef a199 a200;
+typedef a200 a201;
+typedef a201 a202;
+typedef a202 a203;
+typedef a203 a204;
+typedef a204 a205;
+typedef a205 a206;
+typedef a206 a207;
+typedef a207 a208;
+typedef a208 a209;
+typedef a209 a210;
+typedef a210 a211;
+typedef a211 a212;
+typedef a212 a213;
+typedef a213 a214;
+typedef a214 a215;
+typedef a215 a216;
+typedef a216 a217;
+typedef a217 a218;
+typedef a218 a219;
+typedef a219 a220;
+typedef a220 a221;
+typedef a221 a222;
+typedef a222 a223;
+typedef a223 a224;
+typedef a224 a225;
+typedef a225 a226;
+typedef a226 a227;
+typedef a227 a228;
+typedef a228 a229;
+typedef a229 a230;
+typedef a230 a231;
+typedef a231 a232;
+typedef a232 a233;
+typedef a233 a234;
+typedef a234 a235;
+typedef a235 a236;
+typedef a236 a237;
+typedef a237 a238;
+typedef a238 a239;
+typedef a239 a240;
+typedef a240 a241;
+typedef a241 a242;
+typedef a242 a243;
+typedef a243 a244;
+typedef a244 a245;
+typedef a245 a246;
+typedef a246 a247;
+typedef a247 a248;
+typedef a248 a249;
+typedef a249 a250;
+typedef a250 a251;
+typedef a251 a252;
+typedef a252 a253;
+typedef a253 a254;
+typedef a254 a255;
+typedef a255 a256;
+typedef a256 a257;
+typedef a257 a258;
+typedef a258 a259;
+typedef a259 a260;
+typedef a260 a261;
+typedef a261 a262;
+typedef a262 a263;
+typedef a263 a264;
+typedef a264 a265;
+typedef a265 a266;
+typedef a266 a267;
+typedef a267 a268;
+typedef a268 a269;
+typedef a269 a270;
+typedef a270 a271;
+typedef a271 a272;
+typedef a272 a273;
+typedef a273 a274;
+typedef a274 a275;
+typedef a275 a276;
+typedef a276 a277;
+typedef a277 a278;
+typedef a278 a279;
+typedef a279 a280;
+typedef a280 a281;
+typedef a281 a282;
+typedef a282 a283;
+typedef a283 a284;
+typedef a284 a285;
+typedef a285 a286;
+typedef a286 a287;
+typedef a287 a288;
+typedef a288 a289;
+typedef a289 a290;
+typedef a290 a291;
+typedef a291 a292;
+typedef a292 a293;
+typedef a293 a294;
+typedef a294 a295;
+typedef a295 a296;
+typedef a296 a297;
+typedef a297 a298;
+typedef a298 a299;
+typedef a299 a300;
+typedef a300 a301;
+typedef a301 a302;
+typedef a302 a303;
+typedef a303 a304;
+typedef a304 a305;
+typedef a305 a306;
+typedef a306 a307;
+typedef a307 a308;
+typedef a308 a309;
+typedef a309 a310;
+typedef a310 a311;
+typedef a311 a312;
+typedef a312 a313;
+typedef a313 a314;
+typedef a314 a315;
+typedef a315 a316;
+typedef a316 a317;
+typedef a317 a318;
+typedef a318 a319;
+typedef a319 a320;
+typedef a320 a321;
+typedef a321 a322;
+typedef a322 a323;
+typedef a323 a324;
+typedef a324 a325;
+typedef a325 a326;
+typedef a326 a327;
+typedef a327 a328;
+typedef a328 a329;
+typedef a329 a330;
+typedef a330 a331;
+typedef a331 a332;
+typedef a332 a333;
+typedef a333 a334;
+typedef a334 a335;
+typedef a335 a336;
+typedef a336 a337;
+typedef a337 a338;
+typedef a338 a339;
+typedef a339 a340;
+typedef a340 a341;
+typedef a341 a342;
+typedef a342 a343;
+typedef a343 a344;
+typedef a344 a345;
+typedef a345 a346;
+typedef a346 a347;
+typedef a347 a348;
+typedef a348 a349;
+typedef a349 a350;
+typedef a350 a351;
+typedef a351 a352;
+typedef a352 a353;
+typedef a353 a354;
+typedef a354 a355;
+typedef a355 a356;
+typedef a356 a357;
+typedef a357 a358;
+typedef a358 a359;
+typedef a359 a360;
+typedef a360 a361;
+typedef a361 a362;
+typedef a362 a363;
+typedef a363 a364;
+typedef a364 a365;
+typedef a365 a366;
+typedef a366 a367;
+typedef a367 a368;
+typedef a368 a369;
+typedef a369 a370;
+typedef a370 a371;
+typedef a371 a372;
+typedef a372 a373;
+typedef a373 a374;
+typedef a374 a375;
+typedef a375 a376;
+typedef a376 a377;
+typedef a377 a378;
+typedef a378 a379;
+typedef a379 a380;
+typedef a380 a381;
+typedef a381 a382;
+typedef a382 a383;
+typedef a383 a384;
+typedef a384 a385;
+typedef a385 a386;
+typedef a386 a387;
+typedef a387 a388;
+typedef a388 a389;
+typedef a389 a390;
+typedef a390 a391;
+typedef a391 a392;
+typedef a392 a393;
+typedef a393 a394;
+typedef a394 a395;
+typedef a395 a396;
+typedef a396 a397;
+typedef a397 a398;
+typedef a398 a399;
+typedef a399 a400;
+typedef a400 a401;
+typedef a401 a402;
+typedef a402 a403;
+typedef a403 a404;
+typedef a404 a405;
+typedef a405 a406;
+typedef a406 a407;
+typedef a407 a408;
+typedef a408 a409;
+typedef a409 a410;
+typedef a410 a411;
+typedef a411 a412;
+typedef a412 a413;
+typedef a413 a414;
+typedef a414 a415;
+typedef a415 a416;
+typedef a416 a417;
+typedef a417 a418;
+typedef a418 a419;
+typedef a419 a420;
+typedef a420 a421;
+typedef a421 a422;
+typedef a422 a423;
+typedef a423 a424;
+typedef a424 a425;
+typedef a425 a426;
+typedef a426 a427;
+typedef a427 a428;
+typedef a428 a429;
+typedef a429 a430;
+typedef a430 a431;
+typedef a431 a432;
+typedef a432 a433;
+typedef a433 a434;
+typedef a434 a435;
+typedef a435 a436;
+typedef a436 a437;
+typedef a437 a438;
+typedef a438 a439;
+typedef a439 a440;
+typedef a440 a441;
+typedef a441 a442;
+typedef a442 a443;
+typedef a443 a444;
+typedef a444 a445;
+typedef a445 a446;
+typedef a446 a447;
+typedef a447 a448;
+typedef a448 a449;
+typedef a449 a450;
+typedef a450 a451;
+typedef a451 a452;
+typedef a452 a453;
+typedef a453 a454;
+typedef a454 a455;
+typedef a455 a456;
+typedef a456 a457;
+typedef a457 a458;
+typedef a458 a459;
+typedef a459 a460;
+typedef a460 a461;
+typedef a461 a462;
+typedef a462 a463;
+typedef a463 a464;
+typedef a464 a465;
+typedef a465 a466;
+typedef a466 a467;
+typedef a467 a468;
+typedef a468 a469;
+typedef a469 a470;
+typedef a470 a471;
+typedef a471 a472;
+typedef a472 a473;
+typedef a473 a474;
+typedef a474 a475;
+typedef a475 a476;
+typedef a476 a477;
+typedef a477 a478;
+typedef a478 a479;
+typedef a479 a480;
+typedef a480 a481;
+typedef a481 a482;
+typedef a482 a483;
+typedef a483 a484;
+typedef a484 a485;
+typedef a485 a486;
+typedef a486 a487;
+typedef a487 a488;
+typedef a488 a489;
+typedef a489 a490;
+typedef a490 a491;
+typedef a491 a492;
+typedef a492 a493;
+typedef a493 a494;
+typedef a494 a495;
+typedef a495 a496;
+typedef a496 a497;
+typedef a497 a498;
+typedef a498 a499;
+typedef a499 a500;
+typedef a500 a501;
+typedef a501 a502;
+typedef a502 a503;
+typedef a503 a504;
+typedef a504 a505;
+typedef a505 a506;
+typedef a506 a507;
+typedef a507 a508;
+typedef a508 a509;
+typedef a509 a510;
+typedef a510 a511;
+typedef a511 a512;
+typedef a512 a513;
+typedef a513 a514;
+typedef a514 a515;
+typedef a515 a516;
+typedef a516 a517;
+typedef a517 a518;
+typedef a518 a519;
+typedef a519 a520;
+typedef a520 a521;
+typedef a521 a522;
+typedef a522 a523;
+typedef a523 a524;
+typedef a524 a525;
+typedef a525 a526;
+typedef a526 a527;
+typedef a527 a528;
+typedef a528 a529;
+typedef a529 a530;
+typedef a530 a531;
+typedef a531 a532;
+typedef a532 a533;
+typedef a533 a534;
+typedef a534 a535;
+typedef a535 a536;
+typedef a536 a537;
+typedef a537 a538;
+typedef a538 a539;
+typedef a539 a540;
+typedef a540 a541;
+typedef a541 a542;
+typedef a542 a543;
+typedef a543 a544;
+typedef a544 a545;
+typedef a545 a546;
+typedef a546 a547;
+typedef a547 a548;
+typedef a548 a549;
+typedef a549 a550;
+typedef a550 a551;
+typedef a551 a552;
+typedef a552 a553;
+typedef a553 a554;
+typedef a554 a555;
+typedef a555 a556;
+typedef a556 a557;
+typedef a557 a558;
+typedef a558 a559;
+typedef a559 a560;
+typedef a560 a561;
+typedef a561 a562;
+typedef a562 a563;
+typedef a563 a564;
+typedef a564 a565;
+typedef a565 a566;
+typedef a566 a567;
+typedef a567 a568;
+typedef a568 a569;
+typedef a569 a570;
+typedef a570 a571;
+typedef a571 a572;
+typedef a572 a573;
+typedef a573 a574;
+typedef a574 a575;
+typedef a575 a576;
+typedef a576 a577;
+typedef a577 a578;
+typedef a578 a579;
+typedef a579 a580;
+typedef a580 a581;
+typedef a581 a582;
+typedef a582 a583;
+typedef a583 a584;
+typedef a584 a585;
+typedef a585 a586;
+typedef a586 a587;
+typedef a587 a588;
+typedef a588 a589;
+typedef a589 a590;
+typedef a590 a591;
+typedef a591 a592;
+typedef a592 a593;
+typedef a593 a594;
+typedef a594 a595;
+typedef a595 a596;
+typedef a596 a597;
+typedef a597 a598;
+typedef a598 a599;
+typedef a599 a600;
+typedef a600 a601;
+typedef a601 a602;
+typedef a602 a603;
+typedef a603 a604;
+typedef a604 a605;
+typedef a605 a606;
+typedef a606 a607;
+typedef a607 a608;
+typedef a608 a609;
+typedef a609 a610;
+typedef a610 a611;
+typedef a611 a612;
+typedef a612 a613;
+typedef a613 a614;
+typedef a614 a615;
+typedef a615 a616;
+typedef a616 a617;
+typedef a617 a618;
+typedef a618 a619;
+typedef a619 a620;
+typedef a620 a621;
+typedef a621 a622;
+typedef a622 a623;
+typedef a623 a624;
+typedef a624 a625;
+typedef a625 a626;
+typedef a626 a627;
+typedef a627 a628;
+typedef a628 a629;
+typedef a629 a630;
+typedef a630 a631;
+typedef a631 a632;
+typedef a632 a633;
+typedef a633 a634;
+typedef a634 a635;
+typedef a635 a636;
+typedef a636 a637;
+typedef a637 a638;
+typedef a638 a639;
+typedef a639 a640;
+typedef a640 a641;
+typedef a641 a642;
+typedef a642 a643;
+typedef a643 a644;
+typedef a644 a645;
+typedef a645 a646;
+typedef a646 a647;
+typedef a647 a648;
+typedef a648 a649;
+typedef a649 a650;
+typedef a650 a651;
+typedef a651 a652;
+typedef a652 a653;
+typedef a653 a654;
+typedef a654 a655;
+typedef a655 a656;
+typedef a656 a657;
+typedef a657 a658;
+typedef a658 a659;
+typedef a659 a660;
+typedef a660 a661;
+typedef a661 a662;
+typedef a662 a663;
+typedef a663 a664;
+typedef a664 a665;
+typedef a665 a666;
+typedef a666 a667;
+typedef a667 a668;
+typedef a668 a669;
+typedef a669 a670;
+typedef a670 a671;
+typedef a671 a672;
+typedef a672 a673;
+typedef a673 a674;
+typedef a674 a675;
+typedef a675 a676;
+typedef a676 a677;
+typedef a677 a678;
+typedef a678 a679;
+typedef a679 a680;
+typedef a680 a681;
+typedef a681 a682;
+typedef a682 a683;
+typedef a683 a684;
+typedef a684 a685;
+typedef a685 a686;
+typedef a686 a687;
+typedef a687 a688;
+typedef a688 a689;
+typedef a689 a690;
+typedef a690 a691;
+typedef a691 a692;
+typedef a692 a693;
+typedef a693 a694;
+typedef a694 a695;
+typedef a695 a696;
+typedef a696 a697;
+typedef a697 a698;
+typedef a698 a699;
+typedef a699 a700;
+typedef a700 a701;
+typedef a701 a702;
+typedef a702 a703;
+typedef a703 a704;
+typedef a704 a705;
+typedef a705 a706;
+typedef a706 a707;
+typedef a707 a708;
+typedef a708 a709;
+typedef a709 a710;
+typedef a710 a711;
+typedef a711 a712;
+typedef a712 a713;
+typedef a713 a714;
+typedef a714 a715;
+typedef a715 a716;
+typedef a716 a717;
+typedef a717 a718;
+typedef a718 a719;
+typedef a719 a720;
+typedef a720 a721;
+typedef a721 a722;
+typedef a722 a723;
+typedef a723 a724;
+typedef a724 a725;
+typedef a725 a726;
+typedef a726 a727;
+typedef a727 a728;
+typedef a728 a729;
+typedef a729 a730;
+typedef a730 a731;
+typedef a731 a732;
+typedef a732 a733;
+typedef a733 a734;
+typedef a734 a735;
+typedef a735 a736;
+typedef a736 a737;
+typedef a737 a738;
+typedef a738 a739;
+typedef a739 a740;
+typedef a740 a741;
+typedef a741 a742;
+typedef a742 a743;
+typedef a743 a744;
+typedef a744 a745;
+typedef a745 a746;
+typedef a746 a747;
+typedef a747 a748;
+typedef a748 a749;
+typedef a749 a750;
+typedef a750 a751;
+typedef a751 a752;
+typedef a752 a753;
+typedef a753 a754;
+typedef a754 a755;
+typedef a755 a756;
+typedef a756 a757;
+typedef a757 a758;
+typedef a758 a759;
+typedef a759 a760;
+typedef a760 a761;
+typedef a761 a762;
+typedef a762 a763;
+typedef a763 a764;
+typedef a764 a765;
+typedef a765 a766;
+typedef a766 a767;
+typedef a767 a768;
+typedef a768 a769;
+typedef a769 a770;
+typedef a770 a771;
+typedef a771 a772;
+typedef a772 a773;
+typedef a773 a774;
+typedef a774 a775;
+typedef a775 a776;
+typedef a776 a777;
+typedef a777 a778;
+typedef a778 a779;
+typedef a779 a780;
+typedef a780 a781;
+typedef a781 a782;
+typedef a782 a783;
+typedef a783 a784;
+typedef a784 a785;
+typedef a785 a786;
+typedef a786 a787;
+typedef a787 a788;
+typedef a788 a789;
+typedef a789 a790;
+typedef a790 a791;
+typedef a791 a792;
+typedef a792 a793;
+typedef a793 a794;
+typedef a794 a795;
+typedef a795 a796;
+typedef a796 a797;
+typedef a797 a798;
+typedef a798 a799;
+typedef a799 a800;
+typedef a800 a801;
+typedef a801 a802;
+typedef a802 a803;
+typedef a803 a804;
+typedef a804 a805;
+typedef a805 a806;
+typedef a806 a807;
+typedef a807 a808;
+typedef a808 a809;
+typedef a809 a810;
+typedef a810 a811;
+typedef a811 a812;
+typedef a812 a813;
+typedef a813 a814;
+typedef a814 a815;
+typedef a815 a816;
+typedef a816 a817;
+typedef a817 a818;
+typedef a818 a819;
+typedef a819 a820;
+typedef a820 a821;
+typedef a821 a822;
+typedef a822 a823;
+typedef a823 a824;
+typedef a824 a825;
+typedef a825 a826;
+typedef a826 a827;
+typedef a827 a828;
+typedef a828 a829;
+typedef a829 a830;
+typedef a830 a831;
+typedef a831 a832;
+typedef a832 a833;
+typedef a833 a834;
+typedef a834 a835;
+typedef a835 a836;
+typedef a836 a837;
+typedef a837 a838;
+typedef a838 a839;
+typedef a839 a840;
+typedef a840 a841;
+typedef a841 a842;
+typedef a842 a843;
+typedef a843 a844;
+typedef a844 a845;
+typedef a845 a846;
+typedef a846 a847;
+typedef a847 a848;
+typedef a848 a849;
+typedef a849 a850;
+typedef a850 a851;
+typedef a851 a852;
+typedef a852 a853;
+typedef a853 a854;
+typedef a854 a855;
+typedef a855 a856;
+typedef a856 a857;
+typedef a857 a858;
+typedef a858 a859;
+typedef a859 a860;
+typedef a860 a861;
+typedef a861 a862;
+typedef a862 a863;
+typedef a863 a864;
+typedef a864 a865;
+typedef a865 a866;
+typedef a866 a867;
+typedef a867 a868;
+typedef a868 a869;
+typedef a869 a870;
+typedef a870 a871;
+typedef a871 a872;
+typedef a872 a873;
+typedef a873 a874;
+typedef a874 a875;
+typedef a875 a876;
+typedef a876 a877;
+typedef a877 a878;
+typedef a878 a879;
+typedef a879 a880;
+typedef a880 a881;
+typedef a881 a882;
+typedef a882 a883;
+typedef a883 a884;
+typedef a884 a885;
+typedef a885 a886;
+typedef a886 a887;
+typedef a887 a888;
+typedef a888 a889;
+typedef a889 a890;
+typedef a890 a891;
+typedef a891 a892;
+typedef a892 a893;
+typedef a893 a894;
+typedef a894 a895;
+typedef a895 a896;
+typedef a896 a897;
+typedef a897 a898;
+typedef a898 a899;
+typedef a899 a900;
+typedef a900 a901;
+typedef a901 a902;
+typedef a902 a903;
+typedef a903 a904;
+typedef a904 a905;
+typedef a905 a906;
+typedef a906 a907;
+typedef a907 a908;
+typedef a908 a909;
+typedef a909 a910;
+typedef a910 a911;
+typedef a911 a912;
+typedef a912 a913;
+typedef a913 a914;
+typedef a914 a915;
+typedef a915 a916;
+typedef a916 a917;
+typedef a917 a918;
+typedef a918 a919;
+typedef a919 a920;
+typedef a920 a921;
+typedef a921 a922;
+typedef a922 a923;
+typedef a923 a924;
+typedef a924 a925;
+typedef a925 a926;
+typedef a926 a927;
+typedef a927 a928;
+typedef a928 a929;
+typedef a929 a930;
+typedef a930 a931;
+typedef a931 a932;
+typedef a932 a933;
+typedef a933 a934;
+typedef a934 a935;
+typedef a935 a936;
+typedef a936 a937;
+typedef a937 a938;
+typedef a938 a939;
+typedef a939 a940;
+typedef a940 a941;
+typedef a941 a942;
+typedef a942 a943;
+typedef a943 a944;
+typedef a944 a945;
+typedef a945 a946;
+typedef a946 a947;
+typedef a947 a948;
+typedef a948 a949;
+typedef a949 a950;
+typedef a950 a951;
+typedef a951 a952;
+typedef a952 a953;
+typedef a953 a954;
+typedef a954 a955;
+typedef a955 a956;
+typedef a956 a957;
+typedef a957 a958;
+typedef a958 a959;
+typedef a959 a960;
+typedef a960 a961;
+typedef a961 a962;
+typedef a962 a963;
+typedef a963 a964;
+typedef a964 a965;
+typedef a965 a966;
+typedef a966 a967;
+typedef a967 a968;
+typedef a968 a969;
+typedef a969 a970;
+typedef a970 a971;
+typedef a971 a972;
+typedef a972 a973;
+typedef a973 a974;
+typedef a974 a975;
+typedef a975 a976;
+typedef a976 a977;
+typedef a977 a978;
+typedef a978 a979;
+typedef a979 a980;
+typedef a980 a981;
+typedef a981 a982;
+typedef a982 a983;
+typedef a983 a984;
+typedef a984 a985;
+typedef a985 a986;
+typedef a986 a987;
+typedef a987 a988;
+typedef a988 a989;
+typedef a989 a990;
+typedef a990 a991;
+typedef a991 a992;
+typedef a992 a993;
+typedef a993 a994;
+typedef a994 a995;
+typedef a995 a996;
+typedef a996 a997;
+typedef a997 a998;
+typedef a998 a999;
+
+a0 f0(a0 v) {
+	return v;
+}
+a1 f1(a2 v) {
+	return 1 + f0(v*1);
+}
+a2 f2(a4 v) {
+	return 2 + f1(v*2);
+}
+a3 f3(a6 v) {
+	return 3 + f2(v*3);
+}
+a4 f4(a8 v) {
+	return 4 + f3(v*4);
+}
+a5 f5(a10 v) {
+	return 5 + f4(v*5);
+}
+a6 f6(a12 v) {
+	return 6 + f5(v*6);
+}
+a7 f7(a14 v) {
+	return 7 + f6(v*7);
+}
+a8 f8(a16 v) {
+	return 8 + f7(v*8);
+}
+a9 f9(a18 v) {
+	return 9 + f8(v*9);
+}
+a10 f10(a20 v) {
+	return 10 + f9(v*10);
+}
+a11 f11(a22 v) {
+	return 11 + f10(v*11);
+}
+a12 f12(a24 v) {
+	return 12 + f11(v*12);
+}
+a13 f13(a26 v) {
+	return 13 + f12(v*13);
+}
+a14 f14(a28 v) {
+	return 14 + f13(v*14);
+}
+a15 f15(a30 v) {
+	return 15 + f14(v*15);
+}
+a16 f16(a32 v) {
+	return 16 + f15(v*16);
+}
+a17 f17(a34 v) {
+	return 17 + f16(v*17);
+}
+a18 f18(a36 v) {
+	return 18 + f17(v*18);
+}
+a19 f19(a38 v) {
+	return 19 + f18(v*19);
+}
+a20 f20(a40 v) {
+	return 20 + f19(v*20);
+}
+a21 f21(a42 v) {
+	return 21 + f20(v*21);
+}
+a22 f22(a44 v) {
+	return 22 + f21(v*22);
+}
+a23 f23(a46 v) {
+	return 23 + f22(v*23);
+}
+a24 f24(a48 v) {
+	return 24 + f23(v*24);
+}
+a25 f25(a50 v) {
+	return 25 + f24(v*25);
+}
+a26 f26(a52 v) {
+	return 26 + f25(v*26);
+}
+a27 f27(a54 v) {
+	return 27 + f26(v*27);
+}
+a28 f28(a56 v) {
+	return 28 + f27(v*28);
+}
+a29 f29(a58 v) {
+	return 29 + f28(v*29);
+}
+a30 f30(a60 v) {
+	return 30 + f29(v*30);
+}
+a31 f31(a62 v) {
+	return 31 + f30(v*31);
+}
+a32 f32(a64 v) {
+	return 32 + f31(v*32);
+}
+a33 f33(a66 v) {
+	return 33 + f32(v*33);
+}
+a34 f34(a68 v) {
+	return 34 + f33(v*34);
+}
+a35 f35(a70 v) {
+	return 35 + f34(v*35);
+}
+a36 f36(a72 v) {
+	return 36 + f35(v*36);
+}
+a37 f37(a74 v) {
+	return 37 + f36(v*37);
+}
+a38 f38(a76 v) {
+	return 38 + f37(v*38);
+}
+a39 f39(a78 v) {
+	return 39 + f38(v*39);
+}
+a40 f40(a80 v) {
+	return 40 + f39(v*40);
+}
+a41 f41(a82 v) {
+	return 41 + f40(v*41);
+}
+a42 f42(a84 v) {
+	return 42 + f41(v*42);
+}
+a43 f43(a86 v) {
+	return 43 + f42(v*43);
+}
+a44 f44(a88 v) {
+	return 44 + f43(v*44);
+}
+a45 f45(a90 v) {
+	return 45 + f44(v*45);
+}
+a46 f46(a92 v) {
+	return 46 + f45(v*46);
+}
+a47 f47(a94 v) {
+	return 47 + f46(v*47);
+}
+a48 f48(a96 v) {
+	return 48 + f47(v*48);
+}
+a49 f49(a98 v) {
+	return 49 + f48(v*49);
+}
+a50 f50(a100 v) {
+	return 50 + f49(v*50);
+}
+a51 f51(a102 v) {
+	return 51 + f50(v*51);
+}
+a52 f52(a104 v) {
+	return 52 + f51(v*52);
+}
+a53 f53(a106 v) {
+	return 53 + f52(v*53);
+}
+a54 f54(a108 v) {
+	return 54 + f53(v*54);
+}
+a55 f55(a110 v) {
+	return 55 + f54(v*55);
+}
+a56 f56(a112 v) {
+	return 56 + f55(v*56);
+}
+a57 f57(a114 v) {
+	return 57 + f56(v*57);
+}
+a58 f58(a116 v) {
+	return 58 + f57(v*58);
+}
+a59 f59(a118 v) {
+	return 59 + f58(v*59);
+}
+a60 f60(a120 v) {
+	return 60 + f59(v*60);
+}
+a61 f61(a122 v) {
+	return 61 + f60(v*61);
+}
+a62 f62(a124 v) {
+	return 62 + f61(v*62);
+}
+a63 f63(a126 v) {
+	return 63 + f62(v*63);
+}
+a64 f64(a128 v) {
+	return 64 + f63(v*64);
+}
+a65 f65(a130 v) {
+	return 65 + f64(v*65);
+}
+a66 f66(a132 v) {
+	return 66 + f65(v*66);
+}
+a67 f67(a134 v) {
+	return 67 + f66(v*67);
+}
+a68 f68(a136 v) {
+	return 68 + f67(v*68);
+}
+a69 f69(a138 v) {
+	return 69 + f68(v*69);
+}
+a70 f70(a140 v) {
+	return 70 + f69(v*70);
+}
+a71 f71(a142 v) {
+	return 71 + f70(v*71);
+}
+a72 f72(a144 v) {
+	return 72 + f71(v*72);
+}
+a73 f73(a146 v) {
+	return 73 + f72(v*73);
+}
+a74 f74(a148 v) {
+	return 74 + f73(v*74);
+}
+a75 f75(a150 v) {
+	return 75 + f74(v*75);
+}
+a76 f76(a152 v) {
+	return 76 + f75(v*76);
+}
+a77 f77(a154 v) {
+	return 77 + f76(v*77);
+}
+a78 f78(a156 v) {
+	return 78 + f77(v*78);
+}
+a79 f79(a158 v) {
+	return 79 + f78(v*79);
+}
+a80 f80(a160 v) {
+	return 80 + f79(v*80);
+}
+a81 f81(a162 v) {
+	return 81 + f80(v*81);
+}
+a82 f82(a164 v) {
+	return 82 + f81(v*82);
+}
+a83 f83(a166 v) {
+	return 83 + f82(v*83);
+}
+a84 f84(a168 v) {
+	return 84 + f83(v*84);
+}
+a85 f85(a170 v) {
+	return 85 + f84(v*85);
+}
+a86 f86(a172 v) {
+	return 86 + f85(v*86);
+}
+a87 f87(a174 v) {
+	return 87 + f86(v*87);
+}
+a88 f88(a176 v) {
+	return 88 + f87(v*88);
+}
+a89 f89(a178 v) {
+	return 89 + f88(v*89);
+}
+a90 f90(a180 v) {
+	return 90 + f89(v*90);
+}
+a91 f91(a182 v) {
+	return 91 + f90(v*91);
+}
+a92 f92(a184 v) {
+	return 92 + f91(v*92);
+}
+a93 f93(a186 v) {
+	return 93 + f92(v*93);
+}
+a94 f94(a188 v) {
+	return 94 + f93(v*94);
+}
+a95 f95(a190 v) {
+	return 95 + f94(v*95);
+}
+a96 f96(a192 v) {
+	return 96 + f95(v*96);
+}
+a97 f97(a194 v) {
+	return 97 + f96(v*97);
+}
+a98 f98(a196 v) {
+	return 98 + f97(v*98);
+}
+a99 f99(a198 v) {
+	return 99 + f98(v*99);
+}
+a100 f100(a200 v) {
+	return 100 + f99(v*100);
+}
+a101 f101(a202 v) {
+	return 101 + f100(v*101);
+}
+a102 f102(a204 v) {
+	return 102 + f101(v*102);
+}
+a103 f103(a206 v) {
+	return 103 + f102(v*103);
+}
+a104 f104(a208 v) {
+	return 104 + f103(v*104);
+}
+a105 f105(a210 v) {
+	return 105 + f104(v*105);
+}
+a106 f106(a212 v) {
+	return 106 + f105(v*106);
+}
+a107 f107(a214 v) {
+	return 107 + f106(v*107);
+}
+a108 f108(a216 v) {
+	return 108 + f107(v*108);
+}
+a109 f109(a218 v) {
+	return 109 + f108(v*109);
+}
+a110 f110(a220 v) {
+	return 110 + f109(v*110);
+}
+a111 f111(a222 v) {
+	return 111 + f110(v*111);
+}
+a112 f112(a224 v) {
+	return 112 + f111(v*112);
+}
+a113 f113(a226 v) {
+	return 113 + f112(v*113);
+}
+a114 f114(a228 v) {
+	return 114 + f113(v*114);
+}
+a115 f115(a230 v) {
+	return 115 + f114(v*115);
+}
+a116 f116(a232 v) {
+	return 116 + f115(v*116);
+}
+a117 f117(a234 v) {
+	return 117 + f116(v*117);
+}
+a118 f118(a236 v) {
+	return 118 + f117(v*118);
+}
+a119 f119(a238 v) {
+	return 119 + f118(v*119);
+}
+a120 f120(a240 v) {
+	return 120 + f119(v*120);
+}
+a121 f121(a242 v) {
+	return 121 + f120(v*121);
+}
+a122 f122(a244 v) {
+	return 122 + f121(v*122);
+}
+a123 f123(a246 v) {
+	return 123 + f122(v*123);
+}
+a124 f124(a248 v) {
+	return 124 + f123(v*124);
+}
+a125 f125(a250 v) {
+	return 125 + f124(v*125);
+}
+a126 f126(a252 v) {
+	return 126 + f125(v*126);
+}
+a127 f127(a254 v) {
+	return 127 + f126(v*127);
+}
+a128 f128(a256 v) {
+	return 128 + f127(v*128);
+}
+a129 f129(a258 v) {
+	return 129 + f128(v*129);
+}
+a130 f130(a260 v) {
+	return 130 + f129(v*130);
+}
+a131 f131(a262 v) {
+	return 131 + f130(v*131);
+}
+a132 f132(a264 v) {
+	return 132 + f131(v*132);
+}
+a133 f133(a266 v) {
+	return 133 + f132(v*133);
+}
+a134 f134(a268 v) {
+	return 134 + f133(v*134);
+}
+a135 f135(a270 v) {
+	return 135 + f134(v*135);
+}
+a136 f136(a272 v) {
+	return 136 + f135(v*136);
+}
+a137 f137(a274 v) {
+	return 137 + f136(v*137);
+}
+a138 f138(a276 v) {
+	return 138 + f137(v*138);
+}
+a139 f139(a278 v) {
+	return 139 + f138(v*139);
+}
+a140 f140(a280 v) {
+	return 140 + f139(v*140);
+}
+a141 f141(a282 v) {
+	return 141 + f140(v*141);
+}
+a142 f142(a284 v) {
+	return 142 + f141(v*142);
+}
+a143 f143(a286 v) {
+	return 143 + f142(v*143);
+}
+a144 f144(a288 v) {
+	return 144 + f143(v*144);
+}
+a145 f145(a290 v) {
+	return 145 + f144(v*145);
+}
+a146 f146(a292 v) {
+	return 146 + f145(v*146);
+}
+a147 f147(a294 v) {
+	return 147 + f146(v*147);
+}
+a148 f148(a296 v) {
+	return 148 + f147(v*148);
+}
+a149 f149(a298 v) {
+	return 149 + f148(v*149);
+}
+a150 f150(a300 v) {
+	return 150 + f149(v*150);
+}
+a151 f151(a302 v) {
+	return 151 + f150(v*151);
+}
+a152 f152(a304 v) {
+	return 152 + f151(v*152);
+}
+a153 f153(a306 v) {
+	return 153 + f152(v*153);
+}
+a154 f154(a308 v) {
+	return 154 + f153(v*154);
+}
+a155 f155(a310 v) {
+	return 155 + f154(v*155);
+}
+a156 f156(a312 v) {
+	return 156 + f155(v*156);
+}
+a157 f157(a314 v) {
+	return 157 + f156(v*157);
+}
+a158 f158(a316 v) {
+	return 158 + f157(v*158);
+}
+a159 f159(a318 v) {
+	return 159 + f158(v*159);
+}
+a160 f160(a320 v) {
+	return 160 + f159(v*160);
+}
+a161 f161(a322 v) {
+	return 161 + f160(v*161);
+}
+a162 f162(a324 v) {
+	return 162 + f161(v*162);
+}
+a163 f163(a326 v) {
+	return 163 + f162(v*163);
+}
+a164 f164(a328 v) {
+	return 164 + f163(v*164);
+}
+a165 f165(a330 v) {
+	return 165 + f164(v*165);
+}
+a166 f166(a332 v) {
+	return 166 + f165(v*166);
+}
+a167 f167(a334 v) {
+	return 167 + f166(v*167);
+}
+a168 f168(a336 v) {
+	return 168 + f167(v*168);
+}
+a169 f169(a338 v) {
+	return 169 + f168(v*169);
+}
+a170 f170(a340 v) {
+	return 170 + f169(v*170);
+}
+a171 f171(a342 v) {
+	return 171 + f170(v*171);
+}
+a172 f172(a344 v) {
+	return 172 + f171(v*172);
+}
+a173 f173(a346 v) {
+	return 173 + f172(v*173);
+}
+a174 f174(a348 v) {
+	return 174 + f173(v*174);
+}
+a175 f175(a350 v) {
+	return 175 + f174(v*175);
+}
+a176 f176(a352 v) {
+	return 176 + f175(v*176);
+}
+a177 f177(a354 v) {
+	return 177 + f176(v*177);
+}
+a178 f178(a356 v) {
+	return 178 + f177(v*178);
+}
+a179 f179(a358 v) {
+	return 179 + f178(v*179);
+}
+a180 f180(a360 v) {
+	return 180 + f179(v*180);
+}
+a181 f181(a362 v) {
+	return 181 + f180(v*181);
+}
+a182 f182(a364 v) {
+	return 182 + f181(v*182);
+}
+a183 f183(a366 v) {
+	return 183 + f182(v*183);
+}
+a184 f184(a368 v) {
+	return 184 + f183(v*184);
+}
+a185 f185(a370 v) {
+	return 185 + f184(v*185);
+}
+a186 f186(a372 v) {
+	return 186 + f185(v*186);
+}
+a187 f187(a374 v) {
+	return 187 + f186(v*187);
+}
+a188 f188(a376 v) {
+	return 188 + f187(v*188);
+}
+a189 f189(a378 v) {
+	return 189 + f188(v*189);
+}
+a190 f190(a380 v) {
+	return 190 + f189(v*190);
+}
+a191 f191(a382 v) {
+	return 191 + f190(v*191);
+}
+a192 f192(a384 v) {
+	return 192 + f191(v*192);
+}
+a193 f193(a386 v) {
+	return 193 + f192(v*193);
+}
+a194 f194(a388 v) {
+	return 194 + f193(v*194);
+}
+a195 f195(a390 v) {
+	return 195 + f194(v*195);
+}
+a196 f196(a392 v) {
+	return 196 + f195(v*196);
+}
+a197 f197(a394 v) {
+	return 197 + f196(v*197);
+}
+a198 f198(a396 v) {
+	return 198 + f197(v*198);
+}
+a199 f199(a398 v) {
+	return 199 + f198(v*199);
+}
+a200 f200(a400 v) {
+	return 200 + f199(v*200);
+}
+a201 f201(a402 v) {
+	return 201 + f200(v*201);
+}
+a202 f202(a404 v) {
+	return 202 + f201(v*202);
+}
+a203 f203(a406 v) {
+	return 203 + f202(v*203);
+}
+a204 f204(a408 v) {
+	return 204 + f203(v*204);
+}
+a205 f205(a410 v) {
+	return 205 + f204(v*205);
+}
+a206 f206(a412 v) {
+	return 206 + f205(v*206);
+}
+a207 f207(a414 v) {
+	return 207 + f206(v*207);
+}
+a208 f208(a416 v) {
+	return 208 + f207(v*208);
+}
+a209 f209(a418 v) {
+	return 209 + f208(v*209);
+}
+a210 f210(a420 v) {
+	return 210 + f209(v*210);
+}
+a211 f211(a422 v) {
+	return 211 + f210(v*211);
+}
+a212 f212(a424 v) {
+	return 212 + f211(v*212);
+}
+a213 f213(a426 v) {
+	return 213 + f212(v*213);
+}
+a214 f214(a428 v) {
+	return 214 + f213(v*214);
+}
+a215 f215(a430 v) {
+	return 215 + f214(v*215);
+}
+a216 f216(a432 v) {
+	return 216 + f215(v*216);
+}
+a217 f217(a434 v) {
+	return 217 + f216(v*217);
+}
+a218 f218(a436 v) {
+	return 218 + f217(v*218);
+}
+a219 f219(a438 v) {
+	return 219 + f218(v*219);
+}
+a220 f220(a440 v) {
+	return 220 + f219(v*220);
+}
+a221 f221(a442 v) {
+	return 221 + f220(v*221);
+}
+a222 f222(a444 v) {
+	return 222 + f221(v*222);
+}
+a223 f223(a446 v) {
+	return 223 + f222(v*223);
+}
+a224 f224(a448 v) {
+	return 224 + f223(v*224);
+}
+a225 f225(a450 v) {
+	return 225 + f224(v*225);
+}
+a226 f226(a452 v) {
+	return 226 + f225(v*226);
+}
+a227 f227(a454 v) {
+	return 227 + f226(v*227);
+}
+a228 f228(a456 v) {
+	return 228 + f227(v*228);
+}
+a229 f229(a458 v) {
+	return 229 + f228(v*229);
+}
+a230 f230(a460 v) {
+	return 230 + f229(v*230);
+}
+a231 f231(a462 v) {
+	return 231 + f230(v*231);
+}
+a232 f232(a464 v) {
+	return 232 + f231(v*232);
+}
+a233 f233(a466 v) {
+	return 233 + f232(v*233);
+}
+a234 f234(a468 v) {
+	return 234 + f233(v*234);
+}
+a235 f235(a470 v) {
+	return 235 + f234(v*235);
+}
+a236 f236(a472 v) {
+	return 236 + f235(v*236);
+}
+a237 f237(a474 v) {
+	return 237 + f236(v*237);
+}
+a238 f238(a476 v) {
+	return 238 + f237(v*238);
+}
+a239 f239(a478 v) {
+	return 239 + f238(v*239);
+}
+a240 f240(a480 v) {
+	return 240 + f239(v*240);
+}
+a241 f241(a482 v) {
+	return 241 + f240(v*241);
+}
+a242 f242(a484 v) {
+	return 242 + f241(v*242);
+}
+a243 f243(a486 v) {
+	return 243 + f242(v*243);
+}
+a244 f244(a488 v) {
+	return 244 + f243(v*244);
+}
+a245 f245(a490 v) {
+	return 245 + f244(v*245);
+}
+a246 f246(a492 v) {
+	return 246 + f245(v*246);
+}
+a247 f247(a494 v) {
+	return 247 + f246(v*247);
+}
+a248 f248(a496 v) {
+	return 248 + f247(v*248);
+}
+a249 f249(a498 v) {
+	return 249 + f248(v*249);
+}
+a250 f250(a500 v) {
+	return 250 + f249(v*250);
+}
+a251 f251(a502 v) {
+	return 251 + f250(v*251);
+}
+a252 f252(a504 v) {
+	return 252 + f251(v*252);
+}
+a253 f253(a506 v) {
+	return 253 + f252(v*253);
+}
+a254 f254(a508 v) {
+	return 254 + f253(v*254);
+}
+a255 f255(a510 v) {
+	return 255 + f254(v*255);
+}
+a256 f256(a512 v) {
+	return 256 + f255(v*256);
+}
+a257 f257(a514 v) {
+	return 257 + f256(v*257);
+}
+a258 f258(a516 v) {
+	return 258 + f257(v*258);
+}
+a259 f259(a518 v) {
+	return 259 + f258(v*259);
+}
+a260 f260(a520 v) {
+	return 260 + f259(v*260);
+}
+a261 f261(a522 v) {
+	return 261 + f260(v*261);
+}
+a262 f262(a524 v) {
+	return 262 + f261(v*262);
+}
+a263 f263(a526 v) {
+	return 263 + f262(v*263);
+}
+a264 f264(a528 v) {
+	return 264 + f263(v*264);
+}
+a265 f265(a530 v) {
+	return 265 + f264(v*265);
+}
+a266 f266(a532 v) {
+	return 266 + f265(v*266);
+}
+a267 f267(a534 v) {
+	return 267 + f266(v*267);
+}
+a268 f268(a536 v) {
+	return 268 + f267(v*268);
+}
+a269 f269(a538 v) {
+	return 269 + f268(v*269);
+}
+a270 f270(a540 v) {
+	return 270 + f269(v*270);
+}
+a271 f271(a542 v) {
+	return 271 + f270(v*271);
+}
+a272 f272(a544 v) {
+	return 272 + f271(v*272);
+}
+a273 f273(a546 v) {
+	return 273 + f272(v*273);
+}
+a274 f274(a548 v) {
+	return 274 + f273(v*274);
+}
+a275 f275(a550 v) {
+	return 275 + f274(v*275);
+}
+a276 f276(a552 v) {
+	return 276 + f275(v*276);
+}
+a277 f277(a554 v) {
+	return 277 + f276(v*277);
+}
+a278 f278(a556 v) {
+	return 278 + f277(v*278);
+}
+a279 f279(a558 v) {
+	return 279 + f278(v*279);
+}
+a280 f280(a560 v) {
+	return 280 + f279(v*280);
+}
+a281 f281(a562 v) {
+	return 281 + f280(v*281);
+}
+a282 f282(a564 v) {
+	return 282 + f281(v*282);
+}
+a283 f283(a566 v) {
+	return 283 + f282(v*283);
+}
+a284 f284(a568 v) {
+	return 284 + f283(v*284);
+}
+a285 f285(a570 v) {
+	return 285 + f284(v*285);
+}
+a286 f286(a572 v) {
+	return 286 + f285(v*286);
+}
+a287 f287(a574 v) {
+	return 287 + f286(v*287);
+}
+a288 f288(a576 v) {
+	return 288 + f287(v*288);
+}
+a289 f289(a578 v) {
+	return 289 + f288(v*289);
+}
+a290 f290(a580 v) {
+	return 290 + f289(v*290);
+}
+a291 f291(a582 v) {
+	return 291 + f290(v*291);
+}
+a292 f292(a584 v) {
+	return 292 + f291(v*292);
+}
+a293 f293(a586 v) {
+	return 293 + f292(v*293);
+}
+a294 f294(a588 v) {
+	return 294 + f293(v*294);
+}
+a295 f295(a590 v) {
+	return 295 + f294(v*295);
+}
+a296 f296(a592 v) {
+	return 296 + f295(v*296);
+}
+a297 f297(a594 v) {
+	return 297 + f296(v*297);
+}
+a298 f298(a596 v) {
+	return 298 + f297(v*298);
+}
+a299 f299(a598 v) {
+	return 299 + f298(v*299);
+}
+a300 f300(a600 v) {
+	return 300 + f299(v*300);
+}
+a301 f301(a602 v) {
+	return 301 + f300(v*301);
+}
+a302 f302(a604 v) {
+	return 302 + f301(v*302);
+}
+a303 f303(a606 v) {
+	return 303 + f302(v*303);
+}
+a304 f304(a608 v) {
+	return 304 + f303(v*304);
+}
+a305 f305(a610 v) {
+	return 305 + f304(v*305);
+}
+a306 f306(a612 v) {
+	return 306 + f305(v*306);
+}
+a307 f307(a614 v) {
+	return 307 + f306(v*307);
+}
+a308 f308(a616 v) {
+	return 308 + f307(v*308);
+}
+a309 f309(a618 v) {
+	return 309 + f308(v*309);
+}
+a310 f310(a620 v) {
+	return 310 + f309(v*310);
+}
+a311 f311(a622 v) {
+	return 311 + f310(v*311);
+}
+a312 f312(a624 v) {
+	return 312 + f311(v*312);
+}
+a313 f313(a626 v) {
+	return 313 + f312(v*313);
+}
+a314 f314(a628 v) {
+	return 314 + f313(v*314);
+}
+a315 f315(a630 v) {
+	return 315 + f314(v*315);
+}
+a316 f316(a632 v) {
+	return 316 + f315(v*316);
+}
+a317 f317(a634 v) {
+	return 317 + f316(v*317);
+}
+a318 f318(a636 v) {
+	return 318 + f317(v*318);
+}
+a319 f319(a638 v) {
+	return 319 + f318(v*319);
+}
+a320 f320(a640 v) {
+	return 320 + f319(v*320);
+}
+a321 f321(a642 v) {
+	return 321 + f320(v*321);
+}
+a322 f322(a644 v) {
+	return 322 + f321(v*322);
+}
+a323 f323(a646 v) {
+	return 323 + f322(v*323);
+}
+a324 f324(a648 v) {
+	return 324 + f323(v*324);
+}
+a325 f325(a650 v) {
+	return 325 + f324(v*325);
+}
+a326 f326(a652 v) {
+	return 326 + f325(v*326);
+}
+a327 f327(a654 v) {
+	return 327 + f326(v*327);
+}
+a328 f328(a656 v) {
+	return 328 + f327(v*328);
+}
+a329 f329(a658 v) {
+	return 329 + f328(v*329);
+}
+a330 f330(a660 v) {
+	return 330 + f329(v*330);
+}
+a331 f331(a662 v) {
+	return 331 + f330(v*331);
+}
+a332 f332(a664 v) {
+	return 332 + f331(v*332);
+}
+a333 f333(a666 v) {
+	return 333 + f332(v*333);
+}
+a334 f334(a668 v) {
+	return 334 + f333(v*334);
+}
+a335 f335(a670 v) {
+	return 335 + f334(v*335);
+}
+a336 f336(a672 v) {
+	return 336 + f335(v*336);
+}
+a337 f337(a674 v) {
+	return 337 + f336(v*337);
+}
+a338 f338(a676 v) {
+	return 338 + f337(v*338);
+}
+a339 f339(a678 v) {
+	return 339 + f338(v*339);
+}
+a340 f340(a680 v) {
+	return 340 + f339(v*340);
+}
+a341 f341(a682 v) {
+	return 341 + f340(v*341);
+}
+a342 f342(a684 v) {
+	return 342 + f341(v*342);
+}
+a343 f343(a686 v) {
+	return 343 + f342(v*343);
+}
+a344 f344(a688 v) {
+	return 344 + f343(v*344);
+}
+a345 f345(a690 v) {
+	return 345 + f344(v*345);
+}
+a346 f346(a692 v) {
+	return 346 + f345(v*346);
+}
+a347 f347(a694 v) {
+	return 347 + f346(v*347);
+}
+a348 f348(a696 v) {
+	return 348 + f347(v*348);
+}
+a349 f349(a698 v) {
+	return 349 + f348(v*349);
+}
+a350 f350(a700 v) {
+	return 350 + f349(v*350);
+}
+a351 f351(a702 v) {
+	return 351 + f350(v*351);
+}
+a352 f352(a704 v) {
+	return 352 + f351(v*352);
+}
+a353 f353(a706 v) {
+	return 353 + f352(v*353);
+}
+a354 f354(a708 v) {
+	return 354 + f353(v*354);
+}
+a355 f355(a710 v) {
+	return 355 + f354(v*355);
+}
+a356 f356(a712 v) {
+	return 356 + f355(v*356);
+}
+a357 f357(a714 v) {
+	return 357 + f356(v*357);
+}
+a358 f358(a716 v) {
+	return 358 + f357(v*358);
+}
+a359 f359(a718 v) {
+	return 359 + f358(v*359);
+}
+a360 f360(a720 v) {
+	return 360 + f359(v*360);
+}
+a361 f361(a722 v) {
+	return 361 + f360(v*361);
+}
+a362 f362(a724 v) {
+	return 362 + f361(v*362);
+}
+a363 f363(a726 v) {
+	return 363 + f362(v*363);
+}
+a364 f364(a728 v) {
+	return 364 + f363(v*364);
+}
+a365 f365(a730 v) {
+	return 365 + f364(v*365);
+}
+a366 f366(a732 v) {
+	return 366 + f365(v*366);
+}
+a367 f367(a734 v) {
+	return 367 + f366(v*367);
+}
+a368 f368(a736 v) {
+	return 368 + f367(v*368);
+}
+a369 f369(a738 v) {
+	return 369 + f368(v*369);
+}
+a370 f370(a740 v) {
+	return 370 + f369(v*370);
+}
+a371 f371(a742 v) {
+	return 371 + f370(v*371);
+}
+a372 f372(a744 v) {
+	return 372 + f371(v*372);
+}
+a373 f373(a746 v) {
+	return 373 + f372(v*373);
+}
+a374 f374(a748 v) {
+	return 374 + f373(v*374);
+}
+a375 f375(a750 v) {
+	return 375 + f374(v*375);
+}
+a376 f376(a752 v) {
+	return 376 + f375(v*376);
+}
+a377 f377(a754 v) {
+	return 377 + f376(v*377);
+}
+a378 f378(a756 v) {
+	return 378 + f377(v*378);
+}
+a379 f379(a758 v) {
+	return 379 + f378(v*379);
+}
+a380 f380(a760 v) {
+	return 380 + f379(v*380);
+}
+a381 f381(a762 v) {
+	return 381 + f380(v*381);
+}
+a382 f382(a764 v) {
+	return 382 + f381(v*382);
+}
+a383 f383(a766 v) {
+	return 383 + f382(v*383);
+}
+a384 f384(a768 v) {
+	return 384 + f383(v*384);
+}
+a385 f385(a770 v) {
+	return 385 + f384(v*385);
+}
+a386 f386(a772 v) {
+	return 386 + f385(v*386);
+}
+a387 f387(a774 v) {
+	return 387 + f386(v*387);
+}
+a388 f388(a776 v) {
+	return 388 + f387(v*388);
+}
+a389 f389(a778 v) {
+	return 389 + f388(v*389);
+}
+a390 f390(a780 v) {
+	return 390 + f389(v*390);
+}
+a391 f391(a782 v) {
+	return 391 + f390(v*391);
+}
+a392 f392(a784 v) {
+	return 392 + f391(v*392);
+}
+a393 f393(a786 v) {
+	return 393 + f392(v*393);
+}
+a394 f394(a788 v) {
+	return 394 + f393(v*394);
+}
+a395 f395(a790 v) {
+	return 395 + f394(v*395);
+}
+a396 f396(a792 v) {
+	return 396 + f395(v*396);
+}
+a397 f397(a794 v) {
+	return 397 + f396(v*397);
+}
+a398 f398(a796 v) {
+	return 398 + f397(v*398);
+}
+a399 f399(a798 v) {
+	return 399 + f398(v*399);
+}
+a400 f400(a800 v) {
+	return 400 + f399(v*400);
+}
+a401 f401(a802 v) {
+	return 401 + f400(v*401);
+}
+a402 f402(a804 v) {
+	return 402 + f401(v*402);
+}
+a403 f403(a806 v) {
+	return 403 + f402(v*403);
+}
+a404 f404(a808 v) {
+	return 404 + f403(v*404);
+}
+a405 f405(a810 v) {
+	return 405 + f404(v*405);
+}
+a406 f406(a812 v) {
+	return 406 + f405(v*406);
+}
+a407 f407(a814 v) {
+	return 407 + f406(v*407);
+}
+a408 f408(a816 v) {
+	return 408 + f407(v*408);
+}
+a409 f409(a818 v) {
+	return 409 + f408(v*409);
+}
+a410 f410(a820 v) {
+	return 410 + f409(v*410);
+}
+a411 f411(a822 v) {
+	return 411 + f410(v*411);
+}
+a412 f412(a824 v) {
+	return 412 + f411(v*412);
+}
+a413 f413(a826 v) {
+	return 413 + f412(v*413);
+}
+a414 f414(a828 v) {
+	return 414 + f413(v*414);
+}
+a415 f415(a830 v) {
+	return 415 + f414(v*415);
+}
+a416 f416(a832 v) {
+	return 416 + f415(v*416);
+}
+a417 f417(a834 v) {
+	return 417 + f416(v*417);
+}
+a418 f418(a836 v) {
+	return 418 + f417(v*418);
+}
+a419 f419(a838 v) {
+	return 419 + f418(v*419);
+}
+a420 f420(a840 v) {
+	return 420 + f419(v*420);
+}
+a421 f421(a842 v) {
+	return 421 + f420(v*421);
+}
+a422 f422(a844 v) {
+	return 422 + f421(v*422);
+}
+a423 f423(a846 v) {
+	return 423 + f422(v*423);
+}
+a424 f424(a848 v) {
+	return 424 + f423(v*424);
+}
+a425 f425(a850 v) {
+	return 425 + f424(v*425);
+}
+a426 f426(a852 v) {
+	return 426 + f425(v*426);
+}
+a427 f427(a854 v) {
+	return 427 + f426(v*427);
+}
+a428 f428(a856 v) {
+	return 428 + f427(v*428);
+}
+a429 f429(a858 v) {
+	return 429 + f428(v*429);
+}
+a430 f430(a860 v) {
+	return 430 + f429(v*430);
+}
+a431 f431(a862 v) {
+	return 431 + f430(v*431);
+}
+a432 f432(a864 v) {
+	return 432 + f431(v*432);
+}
+a433 f433(a866 v) {
+	return 433 + f432(v*433);
+}
+a434 f434(a868 v) {
+	return 434 + f433(v*434);
+}
+a435 f435(a870 v) {
+	return 435 + f434(v*435);
+}
+a436 f436(a872 v) {
+	return 436 + f435(v*436);
+}
+a437 f437(a874 v) {
+	return 437 + f436(v*437);
+}
+a438 f438(a876 v) {
+	return 438 + f437(v*438);
+}
+a439 f439(a878 v) {
+	return 439 + f438(v*439);
+}
+a440 f440(a880 v) {
+	return 440 + f439(v*440);
+}
+a441 f441(a882 v) {
+	return 441 + f440(v*441);
+}
+a442 f442(a884 v) {
+	return 442 + f441(v*442);
+}
+a443 f443(a886 v) {
+	return 443 + f442(v*443);
+}
+a444 f444(a888 v) {
+	return 444 + f443(v*444);
+}
+a445 f445(a890 v) {
+	return 445 + f444(v*445);
+}
+a446 f446(a892 v) {
+	return 446 + f445(v*446);
+}
+a447 f447(a894 v) {
+	return 447 + f446(v*447);
+}
+a448 f448(a896 v) {
+	return 448 + f447(v*448);
+}
+a449 f449(a898 v) {
+	return 449 + f448(v*449);
+}
+a450 f450(a900 v) {
+	return 450 + f449(v*450);
+}
+a451 f451(a902 v) {
+	return 451 + f450(v*451);
+}
+a452 f452(a904 v) {
+	return 452 + f451(v*452);
+}
+a453 f453(a906 v) {
+	return 453 + f452(v*453);
+}
+a454 f454(a908 v) {
+	return 454 + f453(v*454);
+}
+a455 f455(a910 v) {
+	return 455 + f454(v*455);
+}
+a456 f456(a912 v) {
+	return 456 + f455(v*456);
+}
+a457 f457(a914 v) {
+	return 457 + f456(v*457);
+}
+a458 f458(a916 v) {
+	return 458 + f457(v*458);
+}
+a459 f459(a918 v) {
+	return 459 + f458(v*459);
+}
+a460 f460(a920 v) {
+	return 460 + f459(v*460);
+}
+a461 f461(a922 v) {
+	return 461 + f460(v*461);
+}
+a462 f462(a924 v) {
+	return 462 + f461(v*462);
+}
+a463 f463(a926 v) {
+	return 463 + f462(v*463);
+}
+a464 f464(a928 v) {
+	return 464 + f463(v*464);
+}
+a465 f465(a930 v) {
+	return 465 + f464(v*465);
+}
+a466 f466(a932 v) {
+	return 466 + f465(v*466);
+}
+a467 f467(a934 v) {
+	return 467 + f466(v*467);
+}
+a468 f468(a936 v) {
+	return 468 + f467(v*468);
+}
+a469 f469(a938 v) {
+	return 469 + f468(v*469);
+}
+a470 f470(a940 v) {
+	return 470 + f469(v*470);
+}
+a471 f471(a942 v) {
+	return 471 + f470(v*471);
+}
+a472 f472(a944 v) {
+	return 472 + f471(v*472);
+}
+a473 f473(a946 v) {
+	return 473 + f472(v*473);
+}
+a474 f474(a948 v) {
+	return 474 + f473(v*474);
+}
+a475 f475(a950 v) {
+	return 475 + f474(v*475);
+}
+a476 f476(a952 v) {
+	return 476 + f475(v*476);
+}
+a477 f477(a954 v) {
+	return 477 + f476(v*477);
+}
+a478 f478(a956 v) {
+	return 478 + f477(v*478);
+}
+a479 f479(a958 v) {
+	return 479 + f478(v*479);
+}
+a480 f480(a960 v) {
+	return 480 + f479(v*480);
+}
+a481 f481(a962 v) {
+	return 481 + f480(v*481);
+}
+a482 f482(a964 v) {
+	return 482 + f481(v*482);
+}
+a483 f483(a966 v) {
+	return 483 + f482(v*483);
+}
+a484 f484(a968 v) {
+	return 484 + f483(v*484);
+}
+a485 f485(a970 v) {
+	return 485 + f484(v*485);
+}
+a486 f486(a972 v) {
+	return 486 + f485(v*486);
+}
+a487 f487(a974 v) {
+	return 487 + f486(v*487);
+}
+a488 f488(a976 v) {
+	return 488 + f487(v*488);
+}
+a489 f489(a978 v) {
+	return 489 + f488(v*489);
+}
+a490 f490(a980 v) {
+	return 490 + f489(v*490);
+}
+a491 f491(a982 v) {
+	return 491 + f490(v*491);
+}
+a492 f492(a984 v) {
+	return 492 + f491(v*492);
+}
+a493 f493(a986 v) {
+	return 493 + f492(v*493);
+}
+a494 f494(a988 v) {
+	return 494 + f493(v*494);
+}
+a495 f495(a990 v) {
+	return 495 + f494(v*495);
+}
+a496 f496(a992 v) {
+	return 496 + f495(v*496);
+}
+a497 f497(a994 v) {
+	return 497 + f496(v*497);
+}
+a498 f498(a996 v) {
+	return 498 + f497(v*498);
+}
+a499 f499(a998 v) {
+	return 499 + f498(v*499);
+}
+
+int main() {
+	return f499(1);
+}

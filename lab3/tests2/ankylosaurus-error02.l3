@@ -1,0 +1,15 @@
+//test error
+// Function result type different from that in the declaration
+bool getTrue();
+
+int main()
+{
+    bool x = getTrue();
+
+    return 1;
+}
+
+int getTrue()
+{
+    return 1;
+}

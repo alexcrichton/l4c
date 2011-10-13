@@ -1,0 +1,62 @@
+//test return 4
+// let's do cool things using LOTS AND LOTS OF FUNCTIONS. How does your
+// stack hold up?
+int abs(int v);
+int squareroot(int m);
+int square(int l);
+int mean(int fd, int hg, int er, int pl);
+int sum(int q, int w, int e, int r);
+
+
+// Well, it's almost standard deviation
+int stdev(int a, int b, int c, int d) {
+  int m1 = mean(a, b, c, d);
+  int e1 = square(a - m1);
+  int e2 = square(b - m1);
+  int e3 = square(c - m1);
+  int e4 = square(d - m1);
+  int m2 = mean(e1, e2, e3, e4);
+  return squareroot(m2);
+}
+
+int abs(int x) {
+  if (x < 0) {
+    return -1*x;
+  }
+  else {
+    return x;
+  }
+}
+
+int squareroot(int x) {
+  int i = 1;
+  int diff = x;
+  int num = 0;
+  for ( ; i <= x; i++) {
+    if (abs(i * i - x) < diff) {
+      diff = abs(i * i - x);
+      num = i;
+    }
+  }
+  return num;
+}
+
+int square(int x) {
+  return (x * x);
+}
+
+int sum(int w, int x, int y, int z) {
+  return w + x + y + z;
+}
+
+int mean(int e, int f, int g, int h) {
+  return sum(e, f, g, h) / 4;
+}
+
+int main () {
+  int x1 = 5;
+  int x2 = 6;
+  int x3 = x1 + x2;
+  int x4 = 0;
+  return stdev(x1, x2, x3, x4);
+}

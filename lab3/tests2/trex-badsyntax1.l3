@@ -1,0 +1,16 @@
+//test error
+// malformed function definition
+
+int f(int x)
+{
+  int g()
+  {
+    return 1;
+  }
+  return g();
+}
+
+int main()
+{
+  return f(1);
+}

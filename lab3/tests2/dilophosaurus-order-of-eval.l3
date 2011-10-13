@@ -1,0 +1,16 @@
+//test exception 8
+// call in a call, with division by zero at the end
+
+int next(int a){
+    return a + 1;
+}
+
+// easy way to get a division by zero
+int f(int x, int y, int z){
+    return x / y / z;
+}
+
+int main()
+{
+    return f(1, 2, next(-1));
+}

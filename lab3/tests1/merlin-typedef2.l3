@@ -1,0 +1,25 @@
+//test return 15410
+//Lots of typedefs... test transparency throughout
+
+typedef int integer;
+typedef integer i0;
+typedef i0 i1;
+typedef i1 i2;
+typedef i2 i3;
+typedef i3 i4;
+typedef i4 i5;
+typedef i5 i6;
+
+i4 f(i5 a);
+
+typedef i6 i7;
+
+i6 main() {
+  i3 i = f(15411);
+  return i;
+}
+
+i0 f(integer b) {
+  i7 c = b - 1;
+  return c;
+}

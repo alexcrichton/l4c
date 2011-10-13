@@ -1,0 +1,8 @@
+//test error
+//tests a top level break error
+
+int main()
+{
+	break;
+	return 5;
+}

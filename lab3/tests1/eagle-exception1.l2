@@ -1,0 +1,11 @@
+//test exception 8
+int main() {
+  int i;
+  int x = 7257600;
+  for (i = 10; i >= 0; i--) {
+      if (i % 2 != 0)
+        continue;
+    x /= i;
+  }
+  return x;
+}
