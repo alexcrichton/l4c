@@ -43,11 +43,12 @@ struct
                                    (t::T, (munch_exp t e) @ I)
                                  end
           val (T, I) = foldr eval ([], []) L
-          fun mv (AS.REG (AS.STACKARG n), s) = AS.MOV (AS.STACK (2 * n), s)
+          fun mv (AS.REG (AS.STACKARG n), s) =
+                AS.MOV (AS.REG (AS.STACK (8 * n)), s)
             | mv t = AS.MOV t
           val moves = ListPair.map mv (List.tabulate (length T, AS.arg_reg), T)
         in
-          I @ rev moves @ [AS.CALL (l, length L), AS.MOV (d, AS.REG AS.EAX)]
+          I @ moves @ [AS.CALL (l, length L), AS.MOV (d, AS.REG AS.EAX)]
         end
 
   (* munch_half : AS.binop -> T.exp -> (AS.operand * AS.instr list)
@@ -167,6 +168,33 @@ struct
     | munch_stm _ = raise Fail "Invalid IR"
   and munch_stmts stmts = foldr (op @) [] (map munch_stm stmts)
 
+  (* stack_size : T.stm list * int -> int
+   *
+   * Computes the amount of stack space needed for the given function
+   *)
+  fun stack_size (I, locals) = let
+        (* Returns the maximum amount of stack slots needed to call functions *)
+        fun max_call (AS.CALL (_, a), n) = Int.max (a - 6, n)
+          | max_call (_, n) = n
+        val max_args = foldr max_call 0 I
+        val local_bytes = 4 * (Int.max (0, locals - (AS.reg_num (AS.STACKLOC 0)) + 1))
+        val stack_bytes = ((max_args * 8 + local_bytes - 8) div 16) * 16 + 24
+        (* Maps stack locations to the correct place *)
+        fun map_op (AS.REG (AS.STACKARG n)) =
+              AS.REG (AS.STACK (8 * (n+1) + stack_bytes))
+          | map_op (AS.REG (AS.STACKLOC n)) =
+              AS.REG (AS.STACK (n * 4 + stack_bytes - local_bytes))
+          | map_op oper = oper
+
+        fun map_instr (AS.BINOP (oper, op1, op2)) =
+              AS.BINOP (oper, map_op op1, map_op op2)
+          | map_instr (AS.MOV (op1, op2)) = AS.MOV (map_op op1, map_op op2)
+          | map_instr (AS.MOVFLAG (op1, c)) = AS.MOVFLAG (map_op op1, c)
+          | map_instr i = i
+      in
+        (map map_instr I, stack_bytes)
+      end
+
   (* munch_function : Temp.temp list -> T.stm list -> AS.instr list
    *
    * Converts and IR function into allocated assembly.
@@ -199,13 +227,9 @@ struct
         fun add_rsp i = AS.BINOP(AS.ADD64, AS.REG AS.ESP,
                                  AS.IMM (Word32.fromInt i))
 
-        val offset =
-              if max < stack_start then 8
-              else let val s = (max - stack_start + 1) * 4 in
-                if s mod 16 = 8 then s else ((s + 8) div 16) * 16 + 8
-              end
+        val (assem', offset) = stack_size (assem, max)
       in
-        add_rsp (~offset) :: foldr (alter_ret [add_rsp offset]) [] assem
+        add_rsp (~offset) :: foldr (alter_ret [add_rsp offset]) [] assem'
       end
 
   (* codegen : T.program -> AS.instr list

@@ -8,7 +8,8 @@ signature ASSEM =
 sig
   datatype reg = EAX | EBX  | ECX  | EDX  | EDI  | ESI  | R8D
                | R9D | R10D | R11D | R12D | R13D | R14D | R15D
-               | STACK of int | ESP | EBP
+               | ESP | EBP  | STACK of int | STACKARG of int
+               | STACKLOC of int
 
   datatype operand =
      IMM of Word32.word
@@ -51,7 +52,8 @@ structure Assem :> ASSEM =
 struct
   datatype reg = EAX | EBX  | ECX  | EDX  | EDI  | ESI  | R8D
                | R9D | R10D | R11D | R12D | R13D | R14D | R15D
-               | STACK of int | ESP | EBP
+               | ESP | EBP  | STACK of int | STACKARG of int
+               | STACKLOC of int
 
   datatype operand =
      IMM of Word32.word
@@ -93,7 +95,7 @@ struct
     | format_reg EDI = "%edi"
     | format_reg ESI = "%esi"
     | format_reg ESP = "%rsp"
-    | format_reg EBP = raise Fail "Bad %ebp"
+    | format_reg EBP = "'%ebp'"
     | format_reg R8D = "%r8d"
     | format_reg R9D = "%r9d"
     | format_reg R10D = "%r10d"
@@ -102,7 +104,9 @@ struct
     | format_reg R13D = "%r13d"
     | format_reg R14D = "%r14d"
     | format_reg R15D = "%r15d"
-    | format_reg (STACK n) = Int.toString (n * 4) ^ "(%rsp)"
+    | format_reg (STACK n) = Int.toString n ^ "(%rsp)"
+    | format_reg (STACKLOC n) = "%rsp[" ^ Int.toString n ^ "]"
+    | format_reg (STACKARG n) = "arg[" ^ Int.toString n ^ "]"
 
   (* format_reg8 : reg -> string
    *
@@ -273,7 +277,9 @@ struct
     | reg_num R13D = 11
     | reg_num R14D = 12
     | reg_num R15D = 13
-    | reg_num (STACK n) = n + 14
+    | reg_num (STACKLOC n) = n + 14
+    | reg_num (STACKARG n) = 0
+    | reg_num (STACK n) = 0
     | reg_num r = raise Fail (format_reg r ^ " is a scary register")
 
   (* num_reg : int -> reg
@@ -296,7 +302,7 @@ struct
     | num_reg 11 = R13D
     | num_reg 12 = R14D
     | num_reg 13 = R15D
-    | num_reg  n = STACK (n - 14)
+    | num_reg  n = STACKLOC (n - 14)
 
   (* arg_reg : int -> operand
    *
@@ -318,7 +324,7 @@ struct
    *)
   fun compare (REG r1, REG r2) = Int.compare (reg_num r1, reg_num r2)
     | compare (TEMP t1, TEMP t2) = Temp.compare (t1, t2)
-    | compare (IMM w1, IMM w2) = Word32.compare (w1, w2)
+    | compare (IMM w1, IMM w2) = EQUAL
     | compare (IMM _, _)  = LESS
     | compare (_, IMM _)  = GREATER
     | compare (TEMP _, _) = LESS

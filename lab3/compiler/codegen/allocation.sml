@@ -45,6 +45,7 @@ struct
                add_neighbors x L)
 
         fun process_op (AS.IMM _, L) = L
+          | process_op (AS.REG (AS.STACK _ | AS.STACKARG _ | AS.STACKLOC _ | AS.R11D), L) = L
           | process_op (oper, L) = let
               val clr = case oper of AS.REG r => AS.reg_num r | _ => 0
               val id  = case HT.find (#graph_info graph) oper
@@ -118,7 +119,7 @@ struct
         else
           (min + 1, false)
 
-  (* color : graph -> node list -> unit
+  (* color : graph -> node -> unit
    * Colors the given graph according to the provided seo.
    *
    * @param graph     The graph to be colored
@@ -178,7 +179,7 @@ struct
    *)
   fun filter_instrs L = let
         fun isTemp (AS.TEMP _) = true | isTemp _ = false
-        fun hasTemps (AS.MOV (o1, o2)) =
+        fun hasTemps (a as AS.MOV (o1, o2)) =
               if (isTemp o2) then raise Fail "Live temp not allocated"
               else (isTemp o1)
           | hasTemps (AS.BINOP (oper, o1, o2)) = false
@@ -241,7 +242,6 @@ struct
    *            locations
    *)
   fun allocate L = let
-        (*val _ = app (print o AS.format) L*)
         val live  = P.time ("Liveness", fn () => Liveness.compute L)
         val table = HT.mkTable (AS.oper_hash, AS.oper_equal)
                                (length L, G.NotFound)
@@ -258,7 +258,9 @@ struct
               !(#weight n1data) > !(#weight n2data)
             end
 
-        val pq = PQ.fromGraph less graph_rec
+        val pq = PQ.create (#size graph ()) less
+        val _ = #forall_nodes graph (fn (nid, data) =>
+                  if !(#color data) = 0 then PQ.insert (pq, nid) else (#in_seo data) := true)
 
         val order = P.time ("Generate SEO", fn () => generate_seo graph_rec pq)
         val () = P.time ("Coloring", fn () => app (color graph_rec) order)
