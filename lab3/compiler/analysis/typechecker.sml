@@ -173,12 +173,19 @@ struct
    *)
   fun typecheck L = let
         val funs = ref Symbol.empty
+
+        fun bind_fun ext (typ, id, types) =
+              case Symbol.look (!funs) id
+                of NONE => Symbol.bind (!funs) (id, (typ, types))
+                 | SOME(t, T) =>
+                    (tc_equal (t, typ) ext;
+                     ListPair.app (fn ts => tc_equal ts ext) (types, T);
+                     !funs)
+
         fun tc_adecl _ (A.Markedg data) =
               tc_adecl (Mark.ext data) (Mark.data data)
-          | tc_adecl ext (A.ExtDecl (typ, id, types)) =
-              funs := Symbol.bind (!funs) (id, (typ, types))
-          | tc_adecl ext (A.IntDecl (typ, id, types)) =
-              funs := Symbol.bind (!funs) (id, (typ, types))
+          | tc_adecl ext (A.ExtDecl d) = funs := bind_fun ext d
+          | tc_adecl ext (A.IntDecl d) = funs := bind_fun ext d
           | tc_adecl ext (A.Typedef (_, _)) = ()
           | tc_adecl ext (A.Fun (typ, ident, args, stm)) = let
               val types = map (fn (A.Declare (_, t, _)) => t
