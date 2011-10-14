@@ -179,8 +179,12 @@ struct
                 of NONE => Symbol.bind (!funs) (id, (typ, types))
                  | SOME(t, T) =>
                     (tc_equal (t, typ) ext;
-                     ListPair.app (fn ts => tc_equal ts ext) (types, T);
+                     ListPair.appEq (fn ts => tc_equal ts ext) (types, T);
                      !funs)
+              handle UnequalLengths =>
+                (ErrorMsg.error ext ("Function '" ^ Symbol.name id ^ "' " ^
+                                 "has a different number of args than before");
+                 raise ErrorMsg.Error)
 
         fun tc_adecl _ (A.Markedg data) =
               tc_adecl (Mark.ext data) (Mark.data data)
@@ -198,6 +202,7 @@ struct
                         | NONE => Symbol.bind env (id, t))
                 | bind_arg _ = raise Fail "Invalid AST (tc bind_arg)"
             in
+              bind_fun ext (typ, ident, types);
               funs := Symbol.bind (!funs) (ident, (typ, types));
               tc_stm (!funs, foldl bind_arg Symbol.empty args) stm NONE
                      (false, typ)
