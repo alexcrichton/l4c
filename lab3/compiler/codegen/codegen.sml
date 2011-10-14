@@ -43,14 +43,11 @@ struct
                                    (t::T, (munch_exp t e) @ I)
                                  end
           val (T, I) = foldr eval ([], []) L
-          fun mv (AS.REG (AS.STACK _), s) = raise Fail "figure me out"
+          fun mv (AS.REG (AS.STACKARG n), s) = AS.MOV (AS.STACK (2 * n), s)
             | mv t = AS.MOV t
           val moves = ListPair.map mv (List.tabulate (length T, AS.arg_reg), T)
-          val post = if length L <= 6 then [] else [AS.BINOP (AS.ADD64, AS.REG AS.ESP,
-                                    AS.IMM (Word32.fromInt (8 * (length L - 6))))]
         in
-          I @ rev moves @ (AS.CALL (l, length L))::post @
-          [AS.MOV (d, AS.REG AS.EAX)]
+          I @ rev moves @ [AS.CALL (l, length L), AS.MOV (d, AS.REG AS.EAX)]
         end
 
   (* munch_half : AS.binop -> T.exp -> (AS.operand * AS.instr list)
