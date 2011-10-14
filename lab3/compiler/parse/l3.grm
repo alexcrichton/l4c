@@ -187,15 +187,6 @@ simp       : lvalue asnop exp %prec ASNOP
            | decl                      (decl)
            | exp                       (A.Express exp)
 
-step       :                           (A.Nop)
-           | lvalue asnop exp %prec ASNOP
-                                       (expand_asnop (lvalue, asnop, exp)
-                                                     (lvalueleft, expright))
-           | lvalue postop %prec UNARY  (A.Assign(lvalue,
-                                        mark (A.BinaryOp(postop, A.Var(lvalue),
-                                                A.Const(Word32.fromInt 1)),
-                                             (lvalueleft, lvalueright))))
-
 simpopt    :                           (A.Nop)
            | simp                      (marks (simp, (simpleft, simpright)))
 
@@ -204,8 +195,8 @@ elseopt    :                           (A.Nop)
 
 control    : IF LPAREN exp RPAREN stmt elseopt  (A.If(exp, stmt, elseopt))
            | WHILE LPAREN exp RPAREN stmt       (A.While (exp, stmt))
-           | FOR LPAREN simpopt SEMI exp SEMI step RPAREN stmt
-                                        (A.For (simpopt, exp, step, stmt))
+           | FOR LPAREN simpopt SEMI exp SEMI simpopt RPAREN stmt
+                                      (A.For (simpopt1, exp, simpopt2, stmt))
            | CONTINUE SEMI   (marks (A.Continue, (CONTINUEleft, CONTINUEright)))
            | BREAK SEMI      (marks (A.Break, (BREAKleft, BREAKright)))
            | RETURN exp SEMI (marks (A.Return exp, (RETURNleft, expright)))
