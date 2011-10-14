@@ -105,9 +105,10 @@ struct
                    [AS.MOV (t, t1), AS.MOV (AS.REG AS.ECX, t2),
                     AS.BINOP (oper, t, AS.REG AS.ECX), AS.MOV (d, t)]
                   end
-                else
-                  [AS.MOV (d, t1), AS.MOV (AS.REG AS.ECX, t2),
-                   AS.BINOP (oper, d, AS.REG AS.ECX)]
+                else (case t2
+                        of AS.IMM _ => [AS.MOV (d, t1), AS.BINOP (oper, d, t2)]
+                         | _ => [AS.MOV (d, t1), AS.MOV (AS.REG AS.ECX, t2),
+                                 AS.BINOP (oper, d, AS.REG AS.ECX)])
              | _ => if not(eq_ops (d, t2)) then
                       [AS.MOV (d, t1), AS.BINOP (oper, d, t2)]
                     else if binop <> T.SUB then
