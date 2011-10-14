@@ -308,7 +308,7 @@ struct
     | arg_reg 3 = REG ECX
     | arg_reg 4 = REG R8D
     | arg_reg 5 = REG R9D
-    | arg_reg n = raise Fail "args in stack locations is scary"
+    | arg_reg n = REG (STACKARG (n - 6))
 
   (* compare : (operand * operand) -> order
    *
