@@ -141,7 +141,7 @@ struct
        output '.globl' for both and have a _c0_main and a __c0_main *)
     val assem = [Assem.DIRECTIVE(".file\t\"" ^ source ^ "\""),
                  Assem.DIRECTIVE(".globl " ^
-                                 Label.name (Label.literal "_c0_main"))]
+                                 Label.name (Label.extfunc "_c0_main"))]
           @ assem
           @ [Assem.DIRECTIVE ".ident\t\"15-411 L3 reference compiler\""]
     val code = P.time ("Formatting", fn () => String.concat (List.map (Assem.format) assem))

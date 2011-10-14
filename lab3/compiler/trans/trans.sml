@@ -15,8 +15,6 @@ struct
   structure A = Ast
   structure T = Tree
 
-  val ident_label = Label.literal o Symbol.name
-
   (* trans_oper : A.binop -> T.binop
    *
    * Translates an AST binop to a IR binop
@@ -48,7 +46,7 @@ struct
    *         commands that need to be executed beforehand, and the expression
    *         contains the result of this operation.
    *)
-  fun trans_exp env (A.Var id) = ([], T.TEMP (Symbol.look' env id))
+  fun trans_exp (_, env) (A.Var id) = ([], T.TEMP (Symbol.look' env id))
     | trans_exp _ (A.Bool b) =
         ([], T.CONST (Word32.fromInt (if b then 1 else 0)))
     | trans_exp _ (A.Const w) = ([], T.CONST w)
@@ -92,16 +90,19 @@ struct
          e3s @ [T.MOVE (t, e3'), T.GOTO (l2, NONE), T.LABEL l1] @
          e2s @ [T.MOVE (t, e2'), T.LABEL l2], t)
       end
-    | trans_exp env (A.Call (name, EL)) = let
+    | trans_exp (funs, env) (A.Call (name, EL)) = let
         fun ev (d, (instrs, dests)) = let
-              val (dinstrs, dest) = trans_exp env d
+              val (dinstrs, dest) = trans_exp (funs, env) d
             in
               (dinstrs @ instrs, dest::dests)
             end
         val (instrs, args) = foldr ev ([], []) EL
         val t = Temp.new ()
+        val label =
+          if Symbol.member funs name then Label.extfunc (Symbol.name name)
+          else Label.intfunc (Symbol.name name)
       in
-        (instrs @ [T.MOVE (T.TEMP t, T.CALL (ident_label name, args))], T.TEMP t)
+        (instrs @ [T.MOVE (T.TEMP t, T.CALL (label, args))], T.TEMP t)
       end
 
   (* trans_stm : Temp.temp Symbol.table -> A.stm -> Label.label * Label.label
@@ -116,7 +117,9 @@ struct
             break or continue statement.
    * @return a list of statements in the IL.
    *)
-  fun trans_stm env (A.Assign (id, e)) _ = let val (es, e') = trans_exp env e in
+  fun trans_stm (funs, env) (A.Assign (id, e)) _ = let
+        val (es, e') = trans_exp (funs, env) e
+      in
         es @ [T.MOVE (T.TEMP (Symbol.look' env id), e')]
       end
     | trans_stm env (A.If(e, s1, s2)) lp = let
@@ -137,17 +140,17 @@ struct
         trans_stm env s (break, continue) @
         [T.LABEL continue] @ es @ [T.GOTO (start, SOME e'), T.LABEL break]
       end
-    | trans_stm env A.Continue (_, continue) = [T.GOTO (continue, NONE)]
-    | trans_stm env A.Break (break, _) = [T.GOTO (break, NONE)]
+    | trans_stm _ A.Continue (_, continue) = [T.GOTO (continue, NONE)]
+    | trans_stm _ A.Break (break, _) = [T.GOTO (break, NONE)]
     | trans_stm env (A.Return e) _ = let val (einstrs, e') = trans_exp env e in
         einstrs @ [T.RETURN e']
       end
     | trans_stm env (A.Seq (s1, s2)) lp =
         (trans_stm env s1 lp) @ (trans_stm env s2 lp)
-    | trans_stm env (A.Declare (id, _, s)) lp = let
+    | trans_stm (funs, env) (A.Declare (id, _, s)) lp = let
         val env' = Symbol.bind env (id, Temp.new ())
       in
-        trans_stm env' s lp
+        trans_stm (funs, env') s lp
       end
     | trans_stm env (A.Markeds data) cs = trans_stm env (Mark.data data) cs
     | trans_stm env (A.Express e) _ = #1 (trans_exp env e)
@@ -160,18 +163,18 @@ struct
    * @param prog the AST program
    * @return a list of statements in the intermediate language.
    *)
-  fun translate_fun (A.Fun (_, name, args, body)) = let
+  fun translate_fun funs (A.Fun (_, name, args, body)) = let
         fun bind (A.Declare (id, _, _), (T, e)) = let val t = Temp.new() in
               (t::T, Symbol.bind e (id, t))
             end
           | bind _ = raise Fail "Invalid statement in function arguments"
         val (temps, e) = foldr bind ([], Symbol.empty) args
-        val instrs = trans_stm e (A.remove_for body A.Nop)
-                                 (Label.new "_", Label.new "_")
+        val instrs = trans_stm (funs, e) (A.remove_for body A.Nop)
+                               (Label.new "_", Label.new "_")
       in
-        SOME (ident_label name, temps, instrs)
+        SOME (Label.intfunc (Symbol.name name), temps, instrs)
       end
-    | translate_fun _ = NONE
+    | translate_fun _ _ = NONE
 
   (* translate : Ast.program -> T.program
    *
@@ -179,6 +182,11 @@ struct
    * @param prog the AST program
    * @return a list of statements in the intermediate language.
    *)
-  fun translate p = List.mapPartial translate_fun p
+  fun translate p = let
+        fun get_external (A.ExtDecl (_, id, _)) = SOME id
+          | get_external _ = NONE
+        val external = List.mapPartial get_external p
+        val extfuns = foldr (fn (e, s) => Symbol.add s e) Symbol.null external
+      in List.mapPartial (translate_fun extfuns) p end
 
 end

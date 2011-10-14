@@ -9,7 +9,8 @@ sig
   type label
 
   val new : string -> label
-  val literal : string -> label
+  val extfunc : string -> label
+  val intfunc : string -> label
   val name : label -> string
   val hash : label -> word
   val equal : label * label -> bool
@@ -18,7 +19,8 @@ end
 
 structure Label :> LABEL =
 struct
-  type label = string * int
+  datatype typ = EXTFUNC | INTFUNC | GENERIC of int
+  type label = string * typ
 
   local
     val counter = ref 1
@@ -33,15 +35,18 @@ struct
      *
      * @param str the string description of this label.
      *)
-    fun new str = (str, !counter) before (counter := !counter + 1)
+    fun new str = (str, GENERIC(!counter)) before (counter := !counter + 1)
   end
 
-  fun literal str = (str, 0)
+  fun extfunc str = (str, EXTFUNC)
+  fun intfunc str = (str, INTFUNC)
 
-  fun name (s, t) =
-        if t <> 0 then "." ^ s ^ Int.toString t
-        else if SMLofNJ.SysInfo.getOSName () = "Darwin" then "_" ^ s
-        else s
+  val extprefix = if SMLofNJ.SysInfo.getOSName () = "Darwin" then "_" else ""
+
+  fun name (s, GENERIC i) = "." ^ s ^ Int.toString i
+    | name (s, INTFUNC) = "_L3F_" ^ s
+    | name (s, _) = extprefix ^ s
+
   fun hash label = HashString.hashString (name label)
   fun compare (l1, l2) = String.compare (name l1, name l2)
   fun equal ts = (compare ts = EQUAL)

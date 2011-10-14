@@ -229,8 +229,8 @@ struct
     | instr_expand (MOV (d as REG (STACK _), s as REG (STACK _))) =
         [MOV (swap, s), MOV (d, swap)]
     | instr_expand (LABEL l) =
-        if Label.compare (l, Label.literal "main") <> EQUAL then [LABEL l]
-        else [LABEL (Label.literal "_c0_main"), LABEL l]
+        if Label.compare (l, Label.intfunc "main") <> EQUAL then [LABEL l]
+        else [LABEL (Label.extfunc "_c0_main"), LABEL l]
     | instr_expand i = [i]
 
   (* format : instr -> string
