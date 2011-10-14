@@ -184,7 +184,7 @@ struct
                 else (check_id ext id;
                       ((resolve ext t, id)::L, Symbol.add s id))
             in
-              #1 (foldl validate ([], Symbol.null) L)
+              rev (#1 (foldl validate ([], Symbol.null) L))
             end
 
         fun elaborate_gdecl _ (Markedg mark) =
