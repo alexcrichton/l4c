@@ -174,36 +174,34 @@ struct
   fun typecheck L = let
         val funs = ref Symbol.empty
 
-        fun bind_fun ext (typ, id, types) =
+        fun bind_fun ext (typ, id, params) = let
+              val types = #1 (ListPair.unzip params)
+            in
               case Symbol.look (!funs) id
-                of NONE => Symbol.bind (!funs) (id, (typ, types))
+                of NONE => (funs := Symbol.bind (!funs) (id, (typ, types)))
                  | SOME(t, T) =>
                     (tc_equal (t, typ) ext;
-                     ListPair.appEq (fn ts => tc_equal ts ext) (types, T);
-                     !funs)
+                     ListPair.appEq (fn ts => tc_equal ts ext) (types, T))
               handle UnequalLengths =>
                 (ErrorMsg.error ext ("Function '" ^ Symbol.name id ^ "' " ^
                                  "has a different number of args than before");
                  raise ErrorMsg.Error)
+            end
 
         fun tc_adecl _ (A.Markedg data) =
               tc_adecl (Mark.ext data) (Mark.data data)
-          | tc_adecl ext (A.ExtDecl d) = funs := bind_fun ext d
-          | tc_adecl ext (A.IntDecl d) = funs := bind_fun ext d
+          | tc_adecl ext (A.ExtDecl d) = bind_fun ext d
+          | tc_adecl ext (A.IntDecl d) = bind_fun ext d
           | tc_adecl ext (A.Typedef (_, _)) = ()
           | tc_adecl ext (A.Fun (typ, ident, args, stm)) = let
-              val types = map (fn (A.Declare (_, t, _)) => t
-                                | _ => raise Fail "Invalid AST (tc)") args
-              fun bind_arg (A.Declare (id, t, _), env) =
+              fun bind_arg ((typ, id), env) =
                     (case Symbol.look env id
                        of SOME t => (ErrorMsg.error ext ("Duplicate argument" ^
                                      " name: " ^ Symbol.name id);
                                      raise ErrorMsg.Error)
-                        | NONE => Symbol.bind env (id, t))
-                | bind_arg _ = raise Fail "Invalid AST (tc bind_arg)"
+                        | NONE => Symbol.bind env (id, typ))
             in
-              bind_fun ext (typ, ident, types);
-              funs := Symbol.bind (!funs) (ident, (typ, types));
+              bind_fun ext (typ, ident, args);
               tc_stm (!funs, foldl bind_arg Symbol.empty args) stm NONE
                      (false, typ)
             end

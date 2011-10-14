@@ -59,9 +59,9 @@ sig
    | Markeds of stm Mark.marked
 
   datatype gdecl =
-     Fun of typ * ident * stm list * stm
-   | ExtDecl of typ * ident * typ list
-   | IntDecl of typ * ident * typ list
+     Fun of typ * ident * (typ * ident) list * stm
+   | ExtDecl of typ * ident * (typ * ident) list
+   | IntDecl of typ * ident * (typ * ident) list
    | Typedef of ident * typ
    | Markedg of gdecl Mark.marked
 
@@ -134,9 +134,9 @@ struct
    | Markeds of stm Mark.marked
 
   datatype gdecl =
-     Fun of typ * ident * stm list * stm
-   | ExtDecl of typ * ident * typ list
-   | IntDecl of typ * ident * typ list
+     Fun of typ * ident * (typ * ident) list * stm
+   | ExtDecl of typ * ident * (typ * ident) list
+   | IntDecl of typ * ident * (typ * ident) list
    | Typedef of ident * typ
    | Markedg of gdecl Mark.marked
 
@@ -175,31 +175,35 @@ struct
               (ErrorMsg.error ext ("Function '" ^ Symbol.name id ^
                "' already defined"); raise ErrorMsg.Error)
             else ()
+        and check_params ext L = let
+              fun validate ((t, id), (L, s)) =
+                if Symbol.member s id then
+                  (ErrorMsg.error ext ("Duplicate argument parameter: '" ^
+                                       Symbol.name id ^ "'");
+                   raise ErrorMsg.Error)
+                else (check_id ext id;
+                      ((resolve ext t, id)::L, Symbol.add s id))
+            in
+              #1 (foldl validate ([], Symbol.null) L)
+            end
 
         fun elaborate_gdecl _ (Markedg mark) =
               elaborate_gdecl (Mark.ext mark) (Mark.data mark)
-          | elaborate_gdecl ext (Fun (typ, id, params, body)) = let
-              fun elaborate_param (Declare (id, typ, s)) =
-                    (check_id ext id; Declare (id, resolve ext typ, s))
-                | elaborate_param (Markeds d) = elaborate_param (Mark.data d)
-                | elaborate_param _ = raise Fail "Invalid AST (elaborate_param)"
-
-            in
+          | elaborate_gdecl ext (Fun (typ, id, params, body)) =
               (check_fun_id (!efuns) ext id; check_id ext id;
                check_fun_id (!funs) ext id; funs := Symbol.add (!funs) id;
-               Fun (resolve ext typ, id, map elaborate_param params,
+               Fun (resolve ext typ, id, check_params ext params,
                     elaborate_stm (!types) body))
-            end
           | elaborate_gdecl ext (p as Typedef (id, typ)) =
               (check_id ext id; check_fun_id (!efuns) ext id;
                check_fun_id (!funs) ext id;
                types := Symbol.bind (!types) (id, resolve ext typ); p)
-          | elaborate_gdecl ext (ExtDecl (typ, id, typs)) =
+          | elaborate_gdecl ext (ExtDecl (typ, id, params)) =
               (check_id ext id; efuns := Symbol.add (!efuns) id;
-               ExtDecl (resolve ext typ, id, map (resolve ext) typs))
-          | elaborate_gdecl ext (IntDecl (typ, id, typs)) =
+               ExtDecl (resolve ext typ, id, check_params ext params))
+          | elaborate_gdecl ext (IntDecl (typ, id, params)) =
               (check_id ext id;
-               IntDecl (resolve ext typ, id, map (resolve ext) typs))
+               IntDecl (resolve ext typ, id, check_params ext params))
       in map (elaborate_gdecl NONE) prog end
   and elaborate_stm env (Markeds mark) =
         Markeds (Mark.mark' (elaborate_stm env (Mark.data mark), Mark.ext mark))
@@ -343,14 +347,11 @@ struct
       | pp_adecl (Markedg d) = pp_adecl (Mark.data d)
       | pp_adecl (IntDecl (t, i, L)) =
           pp_typ t ^ " " ^ pp_ident i ^ "(" ^
-          (foldl (fn (a, s) => s ^ ", " ^ pp_typ a) "" L) ^ ")"
-      | pp_adecl (ExtDecl (t, i, L)) =
-          "extern " ^ pp_typ t ^ " " ^ pp_ident i ^ "(" ^
-          (foldl (fn (a, s) => s ^ ", " ^ pp_typ a) "" L) ^ ")"
+          (foldl (fn ((typ,id), s) => s ^ ", " ^ pp_typ typ ^ " " ^ pp_ident id)
+                 "" L) ^ ")"
+      | pp_adecl (ExtDecl t) = "extern " ^ pp_adecl (IntDecl t)
       | pp_adecl (Fun (t, i, L, s)) =
-          pp_typ t ^ " " ^ pp_ident i ^ "(" ^
-          (foldl (fn (a, s) => s ^ ", " ^ pp_stm a) "" L) ^ ") {\n" ^
-          tab(pp_stm s) ^ "\n}"
+          pp_adecl (IntDecl (t, i, L)) ^ "{\n" ^ tab(pp_stm s) ^ "\n}"
 
     fun pp_program prog = foldl (fn (d, s) => s ^ pp_adecl d ^ "\n") "" prog
   end
