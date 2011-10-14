@@ -50,6 +50,7 @@ struct
     | trans_exp _ (A.Bool b) =
         ([], T.CONST (Word32.fromInt (if b then 1 else 0)))
     | trans_exp _ (A.Const w) = ([], T.CONST w)
+    | trans_exp env (A.UnaryOp (A.NEGATIVE, A.Const w)) = ([], T.CONST(~w))
     | trans_exp env (A.UnaryOp (A.NEGATIVE, e)) =
         trans_exp env (A.BinaryOp (A.MINUS, A.Const Word32Signed.ZERO, e))
     | trans_exp env (A.UnaryOp (A.INVERT, e)) =
