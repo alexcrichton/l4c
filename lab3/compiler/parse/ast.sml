@@ -194,11 +194,12 @@ struct
               (check_id ext id; check_fun_id (!efuns) ext id;
                check_fun_id (!funs) ext id;
                types := Symbol.bind (!types) (id, resolve ext typ); p)
-          | elaborate_gdecl ext (p as ExtDecl (typ, id, typs)) =
-              (check_id ext id; resolve ext typ; map (resolve ext) typs;
-               efuns := Symbol.add (!efuns) id; p)
-          | elaborate_gdecl ext (p as IntDecl (typ, id, typs)) =
-              (check_id ext id; resolve ext typ; map (resolve ext) typs; p)
+          | elaborate_gdecl ext (ExtDecl (typ, id, typs)) =
+              (check_id ext id; efuns := Symbol.add (!efuns) id;
+               ExtDecl (resolve ext typ, id, map (resolve ext) typs))
+          | elaborate_gdecl ext (IntDecl (typ, id, typs)) =
+              (check_id ext id;
+               IntDecl (resolve ext typ, id, map (resolve ext) typs))
       in map (elaborate_gdecl NONE) prog end
   and elaborate_stm env (Markeds mark) =
         Markeds (Mark.mark' (elaborate_stm env (Mark.data mark), Mark.ext mark))
