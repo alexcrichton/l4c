@@ -88,6 +88,7 @@ fun convert_exp2 (exp1, left) (SOME binop, exp2, NONE, right) =
  | stmt     of A.stm
  | lvalue   of A.ident
  | simp     of A.stm
+ | simpnodef of A.stm
  | control  of A.stm
  | block    of A.stm
  | exp      of A.exp
@@ -177,26 +178,32 @@ stmt       : simp SEMI                  (marks (simp, (simpleft, simpright)))
                                                           controlright)))
            | block                      (marks (block, (blockleft, blockright)))
 
-simp       : lvalue asnop exp %prec ASNOP
+simp       : simpnodef    (simpnodef)
+           | decl         (decl)
+
+simpnodef  : lvalue asnop exp %prec ASNOP
                                        (expand_asnop (lvalue, asnop, exp)
                                                      (lvalueleft, expright))
            | lvalue postop %prec UNARY (A.Assign(lvalue,
                                         mark (A.BinaryOp(postop, A.Var(lvalue),
                                                 A.Const(Word32.fromInt 1)),
                                              (lvalueleft, lvalueright))))
-           | decl                      (decl)
            | exp                       (A.Express exp)
 
 simpopt    :                           (A.Nop)
            | simp                      (marks (simp, (simpleft, simpright)))
+
+step       :                           (A.Nop)
+           | simpnodef                 (marks (simpnodef,
+                                               (simpnodefleft, simpnodefright)))
 
 elseopt    :                           (A.Nop)
            | ELSE stmt                 (marks (stmt, (ELSEleft, stmtright)))
 
 control    : IF LPAREN exp RPAREN stmt elseopt  (A.If(exp, stmt, elseopt))
            | WHILE LPAREN exp RPAREN stmt       (A.While (exp, stmt))
-           | FOR LPAREN simpopt SEMI exp SEMI simpopt RPAREN stmt
-                                      (A.For (simpopt1, exp, simpopt2, stmt))
+           | FOR LPAREN simpopt SEMI exp SEMI step RPAREN stmt
+                                      (A.For (simpopt, exp, step, stmt))
            | CONTINUE SEMI   (marks (A.Continue, (CONTINUEleft, CONTINUEright)))
            | BREAK SEMI      (marks (A.Break, (BREAKleft, BREAKright)))
            | RETURN exp SEMI (marks (A.Return exp, (RETURNleft, expright)))
