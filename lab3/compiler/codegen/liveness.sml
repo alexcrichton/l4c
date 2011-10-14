@@ -141,12 +141,13 @@ struct
     val rules = Profile.time ("rulegen", fn () => List.map (rulegen (HT.lookup labels)) (give_labels 0 L))
     val rulesets = List.map (fn rule => (rule, ref OS.empty)) rules
     fun isreg (A.REG _) = true | isreg _ = false
+    fun add_defs ((_, s), A.MOV _) = !s
+      | add_defs (((_, ds, _), s), _) = OS.addList (!s, List.filter isreg ds)
   in
     (munge rulesets (fn label =>
        (#2 (List.nth (rulesets, label))) handle Subscript => ref OS.empty
      ));
-    List.map (fn ((_, defs, _), s) => OS.addList (!s, List.filter isreg defs))
-             rulesets
+    ListPair.map add_defs (rulesets, L)
   end
 
 end
