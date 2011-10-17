@@ -262,7 +262,8 @@ struct
         val pq = PQ.create (#size graph ()) less
         val _ = P.time ("Create PQ", fn () =>
                 #forall_nodes graph (fn (nid, data) =>
-                  if !(#color data) = 0 then PQ.insert (pq, nid) else (#in_seo data) := true))
+                  if !(#color data) = 0 then PQ.insert (pq, nid)
+                  else (#in_seo data) := true))
 
         val order = P.time ("Generate SEO", fn () => generate_seo graph_rec pq)
         val () = P.time ("Coloring", fn () => app (color graph_rec) order)
