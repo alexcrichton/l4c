@@ -21,7 +21,7 @@ struct
   structure T = Temp
   structure IS = IntBinarySet
   structure G = Graph
-  structure UDG = UndirectedGraph(DynArray)
+  structure UDG = UndirectedHashGraph(DynArray)
   structure P = Profile
   structure HT = HashTable
   structure PQ = NodePriorityQueue(DynArray)
@@ -260,9 +260,9 @@ struct
             end
 
         val pq = PQ.create (#size graph ()) less
-        val _ = #forall_nodes graph (fn (nid, data) =>
-                  if !(#color data) = 0 then PQ.insert (pq, nid)
-                  else #in_seo data := true)
+        val _ = P.time ("Create PQ", fn () =>
+                #forall_nodes graph (fn (nid, data) =>
+                  if !(#color data) = 0 then PQ.insert (pq, nid) else (#in_seo data) := true))
 
         val order = P.time ("Generate SEO", fn () => generate_seo graph_rec pq)
         val () = P.time ("Coloring", fn () => app (color graph_rec) order)
