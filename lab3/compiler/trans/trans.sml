@@ -65,8 +65,6 @@ struct
         trans_exp env (A.Ternary (e1, e2, A.Bool false))
     | trans_exp env (A.BinaryOp (A.LOR, e1, e2)) =
         trans_exp env (A.Ternary (e1, A.Bool true, e2))
-    | trans_exp env (A.Marked(marked_exp)) =
-        trans_exp env (Mark.data marked_exp)
     | trans_exp env (A.BinaryOp (oper, e1, e2)) = let
         val (e1s, e1') = trans_exp env e1
         val (e2s, e2') = trans_exp env e2
@@ -105,6 +103,7 @@ struct
       in
         (instrs @ [T.MOVE (T.TEMP t, T.CALL (label, args))], T.TEMP t)
       end
+    | trans_exp _ (A.Marked _) = raise Fail "no marked data!"
 
   (* trans_stm : Temp.temp Symbol.table -> A.stm -> Label.label * Label.label
                                         -> T.program
@@ -153,9 +152,9 @@ struct
       in
         trans_stm (funs, env') s lp
       end
-    | trans_stm env (A.Markeds data) cs = trans_stm env (Mark.data data) cs
     | trans_stm env (A.Express e) _ = #1 (trans_exp env e)
     | trans_stm _ A.Nop _ = []
+    | trans_stm _ (A.Markeds _) _ = raise Fail "no marked data!"
     | trans_stm _ (A.For (_, _, _, _)) _ = raise Fail "no for loops!"
 
   (* translate_fun : Ast.gdecl -> T.func
@@ -169,7 +168,8 @@ struct
               (t::T, Symbol.bind e (id, t))
             end
         val (temps, e) = foldr bind ([], Symbol.empty) args
-        val instrs = trans_stm (funs, e) (A.remove_for body A.Nop)
+        val instrs = trans_stm (funs, e)
+                               (A.remove_mark (A.remove_for body A.Nop))
                                (Label.new "_", Label.new "_")
       in
         SOME (Label.intfunc (Symbol.name name), temps, instrs)
