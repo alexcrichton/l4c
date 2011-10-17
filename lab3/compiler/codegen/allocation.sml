@@ -45,7 +45,8 @@ struct
                add_neighbors x L)
 
         fun process_op (AS.IMM _, L) = L
-          | process_op (AS.REG (AS.STACK _ | AS.STACKARG _ | AS.STACKLOC _ | AS.R11D), L) = L
+          | process_op (AS.REG (AS.STACK _ | AS.STACKARG _ | AS.STACKLOC _
+                                           | AS.R11D), L) = L
           | process_op (oper, L) = let
               val clr = case oper of AS.REG r => AS.reg_num r | _ => 0
               val id  = case HT.find (#graph_info graph) oper
@@ -260,7 +261,8 @@ struct
 
         val pq = PQ.create (#size graph ()) less
         val _ = #forall_nodes graph (fn (nid, data) =>
-                  if !(#color data) = 0 then PQ.insert (pq, nid) else (#in_seo data) := true)
+                  if !(#color data) = 0 then PQ.insert (pq, nid)
+                  else #in_seo data := true)
 
         val order = P.time ("Generate SEO", fn () => generate_seo graph_rec pq)
         val () = P.time ("Coloring", fn () => app (color graph_rec) order)

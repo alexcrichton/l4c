@@ -37,6 +37,9 @@ struct
    *)
   fun munch_exp d (T.CONST n) = [AS.MOV(d, AS.IMM(n))]
     | munch_exp d (T.TEMP t)  = [AS.MOV(d, AS.TEMP(t))]
+    | munch_exp d (T.BINOP (T.DIV, e1, T.CONST n)) =
+        if Word32.compare (n, Word32.fromInt 1) = EQUAL then munch_exp d e1
+        else munch_binop d (T.DIV, e1, T.CONST n)
     | munch_exp d (T.BINOP (binop, e1, e2)) = munch_binop d (binop, e1, e2)
     | munch_exp d (T.CALL (l, L)) = let
           fun eval (e, (T, I)) = let val t = AS.TEMP (Temp.new()) in
