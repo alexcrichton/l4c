@@ -101,7 +101,7 @@ struct
           if Symbol.member funs name then Label.extfunc (Symbol.name name)
           else Label.intfunc (Symbol.name name)
       in
-        (instrs @ [T.MOVE (T.TEMP t, T.CALL (label, args))], T.TEMP t)
+        (instrs, T.CALL (label, args))
       end
     | trans_exp _ (A.Marked _) = raise Fail "no marked data!"
 
@@ -152,10 +152,15 @@ struct
       in
         trans_stm (funs, env') s lp
       end
-    | trans_stm env (A.Express e) _ = #1 (trans_exp env e)
+    | trans_stm env (A.Express e) _ = let
+        val t = T.TEMP (Temp.new())
+        val (instrs, exp) = trans_exp env e
+      in
+        instrs @ [T.MOVE (t, exp)]
+      end
     | trans_stm _ A.Nop _ = []
-    | trans_stm _ (A.Markeds _) _ = raise Fail "no marked data!"
     | trans_stm _ (A.For (_, _, _, _)) _ = raise Fail "no for loops!"
+    | trans_stm _ (A.Markeds _) _ = raise Fail "No mark data!"
 
   (* translate_fun : Ast.gdecl -> T.func
    *
