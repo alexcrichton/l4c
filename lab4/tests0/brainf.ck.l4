@@ -1,0 +1,61 @@
+//test return 0
+
+bool parse(int[] program, int[] stack, int[] targets) {
+	int stackp = 0;
+	int i;
+	for(i = 0; i < 16384; i++) {
+		if(program[i] == 36) break;
+		if(program[i] == 91) {
+			stack[stackp] = i;
+			stackp++;
+		}
+
+		if(program[i] == 93) {
+			if(stackp == 0) return false;
+			stackp--;
+			targets[i] = stack[stackp];
+			targets[ stack[stackp] ] = i;
+		}
+	}
+	return stackp == 0;
+}
+int initialize_program(int[] program);
+
+int main() {
+	int[] memory = alloc_array(int, (2*16384));
+	int[] program = alloc_array(int, 16384);
+	int[] stack = alloc_array(int, 16384);
+	int[] targets = alloc_array(int, 16384);
+	int eip = 0;
+	int ptr = 0;
+
+	int i;
+
+	initialize_program(program);
+	if(!parse(program, stack, targets)) return -1;
+
+	for(eip = 0; eip < 16384; eip++) {
+		if(program[eip] == 43) { memory[ptr]++; continue; }
+		if(program[eip] == 45) { memory[ptr]--; continue; }
+		if(program[eip] == 62) { ptr++; continue; }
+		if(program[eip] == 60) { ptr--; continue; }
+		if(program[eip] == 46) { printchar(memory[ptr]); continue; }
+		if(program[eip] == 91) { if(memory[ptr] == 0) eip = targets[eip]; continue; }
+		if(program[eip] == 93) { if(memory[ptr] != 0) eip = targets[eip]; continue; }
+		if(program[eip] == 36) { break; }
+		if(program[eip] == 44) { memory[ptr] = readchar(); continue; }
+		42 / 0;
+	}
+	return 0;
+}
+
+int initialize_program(int[] program) {
+	int i = 0;
+	while(true) {
+		program[i] = readchar();
+		if (program[i] == 36)
+			break;
+		i++;
+	}
+	return 0;
+}
