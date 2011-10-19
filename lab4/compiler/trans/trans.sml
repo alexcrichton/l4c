@@ -1,4 +1,4 @@
-(* L3 Compiler
+(* L4 Compiler
  * AST -> IR translator
  * Author: Alex Crichton <acrichto@andrew.cmu.edu>
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>

@@ -1,5 +1,5 @@
-(* L3 Compiler
- * L3 grammar
+(* L4 Compiler
+ * L4 grammar
  * Author: Alex Crichton <acrichto@andrew.cmu.edu>
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
@@ -41,7 +41,7 @@ fun convert_exp2 (exp1, left) (SOME binop, exp2, NONE, right) =
   | convert_exp2 _ _ = raise Fail "Invalid input to convert_exp2!"
 
 %%
-%header (functor L3LrValsFn (structure Token : TOKEN))
+%header (functor L4LrValsFn (structure Token : TOKEN))
 
 %term
    EOF
@@ -108,7 +108,7 @@ fun convert_exp2 (exp1, left) (SOME binop, exp2, NONE, right) =
 %eop EOF       (* which terminal ends parsing? *)
 %noshift EOF   (* we should never shift an EOF *)
 
-%name L3
+%name L4
 
 (* The precedence grows down! *)
 %right ASNOP

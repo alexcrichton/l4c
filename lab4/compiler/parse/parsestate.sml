@@ -1,4 +1,4 @@
-(* L3 Compiler
+(* L4 Compiler
  * Parse State System
  * Author: Kaustuv Chaudhuri <kaustuv+@cs.cmu.edu>
  * Annotations: Alex Vaynberg <alv@andrew.cmu.edu>

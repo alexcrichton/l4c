@@ -1,4 +1,4 @@
-(* L3 Compiler
+(* L4 Compiler
  * Utilities for signed modular arithmetic
  * Author: Frank Pfenning
  *)

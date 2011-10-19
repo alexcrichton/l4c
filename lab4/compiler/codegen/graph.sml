@@ -1,4 +1,4 @@
-(* L3 Compiler
+(* L4 Compiler
  * Undirected graph that implements the GRAPH_IMPLEMENTATION structure.
  * The graph is represented as an array of hashtables that represent the
  * edges between the nodes. This gives better performance than the

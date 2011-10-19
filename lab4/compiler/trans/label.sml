@@ -1,4 +1,4 @@
-(* L3 Compiler
+(* L4 Compiler
  * Labels
  * Author: Alex Crichton <acrichto@andrew.cmu.edu>
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
@@ -44,7 +44,7 @@ struct
   val extprefix = if SMLofNJ.SysInfo.getOSName () = "Darwin" then "_" else ""
 
   fun name (s, GENERIC i) = "." ^ s ^ Int.toString i
-    | name (s, INTFUNC) = "_L3F_" ^ s
+    | name (s, INTFUNC) = "_L4F_" ^ s
     | name (s, _) = extprefix ^ s
 
   fun hash label = HashString.hashString (name label)

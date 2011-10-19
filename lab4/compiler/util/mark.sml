@@ -1,4 +1,4 @@
-(* L3 Compiler
+(* L4 Compiler
  * Positional Markers
  * Author: Kaustuv Chaudhuri <kaustuv+@cs.cmu.edu>
  * Annotations / bugfixes: Alex Vaynberg <alv@andrew.cmu.edu>

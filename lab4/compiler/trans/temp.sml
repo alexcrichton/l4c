@@ -1,4 +1,4 @@
-(* L3 Compiler
+(* L4 Compiler
  * Temporaries
  * Author: Kaustuv Chaudhuri <kaustuv+@cs.cmu.edu>
  * Modified: Alex Vaynberg <alv@andrew.cmu.edu>

@@ -1,4 +1,4 @@
-(* L3 Compiler
+(* L4 Compiler
  * Lexer
  * Author: Alex Crichton <acrichto@andrew.cmu.edu>
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
@@ -50,7 +50,7 @@ in
 end
 
 %%
-%header (functor L3LexFn(structure Tokens : L3_TOKENS));
+%header (functor L4LexFn(structure Tokens : L4_TOKENS));
 %full
 %s COMMENT COMMENT_LINE;
 
