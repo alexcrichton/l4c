@@ -42,14 +42,19 @@ struct
         else munch_binop d (T.DIV, e1, T.CONST n)
     | munch_exp d (T.BINOP (binop, e1, e2)) = munch_binop d (binop, e1, e2)
     | munch_exp d (T.CALL (l, L)) = let
-          fun eval (e, (T, I)) = let val t = AS.TEMP (Temp.new()) in
-                                   (t::T, (munch_exp t e) @ I)
-                                 end
-          val (T, I) = foldr eval ([], []) L
-          fun mv (AS.REG (AS.STACKARG n), s) =
-                AS.MOV (AS.REG (AS.STACK (8 * n)), s)
-            | mv t = AS.MOV t
-          val moves = ListPair.map mv (List.tabulate (length T, AS.arg_reg), T)
+          fun argdest n =
+                case AS.arg_reg n
+                  of AS.REG(AS.STACKARG n) => AS.REG (AS.STACK (8 * n))
+                   | _ => (AS.TEMP (Temp.new()))
+
+          fun eval (e, (i, T, I)) = let val d = argdest i in
+                                      (i - 1, d::T, (munch_exp d e) @ I)
+                                    end
+          val (_, T, I) = foldr eval (length L - 1, [], []) L
+          fun mv (s as AS.TEMP _, (i, L)) =
+                (i - 1, AS.MOV(AS.arg_reg i, s)::L)
+            | mv (_, (i, L)) = (i - 1, L)
+          val (_, moves) = foldr mv (length T - 1, []) T
         in
           I @ moves @ [AS.CALL (l, length L), AS.MOV (d, AS.REG AS.EAX)]
         end
