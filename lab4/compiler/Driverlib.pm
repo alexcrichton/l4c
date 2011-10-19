@@ -19,9 +19,10 @@ use POSIX ":signal_h";
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT = qw(&report_result &system_with_timeout &printd &read_file $DEBUG);
+our @EXPORT = qw(&report_result &system_with_timeout &printd &printq &read_file $DEBUG $QUIET);
 
 our $DEBUG = 0;
+our $QUIET = 0;
 
 #
 # report_result - This is the routine that the driver calls when 
@@ -44,12 +45,12 @@ sub report_result ($$) {
 }
 
 ###
-# system_with_timeout ($secs, $command, $quiet)
+# system_with_timeout ($secs, $command, $outdest, $errdest)
 # executes system($command) and returns its value
 # or raises SIGALRM if it takes more than $secs
 # taken from Perl 5.8.8 documentation of "alarm" and perlipc
 #
-# if $quiet is set, closes stdout and stderr in the child.
+# opens $outdest and $errdest as STDOUT and STDERR in the child
 #
 # possible alternative:
 # $result = system("ulimit -t <timeout>; prog> /tmp/$$_temp_file 2>/dev/null");
@@ -57,7 +58,9 @@ sub report_result ($$) {
 sub system_with_timeout {
     my $secs = shift;
     my $command = shift;
-    my $quiet = shift;
+    my $outdest = shift;
+    my $errdest = shift;
+    my $insrc = shift;
     my $result;
     my $kid;
 
@@ -65,12 +68,36 @@ sub system_with_timeout {
     my $p = fork();
     if ( $p == 0 ) { 
         # child
-        if ($quiet) {
+
+        # redirect output
+        if (defined $outdest) {
             close STDOUT;
-            close STDERR;
-            open(STDOUT, ">/dev/null");
-            open(STDERR, ">/dev/null");
+            if (ref $outdest eq "GLOB") {
+                open STDOUT, ">&", $outdest;
+            }
+            else {
+                open STDOUT, $outdest;
+            }
         }
+        if (defined $errdest) {
+            close STDERR;
+            if (ref $errdest eq "GLOB") {
+                open STDERR, ">&", $errdest;
+            }
+            else {
+                open STDERR, $errdest;
+            }
+        }
+        if (defined $insrc) {
+            close STDIN;
+            if (ref $insrc eq "GLOB") {
+                open STDIN, "<&", $insrc;
+            }
+            else {
+                open STDIN, $insrc;
+            }
+        }
+
         setpgid(0,0);
         exec("${command}");
         # I think the below comment is a little bit full of lies
@@ -87,27 +114,29 @@ sub system_with_timeout {
     printd(2, "%% child process is $p, parent is $$\n");
 
     eval {
-        local $SIG{ALRM} = sub { die "alarm\n" };
+        local $SIG{ALRM} = sub { die "alarm" };
+        local $SIG{INT} = sub { die "\nkilled" };
         alarm $secs;              # turn on alarm timer
         $kid = waitpid($p,0);     # blocking wait for child
         $result = $?;             # record result, if terminated normally
         alarm 0;                  # turn off timer
+        printd(2,"%% process returned result $?\n");
     };
+
+    ## once we've gotten here, it's time for the job to go.
+    kill('KILL', -$p);      # kill all members of process group
 
     if (!$@) {                   # check whether "eval" died
         printd(2, "%% process $p returned normally\n");
         return $result;
     }
 
-    if ($@ ne "alarm\n") {
+    if ($@ ne "alarm") {
         die;                    # propagate exception if not "alarm"
     }
 
     ## We had a timeout
-    if (!$quiet) {
-        printd(0, "%% Timeout after $secs seconds\n");
-    }
-    kill('KILL', -$p);      # kill all members of process group
+    printq(0, "%% Timeout after $secs seconds\n");
     $kid = 0;
     while ($kid >= 0) {     # 0 means some children are still running
         $kid = waitpid(-1, WNOHANG); # reap all members of process group
@@ -116,7 +145,7 @@ sub system_with_timeout {
         }
     }
     printd(2, "%% reaped all children\n");
-    return (14 << 8);              # return SIGALRM to signal timeout
+    return 128 + 14;              # return SIGALRM to signal timeout
 }
 
 ###
@@ -126,8 +155,32 @@ sub system_with_timeout {
 sub printd {
     my $level = shift;
     my $msg = shift;
+    my $fh = shift;
+
+    if (!defined $fh) {
+        $fh = *STDOUT;
+    }
+
     if ($DEBUG >= $level) {
-        printf($msg);
+        print $fh $msg;
+    }
+}
+
+###
+# printq($level, $msg)
+# print message if quiet level <= $level
+#
+sub printq {
+    my $level = shift;
+    my $msg = shift;
+    my $fh = shift;
+
+    if (!defined $fh) {
+        $fh = *STDOUT;
+    }
+
+    if ($QUIET <= $level) {
+        print $fh $msg;
     }
 }
 

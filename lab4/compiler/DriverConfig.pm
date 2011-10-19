@@ -15,7 +15,7 @@ use vars qw($LAB $COMPILER $COMPILER_EXEC $COMPILER_ARGS @LEXTS $GCC $RUNTIME
             $GCC_TIMEOUT $RUN_TIMEOUT $TEST_SUITES_PATH $MAX_VALIDATE_SCORE
             $MIN_TESTS &tests_grade $CMPL_GRADE);
 
-our $LAB             = 3;
+our $LAB             = 4;
 
 my $rt_stem = "l${LAB}rt";
 
@@ -47,9 +47,9 @@ my $MAX_SCORE1 = 50;        # maximal score for compiler, test suite 1
 my $MAX_SCORE2 = 10;        # maximal score for compiler, test suite 2
 my $TESTS1_N = 10;      # first n failing suite 1 tests...
 my $TESTS1_PTS = 2;     # ...are worth this many points each
-my $TESTS0_MIN = 16;    # number of error cases in tests0
-my $TESTS1_MIN = 156;   # number of error cases in tests1
-my $TESTS2_MIN = 190;   # number of error cases in tests2
+my $TESTS0_MIN = 25;    # number of error cases in tests0
+my $TESTS1_MIN = 208;   # number of error cases in tests1
+my $TESTS2_MIN = 296;   # number of error cases in tests2
 
 sub tests_grade {
     my $tried = shift;

@@ -29,12 +29,14 @@ use Term::ANSIColor;
 #
 our $Opt_Autograding    = 0;    # -A, autograding, hidden flag for autograder
 our $Opt_Color          = "auto"; # -c, color
-our $Opt_Debug          = 0;    # -d <debug> (default 0)
 our $Opt_FailFast       = 0;    # -f, --fail-fast
 our $Opt_Help           = 0;    # -h, help
 our $Opt_Make           = 1;    # -m, build compiler (on by default)
+our $Opt_Pass           = "";   # -p <args>, arguments to compiler
+our $Opt_Quiet          = 0;    # -q, quiet
 our @Opt_Suite          = ();   # -s <dir>, 
 our $Opt_Tests          = 0;    # -t, validate test files with ref.comp.
+our $Opt_Verbose        = 0;    # -v (stacks)
 our @Testfiles;                 # files... (default ../tests0)
 
 my $num_tried0      = 0;    # number of tests0 tried
@@ -45,22 +47,26 @@ my $num_succeeded1  = 0;    # number of tests1 succeeded
 my $score1          = 0;    # score for suite 1
 my $result          = "";   # result string for Autolab server
 
+Getopt::Long::Configure ("bundling");
 my $success = GetOptions (
-    'autograde'     => \$Opt_Autograding,
-    'color=s'       => \$Opt_Color,
-    'debug=i'       => \$Opt_Debug,
-    'fail-fast!'    => \$Opt_FailFast,
-    'help'          => \$Opt_Help,
+    'A|autograde'   => \$Opt_Autograding,
+    'c|color=s'     => \$Opt_Color,
+    'f|fail-fast!'  => \$Opt_FailFast,
+    'h|help'        => \$Opt_Help,
     'make!'         => \$Opt_Make,
-    'suite=s@'      => \@Opt_Suite,
-    'tests'         => \$Opt_Tests,
+    'p|pass=s'      => \$Opt_Pass,
+    'q|quiet+'      => \$Opt_Quiet,
+    's|suite=s@'    => \@Opt_Suite,
+    't|tests'       => \$Opt_Tests,
+    'v|verbose+'    => \$Opt_Verbose,
 );
 $success or pod2usage();
 
 pod2usage(1) if $Opt_Help;
 
 @Testfiles = @ARGV;
-$DEBUG = $Opt_Debug;
+$DEBUG = $Opt_Verbose;
+$QUIET = $Opt_Quiet;
 
 if ($Opt_Color eq "auto") {
 	$Opt_Color = -t STDOUT;
@@ -276,40 +282,54 @@ sub test {
     if (-e "a.out") { unlink "a.out" or die "could not remove a.out\n"; }
     if (-e "a.result") { unlink "a.result" or die "could not remove a.result\n"; }
 
-    printad(0, "-- Testing file $file --\n");
+    my ($read, $write);
+    if ($Opt_Quiet == 0) {
+        open($write, ">&STDOUT");
+    }
+    else {
+        pipe($read, $write);
+    }
+    my $p = [$read, $write];
+
+    printq(2, "-- Testing file $file --\n", $write);
 
     ($directive, $expected) = read_testdirective($file);
     ($valid, $error) = test_directive_verify($directive, $expected);
     if (!$valid) {
-        return fail($error);
+        return fail($error, $file, $p);
     }
 
     $asm_file = asm_suffix($file);
     if (-e $asm_file) {move($asm_file, $asm_file.".old")
             or die "could not rename $asm_file from previous compilation\n";}
 
-    $command = "$COMPILER_EXEC $COMPILER_ARGS $file";
-    $result = system_with_timeout($COMPILER_TIMEOUT, "$command", $Opt_Autograding);
+    $command = "$COMPILER_EXEC $COMPILER_ARGS $file $Opt_Pass";
+    $result = system_with_timeout($COMPILER_TIMEOUT, "$command",
+                                  $write, $write);
 
     if ($result == 0) {
         $command = "$GCC $asm_file $RUNTIME";
-        $result = system_with_timeout($GCC_TIMEOUT, $command, $Opt_Autograding);
+        $result = system_with_timeout($GCC_TIMEOUT, $command,
+                                      $write, $write);
     }
 
     # the 0 means "this is not the reference compiler"
-    $ret = grade_compilation($file, $result, $directive, $expected, 0);
+    $ret = grade_compilation($file, $result, $directive, $expected, 0, $p);
     if (defined $ret) {
         return $ret;
     }
 
-    $command = "./a.out 2> a.output > a.result";
+    $command = "./a.out";
     my $in_file = in_suffix($file);
     if (-f $in_file) {
-        $command .= " < $in_file";
+        $in_file = "< $in_file";
     }
-    $result = system_with_timeout($RUN_TIMEOUT, $command, $Opt_Autograding);
+    else {
+        $in_file = undef;
+    }
+    $result = system_with_timeout($RUN_TIMEOUT, $command, "> a.result", "> a.output", $in_file);
     
-    return grade_execution($file, $result, $directive, $expected);
+    return grade_execution($file, $result, $directive, $expected, $p);
 }
 
 ###
@@ -325,31 +345,46 @@ sub validate {
     if (-e "a.out") { unlink "a.out" or die "could not remove a.out\n"; }
     if (-e "a.result") { unlink "a.result" or die "could not remove a.result\n"; }
 
-    printad(0, "-- Testing file $file --\n");
+    my ($read, $write);
+    if ($Opt_Quiet == 0) {
+        open($write, ">&STDOUT");
+    }
+    else {
+        pipe($read, $write);
+    }
+    my $p = [$read, $write];
+
+    printq(2, "-- Testing file $file --\n", $write);
 
     ($directive, $expected) = read_testdirective($file);
     ($valid, $error) = test_directive_verify($directive, $expected);
     if (!$valid) {
-        return fail($error);
+        return fail($error, $file, $p);
     }
 
     $command = "$REF_COMPILER $REF_COMPILER_ARGS $file";
-    $result = system_with_timeout($COMPILER_TIMEOUT, "$command", $Opt_Autograding);
+    $result = system_with_timeout($COMPILER_TIMEOUT, "$command",
+                                  $write, $write);
+
+    $result = ($result >> 8) & 0x7F; # shift because shell return code
 
     # the 1 means "this is the reference compiler"
-    $ret = grade_compilation($file, $result, $directive, $expected, 1);
+    $ret = grade_compilation($file, $result, $directive, $expected, 1, $p);
     if (defined $ret) {
         return $ret;
     }
 
-    $command = "./a.out 2> a.output > a.result";
+    $command = "./a.out";
     my $in_file = in_suffix($file);
-    if (-e $in_file) {
-        $command .= " < $in_file";
+    if (-f $in_file) {
+        $in_file = "< $in_file";
     }
-    $result = system_with_timeout($RUN_TIMEOUT, $command, $Opt_Autograding);
+    else {
+        $in_file = undef;
+    }
+    $result = system_with_timeout($RUN_TIMEOUT, $command, "> a.result", "> a.output", $in_file);
 
-    return grade_execution($file, $result, $directive, $expected);
+    return grade_execution($file, $result, $directive, $expected, $p);
 }
 
 ###
@@ -364,43 +399,46 @@ sub grade_compilation {
     my $directive = shift;
     my $expected = shift;
     my $is_ref_compiler = shift;
+    my $p = shift;
 
     my $res_known = 1;
     my $res_quarantine = 2;
     my $res_crash = 3;
 
-    $result = ($result >> 8) & 0x7F; # shift because shell return code
-
     if ($is_ref_compiler && $result == $res_crash) {
         return fail("Compilation crashed: reference compiler bug!\n"
-                   ."Send mail to the course staff, please.\n");
+                   ."Send mail to the course staff, please.\n", $file, $p);
     }
 
     if ($directive eq "error") {
         if ($result == 0) {
-            return fail("Compilation unexpectedly succeeded on $file.\n");
+            return fail("Compilation unexpectedly succeeded on $file.\n",
+                        $file, $p);
         }
         if (!$is_ref_compiler || $result == $res_known) {
-            return pass("Compilation failed on $file as expected.\n");
+            return pass("Compilation failed on $file as expected.\n",
+                        $file, $p);
         }
         if ($result == $res_quarantine) {
-            return fail("Future language features used in $file.\n");
+            return fail("Future language features used in $file.\n", $file, $p);
         }
         return fail("Mysterious error $result.\n"
-                   ."Send mail to course staff, please.\n");
+                   ."Send mail to course staff, please.\n", $file, $p);
     }
 
     if ($result != 0) {
         ## build error, but we didn't have an error directive.
         ## bail now.
         if (!$is_ref_compiler || $result == $res_known) {
-            return fail("Compilation unexpectedly failed on $file.\n");
+            return fail("Compilation unexpectedly failed on $file.\n",
+                        $file, $p);
         }
         if ($result == $res_quarantine) {
-            return fail("Future language features used in $file.\n");
+            return fail("Future language features used in $file.\n",
+                        $file, $p);
         }
         return fail("Mysterious error $result.\n"
-                   ."Send mail to course staff, please.\n");
+                   ."Send mail to course staff, please.\n", $file, $p);
     }
 
     return undef;
@@ -414,25 +452,33 @@ sub grade_execution {
     my $result = shift;
     my $directive = shift;
     my $expected = shift;
+    my $p = shift;
 
-    $result = ($result >> 8) & 0x7F; # shift because shell return code
+    if ($result != 0) {
+        $result = $result - 128; # killed by signal
+    }
 
     if ($directive eq "exception") {
         if ($result == 0) {
-            return fail("Execution of binary unexpectedly succeeded.\n");
+            return fail("Execution of binary unexpectedly succeeded.\n",
+                        $file, $p);
         }
         if (!defined $expected) {
-            return pass("Execution of binary raised exception $result.\n");
+            return pass("Execution of binary raised exception $result.\n",
+                        $file, $p);
         }
         $expected = $expected+0;  # convert to integer, for sanity's sake
         if ($result == $expected) {
-            return pass("Execution of binary raised appropriate exception $result.\n");
+            return pass("Execution of binary raised appropriate exception $result.\n",
+                        $file, $p);
         }
-        return fail("Execution of binary raised inappropriate exception $result; expected $expected.\n");
+        return fail("Execution of binary raised inappropriate exception $result; expected $expected.\n",
+                    $file, $p);
     }
     elsif ($directive eq "return") {
         if ($result != 0) {
-            return fail("Execution of binary unexpectedly failed with exception $result.\n");
+            return fail("Execution of binary unexpectedly failed with exception $result.\n",
+                        $file, $p);
         }
         # if a.result does not exist, $all_of_file = ''
         my $return = read_file("a.result");
@@ -440,23 +486,25 @@ sub grade_execution {
         if ($return eq $expected) {
             my $out_file = out_suffix($file);
             if (! -e $out_file) {
-                return pass("Correct result\n");
+                return pass("Correct result\n", $file, $p);
             }
             my $output = read_file("a.output");
             my $expected_output = read_file(out_suffix($file));
             if ($output eq $expected_output) {
-                return pass("Correct result\n");
+                return pass("Correct result\n", $file, $p);
             }
             else {
-                return fail("Correct return value, but output differs from expected output\n");
+                return fail("Correct return value, but output differs from expected output\n",
+                            $file, $p);
             }
         }
-        return fail("Result '$return' differs from expected answer '$expected'.\n");
+        return fail("Result '$return' differs from expected answer '$expected'.\n",
+                    $file, $p);
     }
 
-    printf("I can't be here (test $file)! Inconcievable!\n");
-    printf("Send mail to course staff, please.\n");
-    return fail("");
+    print "I can't be here (test $file)! Inconcievable!\n";
+    print "Send mail to course staff, please.\n";
+    return fail("", $file, $p);
 }
 
 ###
@@ -465,7 +513,18 @@ sub grade_execution {
 #
 sub make_compiler {
     my $result;
-    if (system_with_timeout($MAKE_TIMEOUT, "make $COMPILER", $Opt_Autograding) != 0) {
+    my $write;
+
+    if ($Opt_Quiet < 4) {
+        $write = undef;
+    }
+    else {
+        $write = ">/dev/null";
+    }
+
+    $result = system_with_timeout($MAKE_TIMEOUT, "make $COMPILER",
+                                  $write, $write);
+    if ($result != 0) {
         die "make did not succeed\n";
     }
     if (!-e "$COMPILER_EXEC" || !-x "$COMPILER_EXEC") {
@@ -497,8 +556,21 @@ sub printad {
 #
 sub pass {
     my $msg = shift;
-    printad(1, $msg);
-    printad(0, "-- PASS --\n", "green");
+    my $file = shift;
+    my $p = shift;
+
+    my ($r, $w) = @$p;
+    close($w);
+    if (defined $r) {
+        close($r);
+    }
+
+    printq(0, $msg);
+
+    printq(1, color("green"));
+    printq(1, "-- PASS $file --\n");
+    printq(1, color("reset"));
+
     return 1;
 }
 
@@ -507,8 +579,23 @@ sub pass {
 #
 sub fail {
     my $msg = shift;
-    printad(0, $msg);
-    printad(0, "-- FAIL --\n", "red");
+    my $file = shift;
+    my $p = shift;
+
+    my ($r, $w) = @$p;
+    close($w);
+    if (defined $r) {
+        while (my $line = <$r>) {
+            print $line;
+        }
+        close($r);
+    }
+
+    printq(2, $msg);
+
+    printq(2, color("red"));
+    printq(2, "-- FAIL $file --\n");
+    printq(2, color("reset"));
     return 0;
 }
 
@@ -635,16 +722,12 @@ Run on all relevant tests when doing validation
 
 =item -A, --autograde
 
-Emit grading output for Autolab. Also disables most test-by-test information,
-since Autolab will keel over and die if the grader produces too much output
+Emit grading output for Autolab. Implies -qq, since Autolab will keel over and
+die if the grader produces too much output.
 
 =item -c [on|off|auto], --color [on|off|auto]
 
 Make pass/fail messages colorful.
-
-=item -d <level>, --debug <level>
-
-Set debug level to <level> (default 0).
 
 =item -f, --fail-fast
 
@@ -658,6 +741,26 @@ Show this help message.
 
 Do not build the compiler before beginning grading.
 
+=item -p <args>, --pass <args>
+
+Pass arguments along to the compiler.
+
+=item -q, --quiet
+
+Quiet mode. Pass multiple times for quieter grading:
+
+=over 4
+
+=item -q emits only one line of output for passing tests
+
+=item -qq silences passing tests
+
+=item -qqq silences all tests
+
+=item -qqqq silences building the compiler
+
+=back
+
 =item -s <suite>, --suite <suite>
 
 Run compiler with test suite <suite>. This option can be passed more than once
@@ -666,6 +769,10 @@ to run multiple test suites. This option will be ignored when validating tests.
 =item -t, --tests
 
 Validate test files in "tests" suite using reference compiler.
+
+=item -v, --verbose
+
+Enable driver debugging output. Pass more times for more output.
 
 =back
 
