@@ -69,14 +69,12 @@ fun convert_exp2 (exp1, left) (SOME binop, exp2, NONE, right) =
  | stmts    of A.stm
  | decl     of A.stm
  | stmt     of A.stm
- | lvalue   of A.exp
  | simp     of A.stm
  | simpnodef of A.stm
  | control  of A.stm
  | block    of A.stm
  | exp      of A.exp
  | exp2     of A.binop option * A.exp * A.exp option * int
- | parexp   of A.exp
  | asnop    of A.binop option
  | unop     of A.unop
  | postop   of A.binop
@@ -107,7 +105,7 @@ fun convert_exp2 (exp1, left) (SOME binop, exp2, NONE, right) =
 %left PLUS MINUS
 %left STAR SLASH PERCENT
 %right UNARY
-%left LPAREN
+%left LPAREN LBRACKET ARROW PERIOD
 
 %%
 
@@ -181,9 +179,9 @@ stmt       : simp SEMI                  (marks (simp, (simpleft, simpright)))
 simp       : simpnodef    (simpnodef)
            | decl         (decl)
 
-simpnodef  : lvalue asnop exp %prec ASNOP
-                                       (A.Assign (lvalue, asnop, exp))
-           | lvalue postop %prec UNARY (A.Assign(lvalue, SOME postop,
+simpnodef  : exp asnop exp %prec ASNOP
+                                       (A.Assign (exp, asnop, exp))
+           | exp postop %prec UNARY (A.Assign(exp, SOME postop,
                                                 A.Const(Word32.fromInt 1)))
            | exp                       (A.Express exp)
 
@@ -211,18 +209,9 @@ arg_list_follow :                               ([])
 arg_list   : LPAREN RPAREN                      ([])
            | LPAREN exp arg_list_follow RPAREN  (exp::arg_list_follow)
 
-lvalue     : IDENT                      (A.Var IDENT)
-           | lvalue PERIOD IDENT        (A.Field (lvalue, IDENT))
-           | lvalue ARROW IDENT         (A.Field (A.Deref lvalue, IDENT))
-           | STAR lvalue                (A.Deref lvalue)
-           | lvalue LBRACKET exp RBRACKET (A.ArrSub (lvalue, exp))
-           | LPAREN lvalue RPAREN       (lvalue)
-
-exp        : lvalue                      (mark (lvalue,
+exp        : IDENT                      (mark (lvalue,
                                                 (lvalueleft,lvalueright)))
-           | parexp                      (parexp)
-
-parexp     : LPAREN parexp RPAREN (parexp)
+           | LPAREN exp RPAREN          (exp)
            | INTCONST                   (mark (A.Const(INTCONST),
                                                (INTCONSTleft,INTCONSTright)))
            | TRUE                       (mark (A.Bool(true),
@@ -235,19 +224,19 @@ parexp     : LPAREN parexp RPAREN (parexp)
            | exp exp2                   (convert_exp2 (exp, expleft) exp2)
            | IDENT arg_list             (mark (A.Call (IDENT, arg_list),
                                               (IDENTleft, arg_listright)))
-           | parexp PERIOD IDENT        (mark (A.Field (parexp, IDENT),
-                                              (parexpleft, IDENTright)))
-           | parexp ARROW IDENT         (mark ((A.Field (A.Deref parexp, IDENT)),
-                                              (parexpleft, IDENTright)))
+           | exp PERIOD IDENT           (mark (A.Field (exp, IDENT),
+                                              (expleft, IDENTright)))
+           | exp ARROW IDENT            (mark ((A.Field (A.Deref exp, IDENT)),
+                                              (expleft, IDENTright)))
            | ALLOC LPAREN typ RPAREN    (mark (A.Alloc typ,
                                               (ALLOCleft, RPARENright)))
            | ALLOCARR LPAREN typ COMMA exp RPAREN
                                         (mark (A.AllocArray (typ, exp),
                                               (ALLOCARRleft, RPARENright)))
-           | STAR parexp                (mark (A.Deref parexp,
-                                              (STARleft, parexpright)))
-           | parexp LBRACKET exp RBRACKET (mark (A.ArrSub (parexp, exp),
-                                              (parexpleft, RBRACKETright)))
+           | STAR exp                   (mark (A.Deref exp,
+                                              (STARleft, expright)))
+           | exp LBRACKET exp RBRACKET (mark (A.ArrSub (exp, exp),
+                                              (expleft, RBRACKETright)))
 
 exp2       : PLUS exp         (SOME(A.PLUS), exp, NONE, expright)
            | MINUS exp        (SOME(A.MINUS), exp, NONE, expright)
