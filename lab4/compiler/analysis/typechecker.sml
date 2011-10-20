@@ -13,16 +13,23 @@ end;
 structure TypeChecker :> TYPE_CHECK =
 struct
   structure A = Ast
+  structure LP = ListPair
 
   (* typ_name : A.typ -> string
    * Helper method to get a string description of a type
    *)
   fun typ_name A.BOOL = "bool"
     | typ_name A.INT  = "int"
+    | typ_name (A.PTR typ) = (typ_name typ) ^ "*"
+    | typ_name (A.ARRAY typ) = (typ_name typ) ^ "[]"
+    | typ_name (A.STRUCT ident) = "struct " ^ Symbol.name ident
     | typ_name (A.TYPEDEF ident) = Symbol.name ident
 
   fun typs_equal (A.BOOL, A.BOOL) = true
     | typs_equal (A.INT, A.INT)   = true
+    | typs_equal (A.PTR t1, A.PTR t2) = typs_equal (t1, t2)
+    | typs_equal (A.ARRAY t1, A.ARRAY t2) = typs_equal (t1, t2)
+    | typs_equal (A.STRUCT s1, A.STRUCT s2) = (Symbol.compare (s1, s2) = EQUAL)
     | typs_equal _ = false
 
   (* tc_equal : A.typ * A.typ -> Mark.ext option -> unit
@@ -63,12 +70,12 @@ struct
    * @raise ErrorMsg.Error if there is a typecheck error
    * @return the type of the expression if it is well formed
    *)
-  and tc_exp (funs, env) (A.Var id) ext =
+  and tc_exp (env' as (_, _, env)) (A.Var id) ext =
       (case Symbol.look env id
          of NONE => (ErrorMsg.error ext ("undeclared variable `" ^
                       Symbol.name id ^ "'"); raise ErrorMsg.Error)
           | SOME t => t)
-    | tc_exp (funs, env) (A.Call (id, args)) ext =
+    | tc_exp (env' as (funs, _, env)) (A.Call (id, args)) ext =
       (case Symbol.look env id
          of SOME _ => (ErrorMsg.error ext ("'" ^ Symbol.name id ^ "' is not" ^
                                            " a function!");
@@ -80,7 +87,7 @@ struct
           | SOME (t, types) => let
                         fun tc_args ([], []) = ()
                           | tc_args (e::E, t::T) =
-                              (tc_ensure (funs, env) (e, t) ext; tc_args (E, T))
+                              (tc_ensure env' (e, t) ext; tc_args (E, T))
                           | tc_args _ = (ErrorMsg.error ext ("Wrong number of" ^
                                          " variables for: " ^ Symbol.name id);
                                          raise ErrorMsg.Error)
@@ -115,6 +122,7 @@ struct
       in
         tc_ensure env (e1, A.BOOL) ext; tc_ensure env (e3, t2) ext; t2
       end
+    | tc_exp env (A.
     | tc_exp env (A.Marked marked_exp) _ =
         tc_exp env (Mark.data marked_exp) (Mark.ext marked_exp)
 
@@ -122,20 +130,16 @@ struct
    *
    * Typecheck a single statement in a program.
    *
-   * @param env the currently known environment of variables and their types
-   * @param stm the statement to typecheck
-   * @param ext the current extents of the statement in the source file
-   * @param lp  true if we're inside of a loop
+   * @param env    the currently known environment of variables and their types
+   * @param stm    the statement to typecheck
+   * @param ext    the current extents of the statement in the source file
+   * @param lp,typ true if we're inside of a loop & the return type
    *
    * @raise ErrorMsg.Error if there is a typecheck error
    * @return nothing
    *)
-  fun tc_stm (funs, env) (A.Assign (id,e)) ext (_ : bool * A.typ) =
-        (case Symbol.look env id
-           of SOME t => tc_ensure (funs, env) (e, t) ext
-            | NONE   => (ErrorMsg.error ext ("Variable " ^ Symbol.name id ^
-                                             " undeclared");
-                         raise ErrorMsg.Error))
+  fun tc_stm (env' as (_,_,env)) (A.Assign (e1, _, e2)) ext (_ : bool * A.typ) =
+        tc_ensure env' (e2, tc_exp env' e1 ext) ext
     | tc_stm env (A.If (e,s1,s2)) ext lp =
         (tc_ensure env (e,A.BOOL) ext; tc_stm env s1 ext lp;
          tc_stm env s2 ext lp)
@@ -155,9 +159,9 @@ struct
     | tc_stm _ A.Nop _ _ = ()
     | tc_stm env (A.Seq (s1,s2)) ext lp =
         (tc_stm env s1 ext lp; tc_stm env s2 ext lp)
-    | tc_stm (funs, env) (A.Declare (id,t,s)) ext lp =
+    | tc_stm (funs, structs, env) (A.Declare (id,t,s)) ext lp =
         (case Symbol.look env id
-           of NONE   => tc_stm (funs, Symbol.bind env (id, t)) s ext lp
+           of NONE   => tc_stm (funs, structs, Symbol.bind env (id, t)) s ext lp
             | SOME _ => (ErrorMsg.error ext ("Redeclared variable: " ^
                                              Symbol.name id);
                          raise ErrorMsg.Error))
@@ -173,27 +177,49 @@ struct
    *)
   fun typecheck L = let
         val funs = ref Symbol.empty
+        val structs = ref Symbol.empty
 
         fun bind_fun ext (typ, id, params) = let
-              val types = #1 (ListPair.unzip params)
+              val types = #1 (LP.unzip params)
             in
               case Symbol.look (!funs) id
                 of NONE => (funs := Symbol.bind (!funs) (id, (typ, types)))
                  | SOME(t, T) =>
                     (tc_equal (t, typ) ext;
-                     ListPair.appEq (fn ts => tc_equal ts ext) (types, T))
+                     LP.appEq (fn ts => tc_equal ts ext) (types, T))
               handle UnequalLengths =>
                 (ErrorMsg.error ext ("Function '" ^ Symbol.name id ^ "' " ^
                                  "has a different number of args than before");
                  raise ErrorMsg.Error)
             end
 
-        fun tc_adecl _ (A.Markedg data) =
-              tc_adecl (Mark.ext data) (Mark.data data)
-          | tc_adecl ext (A.ExtDecl d) = bind_fun ext d
-          | tc_adecl ext (A.IntDecl d) = bind_fun ext d
-          | tc_adecl ext (A.Typedef (_, _)) = ()
-          | tc_adecl ext (A.Fun (typ, ident, args, stm)) = let
+        fun decl_struct _ id =
+              case Symbol.look (!structs) id
+                of NONE => structs := Symbol.bind (!structs) (id, NONE)
+                 | SOME _ => ()
+
+        fun bind_struct ext (id, fields) = let
+              val types = #1 (LP.unzip fields)
+            in
+              case Symbol.look (!structs) id
+                of (NONE | SOME NONE) =>
+                      structs := Symbol.bind (!structs) (id, SOME types)
+                 | SOME (SOME T) =>
+                      LP.appEq (fn ts => tc_equal ts ext) (types, T)
+              handle UnequalLengths =>
+                (ErrorMsg.error ext ("Struct '" ^ Symbol.name id ^ "' has a " ^
+                                     "different number of fields than before");
+                 raise ErrorMsg.Error)
+            end
+
+        fun tc_gdecl _ (A.Markedg data) =
+              tc_gdecl (Mark.ext data) (Mark.data data)
+          | tc_gdecl ext (A.ExtDecl d) = bind_fun ext d
+          | tc_gdecl ext (A.IntDecl d) = bind_fun ext d
+          | tc_gdecl ext (A.Typedef (_, _)) = ()
+          | tc_gdecl ext (A.StrDecl id) = decl_struct ext id
+          | tc_gdecl ext (A.Struct s) = bind_struct ext s
+          | tc_gdecl ext (A.Fun (typ, ident, args, stm)) = let
               fun bind_arg ((typ, id), env) =
                     (case Symbol.look env id
                        of SOME t => (ErrorMsg.error ext ("Duplicate argument" ^
@@ -202,9 +228,9 @@ struct
                         | NONE => Symbol.bind env (id, typ))
             in
               bind_fun ext (typ, ident, args);
-              tc_stm (!funs, foldl bind_arg Symbol.empty args) stm NONE
+              tc_stm (!funs, !structs, foldl bind_arg Symbol.empty args) stm NONE
                      (false, typ)
             end
-      in app (tc_adecl NONE) L end
+      in app (tc_gdecl NONE) L end
 
 end
