@@ -48,7 +48,7 @@ fun convert_exp2 (exp1, left) (SOME binop, exp2, NONE, right) =
  | SEMI
  | INTCONST of Word32.word
  | IDENT    of Symbol.symbol
- | TRUE | FALSE
+ | TRUE | FALSE | NULL | ALLOC | ALLOCARR
  | INT | BOOL
  | PLUS | MINUS | STAR | SLASH | PERCENT
  | PLUSPLUS | MINUSMINUS
@@ -59,7 +59,7 @@ fun convert_exp2 (exp1, left) (SOME binop, exp2, NONE, right) =
  | LESS | LESSEQ | GREATER | GREATEREQ
  | LBRACE | RBRACE
  | LPAREN | RPAREN
- | COMMA
+ | COMMA | PERIOD | ARROW | LBRACKET | RBRACKET
  | IF | ELSE | WHILE | FOR | CONTINUE | BREAK | RETURN | TYPEDEF
  | QUESTION | COLON
  | UNARY | ASNOP

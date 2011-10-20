@@ -66,15 +66,19 @@ ws = [\ \t\011\013\012];
 <INITIAL> \n          => (ParseState.newline(yypos); lex());
 
 <INITIAL> ","         => (Tokens.COMMA (yypos, yypos + size yytext));
+<INITIAL> "."         => (Tokens.PERIOD (yypos, yypos + size yytext));
 
 <INITIAL> "{"         => (Tokens.LBRACE (yypos, yypos + size yytext));
 <INITIAL> "}"         => (Tokens.RBRACE (yypos, yypos + size yytext));
 <INITIAL> "("         => (Tokens.LPAREN (yypos, yypos + size yytext));
 <INITIAL> ")"         => (Tokens.RPAREN (yypos, yypos + size yytext));
+<INITIAL> "["         => (Tokens.LBRACKET (yypos, yypos + size yytext));
+<INITIAL> "]"         => (Tokens.RBRACKET (yypos, yypos + size yytext));
 
 <INITIAL> ";"         => (Tokens.SEMI (yypos, yypos + size yytext));
 <INITIAL> "?"         => (Tokens.QUESTION (yypos, yypos + size yytext));
 <INITIAL> ":"         => (Tokens.COLON (yypos, yypos + size yytext));
+<INITIAL> "->"        => (Tokens.ARROW (yypos, yypos + size yytext));
 
 <INITIAL> "="         => (Tokens.ASSIGN (yypos, yypos + size yytext));
 <INITIAL> "+="        => (Tokens.PLUSEQ (yypos, yypos + size yytext));
@@ -113,17 +117,20 @@ ws = [\ \t\011\013\012];
 <INITIAL> "--"        => (Tokens.MINUSMINUS (yypos, yypos + size yytext));
 <INITIAL> "++"        => (Tokens.PLUSPLUS (yypos, yypos + size yytext));
 
-<INITIAL> "return"    => (Tokens.RETURN (yypos, yypos + size yytext));
-<INITIAL> "while"     => (Tokens.WHILE (yypos, yypos + size yytext));
-<INITIAL> "if"        => (Tokens.IF (yypos, yypos + size yytext));
-<INITIAL> "else"      => (Tokens.ELSE (yypos, yypos + size yytext));
-<INITIAL> "break"     => (Tokens.BREAK (yypos, yypos + size yytext));
-<INITIAL> "continue"  => (Tokens.CONTINUE (yypos, yypos + size yytext));
-<INITIAL> "for"       => (Tokens.FOR (yypos, yypos + size yytext));
-<INITIAL> "int"       => (Tokens.INT (yypos, yypos + size yytext));
-<INITIAL> "bool"      => (Tokens.BOOL (yypos, yypos + size yytext));
-<INITIAL> "true"      => (Tokens.TRUE (yypos, yypos + size yytext));
-<INITIAL> "false"     => (Tokens.FALSE (yypos, yypos + size yytext));
+<INITIAL> "return"      => (Tokens.RETURN (yypos, yypos + size yytext));
+<INITIAL> "while"       => (Tokens.WHILE (yypos, yypos + size yytext));
+<INITIAL> "if"          => (Tokens.IF (yypos, yypos + size yytext));
+<INITIAL> "else"        => (Tokens.ELSE (yypos, yypos + size yytext));
+<INITIAL> "break"       => (Tokens.BREAK (yypos, yypos + size yytext));
+<INITIAL> "continue"    => (Tokens.CONTINUE (yypos, yypos + size yytext));
+<INITIAL> "for"         => (Tokens.FOR (yypos, yypos + size yytext));
+<INITIAL> "int"         => (Tokens.INT (yypos, yypos + size yytext));
+<INITIAL> "bool"        => (Tokens.BOOL (yypos, yypos + size yytext));
+<INITIAL> "true"        => (Tokens.TRUE (yypos, yypos + size yytext));
+<INITIAL> "false"       => (Tokens.FALSE (yypos, yypos + size yytext));
+<INITIAL> "NULL"        => (Tokens.NULL (yypos, yypos + size yytext));
+<INITIAL> "alloc"       => (Tokens.ALLOC (yypos, yypos + size yytext));
+<INITIAL> "alloc_array" => (Tokens.ALLOCARR (yypos, yypos + size yytext));
 <INITIAL> "typedef"     => (Tokens.TYPEDEF (yypos, yypos + size yytext));
 
 <INITIAL> {decnum}    => (number Word32Signed.fromString (yytext, yypos));
