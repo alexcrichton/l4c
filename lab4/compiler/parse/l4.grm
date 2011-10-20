@@ -13,27 +13,6 @@ fun mark (e, (left, right)) = A.Marked (Mark.mark' (e, ParseState.ext (left, rig
 fun marks (s, (left, right)) = A.Markeds (Mark.mark' (s, ParseState.ext (left, right)))
 fun markg (d, (left, right)) = A.Markedg (Mark.mark' (d, ParseState.ext (left, right)))
 
-(* expand_asnop (id, "op=", exp) region = "id = id op exps"
- * or = "id = exp" if asnop is "="
- * syntactically expands a compound assignment operator
- *)
-fun expand_asnop (id, NONE, exp) (left, right) =
-      A.Assign(id, exp)
-  | expand_asnop (id, SOME(oper), exp) (left, right) =
-      A.Assign(id, mark(A.BinaryOp(oper, A.Var(id), exp), (left, right)))
-
-fun check_main (sym, lpos, rpos) prog =
-      if (Symbol.name sym) = "main" then
-        prog
-      else
-        (ErrorMsg.error (ParseState.ext (lpos, rpos))
-                         "Function must be called main"; prog)
-
-fun extract_types [] = []
-  | extract_types (A.Declare (_, typ, _) :: L) = typ :: extract_types L
-  | extract_types (A.Markeds d :: L) = extract_types (Mark.data d :: L)
-  | extract_types _ = raise Fail "Invalid types"
-
 fun convert_exp2 (exp1, left) (SOME binop, exp2, NONE, right) =
       mark (A.BinaryOp(binop, exp1, exp2), (left, right))
   | convert_exp2 (exp1, left) (NONE, exp2, SOME exp3, right) =
@@ -49,7 +28,7 @@ fun convert_exp2 (exp1, left) (SOME binop, exp2, NONE, right) =
  | INTCONST of Word32.word
  | IDENT    of Symbol.symbol
  | TRUE | FALSE | NULL | ALLOC | ALLOCARR
- | INT | BOOL
+ | INT | BOOL | STRUCT
  | PLUS | MINUS | STAR | SLASH | PERCENT
  | PLUSPLUS | MINUSMINUS
  | AND | PIPE | BANG | CARET | LSHIFT | RSHIFT | TILDE
@@ -78,6 +57,10 @@ fun convert_exp2 (exp1, left) (SOME binop, exp2, NONE, right) =
  | fdecl    of A.gdecl
  | fdef     of A.gdecl
  | typedef  of A.gdecl
+ | sdecl    of A.gdecl
+ | sdef     of A.gdecl
+ | field    of (A.typ * A.ident)
+ | field_list         of (A.typ * A.ident) list
  | param    of (A.typ * A.ident)
  | param_list_follow  of (A.typ * A.ident) list
  | param_list         of (A.typ * A.ident) list
@@ -138,6 +121,8 @@ gdecls     :                            ([])
 gdecl      : fdecl                      (fdecl)
            | fdef                       (fdef)
            | typedef                    (typedef)
+           | sdecl                      (sdecl)
+           | sdef                       (sdef)
 
 fdecl      : typ IDENT param_list SEMI  (markg (A.IntDecl (typ, IDENT,
                                                            param_list),
@@ -158,11 +143,26 @@ param_list_follow :                                 ([])
 param_list : LPAREN RPAREN                          ([])
            | LPAREN param param_list_follow RPAREN  (param::param_list_follow)
 
+sdecl      : STRUCT IDENT SEMI          (markg (A.StrDecl IDENT,
+                                               (STRUCTleft, SEMIright)))
+
+sdef       : STRUCT IDENT LBRACE field_list RBRACE SEMI
+                                        (markg (A.Struct (IDENT, field_list),
+                                               (STRUCTleft, SEMIright)))
+
+field      : typ IDENT SEMI             ((typ, IDENT))
+
+field_list :                            ([])
+           | field field_list           (field :: field_list)
+
 block      : LBRACE stmts RBRACE        (stmts)
 
 typ        : INT                        (A.INT)
            | BOOL                       (A.BOOL)
            | IDENT                      (A.TYPEDEF IDENT)
+           | typ STAR                   (A.PTR typ)
+           | typ LBRACKET RBRACKET      (A.ARRAY typ)
+           | STRUCT IDENT               (A.STRUCT IDENT)
 
 decl       : typ IDENT                  (marks (A.Declare (IDENT, typ, A.Nop),
                                                 (typleft, IDENTright)))
@@ -182,12 +182,10 @@ simp       : simpnodef    (simpnodef)
            | decl         (decl)
 
 simpnodef  : lvalue asnop exp %prec ASNOP
-                                       (expand_asnop (lvalue, asnop, exp)
-                                                     (lvalueleft, expright))
-           | lvalue postop %prec UNARY (A.Assign(lvalue,
-                                        mark (A.BinaryOp(postop, A.Var(lvalue),
-                                                A.Const(Word32.fromInt 1)),
-                                             (lvalueleft, lvalueright))))
+                                       (A.Assign (lvalue, asnop, exp)
+                                                 (lvalueleft, expright))
+           | lvalue postop %prec UNARY (A.Assign(lvalue, SOME postop,
+                                                A.Const(Word32.fromInt 1)))
            | exp                       (A.Express exp)
 
 simpopt    :                           (A.Nop)
@@ -214,10 +212,14 @@ arg_list_follow :                               ([])
 arg_list   : LPAREN RPAREN                      ([])
            | LPAREN exp arg_list_follow RPAREN  (exp::arg_list_follow)
 
-lvalue     : IDENT                      (IDENT)
+lvalue     : IDENT                      (A.Var IDENT)
+           | lvalue PERIOD IDENT        (A.Field (lvalue, IDENT))
+           | lvalue ARROW IDENT         (A.Field (A.Deref lvalue, IDENT))
+           | STAR lvalue                (A.Deref lvalue)
+           | lvalue LBRACKET exp RBRACKET (A.ArrSub (lvalue, exp))
            | LPAREN lvalue RPAREN       (lvalue)
 
-exp        : lvalue                      (mark (A.Var(lvalue),
+exp        : lvalue                      (mark (lvalue,
                                                 (lvalueleft,lvalueright)))
            | parexp                      (parexp)
 
@@ -228,11 +230,25 @@ parexp     : LPAREN parexp RPAREN (parexp)
                                                (TRUEleft, TRUEright)))
            | FALSE                      (mark (A.Bool(false),
                                                (FALSEleft, FALSEright)))
+           | NULL                       (mark (A.Null, (NULLleft, NULLright)))
            | unop exp %prec UNARY       (mark (A.UnaryOp(unop, exp),
                                                (unopleft, expright)))
            | exp exp2                   (convert_exp2 (exp, expleft) exp2)
            | IDENT arg_list             (mark (A.Call (IDENT, arg_list),
                                               (IDENTleft, arg_listright)))
+           | parexp PERIOD IDENT        (mark (A.Field (parexp, ident),
+                                              (parexpleft, IDENTright)))
+           | parexp ARROW IDENT         (mark ((A.Field (A.Deref parexp, IDENT)),
+                                              (parexpleft, IDENTright)))
+           | ALLOC LPAREN typ RPAREN    (mark (A.Alloc typ,
+                                              (ALLOCleft, RPARENright)))
+           | ALLOCARR LPAREN typ COMMA exp RPAREN
+                                        (mark (A.AllocArray (typ, exp),
+                                              (ALLOCARRleft, RPARENright)))
+           | STAR parexp                (mark (A.Deref parexp),
+                                              (STARleft, parexpright))
+           | parexp LBRACKET exp RBRACKET (mark (A.ArrSub (parexp, exp),
+                                              (parexpleft, RBRACKETright)))
 
 exp2       : PLUS exp         (SOME(A.PLUS), exp, NONE, expright)
            | MINUS exp        (SOME(A.MINUS), exp, NONE, expright)

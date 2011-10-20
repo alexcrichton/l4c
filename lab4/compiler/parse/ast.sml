@@ -8,7 +8,8 @@ signature AST =
 sig
   type ident = Symbol.symbol
 
-  datatype typ = INT | BOOL | TYPEDEF of ident
+  datatype typ = INT | BOOL | TYPEDEF of ident | PTR of typ | ARRAY of typ
+               | STRUCT of ident
 
   datatype unop =
      NEGATIVE
@@ -43,9 +44,15 @@ sig
    | UnaryOp of unop * exp
    | Ternary of exp * exp * exp
    | Call of ident * exp list
+   | Deref of exp
+   | Field of exp * ident
+   | ArrSub of exp * exp
+   | Alloc of typ
+   | AllocArray of typ * exp
+   | Null
    | Marked of exp Mark.marked
   and stm =
-     Assign  of ident * exp
+     Assign  of exp * binop option * exp
    | If      of exp * stm * stm
    | While   of exp * stm
    | For     of stm * exp * stm * stm
@@ -64,6 +71,8 @@ sig
    | IntDecl of typ * ident * (typ * ident) list
    | Typedef of ident * typ
    | Markedg of gdecl Mark.marked
+   | StrDecl of ident
+   | Struct  of ident * (typ * ident) list
 
   type program = gdecl list
 
@@ -84,7 +93,8 @@ structure Ast :> AST =
 struct
   type ident = Symbol.symbol
 
-  datatype typ = INT | BOOL | TYPEDEF of ident
+  datatype typ = INT | BOOL | TYPEDEF of ident | PTR of typ | ARRAY of typ
+               | STRUCT of ident
 
   datatype unop =
      NEGATIVE
@@ -119,9 +129,15 @@ struct
    | UnaryOp of unop * exp
    | Ternary of exp * exp * exp
    | Call of ident * exp list
+   | Deref of exp
+   | Field of exp * ident
+   | ArrSub of exp * exp
+   | Alloc of typ
+   | AllocArray of typ * exp
+   | Null
    | Marked of exp Mark.marked
   and stm =
-     Assign  of ident * exp
+     Assign  of exp * binop option * exp
    | If      of exp * stm * stm
    | While   of exp * stm
    | For     of stm * exp * stm * stm
@@ -140,6 +156,8 @@ struct
    | IntDecl of typ * ident * (typ * ident) list
    | Typedef of ident * typ
    | Markedg of gdecl Mark.marked
+   | StrDecl of ident
+   | Struct  of ident * (typ * ident) list
 
   type program = gdecl list
 
@@ -286,7 +304,8 @@ struct
    * @return the same statement, but with all marks recursively removed
    *)
   fun remove_mark (Markeds mark) = remove_mark (Mark.data mark)
-    | remove_mark (Assign (id, e)) = Assign (id, remove_mark_exp e)
+    | remove_mark (Assign (e1, oper, e2)) =
+        Assign (remove_mark_exp e1, oper, remove_mark_exp e2)
     | remove_mark (If (e, s1, s2)) =
         If (remove_mark_exp e, remove_mark s1, remove_mark s2)
     | remove_mark (While (e, s)) = While (remove_mark_exp e, remove_mark s)
@@ -355,7 +374,7 @@ struct
     fun tab str = "  " ^ (String.translate
       (fn c => if c = #"\n" then "\n  " else (String.str c)) str)
 
-    fun pp_stm (Assign (id, e)) = pp_ident id ^ " = " ^ pp_exp e ^ ""
+    fun pp_stm (Assign (e1, _, e2)) = pp_exp e1 ^ " ?= " ^ pp_exp e2 ^ ""
       | pp_stm (If (e, s1, s2)) =
           "if (" ^ pp_exp e ^ ") {\n" ^ tab(pp_stm s1) ^ "\n} else {\n" ^
           pp_stm s2 ^ "\n}"
