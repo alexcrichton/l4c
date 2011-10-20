@@ -69,7 +69,7 @@ fun convert_exp2 (exp1, left) (SOME binop, exp2, NONE, right) =
  | stmts    of A.stm
  | decl     of A.stm
  | stmt     of A.stm
- | lvalue   of A.ident
+ | lvalue   of A.exp
  | simp     of A.stm
  | simpnodef of A.stm
  | control  of A.stm
@@ -167,7 +167,7 @@ typ        : INT                        (A.INT)
 decl       : typ IDENT                  (marks (A.Declare (IDENT, typ, A.Nop),
                                                 (typleft, IDENTright)))
            | typ IDENT ASSIGN exp       (marks (A.Declare (IDENT, typ,
-                                                  A.Assign(IDENT, exp)),
+                                                  A.Assign(A.Var IDENT, NONE, exp)),
                                                 (typleft, expright)))
 
 stmts      :                                 (A.Nop)
@@ -182,8 +182,7 @@ simp       : simpnodef    (simpnodef)
            | decl         (decl)
 
 simpnodef  : lvalue asnop exp %prec ASNOP
-                                       (A.Assign (lvalue, asnop, exp)
-                                                 (lvalueleft, expright))
+                                       (A.Assign (lvalue, asnop, exp))
            | lvalue postop %prec UNARY (A.Assign(lvalue, SOME postop,
                                                 A.Const(Word32.fromInt 1)))
            | exp                       (A.Express exp)
@@ -236,7 +235,7 @@ parexp     : LPAREN parexp RPAREN (parexp)
            | exp exp2                   (convert_exp2 (exp, expleft) exp2)
            | IDENT arg_list             (mark (A.Call (IDENT, arg_list),
                                               (IDENTleft, arg_listright)))
-           | parexp PERIOD IDENT        (mark (A.Field (parexp, ident),
+           | parexp PERIOD IDENT        (mark (A.Field (parexp, IDENT),
                                               (parexpleft, IDENTright)))
            | parexp ARROW IDENT         (mark ((A.Field (A.Deref parexp, IDENT)),
                                               (parexpleft, IDENTright)))
@@ -245,8 +244,8 @@ parexp     : LPAREN parexp RPAREN (parexp)
            | ALLOCARR LPAREN typ COMMA exp RPAREN
                                         (mark (A.AllocArray (typ, exp),
                                               (ALLOCARRleft, RPARENright)))
-           | STAR parexp                (mark (A.Deref parexp),
-                                              (STARleft, parexpright))
+           | STAR parexp                (mark (A.Deref parexp,
+                                              (STARleft, parexpright)))
            | parexp LBRACKET exp RBRACKET (mark (A.ArrSub (parexp, exp),
                                               (parexpleft, RBRACKETright)))
 
