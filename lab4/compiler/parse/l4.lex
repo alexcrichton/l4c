@@ -129,6 +129,7 @@ ws = [\ \t\011\013\012];
 <INITIAL> "true"        => (Tokens.TRUE (yypos, yypos + size yytext));
 <INITIAL> "false"       => (Tokens.FALSE (yypos, yypos + size yytext));
 <INITIAL> "NULL"        => (Tokens.NULL (yypos, yypos + size yytext));
+<INITIAL> "struct"      => (Tokens.STRUCT (yypos, yypos + size yytext));
 <INITIAL> "alloc"       => (Tokens.ALLOC (yypos, yypos + size yytext));
 <INITIAL> "alloc_array" => (Tokens.ALLOCARR (yypos, yypos + size yytext));
 <INITIAL> "typedef"     => (Tokens.TYPEDEF (yypos, yypos + size yytext));
