@@ -40,6 +40,8 @@ struct
    * @return true if the given statement will define sym when executed
    *)
   fun defines sym (A.Declare (_, _, s)) = defines sym s
+    | defines sym (A.Assign (A.Marked m, a, b)) =
+        defines sym (A.Assign (Mark.data m, a, b))
     | defines sym (A.Assign (A.Var id, _, _)) = Symbol.compare (sym, id) = EQUAL
     | defines sym (A.Assign _) = false
     | defines sym (A.If (_, s1, s2)) = defines sym s1 andalso defines sym s2
@@ -64,7 +66,7 @@ struct
    *)
   fun live sym (A.Declare (id, _, s)) =
         Symbol.compare (sym, id) <> EQUAL andalso live sym s
-    | live sym (A.Assign (e1, _, e2)) = exp_uses sym e1 orelse exp_uses sym e2
+    | live sym (A.Assign (e1, _, e2)) = exp_uses sym e2
     | live sym (A.If (e, s1, s2)) =
         exp_uses sym e orelse live sym s1 orelse live sym s2
     | live sym (A.While (e, s)) = exp_uses sym e orelse live sym s
