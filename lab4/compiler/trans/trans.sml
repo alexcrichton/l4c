@@ -117,12 +117,12 @@ struct
             break or continue statement.
    * @return a list of statements in the IL.
    *)
-  fun trans_stm (funs, env) (A.Assign (id, e)) _ = let
-        val (es, e') = trans_exp (funs, env) e
-      in
-        es @ [T.MOVE (T.TEMP (Symbol.look' env id), e')]
-      end
-    | trans_stm env (A.If(e, s1, s2)) lp = let
+  fun (*trans_stm (funs, env) (A.Assign (id, e)) _ = let
+          val (es, e') = trans_exp (funs, env) e
+        in
+          es @ [T.MOVE (T.TEMP (Symbol.look' env id), e')]
+        end
+      | *)trans_stm env (A.If(e, s1, s2)) lp = let
         val (es, e') = trans_exp env e
         val (truel, endl) = (Label.new "if_true", Label.new "if_end")
       in
