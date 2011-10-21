@@ -180,7 +180,7 @@ simp       : simpnodef    (simpnodef)
            | decl         (decl)
 
 simpnodef  : exp asnop exp %prec ASNOP
-                                       (A.Assign (exp, asnop, exp))
+                                       (A.Assign (exp1, asnop, exp2))
            | exp postop %prec UNARY (A.Assign(exp, SOME postop,
                                                 A.Const(Word32.fromInt 1)))
            | exp                       (A.Express exp)
