@@ -144,7 +144,10 @@ ws = [\ \t\011\013\012];
                           else let
                             val id = Symbol.symbol yytext
                           in
-                            Tokens.IDENT (id, yypos, yypos + size yytext)
+                            if Symbol.istype yytext then
+                              (Tokens.TYPE (id, yypos, yypos + size yytext))
+                            else
+                              Tokens.IDENT (id, yypos, yypos + size yytext)
                           end);
 
 <INITIAL> "/*"        => (YYBEGIN COMMENT; enterComment yypos; lex());

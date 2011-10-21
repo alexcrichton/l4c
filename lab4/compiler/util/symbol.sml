@@ -24,6 +24,8 @@ sig
   val symbol : string -> symbol (* generates a new symbol with given name *)
   val name : symbol -> string  (* returns a name associated with symbol *)
   val valid : string -> bool (* returns whether a possible symbol is valid *)
+  val istype : string -> bool
+  val addtype : symbol -> unit
 
   (* symbol tables -- allows association of any type with each symbol *)
   type 'a table
@@ -73,12 +75,18 @@ struct
                     ht := initht ())
     fun symbol name =
       (case HashTable.find (!ht) name of
-        SOME i => (name, i)
+        SOME (i, _) => (name, i)
         | NONE => let
             val i = !nexts before nexts := !nexts + 1
           in
-            HashTable.insert (!ht) (name, i); (name, i)
+            HashTable.insert (!ht) (name, (i, false)); (name, i)
           end)
+
+    fun istype name = case HashTable.find (!ht) name
+                        of SOME (_, typ) => typ
+                         | NONE => false
+
+    fun addtype (name, i) = HashTable.insert (!ht) (name, (i, true))
 
   end
 
