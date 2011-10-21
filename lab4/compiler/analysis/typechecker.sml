@@ -32,6 +32,16 @@ struct
     | typs_equal (A.STRUCT s1, A.STRUCT s2) = (Symbol.compare (s1, s2) = EQUAL)
     | typs_equal _ = false
 
+  fun type_small (A.STRUCT _ | A.ARRAY _) = false
+    | type_small _ = true
+
+  fun is_lvalue (A.Var _) = true
+    | is_lvalue (A.Field (e, _)) = is_lvalue e
+    | is_lvalue (A.Deref e) = is_lvalue e
+    | is_lvalue (A.ArrSub (e, _)) = is_lvalue e
+    | is_lvalue (A.Marked e) = is_lvalue (Mark.data e)
+    | is_lvalue _ = false
+
   (* tc_equal : A.typ * A.typ -> Mark.ext option -> unit
    *
    * @param t1, t2 the types to test for equivalence
@@ -43,6 +53,25 @@ struct
         ErrorMsg.error ext ("type mismatch, " ^ typ_name t1 ^ " != " ^
                             typ_name t2);
         raise ErrorMsg.Error)
+
+  fun resolve_struct ext structs id field = let
+        val s = case Symbol.look structs id
+                  of SOME t => t
+                   | NONE => (ErrorMsg.error ext ("Undeclared struct: " ^
+                                                  Symbol.name id);
+                              raise ErrorMsg.Error)
+        val fields = case s of SOME f => f
+                        | NONE => (ErrorMsg.error ext ("Undefined struct: " ^
+                                                       Symbol.name id);
+                                   raise ErrorMsg.Error)
+        fun rightfield (_, f) = Symbol.compare (field, f) = EQUAL
+        val fieldopt = List.find rightfield fields
+      in
+        case fieldopt
+          of SOME (typ, _) => typ
+           | NONE => (ErrorMsg.error ext ("Unknown field " ^ Symbol.name field);
+                      raise ErrorMsg.Error)
+      end
 
   (* tc_ensure : A.typ Symbol.table -> A.exp * A.typ -> Mark.ext option -> unit
    *
@@ -96,6 +125,25 @@ struct
                       end)
     | tc_exp _ (A.Bool _) _ = A.BOOL
     | tc_exp _ (A.Const _) _ = A.INT
+    | tc_exp _ A.Null _ = A.PTR A.INT (* TODO: all types! *)
+    | tc_exp _ (A.Alloc typ) _ = A.PTR typ
+    | tc_exp _ (A.AllocArray (typ, _)) _ = A.ARRAY typ
+    | tc_exp (env as (_, structs, _)) (A.Field (e, field)) ext =
+        (case tc_exp env e ext
+           of A.STRUCT id => resolve_struct ext structs id field
+            | _ => (ErrorMsg.error ext "Should have a struct type";
+                    raise ErrorMsg.Error))
+    | tc_exp env (A.ArrSub (e1, e2)) ext =
+        (tc_ensure env (e2, A.INT) ext;
+         case tc_exp env e1 ext
+           of A.ARRAY typ => typ
+            | _ => (ErrorMsg.error ext "Should have an array type";
+                    raise ErrorMsg.Error))
+    | tc_exp env (A.Deref e) ext =
+        (case tc_exp env e ext
+           of A.PTR typ => typ
+            | _ => (ErrorMsg.error ext "Should have a pointer type";
+                    raise ErrorMsg.Error))
     | tc_exp env (A.BinaryOp (A.LESSEQ,e1,e2)) ext =
         tc_exp env (A.BinaryOp (A.LESS,e1,e2)) ext
     | tc_exp env (A.BinaryOp (A.GREATER,e1,e2)) ext =
@@ -137,8 +185,9 @@ struct
    * @raise ErrorMsg.Error if there is a typecheck error
    * @return nothing
    *)
-  fun tc_stm (env' as (_,_,env)) (A.Assign (e1, _, e2)) ext (_ : bool * A.typ) =
-        tc_ensure env' (e2, tc_exp env' e1 ext) ext
+  fun tc_stm (env' as (_,_,env)) (A.Assign (e1, _, e2)) ext _ =
+        if is_lvalue e1 then tc_ensure env' (e2, tc_exp env' e1 ext) ext
+        else (ErrorMsg.error ext "not an lvalue"; raise ErrorMsg.Error)
     | tc_stm env (A.If (e,s1,s2)) ext lp =
         (tc_ensure env (e,A.BOOL) ext; tc_stm env s1 ext lp;
          tc_stm env s2 ext lp)
@@ -159,11 +208,13 @@ struct
     | tc_stm env (A.Seq (s1,s2)) ext lp =
         (tc_stm env s1 ext lp; tc_stm env s2 ext lp)
     | tc_stm (funs, structs, env) (A.Declare (id,t,s)) ext lp =
-        (case Symbol.look env id
+        (if type_small t then case Symbol.look env id
            of NONE   => tc_stm (funs, structs, Symbol.bind env (id, t)) s ext lp
             | SOME _ => (ErrorMsg.error ext ("Redeclared variable: " ^
                                              Symbol.name id);
-                         raise ErrorMsg.Error))
+                         raise ErrorMsg.Error)
+         else (ErrorMsg.error ext ("'" ^ typ_name t ^ "' is not a small type");
+               raise ErrorMsg.Error))
     | tc_stm env (A.Markeds marked_stm) _ lp =
         tc_stm env (Mark.data marked_stm) (Mark.ext marked_stm) lp
 
@@ -202,9 +253,10 @@ struct
             in
               case Symbol.look (!structs) id
                 of (NONE | SOME NONE) =>
-                      structs := Symbol.bind (!structs) (id, SOME types)
-                 | SOME (SOME T) =>
+                      structs := Symbol.bind (!structs) (id, SOME fields)
+                 | SOME (SOME fields) => let val T = #1 (LP.unzip fields) in
                       LP.appEq (fn ts => tc_equal ts ext) (types, T)
+                    end
               handle UnequalLengths =>
                 (ErrorMsg.error ext ("Struct '" ^ Symbol.name id ^ "' has a " ^
                                      "different number of fields than before");
@@ -220,15 +272,18 @@ struct
           | tc_gdecl ext (A.Struct s) = bind_struct ext s
           | tc_gdecl ext (A.Fun (typ, ident, args, stm)) = let
               fun bind_arg ((typ, id), env) =
-                    (case Symbol.look env id
+                    (if type_small typ then case Symbol.look env id
                        of SOME t => (ErrorMsg.error ext ("Duplicate argument" ^
                                      " name: " ^ Symbol.name id);
                                      raise ErrorMsg.Error)
-                        | NONE => Symbol.bind env (id, typ))
+                        | NONE => Symbol.bind env (id, typ)
+                     else (ErrorMsg.error ext ("Function arguments must " ^
+                                               "have small types");
+                           raise ErrorMsg.Error))
             in
               bind_fun ext (typ, ident, args);
-              tc_stm (!funs, !structs, foldl bind_arg Symbol.empty args) stm NONE
-                     (false, typ)
+              tc_stm (!funs, !structs, foldl bind_arg Symbol.empty args) stm
+                     NONE (false, typ)
             end
       in app (tc_gdecl NONE) L end
 
