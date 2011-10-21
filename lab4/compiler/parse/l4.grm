@@ -209,8 +209,8 @@ arg_list_follow :                               ([])
 arg_list   : LPAREN RPAREN                      ([])
            | LPAREN exp arg_list_follow RPAREN  (exp::arg_list_follow)
 
-exp        : IDENT                      (mark (lvalue,
-                                                (lvalueleft,lvalueright)))
+exp        : IDENT                      (mark (A.Var IDENT,
+                                                (IDENTleft, IDENTright)))
            | LPAREN exp RPAREN          (exp)
            | INTCONST                   (mark (A.Const(INTCONST),
                                                (INTCONSTleft,INTCONSTright)))

@@ -122,7 +122,6 @@ struct
       in
         tc_ensure env (e1, A.BOOL) ext; tc_ensure env (e3, t2) ext; t2
       end
-    | tc_exp env (A.
     | tc_exp env (A.Marked marked_exp) _ =
         tc_exp env (Mark.data marked_exp) (Mark.ext marked_exp)
 
