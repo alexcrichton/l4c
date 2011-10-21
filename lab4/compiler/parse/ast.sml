@@ -166,6 +166,8 @@ struct
           of SOME t => t
            | NONE   => (ErrorMsg.error ext ("Undefined type: " ^
                         Symbol.name id); raise ErrorMsg.Error))
+    | resolve_typ types ext (PTR typ) = PTR (resolve_typ types ext typ)
+    | resolve_typ types ext (ARRAY typ) = ARRAY (resolve_typ types ext typ)
     | resolve_typ _ _ typ = typ
 
   (* elaborate : program -> program
@@ -180,8 +182,10 @@ struct
    *        declaration, typedef declarations can't be resolved, etc.
    *)
   fun elaborate prog = let
-        val (efuns, types, funs) = (ref Symbol.null, ref Symbol.empty,
-                                    ref Symbol.null)
+        val efuns   = ref Symbol.null
+        val funs    = ref Symbol.null
+        val structs = ref Symbol.null
+        val types   = ref Symbol.empty
 
         val resolve = resolve_typ types
 
@@ -189,9 +193,9 @@ struct
               of SOME _ => (ErrorMsg.error ext ("'" ^ Symbol.name id ^
                             "' already a type"); raise ErrorMsg.Error)
                | NONE   => ()
-        and check_fun_id set ext id =
+        and check_set_id str set ext id =
             if Symbol.member set id then
-              (ErrorMsg.error ext ("Function '" ^ Symbol.name id ^
+              (ErrorMsg.error ext (str ^ " '" ^ Symbol.name id ^
                "' already defined"); raise ErrorMsg.Error)
             else ()
         and check_params ext L = let
@@ -209,13 +213,14 @@ struct
         fun elaborate_gdecl _ (Markedg mark) =
               elaborate_gdecl (Mark.ext mark) (Mark.data mark)
           | elaborate_gdecl ext (Fun (typ, id, params, body)) =
-              (check_fun_id (!efuns) ext id; check_id ext id;
-               check_fun_id (!funs) ext id; funs := Symbol.add (!funs) id;
+              (check_set_id "Function" (!efuns) ext id; check_id ext id;
+               check_set_id "Function" (!funs) ext id;
+               funs := Symbol.add (!funs) id;
                Fun (resolve ext typ, id, check_params ext params,
                     elaborate_stm (!types) body))
           | elaborate_gdecl ext (p as Typedef (id, typ)) =
-              (check_id ext id; check_fun_id (!efuns) ext id;
-               check_fun_id (!funs) ext id;
+              (check_id ext id; check_set_id "Function" (!efuns) ext id;
+               check_set_id "Function" (!funs) ext id;
                types := Symbol.bind (!types) (id, resolve ext typ); p)
           | elaborate_gdecl ext (ExtDecl (typ, id, params)) =
               (check_id ext id; efuns := Symbol.add (!efuns) id;
@@ -223,6 +228,13 @@ struct
           | elaborate_gdecl ext (IntDecl (typ, id, params)) =
               (check_id ext id;
                IntDecl (resolve ext typ, id, check_params ext params))
+          | elaborate_gdecl ext (StrDecl id) = (check_id ext id; StrDecl id)
+          | elaborate_gdecl ext (Struct (id, fields)) = let
+              val _ = (check_id ext id; check_set_id "Struct" (!structs) ext id)
+              val s = Struct (id, check_params ext fields);
+            in
+              structs := Symbol.add (!structs) id; s
+            end
       in map (elaborate_gdecl NONE) prog end
   and elaborate_stm env (Markeds mark) =
         Markeds (Mark.mark' (elaborate_stm env (Mark.data mark), Mark.ext mark))
@@ -272,7 +284,7 @@ struct
     | elaborate_ext_gdecl _ (IntDecl (t, id, typs)) = ExtDecl (t, id, typs)
     | elaborate_ext_gdecl _ (ExtDecl (_, _, _)) =
         raise Fail "Invalid AST (elaborate_ext_gdecl)"
-    | elaborate_ext_gdecl _ (t as Typedef (_, _)) = t
+    | elaborate_ext_gdecl _ gdecl = gdecl
 
   (* remove_for : stm -> stm -> stm
    *
@@ -334,6 +346,9 @@ struct
     fun pp_ident id = Symbol.name id
     fun pp_typ BOOL = "bool"
       | pp_typ INT  = "int"
+      | pp_typ (PTR t)  = pp_typ t ^ "*"
+      | pp_typ (STRUCT id)  = "struct" ^ pp_ident id
+      | pp_typ (ARRAY t)  = pp_typ t ^ "[]"
       | pp_typ (TYPEDEF id)  = pp_ident id
 
     fun pp_unop NEGATIVE = "-"
@@ -362,6 +377,13 @@ struct
     fun pp_exp (Var id) = pp_ident id
       | pp_exp (Const c) = Word32Signed.toString c
       | pp_exp (Bool b) = if b then "true" else "false"
+      | pp_exp Null = "NULL"
+      | pp_exp (Deref e) = "*(" ^ pp_exp e ^ ")"
+      | pp_exp (ArrSub (e1, e2)) = pp_exp e1 ^ "[" ^ pp_exp e2 ^ "]"
+      | pp_exp (Field (e, f)) = pp_exp e ^ "." ^ pp_ident f
+      | pp_exp (Alloc t) = "alloc(" ^ pp_typ t ^ ")"
+      | pp_exp (AllocArray (t, e)) =
+          "alloc_array(" ^ pp_typ t ^ "," ^ pp_exp e ^ ")"
       | pp_exp (Call (id, E)) =
           pp_ident id ^ "(" ^ foldr (fn (e, s) => s ^ ", " ^ pp_exp e) "" E ^ ")"
       | pp_exp (BinaryOp (oper, e1, e2)) =
@@ -402,6 +424,10 @@ struct
       | pp_adecl (ExtDecl t) = "extern " ^ pp_adecl (IntDecl t)
       | pp_adecl (Fun (t, i, L, s)) =
           pp_adecl (IntDecl (t, i, L)) ^ "{\n" ^ tab(pp_stm s) ^ "\n}"
+      | pp_adecl (StrDecl s) = "struct " ^ pp_ident s ^ ";"
+      | pp_adecl (Struct (s, F)) = "struct " ^ pp_ident s ^ " {\n" ^
+        (foldl (fn ((typ, id), s) => s ^ "\n" ^ pp_typ typ ^ " " ^ pp_ident id ^ ";") "" F) ^
+          "\n}"
 
     fun pp_program prog = foldl (fn (d, s) => s ^ pp_adecl d ^ "\n") "" prog
   end
