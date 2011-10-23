@@ -9,7 +9,7 @@ sig
   type ident = Symbol.symbol
 
   datatype typ = INT | BOOL | TYPEDEF of ident | PTR of typ | ARRAY of typ
-               | STRUCT of ident
+               | STRUCT of ident | NULL
 
   datatype unop =
      NEGATIVE
@@ -94,7 +94,7 @@ struct
   type ident = Symbol.symbol
 
   datatype typ = INT | BOOL | TYPEDEF of ident | PTR of typ | ARRAY of typ
-               | STRUCT of ident
+               | STRUCT of ident | NULL
 
   datatype unop =
      NEGATIVE
@@ -346,6 +346,7 @@ struct
     fun pp_ident id = Symbol.name id
     fun pp_typ BOOL = "bool"
       | pp_typ INT  = "int"
+      | pp_typ NULL = "(null)"
       | pp_typ (PTR t)  = pp_typ t ^ "*"
       | pp_typ (STRUCT id)  = "struct" ^ pp_ident id
       | pp_typ (ARRAY t)  = pp_typ t ^ "[]"

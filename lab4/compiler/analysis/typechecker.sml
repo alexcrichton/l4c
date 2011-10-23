@@ -20,6 +20,7 @@ struct
    *)
   fun typ_name A.BOOL = "bool"
     | typ_name A.INT  = "int"
+    | typ_name A.NULL = "(null)"
     | typ_name (A.PTR typ) = (typ_name typ) ^ "*"
     | typ_name (A.ARRAY typ) = (typ_name typ) ^ "[]"
     | typ_name (A.STRUCT ident) = "struct " ^ Symbol.name ident
@@ -27,6 +28,8 @@ struct
 
   fun typs_equal (A.BOOL, A.BOOL) = true
     | typs_equal (A.INT, A.INT)   = true
+    | typs_equal (A.NULL, A.NULL) = true
+    | typs_equal ((A.PTR _, A.NULL)|(A.NULL, A.PTR _)) = true
     | typs_equal (A.PTR t1, A.PTR t2) = typs_equal (t1, t2)
     | typs_equal (A.ARRAY t1, A.ARRAY t2) = typs_equal (t1, t2)
     | typs_equal (A.STRUCT s1, A.STRUCT s2) = Symbol.equal (s1, s2)
@@ -211,13 +214,12 @@ struct
     | tc_stm env (A.Seq (s1,s2)) ext lp =
         (tc_stm env s1 ext lp; tc_stm env s2 ext lp)
     | tc_stm (funs, structs, env) (A.Declare (id,t,s)) ext lp =
-        (if type_small t then case Symbol.look env id
-           of NONE   => tc_stm (funs, structs, Symbol.bind env (id, t)) s ext lp
-            | SOME _ => (ErrorMsg.error ext ("Redeclared variable: " ^
+        (ensure_small ext t;
+        case Symbol.look env id
+          of NONE   => tc_stm (funs, structs, Symbol.bind env (id, t)) s ext lp
+           | SOME _ => (ErrorMsg.error ext ("Redeclared variable: " ^
                                              Symbol.name id);
-                         raise ErrorMsg.Error)
-         else (ErrorMsg.error ext ("'" ^ typ_name t ^ "' is not a small type");
-               raise ErrorMsg.Error))
+                         raise ErrorMsg.Error))
     | tc_stm env (A.Markeds marked_stm) _ lp =
         tc_stm env (Mark.data marked_stm) (Mark.ext marked_stm) lp
 
