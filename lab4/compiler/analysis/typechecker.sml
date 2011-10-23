@@ -130,7 +130,7 @@ struct
                       end)
     | tc_exp _ (A.Bool _) _ = A.BOOL
     | tc_exp _ (A.Const _) _ = A.INT
-    | tc_exp _ A.Null _ = A.PTR A.INT (* TODO: all types! *)
+    | tc_exp _ A.Null _ = A.NULL
     | tc_exp _ (A.Alloc typ) _ = A.PTR typ
     | tc_exp env (A.AllocArray (typ, e)) ext =
         (tc_ensure env (e, A.INT) ext; A.ARRAY typ)
@@ -257,10 +257,14 @@ struct
         fun bind_struct ext (id, fields) = let
               fun add_field ((typ, ident), tbl) = (
                     case typ
-                      of (A.STRUCT id' | A.PTR (A.STRUCT id')) =>
-                          if not (Symbol.equal (id, id')) then () else
-                          (ErrorMsg.error ext "Cannot define nested structure";
-                          raise ErrorMsg.Error)
+                      of A.STRUCT id' =>
+                          if Symbol.equal (id, id') then
+                            (ErrorMsg.error ext "Cannot define nested structure";
+                            raise ErrorMsg.Error)
+                          else (case Symbol.look (!structs) id'
+                            of SOME (SOME _) => ()
+                             | _ => (ErrorMsg.error ext ("Struct size unknown: "
+                                    ^ Symbol.name id'); raise ErrorMsg.Error))
                        | _ => ();
                     case Symbol.look tbl ident
                       of NONE => Symbol.bind tbl (ident, typ)
