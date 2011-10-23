@@ -85,7 +85,6 @@ sig
   val elaborate  : program -> program
   val elaborate_external : program -> program
   val remove_for : stm -> stm -> stm
-  val remove_mark : stm -> stm
 
 end
 
@@ -306,37 +305,6 @@ struct
     | remove_for (Seq (s1, s2)) r = Seq (remove_for s1 r, remove_for s2 r)
     | remove_for (Declare (id, typ, s)) r = Declare (id, typ, remove_for s r)
     | remove_for s _ = s
-
-  (* remove_mark : stm -> stm
-   *
-   * Remove all "mark" metadata which contains information about where this
-   * AST construct was found in the source file
-   *
-   * @param stm the statement to remove marks from
-   * @return the same statement, but with all marks recursively removed
-   *)
-  fun remove_mark (Markeds mark) = remove_mark (Mark.data mark)
-    | remove_mark (Assign (e1, oper, e2)) =
-        Assign (remove_mark_exp e1, oper, remove_mark_exp e2)
-    | remove_mark (If (e, s1, s2)) =
-        If (remove_mark_exp e, remove_mark s1, remove_mark s2)
-    | remove_mark (While (e, s)) = While (remove_mark_exp e, remove_mark s)
-    | remove_mark (For (s1, e, s2, s3)) =
-        For (remove_mark s1, remove_mark_exp e, remove_mark s2, remove_mark s3)
-    | remove_mark (Express e) = Express (remove_mark_exp e)
-    | remove_mark (Return e) = Return (remove_mark_exp e)
-    | remove_mark (Seq (s1, s2)) = Seq (remove_mark s1, remove_mark s2)
-    | remove_mark (Declare (id, typ, s)) = Declare (id, typ, remove_mark s)
-    | remove_mark stm = stm
-  and remove_mark_exp (Marked mark) = remove_mark_exp (Mark.data mark)
-    | remove_mark_exp (BinaryOp (oper, e1, e2)) =
-        BinaryOp(oper, remove_mark_exp e1, remove_mark_exp e2)
-    | remove_mark_exp (UnaryOp (oper, e)) = UnaryOp(oper, remove_mark_exp e)
-    | remove_mark_exp (Ternary (e1, e2, e3)) =
-        Ternary (remove_mark_exp e1, remove_mark_exp e2, remove_mark_exp e3)
-    | remove_mark_exp (Call (id, E)) =
-        Call (id, map remove_mark_exp E)
-    | remove_mark_exp e = e
 
   (* print programs and expressions in source form
    * using redundant parentheses to clarify precedence

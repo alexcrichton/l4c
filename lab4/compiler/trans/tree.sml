@@ -13,9 +13,11 @@ sig
 
   datatype exp =
       TEMP of Temp.temp
+    | TEMP64 of Temp.temp
     | CONST of Word32.word
     | BINOP of binop * exp * exp
     | CALL of Label.label * exp list
+    | MEM of exp * exp * int
   and stm =
       MOVE of exp * exp
     | LABEL of Label.label
@@ -41,9 +43,11 @@ struct
 
   datatype exp =
       TEMP of Temp.temp
+    | TEMP64 of Temp.temp
     | CONST of Word32.word
     | BINOP of binop * exp * exp
     | CALL of Label.label * exp list
+    | MEM of exp * exp * int
   and stm =
       MOVE of exp * exp
     | LABEL of Label.label
@@ -76,7 +80,7 @@ struct
       | pp_binop RSH = ">>"
 
     fun pp_exp (CONST x) = Word32Signed.toString x
-      | pp_exp (TEMP t) = Temp.name t
+      | pp_exp (TEMP t|TEMP64 t) = Temp.name t
       | pp_exp (BINOP (binop, e1, e2)) =
           "(" ^ pp_exp e1 ^ " " ^ pp_binop binop ^ " " ^ pp_exp e2 ^ ")"
       | pp_exp (CALL (l, L)) = let
@@ -84,6 +88,8 @@ struct
         in
           Label.name l ^ "(" ^ args ^ ")"
         end
+      | pp_exp (MEM (e1, e2, w)) = "M[" ^ pp_exp e1 ^ " + " ^ Int.toString w ^
+                                   " * " ^ pp_exp e2 ^ "]"
 
     fun pp_stm (MOVE (e1,e2)) = pp_exp e1 ^ " <- " ^ pp_exp e2
       | pp_stm (LABEL l) = Label.name l

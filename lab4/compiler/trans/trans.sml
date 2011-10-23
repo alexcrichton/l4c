@@ -15,6 +15,22 @@ struct
   structure A = Ast
   structure T = Tree
 
+  fun typ_size _ A.INT  = 4
+    | typ_size _ A.BOOL = 4
+    | typ_size _ (A.PTR _) = 8
+    | typ_size _ (A.ARRAY _) = 8
+    | typ_size s (A.STRUCT id) = #2 (Symbol.look' s id : int Symbol.table * int)
+    | typ_size _ _ = raise Fail "Invalid type"
+
+  fun struct_off (_,_,s) (A.STRUCT id) field =
+        Symbol.look' (#1 (Symbol.look' s id : int Symbol.table * int)) field
+    | struct_off _ _ _ = raise Fail "Invalid struct"
+
+  fun const n = T.CONST (Word32.fromInt n)
+
+  fun address (T.MEM(b,i,s)) = T.BINOP (T.ADD, b, T.BINOP (T.MUL, i, const s))
+    | address b = b
+
   (* trans_oper : A.binop -> T.binop
    *
    * Translates an AST binop to a IR binop
@@ -46,9 +62,8 @@ struct
    *         commands that need to be executed beforehand, and the expression
    *         contains the result of this operation.
    *)
-  fun trans_exp (_, env) (A.Var id) = ([], T.TEMP (Symbol.look' env id))
-    | trans_exp _ (A.Bool b) =
-        ([], T.CONST (Word32.fromInt (if b then 1 else 0)))
+  fun trans_exp (_, env, _) (A.Var id) = ([], T.TEMP (Symbol.look' env id))
+    | trans_exp _ (A.Bool b) = ([], const (if b then 1 else 0))
     | trans_exp _ (A.Const w) = ([], T.CONST w)
     | trans_exp env (A.UnaryOp (A.NEGATIVE, A.Const w)) = ([], T.CONST(~w))
     | trans_exp env (A.UnaryOp (A.NEGATIVE, e)) =
@@ -89,9 +104,9 @@ struct
          e3s @ [T.MOVE (t, e3'), T.GOTO (l2, NONE), T.LABEL l1] @
          e2s @ [T.MOVE (t, e2'), T.LABEL l2], t)
       end
-    | trans_exp (funs, env) (A.Call (name, EL)) = let
+    | trans_exp (env as (funs, _, _)) (A.Call (name, EL)) = let
         fun ev (d, (instrs, dests)) = let
-              val (dinstrs, dest) = trans_exp (funs, env) d
+              val (dinstrs, dest) = trans_exp env d
             in
               (dinstrs @ instrs, dest::dests)
             end
@@ -103,7 +118,34 @@ struct
       in
         (instrs, T.CALL (label, args))
       end
-    | trans_exp _ (A.Marked _) = raise Fail "no marked data!"
+    | trans_exp _ A.Null = ([], const 0)
+    | trans_exp (env as (_, _, structs)) (A.AllocArray (typ, e)) = let
+        val (es, e') = trans_exp env e
+        val size = typ_size structs typ
+      in
+        (es, T.CALL (Label.extfunc "calloc", [e', const size]))
+      end
+    | trans_exp (_, _, structs) (A.Alloc typ) =
+        ([], T.CALL (Label.extfunc "calloc", [const 1,
+                                              const (typ_size structs typ)]))
+    | trans_exp (env as (_, _, structs)) (A.ArrSub (e1, e2, ref typ)) = let
+        val (e1s, e1') = trans_exp env e1
+        val (e2s, e2') = trans_exp env e2
+      in
+        (e1s @ e2s, T.MEM (e1', e2', typ_size structs typ))
+      end
+    | trans_exp env (A.Deref e) = let
+        val (es, e') = trans_exp env e
+      in
+        (es, T.MEM (e', const 0, 0))
+      end
+    | trans_exp env (A.Field (e, id, ref typ)) = let
+        val (es, e') = trans_exp env e
+        val off = struct_off env typ id
+      in
+        (es, T.MEM (address e', const 1, off))
+      end
+    | trans_exp env (A.Marked data) = trans_exp env (Mark.data data)
 
   (* trans_stm : Temp.temp Symbol.table -> A.stm -> Label.label * Label.label
                                         -> T.program
@@ -117,12 +159,17 @@ struct
             break or continue statement.
    * @return a list of statements in the IL.
    *)
-  fun (*trans_stm (funs, env) (A.Assign (id, e)) _ = let
-          val (es, e') = trans_exp (funs, env) e
-        in
-          es @ [T.MOVE (T.TEMP (Symbol.look' env id), e')]
-        end
-      | *)trans_stm env (A.If(e, s1, s2)) lp = let
+  fun trans_stm env (A.Assign (e1, oper_opt, e2)) _ = let
+        val (e1s, e1') = trans_exp env e1
+        val (e2s, e2') = trans_exp env e2
+        val (e3s, e3') =
+          case oper_opt
+            of SOME oper => (e2s, T.BINOP (trans_oper oper, e1', e2'))
+              | NONE => (e2s, e2')
+      in
+        e1s @ e3s @ [T.MOVE (e1', e3')]
+      end
+    | trans_stm env (A.If(e, s1, s2)) lp = let
         val (es, e') = trans_exp env e
         val (truel, endl) = (Label.new "if_true", Label.new "if_end")
       in
@@ -147,10 +194,10 @@ struct
       end
     | trans_stm env (A.Seq (s1, s2)) lp =
         (trans_stm env s1 lp) @ (trans_stm env s2 lp)
-    | trans_stm (funs, env) (A.Declare (id, _, s)) lp = let
+    | trans_stm (funs, env, structs) (A.Declare (id, _, s)) lp = let
         val env' = Symbol.bind env (id, Temp.new ())
       in
-        trans_stm (funs, env') s lp
+        trans_stm (funs, env', structs) s lp
       end
     | trans_stm env (A.Express e) _ = let
         val t = T.TEMP (Temp.new())
@@ -159,8 +206,8 @@ struct
         instrs @ [T.MOVE (t, exp)]
       end
     | trans_stm _ A.Nop _ = []
+    | trans_stm env (A.Markeds data) lp = trans_stm env (Mark.data data) lp
     | trans_stm _ (A.For (_, _, _, _)) _ = raise Fail "no for loops!"
-    | trans_stm _ (A.Markeds _) _ = raise Fail "No mark data!"
 
   (* translate_fun : Ast.gdecl -> T.func
    *
@@ -168,13 +215,13 @@ struct
    * @param prog the AST program
    * @return a list of statements in the intermediate language.
    *)
-  fun translate_fun funs (A.Fun (_, name, args, body)) = let
+  fun translate_fun (funs, structs) (A.Fun (_, name, args, body)) = let
         fun bind ((_, id), (T, e)) = let val t = Temp.new() in
               (t::T, Symbol.bind e (id, t))
             end
         val (temps, e) = foldr bind ([], Symbol.empty) args
-        val instrs = trans_stm (funs, e)
-                               (A.remove_mark (A.remove_for body A.Nop))
+        val instrs = trans_stm (funs, e, structs)
+                               (A.remove_for body A.Nop)
                                (Label.new "_", Label.new "_")
       in
         SOME (Label.intfunc (Symbol.name name), temps, instrs)
@@ -192,6 +239,16 @@ struct
           | get_external _ = NONE
         val external = List.mapPartial get_external p
         val extfuns = foldr (fn (e, s) => Symbol.add s e) Symbol.null external
-      in List.mapPartial (translate_fun extfuns) p end
+        fun field_size structs ((typ, id), (s, n)) = let
+              val size = typ_size structs typ
+              val pad = if n mod size = 0 then 0 else 4
+            in
+              (Symbol.bind s (id, n + pad), n + pad + size)
+            end
+        fun build_struct (A.Struct (id, L), s) =
+              Symbol.bind s (id, foldl (field_size s) (Symbol.empty, 0) L)
+          | build_struct (_, s) = s
+        val structs = foldl build_struct Symbol.empty p
+      in List.mapPartial (translate_fun (extfuns, structs)) p end
 
 end

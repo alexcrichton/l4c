@@ -23,7 +23,7 @@ struct
                  (* uses         def          succ         nec    stateful *)
   type stmrule = temp list * temp option * label list * temp list * bool
 
-  fun rulegen_exp (T.TEMP t) = ([t], [], false)
+  fun rulegen_exp (T.TEMP t | T.TEMP64 t) = ([t], [], false)
     | rulegen_exp (T.CONST _) = ([], [], false)
     | rulegen_exp (T.BINOP (oper, e1, e2)) = let
         val (U1, N1, s1) = rulegen_exp e1
