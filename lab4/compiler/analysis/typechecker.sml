@@ -41,7 +41,7 @@ struct
   fun is_lvalue (A.Var _) = true
     | is_lvalue (A.Field (e, _)) = is_lvalue e
     | is_lvalue (A.Deref e) = is_lvalue e
-    | is_lvalue (A.ArrSub (e, _)) = is_lvalue e
+    | is_lvalue (A.ArrSub (e, _, _)) = is_lvalue e
     | is_lvalue (A.Marked e) = is_lvalue (Mark.data e)
     | is_lvalue _ = false
 
@@ -139,10 +139,10 @@ struct
            of A.STRUCT id => resolve_struct ext structs id field
             | _ => (ErrorMsg.error ext "Should have a struct type";
                     raise ErrorMsg.Error))
-    | tc_exp env (A.ArrSub (e1, e2)) ext =
+    | tc_exp env (A.ArrSub (e1, e2, r)) ext =
         (tc_ensure env (e2, A.INT) ext;
          case tc_exp env e1 ext
-           of A.ARRAY typ => typ
+           of A.ARRAY typ => (r := typ; typ)
             | _ => (ErrorMsg.error ext "Should have an array type";
                     raise ErrorMsg.Error))
     | tc_exp env (A.Deref e) ext =
