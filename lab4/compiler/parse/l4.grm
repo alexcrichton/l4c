@@ -229,9 +229,10 @@ exp        : IDENT                      (mark (A.Var IDENT,
            | exp exp2                   (convert_exp2 (exp, expleft) exp2)
            | IDENT arg_list             (mark (A.Call (IDENT, arg_list),
                                               (IDENTleft, arg_listright)))
-           | exp PERIOD IDENT           (mark (A.Field (exp, IDENT),
+           | exp PERIOD IDENT           (mark (A.Field (exp, IDENT, ref A.NULL),
                                               (expleft, IDENTright)))
-           | exp ARROW IDENT            (mark ((A.Field (A.Deref exp, IDENT)),
+           | exp ARROW IDENT            (mark ((A.Field (A.Deref exp, IDENT,
+                                                         ref A.NULL)),
                                               (expleft, IDENTright)))
            | ALLOC LPAREN typ RPAREN    (mark (A.Alloc typ,
                                               (ALLOCleft, RPARENright)))

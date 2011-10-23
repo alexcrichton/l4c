@@ -39,7 +39,7 @@ struct
     | type_small _ = true
 
   fun is_lvalue (A.Var _) = true
-    | is_lvalue (A.Field (e, _)) = is_lvalue e
+    | is_lvalue (A.Field (e, _, _)) = is_lvalue e
     | is_lvalue (A.Deref e) = is_lvalue e
     | is_lvalue (A.ArrSub (e, _, _)) = is_lvalue e
     | is_lvalue (A.Marked e) = is_lvalue (Mark.data e)
@@ -134,9 +134,10 @@ struct
     | tc_exp _ (A.Alloc typ) _ = A.PTR typ
     | tc_exp env (A.AllocArray (typ, e)) ext =
         (tc_ensure env (e, A.INT) ext; A.ARRAY typ)
-    | tc_exp (env as (_, structs, _)) (A.Field (e, field)) ext =
+    | tc_exp (env as (_, structs, _)) (A.Field (e, field, tr)) ext =
         (case tc_exp env e ext
-           of A.STRUCT id => resolve_struct ext structs id field
+           of (t as A.STRUCT id) => (tr := t;
+                                     resolve_struct ext structs id field)
             | _ => (ErrorMsg.error ext "Should have a struct type";
                     raise ErrorMsg.Error))
     | tc_exp env (A.ArrSub (e1, e2, r)) ext =
