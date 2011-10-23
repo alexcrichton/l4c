@@ -29,10 +29,10 @@ struct
     | typs_equal (A.INT, A.INT)   = true
     | typs_equal (A.PTR t1, A.PTR t2) = typs_equal (t1, t2)
     | typs_equal (A.ARRAY t1, A.ARRAY t2) = typs_equal (t1, t2)
-    | typs_equal (A.STRUCT s1, A.STRUCT s2) = (Symbol.compare (s1, s2) = EQUAL)
+    | typs_equal (A.STRUCT s1, A.STRUCT s2) = Symbol.equal (s1, s2)
     | typs_equal _ = false
 
-  fun type_small (A.STRUCT _ | A.ARRAY _) = false
+  fun type_small (A.STRUCT _) = false
     | type_small _ = true
 
   fun is_lvalue (A.Var _) = true
@@ -41,6 +41,10 @@ struct
     | is_lvalue (A.ArrSub (e, _)) = is_lvalue e
     | is_lvalue (A.Marked e) = is_lvalue (Mark.data e)
     | is_lvalue _ = false
+
+  fun ensure_small ext t = if type_small t then () else
+                            (ErrorMsg.error ext ("Type must be small: " ^
+                            typ_name t); raise ErrorMsg.Error)
 
   (* tc_equal : A.typ * A.typ -> Mark.ext option -> unit
    *
@@ -60,15 +64,13 @@ struct
                    | NONE => (ErrorMsg.error ext ("Undeclared struct: " ^
                                                   Symbol.name id);
                               raise ErrorMsg.Error)
-        val fields = case s of SOME f => f
+        val table = case s of SOME t => t
                         | NONE => (ErrorMsg.error ext ("Undefined struct: " ^
                                                        Symbol.name id);
                                    raise ErrorMsg.Error)
-        fun rightfield (_, f) = Symbol.compare (field, f) = EQUAL
-        val fieldopt = List.find rightfield fields
       in
-        case fieldopt
-          of SOME (typ, _) => typ
+        case Symbol.look table field
+          of SOME typ => typ
            | NONE => (ErrorMsg.error ext ("Unknown field " ^ Symbol.name field);
                       raise ErrorMsg.Error)
       end
@@ -127,7 +129,8 @@ struct
     | tc_exp _ (A.Const _) _ = A.INT
     | tc_exp _ A.Null _ = A.PTR A.INT (* TODO: all types! *)
     | tc_exp _ (A.Alloc typ) _ = A.PTR typ
-    | tc_exp _ (A.AllocArray (typ, _)) _ = A.ARRAY typ
+    | tc_exp env (A.AllocArray (typ, e)) ext =
+        (tc_ensure env (e, A.INT) ext; A.ARRAY typ)
     | tc_exp (env as (_, structs, _)) (A.Field (e, field)) ext =
         (case tc_exp env e ext
            of A.STRUCT id => resolve_struct ext structs id field
@@ -231,6 +234,7 @@ struct
 
         fun bind_fun ext (typ, id, params) = let
               val types = #1 (LP.unzip params)
+              val _ = app (ensure_small ext) (typ::types)
             in
               case Symbol.look (!funs) id
                 of NONE => (funs := Symbol.bind (!funs) (id, (typ, types)))
@@ -249,18 +253,22 @@ struct
                  | SOME _ => ()
 
         fun bind_struct ext (id, fields) = let
-              val types = #1 (LP.unzip fields)
+              fun add_field ((typ, ident), tbl) = (
+                    case typ
+                      of (A.STRUCT id' | A.PTR (A.STRUCT id')) =>
+                          if not (Symbol.equal (id, id')) then () else
+                          (ErrorMsg.error ext "Cannot define nested structure";
+                          raise ErrorMsg.Error)
+                       | _ => ();
+                    case Symbol.look tbl ident
+                      of NONE => Symbol.bind tbl (ident, typ)
+                       | _ => (ErrorMsg.error ext ("Duplicate field: " ^
+                              Symbol.name ident); raise ErrorMsg.Error))
+              val table = foldl add_field Symbol.empty fields
             in
               case Symbol.look (!structs) id
-                of (NONE | SOME NONE) =>
-                      structs := Symbol.bind (!structs) (id, SOME fields)
-                 | SOME (SOME fields) => let val T = #1 (LP.unzip fields) in
-                      LP.appEq (fn ts => tc_equal ts ext) (types, T)
-                    end
-              handle UnequalLengths =>
-                (ErrorMsg.error ext ("Struct '" ^ Symbol.name id ^ "' has a " ^
-                                     "different number of fields than before");
-                 raise ErrorMsg.Error)
+                of SOME (SOME T) => raise Fail "Redefined struct"
+                 | _ => structs := Symbol.bind (!structs) (id, SOME table)
             end
 
         fun tc_gdecl _ (A.Markedg data) =

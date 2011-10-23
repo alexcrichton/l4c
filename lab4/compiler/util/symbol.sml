@@ -13,6 +13,7 @@
 signature SYMBOL =
 sig
   type symbol
+  val equal : symbol * symbol -> bool (* checks wheter the symbols are equal *)
   val compare : symbol * symbol -> order (* compare symbols by their creation time
             * GREATER if they can not be compared
             *)
@@ -62,6 +63,8 @@ struct
   fun compare ((n, i), (n', i')) =
       if i < 0 orelse i' < 0 then GREATER
       else Int.compare (i, i')
+
+  fun equal p = (compare p = EQUAL)
 
   local
     exception Symbol
