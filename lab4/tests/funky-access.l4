@@ -20,7 +20,7 @@ int main() {
   c->bar = 3;
   d->bar = 4;
   e[0].bar = c->bar;
-  e[1].bar = (true ? a : b)->bar;
+  e[1].bar = (true ? *a : *b).bar;
 
   for (int i = 0; i < 2; i++) {
     a->bar = e[i].bar + e[i + 1].bar;
