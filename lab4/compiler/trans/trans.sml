@@ -82,27 +82,27 @@ struct
    *         commands that need to be executed beforehand, and the expression
    *         contains the result of this operation.
    *)
-  fun trans_exp (_, env, _) (A.Var id) = ([], T.TEMP (Symbol.look' env id))
-    | trans_exp _ (A.Bool b) = ([], const (if b then 1 else 0))
-    | trans_exp _ (A.Const w) = ([], T.CONST w)
-    | trans_exp env (A.UnaryOp (A.NEGATIVE, A.Const w)) = ([], T.CONST(~w))
-    | trans_exp env (A.UnaryOp (A.NEGATIVE, e)) =
-        trans_exp env (A.BinaryOp (A.MINUS, A.Const Word32Signed.ZERO, e))
-    | trans_exp env (A.UnaryOp (A.INVERT, e)) =
-        trans_exp env (A.BinaryOp (A.XOR, A.Const (Word32.fromInt ~1), e))
-    | trans_exp env (A.UnaryOp (A.BANG, e)) =
-        trans_exp env (A.BinaryOp (A.XOR, A.Const (Word32.fromInt 1), e))
-    | trans_exp env (A.BinaryOp (A.GREATER, e1, e2)) =
-        trans_exp env (A.BinaryOp (A.LESS, e2, e1))
-    | trans_exp env (A.BinaryOp (A.GREATEREQ, e1, e2)) =
-        trans_exp env (A.BinaryOp (A.LESSEQ, e2, e1))
-    | trans_exp env (A.BinaryOp (A.LAND, e1, e2)) =
-        trans_exp env (A.Ternary (e1, e2, A.Bool false))
-    | trans_exp env (A.BinaryOp (A.LOR, e1, e2)) =
-        trans_exp env (A.Ternary (e1, A.Bool true, e2))
-    | trans_exp env (A.BinaryOp (oper, e1, e2)) = let
-        val (e1s, e1') = trans_exp env e1
-        val (e2s, e2') = trans_exp env e2
+  fun trans_exp (_, env, _) (A.Var id) _ = ([], T.TEMP (Symbol.look' env id))
+    | trans_exp _ (A.Bool b) _ = ([], const (if b then 1 else 0))
+    | trans_exp _ (A.Const w) _ = ([], T.CONST w)
+    | trans_exp env (A.UnaryOp (A.NEGATIVE, A.Const w)) _ = ([], T.CONST(~w))
+    | trans_exp env (A.UnaryOp (A.NEGATIVE, e)) a =
+        trans_exp env (A.BinaryOp (A.MINUS, A.Const Word32Signed.ZERO, e)) a
+    | trans_exp env (A.UnaryOp (A.INVERT, e)) a =
+        trans_exp env (A.BinaryOp (A.XOR, A.Const (Word32.fromInt ~1), e)) a
+    | trans_exp env (A.UnaryOp (A.BANG, e)) a =
+        trans_exp env (A.BinaryOp (A.XOR, A.Const (Word32.fromInt 1), e)) a
+    | trans_exp env (A.BinaryOp (A.GREATER, e1, e2)) a =
+        trans_exp env (A.BinaryOp (A.LESS, e2, e1)) a
+    | trans_exp env (A.BinaryOp (A.GREATEREQ, e1, e2)) a =
+        trans_exp env (A.BinaryOp (A.LESSEQ, e2, e1)) a
+    | trans_exp env (A.BinaryOp (A.LAND, e1, e2)) a =
+        trans_exp env (A.Ternary (e1, e2, A.Bool false)) a
+    | trans_exp env (A.BinaryOp (A.LOR, e1, e2)) a =
+        trans_exp env (A.Ternary (e1, A.Bool true, e2)) a
+    | trans_exp env (A.BinaryOp (oper, e1, e2)) a = let
+        val (e1s, e1') = trans_exp env e1 a
+        val (e2s, e2') = trans_exp env e2 a
         val (stms, e)  = (e1s @ e2s, T.BINOP (trans_oper oper, e1', e2'))
       in
         if oper <> A.DIVIDEDBY andalso oper <> A.MODULO then (stms, e)
@@ -113,20 +113,20 @@ struct
             (stms @ [T.MOVE (t, e)], t)
           end
       end
-    | trans_exp env (A.Ternary (e1, e2, e3)) = let
+    | trans_exp env (A.Ternary (e1, e2, e3)) a = let
         val (l1, l2) = (Label.new "ternary_true", Label.new "ternary_end")
         val t = T.TEMP (Temp.new())
-        val (e1s, e1') = trans_exp env e1
-        val (e2s, e2') = trans_exp env e2
-        val (e3s, e3') = trans_exp env e3
+        val (e1s, e1') = trans_exp env e1 false
+        val (e2s, e2') = trans_exp env e2 a
+        val (e3s, e3') = trans_exp env e3 a
       in
         (e1s @ [T.GOTO (l1, SOME e1')] @
          e3s @ [T.MOVE (t, e3'), T.GOTO (l2, NONE), T.LABEL l1] @
          e2s @ [T.MOVE (t, e2'), T.LABEL l2], t)
       end
-    | trans_exp (env as (funs, _, _)) (A.Call (name, EL)) = let
+    | trans_exp (env as (funs, _, _)) (A.Call (name, EL)) _ = let
         fun ev (d, (instrs, dests)) = let
-              val (dinstrs, dest) = trans_exp env d
+              val (dinstrs, dest) = trans_exp env d false
             in (dinstrs @ instrs, dest::dests) end
         val (instrs, args) = foldr ev ([], []) EL
         val label =
@@ -135,28 +135,30 @@ struct
       in
         (instrs, T.CALL (label, args))
       end
-    | trans_exp _ A.Null = ([], const 0)
-    | trans_exp (env as (_, _, structs)) (A.AllocArray (typ, e)) = let
-        val (es, e') = trans_exp env e
+    | trans_exp _ A.Null _ = ([], const 0)
+    | trans_exp (env as (_, _, structs)) (A.AllocArray (typ, e)) _ = let
+        val (es, e') = trans_exp env e false
       in
         (es, T.CALL (Label.extfunc "calloc", [e',
                                               const (typ_size structs typ)]))
       end
-    | trans_exp (_, _, structs) (A.Alloc typ) =
+    | trans_exp (_, _, structs) (A.Alloc typ) _ =
         ([], T.CALL (Label.extfunc "calloc", [const 1,
                                               const (typ_size structs typ)]))
-    | trans_exp (env as (_, _, structs)) (A.ArrSub (e1, e2, ref typ)) = let
-        val (e1s, e1') = trans_exp env e1
-        val (e2s, e2') = trans_exp env e2
-      in (e1s @ e2s, T.MEM (e1', e2', typ_size structs typ)) end
-    | trans_exp env (A.Deref e) = let val (es, e') = trans_exp env e in
-        (es, T.MEM (e', const 0, 0))
+    | trans_exp (env as (_, _, structs)) (A.ArrSub (e1, e2, ref typ)) a = let
+        val (e1s, e1') = trans_exp env e1 true
+        val (e2s, e2') = trans_exp env e2 false
+        val dest = T.MEM (e1', e2', typ_size structs typ)
+      in (e1s @ e2s, if a then address dest else dest) end
+    | trans_exp env (A.Deref e) a = let val (es, e') = trans_exp env e false in
+        (es, if a then e' else T.MEM (e', const 0, 0))
       end
-    | trans_exp env (A.Field (e, id, ref typ)) = let
-        val (es, e') = trans_exp env e
+    | trans_exp env (A.Field (e, id, ref typ)) a = let
+        val (es, e') = trans_exp env e true
         val off = struct_off env typ id
-      in (es, T.MEM (address e', const 1, off)) end
-    | trans_exp env (A.Marked data) = trans_exp env (Mark.data data)
+        val dest = T.MEM (address e', const 1, off)
+      in (es, if a then address dest else dest) end
+    | trans_exp env (A.Marked data) a = trans_exp env (Mark.data data) a
 
   (* trans_stm : 'a -> A.stm -> Label.label * Label.label -> T.program
    *
@@ -170,8 +172,8 @@ struct
    * @return a list of statements in the IL.
    *)
   fun trans_stm env (A.Assign (e1, oper_opt, e2)) _ = let
-        val (e1s, e1') = trans_exp env e1
-        val (e2s, e2') = trans_exp env e2
+        val (e1s, e1') = trans_exp env e1 false
+        val (e2s, e2') = trans_exp env e2 false
         val (e3s, e3') =
           case oper_opt
             of SOME oper => (e2s, T.BINOP (trans_oper oper, e1', e2'))
@@ -180,7 +182,7 @@ struct
         e1s @ e3s @ [T.MOVE (e1', e3')]
       end
     | trans_stm env (A.If(e, s1, s2)) lp = let
-        val (es, e') = trans_exp env e
+        val (es, e') = trans_exp env e false
         val (truel, endl) = (Label.new "if_true", Label.new "if_end")
       in
         es @ [T.GOTO (truel, SOME e')] @
@@ -188,7 +190,7 @@ struct
           trans_stm env s1 lp @ [T.LABEL endl]
       end
     | trans_stm env (A.While (e, s)) _ = let
-        val (es, e') = trans_exp env e
+        val (es, e') = trans_exp env e false
         val start    = Label.new "lp_start"
         val continue = Label.new "lp_continue"
         val break    = Label.new "lp_break"
@@ -199,9 +201,9 @@ struct
       end
     | trans_stm _ A.Continue (_, continue) = [T.GOTO (continue, NONE)]
     | trans_stm _ A.Break (break, _) = [T.GOTO (break, NONE)]
-    | trans_stm env (A.Return e) _ = let val (einstrs, e') = trans_exp env e in
-        einstrs @ [T.RETURN e']
-      end
+    | trans_stm env (A.Return e) _ = let
+        val (einstrs, e') = trans_exp env e false
+      in einstrs @ [T.RETURN e'] end
     | trans_stm env (A.Seq (s1, s2)) lp =
         (trans_stm env s1 lp) @ (trans_stm env s2 lp)
     | trans_stm (funs, env, structs) (A.Declare (id, _, s)) lp = let
@@ -209,7 +211,7 @@ struct
       in trans_stm (funs, env', structs) s lp end
     | trans_stm env (A.Express e) _ = let
         val t = T.TEMP (Temp.new())
-        val (instrs, exp) = trans_exp env e
+        val (instrs, exp) = trans_exp env e false
       in instrs @ [T.MOVE (t, exp)] end
     | trans_stm _ A.Nop _ = []
     | trans_stm env (A.Markeds data) lp = trans_stm env (Mark.data data) lp
