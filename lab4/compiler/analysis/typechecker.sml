@@ -192,8 +192,8 @@ struct
    * @raise ErrorMsg.Error if there is a typecheck error
    * @return nothing
    *)
-  fun tc_stm (env' as (_,_,env)) (A.Assign (e1, _, e2)) ext _ =
-        if is_lvalue e1 then tc_ensure env' (e2, tc_exp env' e1 ext) ext
+  fun tc_stm env (A.Assign (e1, _, e2)) ext _ =
+        if is_lvalue e1 then tc_ensure env (e2, tc_exp env e1 ext) ext
         else (ErrorMsg.error ext "not an lvalue"; raise ErrorMsg.Error)
     | tc_stm env (A.If (e,s1,s2)) ext lp =
         (tc_ensure env (e,A.BOOL) ext; tc_stm env s1 ext lp;
