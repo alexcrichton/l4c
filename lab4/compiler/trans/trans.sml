@@ -15,6 +15,13 @@ struct
   structure A = Ast
   structure T = Tree
 
+  (* typ_size : 'a -> A.typ -> int
+   *
+   * Calculates the size of a type
+   * @param T the table of structs
+   * @param typ the type to size
+   * @return the size of the type
+   *)
   fun typ_size _ A.INT  = 4
     | typ_size _ A.BOOL = 4
     | typ_size _ (A.PTR _) = 8
@@ -22,10 +29,23 @@ struct
     | typ_size s (A.STRUCT id) = #2 (Symbol.look' s id : int Symbol.table * int)
     | typ_size _ _ = raise Fail "Invalid type"
 
+  (* struct_off : 'a * 'b * 'c -> A.typ -> Symbol.symbol -> int
+   *
+   * Fetches the offset of a field in a struct
+   * @param env the environment tuple, where the third element is the table of
+   *        struct information
+   * @param typ the struct type to lookup
+   * @param field the name of the field to find the offset for
+   * @return the offset of the field into the struct.
+   *)
   fun struct_off (_,_,s) (A.STRUCT id) field =
         Symbol.look' (#1 (Symbol.look' s id : int Symbol.table * int)) field
     | struct_off _ _ _ = raise Fail "Invalid struct"
 
+  (* const : int -> T.exp
+   *
+   * Helper function to quickly go from an integer to a constant expression
+   *)
   fun const n = T.CONST (Word32.fromInt n)
 
   fun address (T.MEM(b,i,s)) = T.BINOP (T.ADD, b, T.BINOP (T.MUL, i, const s))
@@ -51,11 +71,11 @@ struct
     | trans_oper A.RSHIFT    = T.RSH
     | trans_oper _           = raise Fail "Invalid binop translation"
 
-  (* trans_exp : Temp.temp Symbol.table -> A.exp -> T.stm list * T.exp
+  (* trans_exp : 'a -> A.exp -> T.stm list * T.exp
    *
    * Translates an AST expression into an IR expression.
    *
-   * @param env the known variables so far
+   * @param env the environment so far
    * @param exp the expression to convert
    *
    * @return A tuple of statements and an IR expression. The statement list is
@@ -107,11 +127,8 @@ struct
     | trans_exp (env as (funs, _, _)) (A.Call (name, EL)) = let
         fun ev (d, (instrs, dests)) = let
               val (dinstrs, dest) = trans_exp env d
-            in
-              (dinstrs @ instrs, dest::dests)
-            end
+            in (dinstrs @ instrs, dest::dests) end
         val (instrs, args) = foldr ev ([], []) EL
-        val t = Temp.new ()
         val label =
           if Symbol.member funs name then Label.extfunc (Symbol.name name)
           else Label.intfunc (Symbol.name name)
@@ -121,9 +138,9 @@ struct
     | trans_exp _ A.Null = ([], const 0)
     | trans_exp (env as (_, _, structs)) (A.AllocArray (typ, e)) = let
         val (es, e') = trans_exp env e
-        val size = typ_size structs typ
       in
-        (es, T.CALL (Label.extfunc "calloc", [e', const size]))
+        (es, T.CALL (Label.extfunc "calloc", [e',
+                                              const (typ_size structs typ)]))
       end
     | trans_exp (_, _, structs) (A.Alloc typ) =
         ([], T.CALL (Label.extfunc "calloc", [const 1,
@@ -131,29 +148,22 @@ struct
     | trans_exp (env as (_, _, structs)) (A.ArrSub (e1, e2, ref typ)) = let
         val (e1s, e1') = trans_exp env e1
         val (e2s, e2') = trans_exp env e2
-      in
-        (e1s @ e2s, T.MEM (e1', e2', typ_size structs typ))
-      end
-    | trans_exp env (A.Deref e) = let
-        val (es, e') = trans_exp env e
-      in
+      in (e1s @ e2s, T.MEM (e1', e2', typ_size structs typ)) end
+    | trans_exp env (A.Deref e) = let val (es, e') = trans_exp env e in
         (es, T.MEM (e', const 0, 0))
       end
     | trans_exp env (A.Field (e, id, ref typ)) = let
         val (es, e') = trans_exp env e
         val off = struct_off env typ id
-      in
-        (es, T.MEM (address e', const 1, off))
-      end
+      in (es, T.MEM (address e', const 1, off)) end
     | trans_exp env (A.Marked data) = trans_exp env (Mark.data data)
 
-  (* trans_stm : Temp.temp Symbol.table -> A.stm -> Label.label * Label.label
-                                        -> T.program
+  (* trans_stm : 'a -> A.stm -> Label.label * Label.label -> T.program
    *
    * Translates statements from the AST to the IL representation. This assumes
    * that the AST has no for loops
    *
-   * @param env the current environment of known symbols
+   * @param env the current environment so far
    * @param stms the list of statements to convert from the AST
    * @param (break, continue) labels of where to go if we're translating a
             break or continue statement.
@@ -209,9 +219,10 @@ struct
     | trans_stm env (A.Markeds data) lp = trans_stm env (Mark.data data) lp
     | trans_stm _ (A.For (_, _, _, _)) _ = raise Fail "no for loops!"
 
-  (* translate_fun : Ast.gdecl -> T.func
+  (* translate_fun : 'a -> Ast.gdecl -> T.func
    *
    * Translates an abstract syntax tree into the intermediate language.
+   * @param (funs, structs) the known functions and structs so far
    * @param prog the AST program
    * @return a list of statements in the intermediate language.
    *)
