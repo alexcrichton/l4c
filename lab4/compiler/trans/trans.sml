@@ -206,15 +206,11 @@ struct
         (trans_stm env s1 lp) @ (trans_stm env s2 lp)
     | trans_stm (funs, env, structs) (A.Declare (id, _, s)) lp = let
         val env' = Symbol.bind env (id, Temp.new ())
-      in
-        trans_stm (funs, env', structs) s lp
-      end
+      in trans_stm (funs, env', structs) s lp end
     | trans_stm env (A.Express e) _ = let
         val t = T.TEMP (Temp.new())
         val (instrs, exp) = trans_exp env e
-      in
-        instrs @ [T.MOVE (t, exp)]
-      end
+      in instrs @ [T.MOVE (t, exp)] end
     | trans_stm _ A.Nop _ = []
     | trans_stm env (A.Markeds data) lp = trans_stm env (Mark.data data) lp
     | trans_stm _ (A.For (_, _, _, _)) _ = raise Fail "no for loops!"
@@ -252,7 +248,7 @@ struct
         val extfuns = foldr (fn (e, s) => Symbol.add s e) Symbol.null external
         fun field_size structs ((typ, id), (s, n)) = let
               val size = typ_size structs typ
-              val pad = if n mod size = 0 then 0 else 4
+              val pad = if n mod size = 0 then 0 else 4 (* TODO: real math *)
             in
               (Symbol.bind s (id, n + pad), n + pad + size)
             end
