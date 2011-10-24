@@ -241,8 +241,8 @@ exp        : IDENT                      (mark (A.Var IDENT,
                                               (ALLOCARRleft, RPARENright)))
            | STAR exp                   (mark (A.Deref exp,
                                               (STARleft, expright)))
-           | exp LBRACKET exp RBRACKET (mark (A.ArrSub (exp, exp, ref A.NULL),
-                                              (expleft, RBRACKETright)))
+           | exp LBRACKET exp RBRACKET (mark (A.ArrSub (exp1, exp2, ref A.NULL),
+                                              (exp1left, RBRACKETright)))
 
 exp2       : PLUS exp         (SOME(A.PLUS), exp, NONE, expright)
            | MINUS exp        (SOME(A.MINUS), exp, NONE, expright)
