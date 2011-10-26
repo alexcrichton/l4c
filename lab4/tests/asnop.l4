@@ -10,6 +10,6 @@ int *read() {
 
 int main() {
   int[] arr = alloc_array(int, 100);
-  arr[*read()] = 5;
+  arr[*read()] += 5;
   return 1;
 }
