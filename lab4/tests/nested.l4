@@ -22,8 +22,8 @@ int main() {
   struct line *l = alloc(struct line);
   l->p1.x = 2;
   l->p1.y = -1;
-  *l.p2.x = 5;
-  *l.p2.y = 3;
+  (*l).p2.x = 5;
+  (*l).p2.y = 3;
 
   return dist_squared(l);
 }
