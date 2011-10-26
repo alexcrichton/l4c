@@ -1,0 +1,14 @@
+//test return 1
+
+int *read() {
+  if (eof())
+    return null;
+  int *n = alloc(int);
+  *n = readint();
+  return n;
+}
+
+int main() {
+  *read() += 5;
+  return 1;
+}
