@@ -2,7 +2,7 @@
 
 struct iptr {
   int *i;
-}
+};
 
 int main() {
   struct iptr[] arr = alloc_array(struct iptr, 10);
