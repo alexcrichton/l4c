@@ -2,7 +2,7 @@
 
 int *read() {
   if (eof())
-    return null;
+    return NULL;
   int *n = alloc(int);
   *n = readint();
   return n;
