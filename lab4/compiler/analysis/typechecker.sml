@@ -66,6 +66,25 @@ struct
                             (ErrorMsg.error ext ("Type must be small: " ^
                             typ_name t); raise ErrorMsg.Error)
 
+  (* ensure_typ_defined : Mark.ext option -> 'a -> A.typ
+   *
+   * Ensures that the provided type is defined and available for allocation.
+   * Currently, this only applies to structs, which could possibly have been
+   * forward-declared, but not defined just yet.
+   *
+   * @param ext the current extents in the file
+   * @param env the current environment of known structs
+   * @param typ the type in question
+   * @raise ErrorMsg.Error if the given type is not defined for allocation
+   *)
+  fun ensure_typ_defined ext (_, structs, _) (A.STRUCT id) =
+        (case Symbol.look structs id
+           of SOME(SOME _) => ()
+            | _ => (ErrorMsg.error ext ("Struct not defined: " ^
+                                        Symbol.name id);
+                    raise ErrorMsg.Error))
+    | ensure_typ_defined _ _ _ = ()
+
   (* tc_equal : A.typ * A.typ -> Mark.ext option -> unit
    *
    * @param t1, t2 the types to test for equivalence
@@ -160,9 +179,10 @@ struct
     | tc_exp _ (A.Bool _) _ = A.BOOL
     | tc_exp _ (A.Const _) _ = A.INT
     | tc_exp _ A.Null _ = A.NULL
-    | tc_exp _ (A.Alloc typ) _ = A.PTR typ
+    | tc_exp env (A.Alloc typ) ext = (ensure_typ_defined ext env typ; A.PTR typ)
     | tc_exp env (A.AllocArray (typ, e)) ext =
-        (tc_ensure env (e, A.INT) ext; A.ARRAY typ)
+        (tc_ensure env (e, A.INT) ext; ensure_typ_defined ext env typ;
+         A.ARRAY typ)
     | tc_exp (env as (_, structs, _)) (A.Field (e, field, tr)) ext =
         (case tc_exp env e ext
            of (t as A.STRUCT id) => (tr := t;
