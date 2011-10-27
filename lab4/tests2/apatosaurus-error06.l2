@@ -1,0 +1,10 @@
+//test error 
+//break in an if statement
+int main()
+{
+    if(0 == 0){
+        return 0<<2;
+        break;
+    }
+    return -1;
+}

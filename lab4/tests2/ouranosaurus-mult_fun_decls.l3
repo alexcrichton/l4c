@@ -1,0 +1,13 @@
+//test return 0
+
+int decl_me_once_shame_on_shame_on_you();
+
+int decl_me_once_shame_on_shame_on_you();
+
+int def_me_cant_get_defed_again() {
+    return 0;
+}
+
+int main() {
+    return def_me_cant_get_defed_again();
+}

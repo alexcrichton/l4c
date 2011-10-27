@@ -1,0 +1,42 @@
+//test return 0
+
+//Swap the i-th and j-th bytes of a value (i and j are counted from the right).
+//Return x if i or j is not between 0 and 3
+int swap(int x, int i, int j)
+{
+    int ishift;
+    int jshift;
+    int mask;
+    int ibyte;
+    int jbyte;
+    
+    if (i < 0 || i > 3 || j < 0 || j > 3)
+        return x;
+    
+	ishift = 8 * i;
+	jshift = 8 * j;
+	mask = 0x000000ff;
+
+	//Get bytes to swap
+	ibyte = (x & (mask << ishift)) >> ishift;
+	jbyte = (x & (mask << jshift)) >> jshift;
+
+    //Clear the swapped bytes
+    mask = (mask << ishift) | (mask << jshift);
+    x = x & ~mask;
+    
+    //Swap the bytes and add them back to x
+    mask = (ibyte << jshift) | (jbyte << ishift);
+    x = x | mask;
+    
+    return x;
+}
+
+int main()
+{
+    int x = swap(0x12345678, 1, 3);
+	if(x == 0x56341278)
+		return 0;
+	else
+		return -1;
+}

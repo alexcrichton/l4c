@@ -1,0 +1,19 @@
+//test return 9
+
+int mod(int z, int w);
+
+int sum2(int x, int y, int z, int w, int v){
+	return x - y + z * mod(x, y);
+}
+
+int sum1(int x, int y, int z, int w, int v){
+	return x + y + z + w + sum2(x, y, z, w, v);
+}
+
+int mod(int x, int y){
+	return y % x;
+}
+
+int main(){
+	return sum1(2, 0, 2, 3, 4);
+}

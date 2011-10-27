@@ -1,0 +1,17 @@
+//test error
+// aliasing and names
+typedef int _x;
+typedef int x_;
+
+typeInt plus (_x x, x_ xx) {
+  return x + xx;
+}
+
+x_ times(_x x__, x_ _x){ // invalid int int
+  return x__ * __x;
+}
+
+x_ main () {
+  _x x__ = 5;
+  return plus(x_, times(_x + 1, plus(x_ + 1, 1)));
+}

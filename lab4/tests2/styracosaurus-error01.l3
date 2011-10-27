@@ -1,0 +1,12 @@
+//test error
+//Program has no main
+
+int exp(int x, int y);
+
+int exp(int base, int x)
+{
+	int i;
+	for(i=0; i<x; i++)
+		base *= base;
+	return base;
+}

@@ -1,0 +1,15 @@
+//test error
+//Function declared multiple times with different types
+
+bool foo(int x);
+int foo(int x);
+
+int main()
+{
+	return foo(1);
+}
+
+int foo(int x)
+{
+	return x;
+}

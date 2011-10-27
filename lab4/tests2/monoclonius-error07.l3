@@ -1,0 +1,14 @@
+//test error
+
+int foo(int x){
+    int foo;
+    foo = 3;
+    if(x > 0)
+        return foo(x - 1);
+    else
+        return 0;
+}
+
+int main(){
+    return foo(5); 
+}

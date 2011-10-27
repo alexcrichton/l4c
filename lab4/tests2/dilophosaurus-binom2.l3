@@ -1,0 +1,38 @@
+//test return 0
+
+int fact(int n){
+	if(n < 2) return 1;
+	return n * fact(n-1);
+}
+
+// number of permutations
+int P(int n, int k){
+	return fact(n) / fact(n-k);
+}
+
+// binomial coefficient
+int C(int n, int k){
+	return P(n, k) / fact(k);
+}
+
+int powerOf2(int n){
+	return 1 << n;
+}
+
+int main(){
+	/**
+	 * But we probably not all know that :
+	   sum from i=0 to N of C(N, i)^2 = C(2*N, N)
+	 */
+	 // let's verify it !
+
+	 int i;
+	 int sum = 0;
+	 int N = 4; // factorial goes high really fast, far beyond int capacity !
+	 for(i = 0; i <= N; i++){
+		 int c = C(N, i);
+		 sum += c * c;
+	 }
+
+	 return sum - C(2 * N, N);
+}

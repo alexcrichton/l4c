@@ -1,0 +1,16 @@
+//test return 0
+//divs and mods on functions
+
+int d(int x, int y)
+{
+return x/y;
+}
+int m(int x, int y)
+{
+return x%y;
+}
+
+int main()
+{
+return (d(6,3) * d(8/1,4) % m(9,5));
+}

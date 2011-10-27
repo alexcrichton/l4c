@@ -1,0 +1,47 @@
+//test return 32
+/* Test interactions of caller-save registers and fixed-register operations
+ * If you fail this, something was probably also wrong with your L2 */
+
+/* computes x(2^16) */
+int ghost(int x)
+{
+	/* Mimicking brachiosaurus-add-big-big-test.l1 */
+	int a = x;
+	int b = x;
+	int c = a+b;
+	int d = a+b+c;
+	int e = a+b+c+d;
+	int f = a+b+c+d+e; // 16
+	int g = a+b+c+d+e+f;
+	int h = a+b+c+d+e+f+g;
+	int i = a+b+c+d+e+f+g+h;
+	int j = a+b+c+d+e+f+g+h+i; // 256 
+	int k = a+b+c+d+e+f+g+h+i+j;
+	int l = a+b+c+d+e+f+g+h+i+j+k;
+	int m = a+b+c+d+e+f+g+h+i+j+k+l;
+	int n = a+b+c+d+e+f+g+h+i+j+k+l+m; // 4096
+	int o = a+b+c+d+e+f+g+h+i+j+k+l+m+n;
+	int p = a+b+c+d+e+f+g+h+i+j+k+l+m+n+o;
+	int q = a+b+c+d+e+f+g+h+i+j+k+l+m+n+o+p;
+	int r = a+b+c+d+e+f+g+h+i+j+k+l+m+n+o+p+q; // 65536
+	return r;
+}
+
+int main()
+{
+	int a;
+	int b = 3;
+	int c = 1;
+	int d = 1;
+
+	a = c + d;
+	c = a << b;
+	b = ghost(d);
+	d = c / a;
+	b = b >> d;
+	c = ghost(d - a);
+	d = c / b;
+	a = ghost(a);
+	b = d >> 7;
+	return a >> b;
+}

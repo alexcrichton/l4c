@@ -1,0 +1,27 @@
+//test return 1
+//tests short-circuit evaluation
+
+int infinite_loop();
+
+int main()
+{
+bool a = false;
+if(a && (infinite_loop()==1))
+return 0;
+
+return 1;
+
+}
+
+int infinite_loop()
+{
+bool b= true;
+while(b)
+{
+continue;
+}
+return 555;
+
+}
+
+

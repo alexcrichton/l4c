@@ -1,0 +1,23 @@
+//test exception
+
+int recurb(int foo);
+
+int recura(int val){
+    if(val == 0){
+        return recurb(val);
+    }else{
+        return recura(val - 1);
+    }
+}
+
+int recurb(int val){
+    if(val == 100){
+        return recura(val);
+    }else{
+        return recurb(val + 1);
+    }
+}
+
+int main(){
+    return recura(5) + recurb(6);
+}

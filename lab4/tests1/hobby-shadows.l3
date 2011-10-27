@@ -1,0 +1,11 @@
+//test error
+int ninja() {
+    return 0;
+}
+
+int main() {
+    int ninja = (1 - ninja());
+    ninja ++;
+    ninja += ninja();
+    return ninja() - 2 + ninja;
+}

@@ -1,0 +1,24 @@
+//test return 1185853788
+// Takes a square root by Newton's method.
+
+typedef int n;
+typedef n float;
+
+int fabs(int x) {
+  return x & 0x7fffffff;
+}
+
+int A(int base, float guess) {
+  float ng = fsub(guess, fdiv(fsub(fmul(guess,guess),tofloat(base)),fmul(tofloat(2),guess)));
+  float diff = fabs(fsub(ng, guess));
+  if (fsub(diff, fdiv(tofloat(1), tofloat(100))) < 0) {
+    return ng;
+  }
+  else {
+    return A(base, ng);
+  }
+}
+
+int main() {
+  return A(499999999,tofloat(10));
+}

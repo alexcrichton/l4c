@@ -1,0 +1,15 @@
+//test return 1048575
+// Computes the solution to the Towers of Hanoi Problem with n = 20
+
+int hanoi(int n);
+
+int main()
+{
+    return hanoi(20);
+}
+
+int hanoi(int n)
+{
+    if(n == 1) return 1;
+    else return 2 * hanoi(n - 1) + 1;
+}

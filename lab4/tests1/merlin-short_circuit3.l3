@@ -1,0 +1,32 @@
+//test exception 8 
+
+bool i_loop_u_divzero();
+
+bool i_loop_u_loop()
+{
+  int x = 3;
+  while(x<4)
+  {
+    x++;
+    int y = x - 9;
+    x--;
+  }
+  return false;
+}
+
+int main()
+{
+  int i;
+  for(i = 0; i > -1; i++)
+  {
+    if(i_loop_u_divzero() || i_loop_u_loop() )
+      i++;
+  }
+  return i;
+}
+
+bool i_loop_u_divzero()
+{
+  int x = 3;
+  return true && x/0 > 1;
+}

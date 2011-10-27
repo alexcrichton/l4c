@@ -1,0 +1,26 @@
+//test return 777
+// test repeated (excessive) decls
+
+int awesome(int hurf, int durf);
+int awesome(int foo, int bar);
+
+int notused(int whocares)
+{
+  return -9;
+}
+
+int awesome(int stop, int it);
+
+int main()
+{
+  return 777;
+}
+
+int awesome(int argh, int blargh);
+
+int notused2()
+{
+  return notused(-9);
+}
+
+int awesome(int ne, int ver);

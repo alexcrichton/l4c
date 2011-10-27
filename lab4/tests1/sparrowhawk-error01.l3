@@ -1,0 +1,12 @@
+//test error
+//chain of typedefs ending in a backwards typedef that
+//results in an error
+
+typedef int theRunaround;
+typedef theRunaround wildGooseChase;
+typedef wildGooseChase somethingElse;
+typedef backwards somethingElse;
+
+backwards main(){
+	return 0;
+}

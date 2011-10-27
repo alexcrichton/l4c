@@ -1,0 +1,10 @@
+//test exception 
+
+int exeffect(int l){
+    return l + exeffect(l - 1);
+}
+
+int main(){
+    exeffect(0);
+    return 10;
+}

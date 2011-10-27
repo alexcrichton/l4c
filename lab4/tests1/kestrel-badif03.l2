@@ -1,0 +1,9 @@
+//test error
+int main()
+{
+  if(true)
+  {
+    continue;
+  }
+  return 42;
+}

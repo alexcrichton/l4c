@@ -1,0 +1,17 @@
+//test exception
+
+int f1(int a)
+{
+    return a/f1(a - 1);
+}
+
+int main()
+{
+    int i = 10;
+    for (i = 4; i < 500; i++)
+    {
+        f1(i);
+    }
+    
+    return 0;
+}

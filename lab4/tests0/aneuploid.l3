@@ -1,0 +1,16 @@
+//test return 0
+// An example test with output
+int main()
+{
+	printchar(0x61);
+	printchar(0x6e);
+	printchar(0x65);
+	printchar(0x75);
+	printchar(0x70);
+	printchar(0x6c);
+	printchar(0x6f);
+	printchar(0x69);
+	printchar(0x64);
+	printchar(0x0a);
+	return 0;
+}

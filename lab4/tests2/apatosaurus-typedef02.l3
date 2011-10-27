@@ -1,0 +1,12 @@
+//test return 1337
+// typedefs on typedefs
+
+typedef int taco;
+typedef taco burrito;
+
+burrito main()
+{
+  taco truck = 1337;
+
+  return truck;
+}

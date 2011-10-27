@@ -1,0 +1,23 @@
+//test return 36288010
+// Test passing more than 6 args into function
+
+int fac(int a1, int b2, int c3, int d4, int e5, int f6, int g7, int h8, int i9, int j10);
+
+int fac(int a, int b, int c, int d, int e, int f, int g, int h, int i, int j)
+{
+    return a*b*c*d*e*f*g*h*i*j;
+}
+
+int main()
+{
+    int x;
+    int y = 0;
+
+    for(x = 0; x < 10; x++)
+    {
+        y += fac(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+        y++;
+    }
+
+    return y;
+}

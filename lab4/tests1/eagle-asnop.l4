@@ -1,0 +1,15 @@
+//test return 1
+
+int *read() {
+  if (eof())
+    return NULL;
+  int *n = alloc(int);
+  *n = readint();
+  return n;
+}
+
+int main() {
+  int[] arr = alloc_array(int, 100);
+  arr[*read()] += 5;
+  return 1;
+}

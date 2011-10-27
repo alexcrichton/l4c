@@ -1,0 +1,22 @@
+//test return 165
+// Tests calling a function that executes a loop to calculate the sum of
+// ints from n to m
+
+int sum(int n, int m);
+
+int main()
+{
+    return sum(10, 20);
+}
+
+int sum(int x, int y)
+{
+    int z = 0;
+
+    for(; x <= y; x++)
+    {
+        z += x;
+    }
+
+    return z;
+}

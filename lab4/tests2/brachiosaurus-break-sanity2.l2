@@ -1,0 +1,15 @@
+//test error
+
+int main() {
+    int i = 2;
+    int j = 3;
+    bool t = true;
+    for (i = 0; t; i++){
+        break;
+    }
+    if (i == 0) {
+        if (j == 1)
+            break;
+    }
+    return 0;
+}

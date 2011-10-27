@@ -1,0 +1,12 @@
+//test error
+
+typedef bool foo;
+typedef foo blah;
+
+blah bar(foo stuff){
+    return true;
+}
+
+int main(){
+    return bar(false);
+}

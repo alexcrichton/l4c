@@ -1,0 +1,29 @@
+//test return 128
+
+int newline () {
+  int _;
+  _ = printchar(10);
+  return 0;
+}
+
+bool isprint(int c) {
+  return (32 <= c && c <= 126);
+}
+
+int print_ascii (int c, int n) {
+  int _;
+  while (c <= n) {
+    _ = printint(c);
+    _ = printchar(32);
+    _ = printchar(61);
+    _ = printchar(32);
+    if (isprint(c)) _ = printchar(c);
+    _ = newline();
+    c += 1;
+  }
+  return c;
+}
+
+int main () {
+  return print_ascii (32,127);
+}

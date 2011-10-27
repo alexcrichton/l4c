@@ -1,0 +1,15 @@
+//test exception 8
+
+// this function blow the stack
+int stackOverflow(int x, int y, int z, int w, int v){
+	stackOverflow(x + 1, y + 2, z + 3, w + 4, v + 5);
+	return 42;
+}
+
+int eval(int x, int y, int z){
+	return 0;
+}
+
+int main(){
+  return eval(1, 1/0, stackOverflow(1, 1, 1, 1, 1));
+}

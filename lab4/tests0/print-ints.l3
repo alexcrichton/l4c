@@ -1,0 +1,11 @@
+//test return 55
+int main() {
+	while (!eof()) {
+		int c = readint();
+		printint(c);
+		printchar(0xa);
+	}
+	return 55;
+}
+
+

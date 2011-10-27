@@ -1,0 +1,7 @@
+//test return 17
+int _c0_main() {
+	return 17;
+}
+int main() { 
+	return _c0_main();
+}

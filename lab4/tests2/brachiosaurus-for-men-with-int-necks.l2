@@ -1,0 +1,47 @@
+//test return 409600
+
+int main()
+{
+	int mans1;
+	int mans2;
+	int mans3;
+	int mans4;
+	int neck1 = 0;
+	int neck2;
+	int neck3;
+	int neck4;
+
+	// The first mans takes on 8 values 0,2,4..14
+	for (mans1 = 0; mans1 < 16; mans1++) {
+		if ((mans1 & 1) != 0) {
+			continue;
+		}
+		neck2 = 0;
+		// The second mans takes on 16 values 0,1,2..15
+		for (mans2 = 0; mans2 < 16; mans2++) {
+			neck3 = 0;
+			// The third mans takes on 8 values 0,1,2..7
+			for (mans3 = 0; mans3 < 16; mans3++) {
+				neck4 = 0;
+				// The fourth mans takes on 4 values 0,4,8,12
+				for (mans4 = 0; mans4 < 16; mans4++) {
+					if ((mans4 & 3) != 0) {
+						continue;
+					}
+					// neck4 = 24 after the loop
+					neck4 += mans4;
+				}
+				// neck3 = 8*24 = 192 after the loop
+				neck3 += neck4;
+				if (mans3 == 7) {
+					break;
+				}
+			}
+			// neck2 = 16*(192+8) = 3200 after the loop
+			neck2 += mans3 + neck3 + 1;
+		}
+		// neck1 = 8*(3200*16) = 409600 after the loop
+		neck1 += mans2 * neck2;
+	}
+	return neck1;
+}

@@ -1,0 +1,16 @@
+//test return 65536
+// Let's compute 2 uparrow(3) 3 recursively!
+
+int uparrow (int left, int right, int n) {
+  if (n < 1)
+    return left * right;
+
+  if (right < 1)
+    return 1;
+
+  return uparrow (left, uparrow(left, right-1, n), n-1);
+}
+
+int main () {
+  return uparrow(2, 3, 3);
+}

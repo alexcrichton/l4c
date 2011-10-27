@@ -1,0 +1,34 @@
+//test return 42
+
+bool base64_encode(int[]* str, int len){
+	int i;
+	int[] out = alloc_array(int, 4);
+	if (len % 3 != 0)
+		return false;
+	
+	for(i =0 ; i < len; i+=3){
+      
+      out[0]=(*str)[0] >> 2;
+      out[1]=0x3f & (*str)[0] << 4 | (*str)[1] >> 4;
+      out[2]=0x3F & (*str)[1] << 2 | (*str)[2] >> 6;
+      out[3]=(*str)[2] & 0x3F;
+			printchar(out[0]);
+			printchar(out[1]);
+			printchar(out[2]);
+  }
+	
+	return out[0]==19 && out[1]==22 && out[2]==5 && out[3]==46;
+}
+
+int main(){
+	int[]* str = alloc(int[]);
+	*str = alloc_array(int, 3);
+
+	(*str)[0] =77;
+	(*str)[1] =97;
+	(*str)[2] =110;
+	
+	//Should print TWFu, sample from wikipedia
+	//http://en.wikipedia.org/wiki/Base64//Examples
+	return base64_encode(str, 3) ? 42 : -42;
+}
