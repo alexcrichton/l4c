@@ -26,6 +26,10 @@ struct
     | typ_name (A.STRUCT ident) = "struct " ^ Symbol.name ident
     | typ_name (A.TYPEDEF ident) = Symbol.name ident
 
+  (* typs_equal : A.typ * A.typ -> bool
+   *
+   * @return true if the two types are the same
+   *)
   fun typs_equal (A.BOOL, A.BOOL) = true
     | typs_equal (A.INT, A.INT)   = true
     | typs_equal (A.NULL, A.NULL) = true
@@ -35,9 +39,17 @@ struct
     | typs_equal (A.STRUCT s1, A.STRUCT s2) = Symbol.equal (s1, s2)
     | typs_equal _ = false
 
+  (* type_small : A.typ -> bool
+   *
+   * @return true if the given type is a small type
+   *)
   fun type_small (A.STRUCT _) = false
     | type_small _ = true
 
+  (* is_lvalue : A.exp -> bool
+   *
+   * @return true if the given expressionc an be considered an lvalue
+   *)
   fun is_lvalue (A.Var _) = true
     | is_lvalue (A.Field (e, _, _)) = is_lvalue e
     | is_lvalue (A.Deref e) = is_lvalue e
@@ -45,6 +57,11 @@ struct
     | is_lvalue (A.Marked e) = is_lvalue (Mark.data e)
     | is_lvalue _ = false
 
+  (* ensure_small : Mark.ext option -> typ -> unit
+   *
+   * Ensures that a type is small by raising an exception otherwise.
+   * @raise ErrorMsg.Error if the type is large
+   *)
   fun ensure_small ext t = if type_small t then () else
                             (ErrorMsg.error ext ("Type must be small: " ^
                             typ_name t); raise ErrorMsg.Error)
@@ -61,6 +78,18 @@ struct
                             typ_name t2);
         raise ErrorMsg.Error)
 
+  (* resolve_struct : Mark.ext option -> 'a -> Symbol.symbol -> Symbol.symbol
+   *                                  -> typ
+   *
+   * @param ext the extents of the current expression
+   * @param structs a table of known structs
+   * @param id the name of the struct to look up
+   * @param field the name of the field to look up
+   *
+   * @return the type of the field, if it exists
+   * @raise ErrorMsg.Error if the struct does not exist, is not defined, or
+   *        the field does not exist
+   *)
   fun resolve_struct ext structs id field = let
         val s = case Symbol.look structs id
                   of SOME t => t
@@ -91,13 +120,13 @@ struct
    *                       of the expected type
    * @return nothing if the expression is of the right type.
    *)
-  fun tc_ensure env (e,t) ext = tc_equal (t, tc_exp env e ext) ext
+  fun tc_ensure env (e, t) ext = tc_equal (t, tc_exp env e ext) ext
 
-  (* tc_exp : A.typ Symbol.table -> A.exp -> Mark.ext option -> A.typ
+  (* tc_exp : 'a -> A.exp -> Mark.ext option -> A.typ
    *
    * Typecheck a single expression.
    *
-   * @param env the currently known environment of variables and their types
+   * @param env the currently known environment
    * @param exp the expression to typecheck
    * @param ext the current extents of the statement in the source file
    *
@@ -151,28 +180,19 @@ struct
            of A.PTR typ => typ
             | _ => (ErrorMsg.error ext "Should have a pointer type";
                     raise ErrorMsg.Error))
-    | tc_exp env (A.BinaryOp (A.LESSEQ,e1,e2)) ext =
-        tc_exp env (A.BinaryOp (A.LESS,e1,e2)) ext
-    | tc_exp env (A.BinaryOp (A.GREATER,e1,e2)) ext =
-        tc_exp env (A.BinaryOp (A.LESS,e1,e2)) ext
-    | tc_exp env (A.BinaryOp (A.GREATEREQ,e1,e2)) ext =
-        tc_exp env (A.BinaryOp (A.LESS,e1,e2)) ext
-    | tc_exp env (A.BinaryOp (A.LESS,e1,e2)) ext =
+    | tc_exp env (A.BinaryOp ((A.LESS | A.GREATER | A.GREATEREQ | A.LESSEQ),
+                              e1, e2)) ext =
         (tc_ensure env (e1, A.INT) ext; tc_ensure env (e2, A.INT) ext; A.BOOL)
-    | tc_exp env (A.BinaryOp (A.NEQUALS,e1,e2)) ext =
-        tc_exp env (A.BinaryOp (A.EQUALS,e1,e2)) ext
-    | tc_exp env (A.BinaryOp (A.EQUALS,e1,e2)) ext =
+    | tc_exp env (A.BinaryOp ((A.EQUALS | A.NEQUALS), e1, e2)) ext =
         (tc_ensure env (e1, tc_exp env e2 ext) ext; A.BOOL)
-    | tc_exp env (A.BinaryOp (A.LAND,e1,e2)) ext =
-        tc_exp env (A.BinaryOp (A.LOR,e1,e2)) ext
-    | tc_exp env (A.BinaryOp (A.LOR,e1,e2)) ext =
+    | tc_exp env (A.BinaryOp ((A.LOR | A.LAND), e1, e2)) ext =
         (tc_ensure env (e1, A.BOOL) ext; tc_ensure env (e2, A.BOOL) ext; A.BOOL)
-    | tc_exp env (A.BinaryOp (_,e1,e2)) ext =
+    | tc_exp env (A.BinaryOp (_, e1, e2)) ext =
         (tc_ensure env (e1, A.INT) ext; tc_ensure env (e2, A.INT) ext; A.INT)
-    | tc_exp env (A.UnaryOp (A.BANG,e)) ext =
+    | tc_exp env (A.UnaryOp (A.BANG, e)) ext =
         (tc_ensure env (e, A.BOOL) ext; A.BOOL)
-    | tc_exp env (A.UnaryOp (_,e)) ext = (tc_ensure env (e, A.INT) ext; A.INT)
-    | tc_exp env (A.Ternary (e1,e2,e3)) ext = let
+    | tc_exp env (A.UnaryOp (_, e)) ext = (tc_ensure env (e, A.INT) ext; A.INT)
+    | tc_exp env (A.Ternary (e1, e2, e3)) ext = let
         val t2 = tc_exp env e2 ext
       in
         tc_ensure env (e1, A.BOOL) ext; tc_ensure env (e3, t2) ext; t2
@@ -180,11 +200,11 @@ struct
     | tc_exp env (A.Marked marked_exp) _ =
         tc_exp env (Mark.data marked_exp) (Mark.ext marked_exp)
 
-  (* tc_stm : A.typ Symbol.table -> Ast.stm -> Mark.ext option -> bool -> unit
+  (* tc_stm : 'a -> Ast.stm -> Mark.ext option -> (bool * A.typ) -> unit
    *
    * Typecheck a single statement in a program.
    *
-   * @param env    the currently known environment of variables and their types
+   * @param env    the currently known environment
    * @param stm    the statement to typecheck
    * @param ext    the current extents of the statement in the source file
    * @param lp,typ true if we're inside of a loop & the return type
@@ -195,13 +215,13 @@ struct
   fun tc_stm env (A.Assign (e1, _, e2)) ext _ =
         if is_lvalue e1 then tc_ensure env (e2, tc_exp env e1 ext) ext
         else (ErrorMsg.error ext "not an lvalue"; raise ErrorMsg.Error)
-    | tc_stm env (A.If (e,s1,s2)) ext lp =
+    | tc_stm env (A.If (e, s1, s2)) ext lp =
         (tc_ensure env (e,A.BOOL) ext; tc_stm env s1 ext lp;
          tc_stm env s2 ext lp)
-    | tc_stm env (A.While (e,s)) ext (_, typ) =
+    | tc_stm env (A.While (e, s)) ext (_, typ) =
         (tc_ensure env (e,A.BOOL) ext; tc_stm env s ext (true, typ))
-    | tc_stm env (A.For (s,e,s1,s2)) ext (lp, typ) =
-        (tc_ensure env (e,A.BOOL) ext; tc_stm env s ext (lp, typ);
+    | tc_stm env (A.For (s, e, s1, s2)) ext (lp, typ) =
+        (tc_ensure env (e, A.BOOL) ext; tc_stm env s ext (lp, typ);
          tc_stm env s1 ext (true, typ); tc_stm env s2 ext (true, typ))
     | tc_stm _ A.Continue ext (lp, _) = if lp then () else (
         ErrorMsg.error ext "'continue' outside of a loop is not allowed";
@@ -212,9 +232,9 @@ struct
     | tc_stm env (A.Return e) ext (_, typ) = tc_ensure env (e, typ) ext
     | tc_stm env (A.Express e) ext _ = (tc_exp env e ext; ())
     | tc_stm _ A.Nop _ _ = ()
-    | tc_stm env (A.Seq (s1,s2)) ext lp =
+    | tc_stm env (A.Seq (s1, s2)) ext lp =
         (tc_stm env s1 ext lp; tc_stm env s2 ext lp)
-    | tc_stm (funs, structs, env) (A.Declare (id,t,s)) ext lp =
+    | tc_stm (funs, structs, env) (A.Declare (id, t, s)) ext lp =
         (ensure_small ext t;
         case Symbol.look env id
           of NONE   => tc_stm (funs, structs, Symbol.bind env (id, t)) s ext lp
@@ -235,6 +255,8 @@ struct
         val funs = ref Symbol.empty
         val structs = ref Symbol.empty
 
+        (* helper function to bind a function definition into the function
+           table, raising an error if necessary *)
         fun bind_fun ext (typ, id, params) = let
               val types = #1 (LP.unzip params)
               val _ = app (ensure_small ext) (typ::types)
@@ -250,27 +272,26 @@ struct
                  raise ErrorMsg.Error)
             end
 
-        fun decl_struct _ id =
-              case Symbol.look (!structs) id
-                of NONE => structs := Symbol.bind (!structs) (id, NONE)
-                 | SOME _ => ()
-
+        (* Binds a structs definition in the structs table *)
         fun bind_struct ext (id, fields) = let
               fun add_field ((typ, ident), tbl) = (
+                    (* field types cannot be nested structs and embedded
+                       structs must be defined beforehand *)
                     case typ
                       of A.STRUCT id' =>
                           if Symbol.equal (id, id') then
-                            (ErrorMsg.error ext "Cannot define nested structure";
-                            raise ErrorMsg.Error)
+                            (ErrorMsg.error ext ("Cannot define nested " ^
+                                                 "structure");
+                             raise ErrorMsg.Error)
                           else (case Symbol.look (!structs) id'
                             of SOME (SOME _) => ()
                              | _ => (ErrorMsg.error ext ("Struct size unknown: "
-                                    ^ Symbol.name id'); raise ErrorMsg.Error))
+                                     ^ Symbol.name id'); raise ErrorMsg.Error))
                        | _ => ();
                     case Symbol.look tbl ident
                       of NONE => Symbol.bind tbl (ident, typ)
                        | _ => (ErrorMsg.error ext ("Duplicate field: " ^
-                              Symbol.name ident); raise ErrorMsg.Error))
+                               Symbol.name ident); raise ErrorMsg.Error))
               val table = foldl add_field Symbol.empty fields
             in
               case Symbol.look (!structs) id
@@ -278,23 +299,29 @@ struct
                  | _ => structs := Symbol.bind (!structs) (id, SOME table)
             end
 
+        (* tc_gdecl : Mark.ext option -> A.gdecl
+         *
+         * Typechecks one global declaration of a program at a time. This
+         * function also builds up the environment as we walk through the
+         * program.
+         *)
         fun tc_gdecl _ (A.Markedg data) =
               tc_gdecl (Mark.ext data) (Mark.data data)
           | tc_gdecl ext (A.ExtDecl d) = bind_fun ext d
           | tc_gdecl ext (A.IntDecl d) = bind_fun ext d
           | tc_gdecl ext (A.Typedef (_, _)) = ()
-          | tc_gdecl ext (A.StrDecl id) = decl_struct ext id
+          | tc_gdecl ext (A.StrDecl id) =
+              (case Symbol.look (!structs) id
+                of NONE => structs := Symbol.bind (!structs) (id, NONE)
+                 | SOME _ => ())
           | tc_gdecl ext (A.Struct s) = bind_struct ext s
           | tc_gdecl ext (A.Fun (typ, ident, args, stm)) = let
-              fun bind_arg ((typ, id), env) =
-                    (if type_small typ then case Symbol.look env id
+              fun bind_arg ((typ, id), env) = (ensure_small ext typ;
+                     case Symbol.look env id
                        of SOME t => (ErrorMsg.error ext ("Duplicate argument" ^
                                      " name: " ^ Symbol.name id);
                                      raise ErrorMsg.Error)
-                        | NONE => Symbol.bind env (id, typ)
-                     else (ErrorMsg.error ext ("Function arguments must " ^
-                                               "have small types");
-                           raise ErrorMsg.Error))
+                        | NONE => Symbol.bind env (id, typ))
             in
               bind_fun ext (typ, ident, args);
               tc_stm (!funs, !structs, foldl bind_arg Symbol.empty args) stm
