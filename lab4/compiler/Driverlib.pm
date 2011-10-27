@@ -131,7 +131,7 @@ sub system_with_timeout {
         return $result;
     }
 
-    if ($@ ne "alarm") {
+    if ($@ !~ /^alarm/) {
         die;                    # propagate exception if not "alarm"
     }
 
