@@ -66,6 +66,8 @@ struct
    *)
   fun live sym (A.Declare (id, _, s)) =
         Symbol.compare (sym, id) <> EQUAL andalso live sym s
+    | live sym (A.Assign (e1, SOME _, e2)) =
+        exp_uses sym e2 orelse exp_uses sym e1
     | live sym (A.Assign (e1, _, e2)) = exp_uses sym e2
     | live sym (A.If (e, s1, s2)) =
         exp_uses sym e orelse live sym s1 orelse live sym s2
