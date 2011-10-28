@@ -154,6 +154,7 @@ sdef       : STRUCT IDENT LBRACE field_list RBRACE SEMI
                                                (STRUCTleft, SEMIright)))
 
 field      : typ IDENT SEMI             ((typ, IDENT))
+           | typ TYPE SEMI              ((typ, TYPE))
 
 field_list :                            ([])
            | field field_list           (field :: field_list)
@@ -166,6 +167,7 @@ typ        : INT                        (A.INT)
            | typ STAR                   (A.PTR typ)
            | typ LBRACKET RBRACKET      (A.ARRAY typ)
            | STRUCT IDENT               (A.STRUCT IDENT)
+           | STRUCT TYPE                (A.STRUCT TYPE)
 
 decl       : typ IDENT                  (marks (A.Declare (IDENT, typ, A.Nop),
                                                 (typleft, IDENTright)))
@@ -236,6 +238,11 @@ exp        : IDENT                      (mark (A.Var IDENT,
                                                          IDENT,
                                                          ref A.NULL)),
                                               (expleft, IDENTright)))
+           | exp ARROW TYPE             (mark ((A.Field (A.Deref (exp,
+                                                                  ref A.NULL),
+                                                         TYPE,
+                                                         ref A.NULL)),
+                                              (expleft, TYPEright)))
            | ALLOC LPAREN typ RPAREN    (mark (A.Alloc typ,
                                               (ALLOCleft, RPARENright)))
            | ALLOCARR LPAREN typ COMMA exp RPAREN
