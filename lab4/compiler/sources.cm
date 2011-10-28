@@ -38,3 +38,4 @@ Group is
   codegen/graph.sml
 
   top/top.sml
+  top/options.sml

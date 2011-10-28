@@ -22,6 +22,7 @@ structure Top :> TOP =
 struct
   structure G = GetOpt  (* from $/smlnj-lib/Util/getopt-sig.sml *)
   structure P = Profile
+  structure O = Options
 
   fun say s = TextIO.output (TextIO.stdErr, s ^ "\n")
 
@@ -29,36 +30,31 @@ struct
 
   exception EXIT
 
-  (* see flag explanations below *)
-  val flag_verbose = Flag.flag "verbose"
-  val flag_ast     = Flag.flag "ast"
-  val flag_ir      = Flag.flag "ir"
-  val flag_assem   = Flag.flag "asm"
-  val flag_profile = Flag.flag "profile"
-  val flag_header  = Flag.flag "header"
-
   fun reset_flags () =
-    List.app Flag.unset [flag_verbose, flag_ast,
-       flag_ir, flag_assem];
+    List.app Flag.unset [O.flag_verbose, O.flag_ast,
+       O.flag_ir, O.flag_assem];
 
     val options = [{short = "v", long=["verbose"],
-        desc=G.NoArg (fn () => Flag.set flag_verbose),
+        desc=G.NoArg (fn () => Flag.set O.flag_verbose),
         help="verbose messages"},
        {short = "", long=["dump-ast"],
-        desc=G.NoArg (fn () => Flag.set flag_ast),
+        desc=G.NoArg (fn () => Flag.set O.flag_ast),
         help="pretty print the AST"},
        {short = "", long=["dump-ir"],
-        desc=G.NoArg (fn () => Flag.set flag_ir),
+        desc=G.NoArg (fn () => Flag.set O.flag_ir),
         help="pretty print the IR"},
        {short = "", long=["dump-asm"],
-        desc=G.NoArg (fn () => Flag.set flag_assem),
+        desc=G.NoArg (fn () => Flag.set O.flag_assem),
         help="pretty print the assembly before register allocaction"},
        {short = "", long=["profile"],
-        desc=G.NoArg (fn () => Flag.set flag_profile),
+        desc=G.NoArg (fn () => Flag.set O.flag_profile),
         help="profile the compiler"},
        {short = "l", long=["header"],
-        desc=G.ReqArg (fn s => Flag.sets (flag_header, s), "foo"),
-        help="header file for the program"}
+        desc=G.ReqArg (fn s => Flag.sets (O.flag_header, s), "foo"),
+        help="header file for the program"},
+       {short = "", long=["types"],
+        desc=G.NoArg (fn () => Flag.set O.flag_types),
+        help="print type sizes in ASM and IR"}
       ]
 
   fun stem s = let
@@ -94,46 +90,46 @@ struct
            | [filename] => filename
            | _ => errfn "Error: more than one input file"
 
-    val _ = Flag.guard flag_profile P.enable ()
+    val _ = Flag.guard O.flag_profile P.enable ()
     val _ = P.startTimer "Compiling"
 
     fun parse_header () = let
-          val file = Flag.svalue flag_header
+          val file = Flag.svalue O.flag_header
           val ast = Parse.parse file
         in Ast.elaborate_external ast end
 
     val header = P.time ("Header parsing", fn () =>
-                         Flag.branch flag_header (parse_header, fn () => []) ())
+                         Flag.branch O.flag_header (parse_header, fn () => []) ())
 
-    val _ = Flag.guard flag_verbose say ("Parsing... " ^ source)
+    val _ = Flag.guard O.flag_verbose say ("Parsing... " ^ source)
     val ast = header @ P.time ("Parsing   ", fn () => Parse.parse source)
-    val _ = Flag.guard flag_verbose say ("Elaborating... " ^ source)
+    val _ = Flag.guard O.flag_verbose say ("Elaborating... " ^ source)
     val ast = P.time ("Elaborating", fn () => Ast.elaborate ast)
-    val _ = Flag.guard flag_ast
+    val _ = Flag.guard O.flag_ast
         (fn () => say (Ast.Print.pp_program ast)) ()
 
     val _ = P.startTimer "Analyzing..."
-    val _ = Flag.guard flag_verbose say ("Typechecking... " ^ source)
+    val _ = Flag.guard O.flag_verbose say ("Typechecking... " ^ source)
     val _ = P.time ("Typechecking", fn () => TypeChecker.typecheck ast)
-    val _ = Flag.guard flag_verbose say ("Returns... " ^ source)
+    val _ = Flag.guard O.flag_verbose say ("Returns... " ^ source)
     val _ = P.time ("Returns", fn () => ReturnChecker.returncheck ast)
-    val _ = Flag.guard flag_verbose say ("Main... " ^ source)
+    val _ = Flag.guard O.flag_verbose say ("Main... " ^ source)
     val _ = P.time ("Main", fn () => MainChecker.maincheck ast)
-    val _ = Flag.guard flag_verbose say ("Initialization... " ^ source)
+    val _ = Flag.guard O.flag_verbose say ("Initialization... " ^ source)
     val _ = P.time ("Initialization",
                     fn () => InitializationChecker.initializationcheck ast)
     val _ = P.stopTimer ()
 
-    val _ = Flag.guard flag_verbose say "Translating..."
+    val _ = Flag.guard O.flag_verbose say "Translating..."
     val ir' = P.time ("Translating", fn () => Trans.translate ast)
-    val _ = Flag.guard flag_ir (fn () => say (Tree.Print.pp_program ir')) ()
-    val _ = Flag.guard flag_verbose say ("Neededness Analysis... " ^ source)
+    val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir')) ()
+    val _ = Flag.guard O.flag_verbose say ("Neededness Analysis... " ^ source)
     val ir = P.time ("Neededness", fn () => Neededness.eliminate ir')
-    val _ = Flag.guard flag_ir (fn () => say (Tree.Print.pp_program ir)) ()
+    val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir)) ()
 
-    val _ = Flag.guard flag_verbose say "Codegen..."
+    val _ = Flag.guard O.flag_verbose say "Codegen..."
     val assem = P.time ("Codegen   ", fn () => Codegen.codegen ir)
-    val _ = Flag.guard flag_assem
+    val _ = Flag.guard O.flag_assem
         (fn () => List.app (TextIO.print o Assem.format) assem) ()
 
     (* OSX gcc apparently doesn't like '.global' or an _l1_main with only
@@ -147,7 +143,7 @@ struct
     val code = P.time ("Formatting", fn () => String.concat (List.map (Assem.format) assem))
 
     val afname = stem source ^ ".s"
-    val _ = Flag.guard flag_verbose say ("Writing assembly to " ^ afname ^ " ...")
+    val _ = Flag.guard O.flag_verbose say ("Writing assembly to " ^ afname ^ " ...")
     val _ = SafeIO.withOpenOut afname (fn afstream =>
          TextIO.output (afstream, code))
     val _ = P.stopTimer ()
