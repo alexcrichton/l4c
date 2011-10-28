@@ -88,6 +88,9 @@ struct
   val caller_regs = [ECX, EDX, ESI, EDI, R8D, R9D, R10D, R11D]
   val callee_regs = [EBX, R12D, R13D, R14D, R15D, EBP]
 
+  fun format_size WORD = ":32"
+    | format_size QUAD = ":64"
+
   (* format_reg : reg -> string
    *
    * @param reg the register to convert to a name
@@ -180,9 +183,11 @@ struct
     | format_binop LSH = "sal"
     | format_binop RSH = "sar"
 
-  fun format_suffix (REG (_, QUAD), REG (_, WORD)) = "slq"
-    | format_suffix (REG (_, QUAD), _) = "q"
-    | format_suffix (_, REG (_, QUAD)) = raise Fail "moving quad into word!"
+  fun format_suffix ((REG (_, QUAD) | MEM (_, QUAD)),
+                     (REG (_, WORD) | MEM (_, WORD))) = "slq"
+    | format_suffix ((REG (_, QUAD) | MEM (_, QUAD)), _) = "q"
+    (*| format_suffix (_, REG (_, QUAD)) = raise Fail "moving quad into word!"*)
+    | format_suffix (_, (REG (_, QUAD) | MEM (_, QUAD))) = "ERROR"
     | format_suffix _ = "l"
 
   (* format_operand : operand -> string
@@ -190,12 +195,11 @@ struct
    * @param operand the operand to convert
    * @return the string representation of the given operand in x86 assembly
    *)
-  fun format_operand (IMM (n, _))  = "$" ^ Word32Signed.toString n
-    | format_operand (TEMP (t, size)) =
-        Temp.name t ^ (if size = WORD then ":32" else ":64")
+  fun format_operand (IMM (n, size))  = "$" ^ Word32Signed.toString n
+    | format_operand (TEMP (t, size)) = Temp.name t
     | format_operand (REG (r, size)) = if size = WORD then format_reg r
                                        else format_reg64 r
-    | format_operand (MEM (r, _))  = "(" ^ format_operand r ^ ")"
+    | format_operand (MEM (r, size))  = "(" ^ format_operand r ^ ")"
 
   (* format_operand8 : operand -> string
    *
