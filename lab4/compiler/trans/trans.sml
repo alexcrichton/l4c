@@ -118,7 +118,7 @@ struct
       end
     | trans_exp env (A.Ternary (e1, e2, e3)) a = let
         val (l1, l2) = (Label.new "ternary_true", Label.new "ternary_end")
-        val t = T.TEMP (Temp.new(), T.WORD)
+        val t = T.TEMP (Temp.new(), if a then T.QUAD else T.WORD)
         val (e1s, e1') = trans_exp env e1 false
         val (e2s, e2') = trans_exp env e2 a
         val (e3s, e3') = trans_exp env e3 a
