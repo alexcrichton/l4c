@@ -182,7 +182,7 @@ struct
 
   fun format_suffix (REG (_, QUAD), REG (_, WORD)) = "slq"
     | format_suffix (REG (_, QUAD), _) = "q"
-    | format_suffix (_, REG (_, QUAD)) = "q"
+    | format_suffix (_, REG (_, QUAD)) = raise Fail "moving quad into word!"
     | format_suffix _ = "l"
 
   (* format_operand : operand -> string
@@ -233,7 +233,11 @@ struct
         (if oper = LSH orelse oper = RSH then
          format_operand8 s else format_operand s) ^
       (if oper = DIV orelse oper = MOD then "" else ", " ^ format_operand d)
-    | format_instr (MOV (TEMP _, s)) = "cmpl $0, " ^ format_operand s
+    (* unallocated temp, but instruction needs to happen for memory access*)
+    | format_instr (MOV (TEMP _, s as MEM _)) = "cmpl $0, " ^ format_operand s
+    | format_instr (MOV (d as REG (STACK _, QUAD), s as REG (sr as _, WORD))) =
+        "movslq " ^ format_operand s ^ ", " ^ format_operand (REG (sr, QUAD)) ^
+        "\n\tmovq " ^ format_operand (REG (sr, QUAD)) ^ ", " ^ format_operand d
     | format_instr (MOV (d, s)) =
         "mov" ^ format_suffix (d, s) ^ " " ^ format_operand s ^ ", " ^
                  format_operand d
@@ -247,9 +251,21 @@ struct
     | format_instr (COMMENT str) = "/* " ^ str ^ "*/"
     | format_instr (RET) = "ret"
 
+  (* swap{l,r} : size -> operand
+   *
+   * Generates the swap register for the given size
+   *)
   fun swapl s = REG (R11D, s)
   fun swapr s = REG (R10D, s)
 
+  (* findr : operand -> (instr list * operand)
+   *
+   * Resolves the source of an instruction into a pure register using 'swapr'
+   * @param oper the operand to resolve
+   * @return the instructions necessary to compute the pure register and the
+   *         pure operand as a register. The operand will have the result of
+   *         the given operand when the instructions are executed.
+   *)
   fun findr (MEM (r, size)) = let
         val (rinstrs, r') = findr r
       in
@@ -259,6 +275,16 @@ struct
         ([MOV (swapr size, s)], swapr size)
     | findr r = ([], r)
 
+  (* resolve_mem : operand * operand -> (instr list * operand * operand)
+   *
+   * Resolves two memory operands such that the returned operands have at most
+   * one memory access.
+   *
+   * @param (d, s) the destination and source operands for an instruction. The
+   * @return the instructions necessary to calculate the new destination and
+   *         source, and a d', and s' such that at most one of them is a memory
+   *         reference.
+   *)
   fun resolve_mem (MEM (d as REG (STACK _, _), size), s) = let
         val (sinstrs, s') = findr s
       in
@@ -286,7 +312,13 @@ struct
   fun instr_expand (BINOP (oper, d, s)) = let
         val (instrs, d', s') = resolve_mem (d, s)
       in
-        instrs @ [BINOP (oper, d', s')]
+        case d'
+          of REG (STACK _, size) =>
+              if oper = MUL then
+                instrs @ [MOV (swapl size, d'), BINOP (oper, swapl size, s'),
+                          MOV (d', swapl size)]
+              else instrs @ [BINOP (oper, d', s')]
+           | _ => instrs @ [BINOP (oper, d', s')]
       end
     | instr_expand (MOVFLAG (d, cond)) = let
         val instr = case cond of LT => "setl" | LTE => "setle"

@@ -91,7 +91,7 @@ struct
         in
           Label.name l ^ "(" ^ args ^ ")"
         end
-      | pp_exp (MEM (e, _)) = "M[" ^ pp_exp e ^ "]"
+      | pp_exp (MEM (e, t)) = "M[" ^ pp_exp e ^ "]" ^ pp_typ t
 
     fun pp_stm (MOVE (e1,e2)) = pp_exp e1 ^ " <- " ^ pp_exp e2
       | pp_stm (LABEL l) = Label.name l

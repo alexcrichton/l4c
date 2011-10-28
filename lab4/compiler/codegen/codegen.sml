@@ -32,6 +32,9 @@ struct
   fun munch_typ T.WORD = AS.WORD
     | munch_typ T.QUAD = AS.QUAD
 
+  fun size (AS.MEM (_, t) | AS.REG (_, t) |
+            AS.TEMP (_, t) | AS.IMM(_, t)) = t
+
   (* munch_exp : AS.operand -> T.exp -> AS.instr list
    *
    * generates instructions to achieve d <- e, d must be TEMP(t) or REG(r)
@@ -81,13 +84,21 @@ struct
    * @return the result of the computation and the instructions necessary to
    *         perform the computation
    *)
-  and munch_half _ oper (T.TEMP (t, typ)) = (AS.TEMP (t, munch_typ typ), [])
-    | munch_half _ (AS.DIV | AS.MOD | AS.CMP) (e as T.CONST (_, typ)) = let
+  and munch_half oper (T.TEMP (t, typ)) = (AS.TEMP (t, munch_typ typ), [])
+    | munch_half (AS.DIV | AS.MOD | AS.CMP) (e as T.CONST (_, typ)) = let
         val t = AS.TEMP(Temp.new(), munch_typ typ)
       in (t, munch_exp t e) end
-    | munch_half _ _ (T.CONST (n, typ)) = (AS.IMM (n, munch_typ typ), [])
-    | munch_half s oper e =
-        let val t = AS.TEMP(Temp.new(), s) in (t, munch_exp t e) end
+    | munch_half _ (T.CONST (n, typ)) = (AS.IMM (n, munch_typ typ), [])
+    | munch_half oper e = let
+        fun guess_size (T.CONST (_, t) | T.TEMP (_, t) | T.MEM (_, t) | 
+                        T.CALL (_, t, _)) = munch_typ t
+          | guess_size (T.BINOP (_, e1, e2)) = let
+              val (e1t, e2t) = (guess_size e1, guess_size e2)
+            in
+              if e1t = AS.QUAD orelse e2t = AS.QUAD then AS.QUAD else AS.WORD
+            end
+        val t = AS.TEMP(Temp.new(), guess_size e)
+      in (t, munch_exp t e) end
 
   (* munch_binop : AS.operand -> T.binop * T.exp * T.exp -> AS.instr list
    *
@@ -104,16 +115,21 @@ struct
   and munch_binop d (binop, e1, e2) =
       let
         val oper = munch_op binop
-        val size = case d
-                     of (AS.MEM (_, t) | AS.REG (_, t) | AS.TEMP (_, t)) => t
-                      | _ => raise Fail "Why you move into an IMM!!!"
-        val (t1, t1instrs) = munch_half size oper e1
-        val (t2, t2instrs) = munch_half size oper e2
+        val dsize = size d
+        fun fix_size (t, tinstrs) = let val tsize = size t in
+              if tsize = size d then (t, tinstrs)
+              else let val t' = AS.TEMP (Temp.new(), dsize) in
+                (t', tinstrs @ [AS.MOV (t', t)])
+              end
+            end
+        val (t1, t1instrs) = fix_size (munch_half oper e1)
+        val (t2, t2instrs) = fix_size (munch_half oper e2)
         fun eq_ops (AS.TEMP (t1, _), AS.TEMP (t2, _)) = Temp.equals (t1, t2)
           | eq_ops (AS.REG (a, _), AS.REG (b, _)) = (a = b)
           | eq_ops _ = false
 
-        fun reg r = AS.REG (r, size)
+
+        fun reg r = AS.REG (r, dsize)
         (* x86 has weird conditions on instructions. Catch those oddities here
            and expand a single binop into multiple instructions as necessary *)
         val instrs =
@@ -123,7 +139,7 @@ struct
                   AS.BINOP (oper, reg AS.EAX, t2),
                   AS.MOV (d, reg (if binop = T.DIV then AS.EAX else AS.EDX))]
              | (T.RSH | T.LSH) =>
-                if eq_ops (d, t2) then let val t = AS.TEMP (Temp.new(), size) in
+                if eq_ops (d, t2) then let val t = AS.TEMP(Temp.new(), dsize) in
                    [AS.MOV (t, t1), AS.MOV (reg AS.ECX, t2),
                     AS.BINOP (oper, t, reg AS.ECX), AS.MOV (d, t)]
                   end
@@ -135,7 +151,7 @@ struct
                       [AS.MOV (d, t1), AS.BINOP (oper, d, t2)]
                     else if binop <> T.SUB then
                       [AS.MOV (d, t2), AS.BINOP (oper, d, t1)]
-                    else let val t = AS.TEMP (Temp.new(), size) in
+                    else let val t = AS.TEMP (Temp.new(), dsize) in
                       [AS.MOV (t, t1), AS.BINOP (oper, t, t2), AS.MOV (d, t)]
                     end
       in
@@ -166,8 +182,9 @@ struct
           munch_conditional dest (T.TEMP (t, T.WORD))
       end
     | munch_conditional dest (T.BINOP (oper, e1, e2)) = let
-        val (t1, t1instrs) = munch_half AS.WORD AS.CMP e1
-        val (t2, t2instrs) = munch_half AS.WORD AS.CMP e2
+        val (t1, t1instrs) = munch_half AS.CMP e1
+        val (t2, t2instrs) = munch_half AS.CMP e2
+        val _ = if size t1 <> size t2 then raise Fail "diff size" else ()
         val cond = case oper of T.LT => AS.LT | T.LTE => AS.LTE
                               | T.EQ => AS.EQ | T.NEQ => AS.NEQ
                               | T.XOR => AS.NEQ
@@ -177,9 +194,9 @@ struct
           [AS.BINOP (AS.CMP, t1, t2), AS.JMP(dest, SOME cond)]
       end
     | munch_conditional dest (T.MEM (a, T.WORD)) = let
-        val (t, tinstrs) = munch_half AS.WORD AS.CMP a
+        val (t, tinstrs) = munch_half AS.CMP a
       in
-        [AS.BINOP (AS.CMP, t, AS.IMM (Word32Signed.ZERO, AS.WORD)),
+        [AS.BINOP (AS.CMP, t, AS.IMM (Word32Signed.ZERO, size t)),
          AS.JMP(dest, SOME(AS.NEQ))]
       end
     | munch_conditional _ _ = raise Fail "bad types in munch_conditional"
