@@ -45,6 +45,7 @@ struct
                add_neighbors x L)
 
         fun process_op (AS.IMM _, L) = L
+          | process_op (AS.O64 r, L) = process_op (r, L)
           | process_op (AS.REG (AS.STACK _ | AS.STACKARG _ | AS.STACKLOC _
                                            | AS.R11D), L) = L
           | process_op (oper, L) = let
@@ -158,6 +159,8 @@ struct
                                                of 0 => AS.TEMP t
                                                 | c => AS.REG (AS.num_reg c))
                                              handle G.NotFound => (AS.TEMP t))
+          | map_op (AS.O64 oper) = AS.O64 (map_op oper)
+          | map_op (AS.MEM oper) = AS.MEM (map_op oper)
           | map_op oper = oper
 
         fun map_instr (AS.BINOP (oper, op1, op2)) =
@@ -186,6 +189,7 @@ struct
           | hasTemps (AS.BINOP (oper, o1, o2)) = false
           | hasTemps _ = false
         fun fltr (AS.MOV (AS.REG r1, AS.REG r2)) = r1 <> r2
+          | fltr (AS.MOV (AS.O64 o1, AS.O64 o2)) = fltr (AS.MOV (o1, o2))
           | fltr i = not (hasTemps i)
       in
         List.filter fltr L

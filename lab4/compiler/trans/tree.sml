@@ -10,13 +10,13 @@ sig
 
   datatype binop = ADD | SUB | MUL | DIV | MOD | LT | LTE | EQ | NEQ
                  | AND | OR  | XOR | LSH | RSH
+  datatype typ = WORD | QUAD
 
   datatype exp =
-      TEMP of Temp.temp
-    | TEMP64 of Temp.temp
+      TEMP of Temp.temp * typ
     | CONST of Word32.word
     | BINOP of binop * exp * exp
-    | CALL of Label.label * exp list
+    | CALL of Label.label * typ * (exp * typ) list
     | MEM of exp
   and stm =
       MOVE of exp * exp
@@ -40,13 +40,13 @@ struct
 
   datatype binop = ADD | SUB | MUL | DIV | MOD | LT | LTE | EQ | NEQ
                  | AND | OR  | XOR | LSH | RSH
+  datatype typ = WORD | QUAD
 
   datatype exp =
-      TEMP of Temp.temp
-    | TEMP64 of Temp.temp
+      TEMP of Temp.temp * typ
     | CONST of Word32.word
     | BINOP of binop * exp * exp
-    | CALL of Label.label * exp list
+    | CALL of Label.label * typ * (exp * typ) list
     | MEM of exp
   and stm =
       MOVE of exp * exp
@@ -80,11 +80,12 @@ struct
       | pp_binop RSH = ">>"
 
     fun pp_exp (CONST x) = Word32Signed.toString x
-      | pp_exp (TEMP t|TEMP64 t) = Temp.name t
+      | pp_exp (TEMP (t, WORD)) = Temp.name t ^ ":32"
+      | pp_exp (TEMP (t, QUAD)) = Temp.name t ^ ":64"
       | pp_exp (BINOP (binop, e1, e2)) =
           "(" ^ pp_exp e1 ^ " " ^ pp_binop binop ^ " " ^ pp_exp e2 ^ ")"
-      | pp_exp (CALL (l, L)) = let
-          val args = String.concatWith ", " (map pp_exp L)
+      | pp_exp (CALL (l, _, L)) = let
+          val args = String.concatWith ", " (map (fn (e, _) => pp_exp e) L)
         in
           Label.name l ^ "(" ^ args ^ ")"
         end

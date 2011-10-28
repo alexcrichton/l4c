@@ -23,7 +23,7 @@ struct
                  (* uses         def          succ         nec    stateful *)
   type stmrule = temp list * temp option * label list * temp list * bool
 
-  fun rulegen_exp (T.TEMP t | T.TEMP64 t) = ([t], [], false)
+  fun rulegen_exp (T.TEMP (t, _)) = ([t], [], false)
     | rulegen_exp (T.CONST _) = ([], [], false)
     | rulegen_exp (T.BINOP (oper, e1, e2)) = let
         val (U1, N1, s1) = rulegen_exp e1
@@ -37,8 +37,8 @@ struct
     | rulegen_exp (T.MEM e) = let
         val (U, N, s) = rulegen_exp e
       in (U, U, true) end
-    | rulegen_exp (T.CALL (_, L)) = let
-        fun merge (e, (U, _, s)) = let
+    | rulegen_exp (T.CALL (_, _, L)) = let
+        fun merge ((e, _), (U, _, s)) = let
               val (U', _, s') = rulegen_exp e
               val U'' = U @ U'
             in
@@ -48,7 +48,8 @@ struct
         foldr merge ([], [], true) L
       end
 
-  fun rulegen _ (l, T.MOVE (T.TEMP t, e)) = let val (U, N, s) = rulegen_exp e in
+  fun rulegen _ (l, T.MOVE (T.TEMP (t, _), e)) =
+      let val (U, N, s) = rulegen_exp e in
         (U, SOME t, [l + 1], N, s)
       end
     | rulegen _ (l, T.MOVE (T.MEM _, e)) = let val (U, N, s) = rulegen_exp e in

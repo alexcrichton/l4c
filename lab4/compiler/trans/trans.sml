@@ -51,6 +51,9 @@ struct
   fun address (T.MEM a) = a
     | address b = b
 
+  fun trans_typ (A.STRUCT _ | A.ARRAY _ | A.PTR _) = T.QUAD
+    | trans_typ _ = T.WORD
+
   (* trans_oper : A.binop -> T.binop
    *
    * Translates an AST binop to a IR binop
@@ -109,13 +112,13 @@ struct
         else
           (* Divides and mods can have side effects. Make sure that they always
              happen by moving the result of the operation into a temp *)
-          let val t = T.TEMP(Temp.new()) in
+          let val t = T.TEMP(Temp.new(), T.WORD) in
             (stms @ [T.MOVE (t, e)], t)
           end
       end
     | trans_exp env (A.Ternary (e1, e2, e3)) a = let
         val (l1, l2) = (Label.new "ternary_true", Label.new "ternary_end")
-        val t = T.TEMP (Temp.new())
+        val t = T.TEMP (Temp.new(), T.WORD)
         val (e1s, e1') = trans_exp env e1 false
         val (e2s, e2') = trans_exp env e2 a
         val (e3s, e3') = trans_exp env e3 a
@@ -129,22 +132,24 @@ struct
               val (dinstrs, dest) = trans_exp env d false
             in (dinstrs @ instrs, dest::dests) end
         val (instrs, args) = foldr ev ([], []) EL
+        val (isext, rettyp, argtyps) = Symbol.look' funs name
         val label =
-          if Symbol.member funs name then Label.extfunc (Symbol.name name)
+          if isext then Label.extfunc (Symbol.name name)
           else Label.intfunc (Symbol.name name)
       in
-        (instrs, T.CALL (label, args))
+        (instrs, T.CALL (label, rettyp, ListPair.zip (args, argtyps)))
       end
     | trans_exp _ A.Null _ = ([], const 0)
     | trans_exp (env as (_, _, structs)) (A.AllocArray (typ, e)) _ = let
         val (es, e') = trans_exp env e false
       in
-        (es, T.CALL (Label.extfunc "calloc", [e',
-                                              const (typ_size structs typ)]))
+        (es, T.CALL (Label.extfunc "calloc", T.QUAD,
+                     [(e', T.WORD), (const (typ_size structs typ), T.WORD)]))
       end
     | trans_exp (_, _, structs) (A.Alloc typ) _ =
-        ([], T.CALL (Label.extfunc "calloc", [const 1,
-                                              const (typ_size structs typ)]))
+        ([], T.CALL (Label.extfunc "calloc", T.QUAD,
+                     [(const 1, T.WORD),
+                      (const (typ_size structs typ), T.WORD)]))
     | trans_exp (env as (_, _, structs)) (A.ArrSub (e1, e2, ref typ)) a = let
         val (e1s, e1') = trans_exp env e1 true
         val (e2s, e2') = trans_exp env e2 false
@@ -207,11 +212,11 @@ struct
       in einstrs @ [T.RETURN e'] end
     | trans_stm env (A.Seq (s1, s2)) lp =
         (trans_stm env s1 lp) @ (trans_stm env s2 lp)
-    | trans_stm (funs, env, structs) (A.Declare (id, _, s)) lp = let
-        val env' = Symbol.bind env (id, Temp.new ())
+    | trans_stm (funs, env, structs) (A.Declare (id, typ, s)) lp = let
+        val env' = Symbol.bind env (id, (Temp.new (), trans_typ typ))
       in trans_stm (funs, env', structs) s lp end
     | trans_stm env (A.Express e) _ = let
-        val t = T.TEMP (Temp.new())
+        val t = T.TEMP (Temp.new(), T.QUAD) (* TODO: figure out type for real *)
         val (instrs, exp) = trans_exp env e false
       in instrs @ [T.MOVE (t, exp)] end
     | trans_stm _ A.Nop _ = []
@@ -226,8 +231,8 @@ struct
    * @return a list of statements in the intermediate language.
    *)
   fun translate_fun (funs, structs) (A.Fun (_, name, args, body)) = let
-        fun bind ((_, id), (T, e)) = let val t = Temp.new() in
-              (t::T, Symbol.bind e (id, t))
+        fun bind ((typ, id), (T, e)) = let val t = Temp.new() in
+              (t::T, Symbol.bind e (id, (t, trans_typ typ)))
             end
         val (temps, e) = foldr bind ([], Symbol.empty) args
         val instrs = trans_stm (funs, e, structs)
@@ -245,10 +250,14 @@ struct
    * @return a list of statements in the intermediate language.
    *)
   fun translate p = let
-        fun get_external (A.ExtDecl (_, id, _)) = SOME id
-          | get_external _ = NONE
-        val external = List.mapPartial get_external p
-        val extfuns = foldr (fn (e, s) => Symbol.add s e) Symbol.null external
+        fun build_funs (A.ExtDecl (t, id, L), s) =
+              Symbol.bind s (id, (true, trans_typ t,
+                                  map trans_typ (#1 (ListPair.unzip L))))
+          | build_funs (A.Fun (t, id, L, _), s) =
+              Symbol.bind s (id, (false, trans_typ t,
+                                  map trans_typ (#1 (ListPair.unzip L))))
+          | build_funs (_, s) = s
+        val funs = foldr build_funs Symbol.empty p
         fun field_size structs ((typ, id), (s, n)) = let
               val size = typ_size structs typ
               val pad = if n mod size = 0 then 0 else 4 (* TODO: real math *)
@@ -259,6 +268,6 @@ struct
               Symbol.bind s (id, foldl (field_size s) (Symbol.empty, 0) L)
           | build_struct (_, s) = s
         val structs = foldl build_struct Symbol.empty p
-      in List.mapPartial (translate_fun (extfuns, structs)) p end
+      in List.mapPartial (translate_fun (funs, structs)) p end
 
 end

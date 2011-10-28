@@ -15,9 +15,11 @@ sig
      IMM of Word32.word
    | REG of reg
    | TEMP of Temp.temp
+   | MEM of operand
+   | O64 of operand
 
   datatype operation = ADD | SUB | MUL | DIV | MOD | CMP
-                     | AND | OR  | XOR | LSH | RSH | ADD64
+                     | AND | OR  | XOR | LSH | RSH
 
   datatype condition = LT | LTE | EQ | NEQ
 
@@ -59,9 +61,11 @@ struct
      IMM of Word32.word
    | REG of reg
    | TEMP of Temp.temp
+   | MEM of operand
+   | O64 of operand
 
   datatype operation = ADD | SUB | MUL | DIV | MOD | CMP
-                     | AND | OR  | XOR | LSH | RSH | ADD64
+                     | AND | OR  | XOR | LSH | RSH
 
   datatype condition = LT | LTE | EQ | NEQ
 
@@ -108,6 +112,31 @@ struct
     | format_reg (STACKLOC n) = "%rsp[" ^ Int.toString n ^ "]"
     | format_reg (STACKARG n) = "arg[" ^ Int.toString n ^ "]"
 
+  (* format_reg64 : reg -> string
+   *
+   * @param reg the register to convert to a name
+   * @return the string representation of the given register in x86
+   *)
+  fun format_reg64 EAX = "%rax"
+    | format_reg64 EBX = "%rbx"
+    | format_reg64 ECX = "%rcx"
+    | format_reg64 EDX = "%rdx"
+    | format_reg64 EDI = "%rdi"
+    | format_reg64 ESI = "%rsi"
+    | format_reg64 ESP = "%rsp"
+    | format_reg64 EBP = "'%rbp'"
+    | format_reg64 R8D = "%r8"
+    | format_reg64 R9D = "%r9"
+    | format_reg64 R10D = "%r10"
+    | format_reg64 R11D = "%r11"
+    | format_reg64 R12D = "%r12"
+    | format_reg64 R13D = "%r13"
+    | format_reg64 R14D = "%r14"
+    | format_reg64 R15D = "%r15"
+    | format_reg64 (STACK n) = Int.toString n ^ "(%rsp)"
+    | format_reg64 (STACKLOC n) = "%rsp[" ^ Int.toString n ^ "]"
+    | format_reg64 (STACKARG n) = "arg[" ^ Int.toString n ^ "]"
+
   (* format_reg8 : reg -> string
    *
    * @param reg the register to convert to a name
@@ -137,18 +166,21 @@ struct
    * @return the x86 instruction name. All are suffixed with 'l' for now to
    *         force 32 bit arithmetic.
    *)
-  fun format_binop ADD = "addl"
-    | format_binop SUB = "subl"
-    | format_binop MUL = "imull"
-    | format_binop DIV = "idivl"
-    | format_binop MOD = "idivl"
-    | format_binop CMP = "cmpl"
-    | format_binop AND = "andl"
-    | format_binop OR  = "orl"
-    | format_binop XOR = "xorl"
-    | format_binop LSH = "sall"
-    | format_binop RSH = "sarl"
-    | format_binop ADD64 = "addq"
+  fun format_binop ADD = "add"
+    | format_binop SUB = "sub"
+    | format_binop MUL = "imul"
+    | format_binop DIV = "idiv"
+    | format_binop MOD = "idiv"
+    | format_binop CMP = "cmp"
+    | format_binop AND = "and"
+    | format_binop OR  = "or"
+    | format_binop XOR = "xor"
+    | format_binop LSH = "sal"
+    | format_binop RSH = "sar"
+
+  fun format_suffix (O64 _, _) = "q"
+    | format_suffix (_, O64 _) = "q"
+    | format_suffix _ = "l"
 
   (* format_operand : operand -> string
    *
@@ -158,6 +190,10 @@ struct
   fun format_operand (IMM n)  = "$" ^ Word32Signed.toString n
     | format_operand (TEMP t) = Temp.name t
     | format_operand (REG r)  = format_reg r
+    | format_operand (MEM (REG r))  = "(" ^ format_reg64 r ^ ")"
+    | format_operand (MEM r)  = "(" ^ format_operand r ^ ")"
+    | format_operand (O64 (REG r))  = format_reg64 r
+    | format_operand (O64 r)  = format_operand r
 
   (* format_operand8 : operand -> string
    *
@@ -191,11 +227,13 @@ struct
    * @return the instruction formatted.
    *)
   fun format_instr (BINOP(oper, d, s)) =
-      format_binop oper ^ " " ^ (if oper = LSH orelse oper = RSH then
-                                 format_operand8 s else format_operand s) ^
+      format_binop oper ^ format_suffix (d, s) ^ " " ^
+        (if oper = LSH orelse oper = RSH then
+         format_operand8 s else format_operand s) ^
       (if oper = DIV orelse oper = MOD then "" else ", " ^ format_operand d)
     | format_instr (MOV(d, s)) =
-        "movl " ^ format_operand s ^ ", " ^ format_operand d
+        "mov" ^ format_suffix (d, s) ^ " " ^ format_operand s ^ ", " ^
+                 format_operand d
     | format_instr (JMP (l, jmp)) = format_condition jmp ^ " " ^ Label.name l
     | format_instr (MOVFLAG (d,_)) = "movzbl " ^ format_operand8 d ^
                                      ", " ^ format_operand d
@@ -322,10 +360,16 @@ struct
   fun compare (REG r1, REG r2) = Int.compare (reg_num r1, reg_num r2)
     | compare (TEMP t1, TEMP t2) = Temp.compare (t1, t2)
     | compare (IMM w1, IMM w2) = EQUAL
+    | compare (MEM m1, MEM m2) = EQUAL
+    | compare (O64 o1, O64 o2) = compare (o1, o2)
     | compare (IMM _, _)  = LESS
     | compare (_, IMM _)  = GREATER
     | compare (TEMP _, _) = LESS
     | compare (_, TEMP _) = GREATER
+    | compare (MEM _, _) = LESS
+    | compare (_, MEM _) = GREATER
+    | compare (O64 _, _) = LESS
+    | compare (_, O64 _) = GREATER
 
   (* oper_equal : operand * operand -> bool
    *
@@ -340,6 +384,8 @@ struct
   fun oper_hash (IMM _) = Word.fromInt ~1
     | oper_hash (REG r) = Word.fromInt (reg_num r)
     | oper_hash (TEMP t) = (Temp.hash t) + (Word.fromInt 15)
+    | oper_hash (MEM oper) = Word.fromInt ~1
+    | oper_hash (O64 oper) = oper_hash oper
 
 end
 
