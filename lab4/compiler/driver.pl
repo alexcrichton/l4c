@@ -66,6 +66,8 @@ pod2usage(1) if $Opt_Help;
 
 @Testfiles = @ARGV;
 $DEBUG = $Opt_Verbose;
+
+$Opt_Quiet = 2 if $Opt_Autograding;
 $QUIET = $Opt_Quiet;
 
 if ($Opt_Color eq "auto") {
@@ -534,24 +536,6 @@ sub make_compiler {
 }
 
 ###
-# Printd only if not autograding
-# (Autolab gets overwhelmed by large amounts of output)
-#
-sub printad {
-    my $d = shift;
-    my $msg = shift;
-    my $color = shift;
-
-    my $do_color = defined $color && $Opt_Color;
-
-    unless ($Opt_Autograding) {
-        printd($d, color($color)) if $do_color;
-        printd($d, $msg);
-        printd($d, color("reset")) if $do_color;
-    }
-}
-
-###
 # Convenience function for passing results
 #
 sub pass {
@@ -567,9 +551,9 @@ sub pass {
 
     printq(0, $msg);
 
-    printq(1, color("green"));
+    printq(1, color("green")) if $Opt_Color;
     printq(1, "-- PASS $file --\n");
-    printq(1, color("reset"));
+    printq(1, color("reset")) if $Opt_Color;
 
     return 1;
 }
@@ -593,9 +577,9 @@ sub fail {
 
     printq(2, $msg);
 
-    printq(2, color("red"));
+    printq(2, color("red")) if $Opt_Color;
     printq(2, "-- FAIL $file --\n");
-    printq(2, color("reset"));
+    printq(2, color("reset")) if $Opt_Color;
     return 0;
 }
 
