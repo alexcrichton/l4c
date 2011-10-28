@@ -19,6 +19,10 @@ fun convert_exp2 (exp1, left) (SOME binop, exp2, NONE, right) =
       mark (A.Ternary(exp1, exp2, exp3), (left, right))
   | convert_exp2 _ _ = raise Fail "Invalid input to convert_exp2!"
 
+fun genpost (exp, oper) = A.Assign(exp, oper, A.Const(Word32.fromInt 1))
+fun genptrinc (exp, oper) =
+  A.Seq (A.Express (A.Deref (exp, ref A.NULL)), genpost (exp, oper))
+
 %%
 %header (functor L4LrValsFn (structure Token : TOKEN))
 
@@ -72,9 +76,11 @@ fun convert_exp2 (exp1, left) (SOME binop, exp2, NONE, right) =
  | stmt     of A.stm
  | simp     of A.stm
  | simpnodef of A.stm
+ | simppostop of A.exp * A.binop option
  | control  of A.stm
  | block    of A.stm
  | exp      of A.exp
+ | expnostar of A.exp
  | exp2     of A.binop option * A.exp * A.exp option * int
  | asnop    of A.binop option
  | unop     of A.unop
@@ -187,10 +193,12 @@ simp       : simpnodef    (simpnodef)
            | decl         (decl)
 
 simpnodef  : exp asnop exp %prec ASNOP
-                                       (A.Assign (exp1, asnop, exp2))
-           | exp postop %prec UNARY (A.Assign(exp, SOME postop,
-                                                A.Const(Word32.fromInt 1)))
-           | exp                       (A.Express exp)
+                                         (A.Assign (exp1, asnop, exp2))
+           | STAR simppostop %prec UNARY (genptrinc simppostop)
+           | simppostop %prec UNARY      (genpost simppostop)
+           | exp                         (A.Express exp)
+
+simppostop : expnostar postop %prec UNARY    (expnostar, SOME postop)
 
 simpopt    :                           (A.Nop)
            | simp                      (marks (simp, (simpleft, simpright)))
@@ -216,7 +224,11 @@ arg_list_follow :                               ([])
 arg_list   : LPAREN RPAREN                      ([])
            | LPAREN exp arg_list_follow RPAREN  (exp::arg_list_follow)
 
-exp        : IDENT                      (mark (A.Var IDENT,
+exp        : STAR exp                   (mark (A.Deref (exp, ref A.NULL),
+                                              (STARleft, expright)))
+           | expnostar                  (expnostar)
+
+expnostar  : IDENT                      (mark (A.Var IDENT,
                                                 (IDENTleft, IDENTright)))
            | LPAREN exp RPAREN          (exp)
            | INTCONST                   (mark (A.Const(INTCONST),
@@ -248,8 +260,6 @@ exp        : IDENT                      (mark (A.Var IDENT,
            | ALLOCARR LPAREN typ COMMA exp RPAREN
                                         (mark (A.AllocArray (typ, exp),
                                               (ALLOCARRleft, RPARENright)))
-           | STAR exp                   (mark (A.Deref (exp, ref A.NULL),
-                                              (STARleft, expright)))
            | exp LBRACKET exp RBRACKET (mark (A.ArrSub (exp1, exp2, ref A.NULL),
                                               (exp1left, RBRACKETright)))
 
