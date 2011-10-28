@@ -203,8 +203,11 @@ struct
     | tc_exp env (A.BinaryOp ((A.LESS | A.GREATER | A.GREATEREQ | A.LESSEQ),
                               e1, e2)) ext =
         (tc_ensure env (e1, A.INT) ext; tc_ensure env (e2, A.INT) ext; A.BOOL)
-    | tc_exp env (A.BinaryOp ((A.EQUALS | A.NEQUALS), e1, e2)) ext =
-        (tc_ensure env (e1, tc_exp env e2 ext) ext; A.BOOL)
+    | tc_exp env (A.BinaryOp ((A.EQUALS | A.NEQUALS), e1, e2)) ext = let
+        val t1 = tc_exp env e1 ext
+      in
+        (tc_ensure env (e2, t1) ext; ensure_small ext t1; A.BOOL)
+      end
     | tc_exp env (A.BinaryOp ((A.LOR | A.LAND), e1, e2)) ext =
         (tc_ensure env (e1, A.BOOL) ext; tc_ensure env (e2, A.BOOL) ext; A.BOOL)
     | tc_exp env (A.BinaryOp (_, e1, e2)) ext =
