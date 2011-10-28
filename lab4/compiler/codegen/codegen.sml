@@ -46,12 +46,13 @@ struct
         instrs @ [AS.MOV(d, AS.MEM d)]
       end
     | munch_exp d (T.CALL (l, t, L)) = let
-          fun argdest typ n =
-                case AS.arg_reg n
-                  of AS.REG(AS.STACKARG n) => AS.REG (AS.STACK (8 * n))
-                   | _ => let val t = AS.TEMP (Temp.new()) in
-                            if typ = T.QUAD then AS.O64 t else t
-                          end
+          fun argdest typ n = let
+                val t = case AS.arg_reg n
+                          of AS.REG (AS.STACKARG n) => AS.REG (AS.STACK (8 * n))
+                           | _ => AS.TEMP (Temp.new())
+              in
+                if typ = T.QUAD then AS.O64 t else t
+              end
 
           fun eval ((e, t), (i, T, I)) = let val d = argdest t i in
                                            (i - 1, d::T, (munch_exp d e) @ I)
@@ -225,6 +226,8 @@ struct
               AS.REG (AS.STACK (8 * (n+1) + stack_bytes))
           | map_op (AS.REG (AS.STACKLOC n)) =
               AS.REG (AS.STACK (n * 4 + stack_bytes - local_bytes))
+          | map_op (AS.O64 oper) = AS.O64 (map_op oper)
+          | map_op (AS.MEM oper) = AS.MEM (map_op oper)
           | map_op oper = oper
 
         fun map_instr (AS.BINOP (oper, op1, op2)) =
