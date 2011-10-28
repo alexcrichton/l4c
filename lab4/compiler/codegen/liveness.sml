@@ -44,7 +44,7 @@ struct
         ([d, s], [], [l + 1])
     | rulegen f (l, A.BINOP(_, A.MEM (d, _), s)) = ([d, s], [], [l + 1])
     | rulegen f (l, A.BINOP(_, d, s)) = ([d, s], [d], [l + 1])
-    | rulegen f (l, A.MOV(A.MEM _, A.MEM _)) = raise Fail "no two mem"
+    | rulegen f (l, A.MOV(A.MEM (d, _), A.MEM (s, _))) = ([d, s], [], [l + 1])
     | rulegen f (l, A.MOV(A.MEM (d, _), s)) = ([s, d], [], [l + 1])
     | rulegen f (l, A.MOV(d, A.MEM (s, _))) = ([s], [d], [l + 1])
     | rulegen f (l, A.MOV(d, s)) = ([s], [d], [l + 1])

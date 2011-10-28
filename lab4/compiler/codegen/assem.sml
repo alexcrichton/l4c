@@ -270,6 +270,8 @@ struct
     (* Can't move between two memory locations... *)
     | instr_expand (MOV (d as REG (STACK _, size), s as REG (STACK _, _))) =
         [MOV (swap size, s), MOV (d, swap size)]
+    | instr_expand (MOV (d as MEM (_, size), s as MEM _)) =
+        [MOV (swap size, s), MOV (d, swap size)]
     | instr_expand i = [i]
 
   (* format : instr -> string
