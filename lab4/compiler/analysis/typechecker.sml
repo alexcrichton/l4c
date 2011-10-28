@@ -52,7 +52,7 @@ struct
    *)
   fun is_lvalue (A.Var _) = true
     | is_lvalue (A.Field (e, _, _)) = is_lvalue e
-    | is_lvalue (A.Deref e) = is_lvalue e
+    | is_lvalue (A.Deref (e, _)) = is_lvalue e
     | is_lvalue (A.ArrSub (e, _, _)) = is_lvalue e
     | is_lvalue (A.Marked e) = is_lvalue (Mark.data e)
     | is_lvalue _ = false
@@ -195,9 +195,9 @@ struct
            of A.ARRAY typ => (r := typ; typ)
             | _ => (ErrorMsg.error ext "Should have an array type";
                     raise ErrorMsg.Error))
-    | tc_exp env (A.Deref e) ext =
+    | tc_exp env (A.Deref (e, tref)) ext =
         (case tc_exp env e ext
-           of A.PTR typ => typ
+           of A.PTR typ => (tref := typ; typ)
             | _ => (ErrorMsg.error ext "Should have a pointer type";
                     raise ErrorMsg.Error))
     | tc_exp env (A.BinaryOp ((A.LESS | A.GREATER | A.GREATEREQ | A.LESSEQ),

@@ -15,6 +15,8 @@ struct
   structure A = Ast
   structure T = Tree
 
+  type struct_table = ((int * T.typ) Symbol.table * int) Symbol.table
+
   (* typ_size : 'a -> A.typ -> int
    *
    * Calculates the size of a type
@@ -26,7 +28,7 @@ struct
     | typ_size _ A.BOOL = 4
     | typ_size _ (A.PTR _) = 8
     | typ_size _ (A.ARRAY _) = 8
-    | typ_size s (A.STRUCT id) = #2 (Symbol.look' s id : int Symbol.table * int)
+    | typ_size (s : struct_table) (A.STRUCT id) = #2 (Symbol.look' s id)
     | typ_size _ _ = raise Fail "Invalid type"
 
   (* struct_off : 'a * 'b * 'c -> A.typ -> Symbol.symbol -> int
@@ -38,8 +40,8 @@ struct
    * @param field the name of the field to find the offset for
    * @return the offset of the field into the struct.
    *)
-  fun struct_off (_,_,s) (A.STRUCT id) field =
-        Symbol.look' (#1 (Symbol.look' s id : int Symbol.table * int)) field
+  fun struct_off (_, _, s : struct_table) (A.STRUCT id) field =
+        Symbol.look' (#1 (Symbol.look' s id)) field
     | struct_off _ _ _ = raise Fail "Invalid struct"
 
   (* const : int -> T.exp
@@ -48,7 +50,7 @@ struct
    *)
   fun const n = T.CONST (Word32.fromInt n)
 
-  fun address (T.MEM a) = a
+  fun address (T.MEM (a, _)) = a
     | address b = b
 
   fun trans_typ (A.STRUCT _ | A.ARRAY _ | A.PTR _) = T.QUAD
@@ -154,15 +156,17 @@ struct
         val (e1s, e1') = trans_exp env e1 true
         val (e2s, e2') = trans_exp env e2 false
         val offset = T.BINOP(T.MUL, e2', const (typ_size structs typ))
-        val dest = T.MEM (T.BINOP (T.ADD, e1', offset))
+        val dest = T.MEM (T.BINOP (T.ADD, e1', offset), trans_typ typ)
       in (e1s @ e2s, if a then address dest else dest) end
-    | trans_exp env (A.Deref e) a = let val (es, e') = trans_exp env e false in
-        (es, if a then e' else T.MEM e')
+    | trans_exp env (A.Deref (e, ref t)) a = let
+        val (es, e') = trans_exp env e false
+      in
+        (es, if a then e' else T.MEM (e', trans_typ t))
       end
     | trans_exp env (A.Field (e, id, ref typ)) a = let
         val (es, e') = trans_exp env e true
-        val off = struct_off env typ id
-        val dest = T.MEM (T.BINOP (T.ADD, address e', const off))
+        val (off, size) = struct_off env typ id
+        val dest = T.MEM (T.BINOP (T.ADD, address e', const off), size)
       in (es, if a then address dest else dest) end
     | trans_exp env (A.Marked data) a = trans_exp env (Mark.data data) a
 
@@ -263,8 +267,9 @@ struct
         fun field_size structs ((typ, id), (s, n)) = let
               val size = typ_size structs typ
               val pad = if n mod size = 0 then 0 else 4 (* TODO: real math *)
+              val typ' = trans_typ typ
             in
-              (Symbol.bind s (id, n + pad), n + pad + size)
+              (Symbol.bind s (id, (n + pad, typ')), n + pad + size)
             end
         fun build_struct (A.Struct (id, L), s) =
               Symbol.bind s (id, foldl (field_size s) (Symbol.empty, 0) L)

@@ -11,12 +11,13 @@ sig
                | ESP | EBP  | STACK of int | STACKARG of int
                | STACKLOC of int
 
+  datatype size = QUAD | WORD
+
   datatype operand =
      IMM of Word32.word
-   | REG of reg
-   | TEMP of Temp.temp
-   | MEM of operand
-   | O64 of operand
+   | REG of reg * size
+   | TEMP of Temp.temp * size
+   | MEM of operand * size
 
   datatype operation = ADD | SUB | MUL | DIV | MOD | CMP
                      | AND | OR  | XOR | LSH | RSH
@@ -37,8 +38,8 @@ sig
 
   type ord_key = operand
 
-  val caller_regs : operand list
-  val callee_regs : operand list
+  val caller_regs : reg list
+  val callee_regs : reg list
 
   val format : instr -> string
   val format_operand : operand -> string
@@ -47,7 +48,7 @@ sig
   val oper_equal : operand * operand -> bool
   val reg_num : reg -> int
   val num_reg : int -> reg
-  val arg_reg : int -> operand
+  val arg_reg : int -> reg
 end
 
 structure Assem :> ASSEM =
@@ -57,12 +58,13 @@ struct
                | ESP | EBP  | STACK of int | STACKARG of int
                | STACKLOC of int
 
+  datatype size = QUAD | WORD
+
   datatype operand =
      IMM of Word32.word
-   | REG of reg
-   | TEMP of Temp.temp
-   | MEM of operand
-   | O64 of operand
+   | REG of reg * size
+   | TEMP of Temp.temp * size
+   | MEM of operand * size
 
   datatype operation = ADD | SUB | MUL | DIV | MOD | CMP
                      | AND | OR  | XOR | LSH | RSH
@@ -83,9 +85,8 @@ struct
 
   type ord_key = operand
 
-  val caller_regs = [REG ECX, REG EDX , REG ESI, REG EDI,
-                     REG R8D, REG R9D, REG R10D, REG R11D]
-  val callee_regs = [REG EBX, REG R12D, REG R13D, REG R14D, REG R15D]
+  val caller_regs = [ECX, EDX, ESI, EDI, R8D, R9D, R10D, R11D]
+  val callee_regs = [EBX, R12D, R13D, R14D, R15D]
 
   (* format_reg : reg -> string
    *
@@ -178,8 +179,8 @@ struct
     | format_binop LSH = "sal"
     | format_binop RSH = "sar"
 
-  fun format_suffix (O64 _, _) = "q"
-    | format_suffix (_, O64 _) = "q"
+  fun format_suffix (REG (_, QUAD), _) = "q"
+    | format_suffix (_, REG (_, QUAD)) = "q"
     | format_suffix _ = "l"
 
   (* format_operand : operand -> string
@@ -188,19 +189,18 @@ struct
    * @return the string representation of the given operand in x86 assembly
    *)
   fun format_operand (IMM n)  = "$" ^ Word32Signed.toString n
-    | format_operand (TEMP t) = Temp.name t
-    | format_operand (REG r)  = format_reg r
-    | format_operand (MEM (REG r))  = "(" ^ format_reg64 r ^ ")"
-    | format_operand (MEM r)  = "(" ^ format_operand r ^ ")"
-    | format_operand (O64 (REG r))  = format_reg64 r
-    | format_operand (O64 r)  = format_operand r
+    | format_operand (TEMP (t, size)) =
+        Temp.name t ^ (if size = WORD then ":32" else ":64")
+    | format_operand (REG (r, size)) = if size = WORD then format_reg r
+                                       else format_reg64 r
+    | format_operand (MEM (r, _))  = "(" ^ format_operand r ^ ")"
 
   (* format_operand8 : operand -> string
    *
    * @param operand the operand to convert
    * @return the string representation of the given operand in x86 assembly
    *)
-  fun format_operand8 (REG r) = format_reg8 r
+  fun format_operand8 (REG (r, _)) = format_reg8 r
     | format_operand8 (IMM n) =
         format_operand (IMM (Word32.andb (n, Word32.fromInt 255)))
     | format_operand8 oper    = format_operand oper
@@ -231,10 +231,6 @@ struct
         (if oper = LSH orelse oper = RSH then
          format_operand8 s else format_operand s) ^
       (if oper = DIV orelse oper = MOD then "" else ", " ^ format_operand d)
-    | format_instr (MOV(d as O64 _, s as O64 _)) =
-        "movq " ^ format_operand s ^ ", " ^ format_operand d
-    | format_instr (MOV(d as O64 _, s)) =
-        "movslq " ^ format_operand s ^ ", " ^ format_operand d
     | format_instr (MOV(d, s)) =
         "mov" ^ format_suffix (d, s) ^ " " ^ format_operand s ^ ", " ^
                  format_operand d
@@ -248,7 +244,7 @@ struct
     | format_instr (COMMENT str) = "/* " ^ str ^ "*/"
     | format_instr (RET) = "ret"
 
-  val swap = REG R11D
+  fun swap s = REG (R11D, s)
 
   (* instr_expand : instr -> instr list
    *
@@ -260,20 +256,20 @@ struct
    * @param I the instruction to expand
    * @return L a list of instructions which should be passed to format_instr
    *)
-  fun instr_expand (BINOP (oper, d as REG (STACK _), s)) =
-        [MOV (swap, d), BINOP (oper, swap, s), MOV (d, swap)]
+  fun instr_expand (BINOP (oper, d as REG (STACK _, size), s)) =
+        [MOV (swap size, d), BINOP (oper, swap size, s), MOV (d, swap size)]
     | instr_expand (MOVFLAG (d, cond)) = let
         val instr = case cond of LT => "setl" | LTE => "setle"
                                | EQ => "sete" | NEQ => "setne"
       in
-        case d of REG (STACK _) =>
-              [ASM (instr ^ " " ^ format_operand8 swap),
-               MOVFLAG (swap, cond), MOV (d, swap)]
+        case d of REG (STACK _, size) =>
+              [ASM (instr ^ " " ^ format_operand8 (swap size)),
+               MOVFLAG (swap size, cond), MOV (d, swap size)]
            | _ => [ASM (instr ^ " " ^ format_operand8 d), MOVFLAG (d, cond)]
       end
     (* Can't move between two memory locations... *)
-    | instr_expand (MOV (d as REG (STACK _), s as REG (STACK _))) =
-        [MOV (swap, s), MOV (d, swap)]
+    | instr_expand (MOV (d as REG (STACK _, size), s as REG (STACK _, _))) =
+        [MOV (swap size, s), MOV (d, swap size)]
     | instr_expand i = [i]
 
   (* format : instr -> string
@@ -343,17 +339,17 @@ struct
     | num_reg 13 = R15D
     | num_reg  n = STACKLOC (n - 14)
 
-  (* arg_reg : int -> operand
+  (* arg_reg : size -> int -> operand
    *
    * Maps an argument number to its register / stack location
    *)
-  fun arg_reg 0 = REG EDI
-    | arg_reg 1 = REG ESI
-    | arg_reg 2 = REG EDX
-    | arg_reg 3 = REG ECX
-    | arg_reg 4 = REG R8D
-    | arg_reg 5 = REG R9D
-    | arg_reg n = REG (STACKARG (n - 6))
+  fun arg_reg 0 = EDI
+    | arg_reg 1 = ESI
+    | arg_reg 2 = EDX
+    | arg_reg 3 = ECX
+    | arg_reg 4 = R8D
+    | arg_reg 5 = R9D
+    | arg_reg n = STACKARG (n - 6)
 
   (* compare : (operand * operand) -> order
    *
@@ -361,19 +357,16 @@ struct
    * @param (r1, r2) the register pair to compare
    * @return the comparison of r1 to r2
    *)
-  fun compare (REG r1, REG r2) = Int.compare (reg_num r1, reg_num r2)
-    | compare (TEMP t1, TEMP t2) = Temp.compare (t1, t2)
+  fun compare (REG (r1, _), REG (r2, _)) = Int.compare (reg_num r1, reg_num r2)
+    | compare (TEMP (t1, _), TEMP (t2, _)) = Temp.compare (t1, t2)
     | compare (IMM w1, IMM w2) = EQUAL
     | compare (MEM m1, MEM m2) = EQUAL
-    | compare (O64 o1, O64 o2) = compare (o1, o2)
     | compare (IMM _, _)  = LESS
     | compare (_, IMM _)  = GREATER
     | compare (TEMP _, _) = LESS
     | compare (_, TEMP _) = GREATER
     | compare (MEM _, _) = LESS
     | compare (_, MEM _) = GREATER
-    | compare (O64 _, _) = LESS
-    | compare (_, O64 _) = GREATER
 
   (* oper_equal : operand * operand -> bool
    *
@@ -386,10 +379,9 @@ struct
    * Hashes an operand
    *)
   fun oper_hash (IMM _) = Word.fromInt ~1
-    | oper_hash (REG r) = Word.fromInt (reg_num r)
-    | oper_hash (TEMP t) = (Temp.hash t) + (Word.fromInt 15)
+    | oper_hash (REG (r, _)) = Word.fromInt (reg_num r)
+    | oper_hash (TEMP (t, _)) = (Temp.hash t) + (Word.fromInt 15)
     | oper_hash (MEM oper) = Word.fromInt ~1
-    | oper_hash (O64 oper) = oper_hash oper
 
 end
 

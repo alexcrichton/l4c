@@ -44,7 +44,7 @@ sig
    | UnaryOp of unop * exp
    | Ternary of exp * exp * exp
    | Call of ident * exp list
-   | Deref of exp
+   | Deref of exp * typ ref
    | Field of exp * ident * typ ref
    | ArrSub of exp * exp * typ ref
    | Alloc of typ
@@ -128,7 +128,7 @@ struct
    | UnaryOp of unop * exp
    | Ternary of exp * exp * exp
    | Call of ident * exp list
-   | Deref of exp
+   | Deref of exp * typ ref
    | Field of exp * ident * typ ref
    | ArrSub of exp * exp * typ ref
    | Alloc of typ
@@ -277,7 +277,7 @@ struct
         Ternary (elaborate_exp env e1, elaborate_exp env e2,
                  elaborate_exp env e3)
     | elaborate_exp env (Call (l, L)) = Call (l, map (elaborate_exp env) L)
-    | elaborate_exp env (Deref e) = Deref (elaborate_exp env e)
+    | elaborate_exp env (Deref (e, t)) = Deref (elaborate_exp env e, t)
     | elaborate_exp env (Field (e, i, t)) = Field (elaborate_exp env e, i, t)
     | elaborate_exp env (ArrSub (e1, e2, t)) =
         ArrSub (elaborate_exp env e1, elaborate_exp env e2, t)
@@ -369,7 +369,7 @@ struct
       | pp_exp (Const c) = Word32Signed.toString c
       | pp_exp (Bool b) = if b then "true" else "false"
       | pp_exp Null = "NULL"
-      | pp_exp (Deref e) = "*(" ^ pp_exp e ^ ")"
+      | pp_exp (Deref (e, _)) = "*(" ^ pp_exp e ^ ")"
       | pp_exp (ArrSub (e1, e2, _)) = pp_exp e1 ^ "[" ^ pp_exp e2 ^ "]"
       | pp_exp (Field (e, f, _)) = pp_exp e ^ "." ^ pp_ident f
       | pp_exp (Alloc t) = "alloc(" ^ pp_typ t ^ ")"

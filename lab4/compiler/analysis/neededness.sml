@@ -34,7 +34,7 @@ struct
           of (T.DIV|T.MOD) => (U', U', true)
            | _ => (U', N1 @ N2, s1 orelse s2)
       end
-    | rulegen_exp (T.MEM e) = let
+    | rulegen_exp (T.MEM (e, _)) = let
         val (U, N, s) = rulegen_exp e
       in (U, U, true) end
     | rulegen_exp (T.CALL (_, _, L)) = let

@@ -45,11 +45,11 @@ struct
                add_neighbors x L)
 
         fun process_op (AS.IMM _, L) = L
-          | process_op (AS.O64 r, L) = process_op (r, L)
-          | process_op (AS.REG (AS.STACK _ | AS.STACKARG _ | AS.STACKLOC _
-                                           | AS.R11D), L) = L
+          | process_op (AS.MEM _, _) = raise Fail "mem!"
+          | process_op (AS.REG ((AS.STACK _ | AS.STACKARG _ | AS.STACKLOC _
+                                            | AS.R11D), _), L) = L
           | process_op (oper, L) = let
-              val clr = case oper of AS.REG r => AS.reg_num r | _ => 0
+              val clr = case oper of AS.REG (r, _) => AS.reg_num r | _ => 0
               val id  = case HT.find (#graph_info graph) oper
                           of SOME id => id
                            | NONE => let val nid = #new_id graph () in
@@ -155,12 +155,12 @@ struct
         fun get_color oper = #color (
           #node_info graph (HT.lookup (#graph_info graph) oper) : node_data
         )
-        fun map_op (oper as (AS.TEMP t)) = ((case !(get_color oper)
-                                               of 0 => AS.TEMP t
-                                                | c => AS.REG (AS.num_reg c))
-                                             handle G.NotFound => (AS.TEMP t))
-          | map_op (AS.O64 oper) = AS.O64 (map_op oper)
-          | map_op (AS.MEM oper) = AS.MEM (map_op oper)
+        fun map_op (oper as (AS.TEMP (t, s))) =
+              ((case !(get_color oper)
+                  of 0 => oper
+                   | c => AS.REG (AS.num_reg c, s))
+             handle G.NotFound => oper)
+          | map_op (AS.MEM (oper, t)) = AS.MEM (map_op oper, t)
           | map_op oper = oper
 
         fun map_instr (AS.BINOP (oper, op1, op2)) =
@@ -189,7 +189,6 @@ struct
           | hasTemps (AS.BINOP (oper, o1, o2)) = false
           | hasTemps _ = false
         fun fltr (AS.MOV (AS.REG r1, AS.REG r2)) = r1 <> r2
-          | fltr (AS.MOV (AS.O64 o1, AS.O64 o2)) = fltr (AS.MOV (o1, o2))
           | fltr i = not (hasTemps i)
       in
         List.filter fltr L
@@ -201,7 +200,7 @@ struct
   fun coalesce _ (AS.MOV (_, AS.IMM _)) = ()
     | coalesce g (AS.MOV (d as AS.REG _, s as AS.TEMP _)) =
         coalesce g (AS.MOV (s, d))
-    | coalesce (G.GRAPH g) (AS.MOV (d as AS.TEMP _, s as AS.REG r)) = (let
+    | coalesce (G.GRAPH g) (AS.MOV (d as AS.TEMP _, s as AS.REG (r, _))) = (let
         val table = #graph_info g
         val ids as (did, _) = (HT.lookup table d, HT.lookup table s)
         fun cmapfn n = !(#color (#node_info g n : node_data)) = AS.reg_num r
@@ -248,6 +247,12 @@ struct
    *)
   fun allocate L = let
         val live  = P.time ("Liveness", fn () => Liveness.compute L)
+        (*fun ps oper = print (Assem.format_operand oper ^ " ")
+        val _ = ListPair.app (fn (i, s) => (print (Assem.format i);
+                                            print "\t\t";
+                                            OperandSet.app ps s;
+                                            print "\n")) (L, live)
+        val _ = print "\n"*)
         val table = HT.mkTable (AS.oper_hash, AS.oper_equal)
                                (length L, G.NotFound)
         val graph_rec = UDG.graph ("allocation", table, List.length L)

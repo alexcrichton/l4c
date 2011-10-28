@@ -231,7 +231,9 @@ exp        : IDENT                      (mark (A.Var IDENT,
                                               (IDENTleft, arg_listright)))
            | exp PERIOD IDENT           (mark (A.Field (exp, IDENT, ref A.NULL),
                                               (expleft, IDENTright)))
-           | exp ARROW IDENT            (mark ((A.Field (A.Deref exp, IDENT,
+           | exp ARROW IDENT            (mark ((A.Field (A.Deref (exp,
+                                                                  ref A.NULL),
+                                                         IDENT,
                                                          ref A.NULL)),
                                               (expleft, IDENTright)))
            | ALLOC LPAREN typ RPAREN    (mark (A.Alloc typ,
@@ -239,7 +241,7 @@ exp        : IDENT                      (mark (A.Var IDENT,
            | ALLOCARR LPAREN typ COMMA exp RPAREN
                                         (mark (A.AllocArray (typ, exp),
                                               (ALLOCARRleft, RPARENright)))
-           | STAR exp                   (mark (A.Deref exp,
+           | STAR exp                   (mark (A.Deref (exp, ref A.NULL),
                                               (STARleft, expright)))
            | exp LBRACKET exp RBRACKET (mark (A.ArrSub (exp1, exp2, ref A.NULL),
                                               (exp1left, RBRACKETright)))
