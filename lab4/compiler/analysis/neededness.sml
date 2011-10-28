@@ -34,11 +34,9 @@ struct
           of (T.DIV|T.MOD) => (U', U', true)
            | _ => (U', N1 @ N2, s1 orelse s2)
       end
-    | rulegen_exp (T.MEM (e1, e2, _)) = let
-        val (U1, N1, s1) = rulegen_exp e1
-        val (U2, N2, s2) = rulegen_exp e2
-        val U' = U1 @ U2
-      in (U', U', true) end
+    | rulegen_exp (T.MEM e) = let
+        val (U, N, s) = rulegen_exp e
+      in (U, U, true) end
     | rulegen_exp (T.CALL (_, L)) = let
         fun merge (e, (U, _, s)) = let
               val (U', _, s') = rulegen_exp e

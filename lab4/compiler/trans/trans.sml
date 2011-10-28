@@ -48,7 +48,7 @@ struct
    *)
   fun const n = T.CONST (Word32.fromInt n)
 
-  fun address (T.MEM(b,i,s)) = T.BINOP (T.ADD, b, T.BINOP (T.MUL, i, const s))
+  fun address (T.MEM a) = a
     | address b = b
 
   (* trans_oper : A.binop -> T.binop
@@ -148,15 +148,16 @@ struct
     | trans_exp (env as (_, _, structs)) (A.ArrSub (e1, e2, ref typ)) a = let
         val (e1s, e1') = trans_exp env e1 true
         val (e2s, e2') = trans_exp env e2 false
-        val dest = T.MEM (e1', e2', typ_size structs typ)
+        val offset = T.BINOP(T.MUL, e2', const (typ_size structs typ))
+        val dest = T.MEM (T.BINOP (T.ADD, e1', offset))
       in (e1s @ e2s, if a then address dest else dest) end
     | trans_exp env (A.Deref e) a = let val (es, e') = trans_exp env e false in
-        (es, if a then e' else T.MEM (e', const 0, 0))
+        (es, if a then e' else T.MEM e')
       end
     | trans_exp env (A.Field (e, id, ref typ)) a = let
         val (es, e') = trans_exp env e true
         val off = struct_off env typ id
-        val dest = T.MEM (address e', const 1, off)
+        val dest = T.MEM (T.BINOP (T.ADD, address e', const off))
       in (es, if a then address dest else dest) end
     | trans_exp env (A.Marked data) a = trans_exp env (Mark.data data) a
 

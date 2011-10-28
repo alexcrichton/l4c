@@ -17,7 +17,7 @@ sig
     | CONST of Word32.word
     | BINOP of binop * exp * exp
     | CALL of Label.label * exp list
-    | MEM of exp * exp * int
+    | MEM of exp
   and stm =
       MOVE of exp * exp
     | LABEL of Label.label
@@ -47,7 +47,7 @@ struct
     | CONST of Word32.word
     | BINOP of binop * exp * exp
     | CALL of Label.label * exp list
-    | MEM of exp * exp * int
+    | MEM of exp
   and stm =
       MOVE of exp * exp
     | LABEL of Label.label
@@ -88,8 +88,7 @@ struct
         in
           Label.name l ^ "(" ^ args ^ ")"
         end
-      | pp_exp (MEM (e1, e2, w)) = "M[" ^ pp_exp e1 ^ " + " ^ Int.toString w ^
-                                   " * " ^ pp_exp e2 ^ "]"
+      | pp_exp (MEM e) = "M[" ^ pp_exp e ^ "]"
 
     fun pp_stm (MOVE (e1,e2)) = pp_exp e1 ^ " <- " ^ pp_exp e2
       | pp_stm (LABEL l) = Label.name l
