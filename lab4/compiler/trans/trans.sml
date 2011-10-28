@@ -48,7 +48,8 @@ struct
    *
    * Helper function to quickly go from an integer to a constant expression
    *)
-  fun const n = T.CONST (Word32.fromInt n)
+  fun const n = T.CONST (Word32.fromInt n, T.WORD)
+  fun constq n = T.CONST (Word32.fromInt n, T.QUAD)
 
   fun address (T.MEM (a, _)) = a
     | address b = b
@@ -89,8 +90,9 @@ struct
    *)
   fun trans_exp (_, env, _) (A.Var id) _ = ([], T.TEMP (Symbol.look' env id))
     | trans_exp _ (A.Bool b) _ = ([], const (if b then 1 else 0))
-    | trans_exp _ (A.Const w) _ = ([], T.CONST w)
-    | trans_exp env (A.UnaryOp (A.NEGATIVE, A.Const w)) _ = ([], T.CONST(~w))
+    | trans_exp _ (A.Const w) _ = ([], T.CONST (w, T.WORD))
+    | trans_exp env (A.UnaryOp (A.NEGATIVE, A.Const w)) _ =
+        ([], T.CONST(~w, T.WORD))
     | trans_exp env (A.UnaryOp (A.NEGATIVE, e)) a =
         trans_exp env (A.BinaryOp (A.MINUS, A.Const Word32Signed.ZERO, e)) a
     | trans_exp env (A.UnaryOp (A.INVERT, e)) a =
@@ -141,7 +143,7 @@ struct
       in
         (instrs, T.CALL (label, rettyp, ListPair.zip (args, argtyps)))
       end
-    | trans_exp _ A.Null _ = ([], const 0)
+    | trans_exp _ A.Null _ = ([], constq 0)
     | trans_exp (env as (_, _, structs)) (A.AllocArray (typ, e)) _ = let
         val (es, e') = trans_exp env e false
       in

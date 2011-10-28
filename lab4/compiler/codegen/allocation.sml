@@ -189,6 +189,7 @@ struct
           | hasTemps (AS.BINOP (oper, o1, o2)) = false
           | hasTemps _ = false
         fun fltr (AS.MOV (AS.REG r1, AS.REG r2)) = r1 <> r2
+          | fltr (AS.MOV (_, AS.MEM _)) = true
           | fltr i = not (hasTemps i)
       in
         List.filter fltr L

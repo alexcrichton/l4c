@@ -14,7 +14,7 @@ sig
   datatype size = QUAD | WORD
 
   datatype operand =
-     IMM of Word32.word
+     IMM of Word32.word * size
    | REG of reg * size
    | TEMP of Temp.temp * size
    | MEM of operand * size
@@ -61,7 +61,7 @@ struct
   datatype size = QUAD | WORD
 
   datatype operand =
-     IMM of Word32.word
+     IMM of Word32.word * size
    | REG of reg * size
    | TEMP of Temp.temp * size
    | MEM of operand * size
@@ -86,7 +86,7 @@ struct
   type ord_key = operand
 
   val caller_regs = [ECX, EDX, ESI, EDI, R8D, R9D, R10D, R11D]
-  val callee_regs = [EBX, R12D, R13D, R14D, R15D]
+  val callee_regs = [EBX, R12D, R13D, R14D, R15D, EBP]
 
   (* format_reg : reg -> string
    *
@@ -99,8 +99,8 @@ struct
     | format_reg EDX = "%edx"
     | format_reg EDI = "%edi"
     | format_reg ESI = "%esi"
-    | format_reg ESP = "%rsp"
-    | format_reg EBP = "'%ebp'"
+    | format_reg ESP = "%esp"
+    | format_reg EBP = "%ebp"
     | format_reg R8D = "%r8d"
     | format_reg R9D = "%r9d"
     | format_reg R10D = "%r10d"
@@ -125,7 +125,7 @@ struct
     | format_reg64 EDI = "%rdi"
     | format_reg64 ESI = "%rsi"
     | format_reg64 ESP = "%rsp"
-    | format_reg64 EBP = "'%rbp'"
+    | format_reg64 EBP = "%rbp"
     | format_reg64 R8D = "%r8"
     | format_reg64 R9D = "%r9"
     | format_reg64 R10D = "%r10"
@@ -159,6 +159,7 @@ struct
     | format_reg8 R13D = "%r13b"
     | format_reg8 R14D = "%r14b"
     | format_reg8 R15D = "%r15b"
+    | format_reg8 EBP  = "%bpl"
     | format_reg8 r = raise Fail ("Cannot get lower 8 bits of " ^ format_reg r)
 
   (* format_binop : operation -> string
@@ -179,7 +180,8 @@ struct
     | format_binop LSH = "sal"
     | format_binop RSH = "sar"
 
-  fun format_suffix (REG (_, QUAD), _) = "q"
+  fun format_suffix (REG (_, QUAD), REG (_, WORD)) = "slq"
+    | format_suffix (REG (_, QUAD), _) = "q"
     | format_suffix (_, REG (_, QUAD)) = "q"
     | format_suffix _ = "l"
 
@@ -188,7 +190,7 @@ struct
    * @param operand the operand to convert
    * @return the string representation of the given operand in x86 assembly
    *)
-  fun format_operand (IMM n)  = "$" ^ Word32Signed.toString n
+  fun format_operand (IMM (n, _))  = "$" ^ Word32Signed.toString n
     | format_operand (TEMP (t, size)) =
         Temp.name t ^ (if size = WORD then ":32" else ":64")
     | format_operand (REG (r, size)) = if size = WORD then format_reg r
@@ -201,8 +203,8 @@ struct
    * @return the string representation of the given operand in x86 assembly
    *)
   fun format_operand8 (REG (r, _)) = format_reg8 r
-    | format_operand8 (IMM n) =
-        format_operand (IMM (Word32.andb (n, Word32.fromInt 255)))
+    | format_operand8 (IMM (n, size)) =
+        format_operand (IMM (Word32.andb (n, Word32.fromInt 255), size))
     | format_operand8 oper    = format_operand oper
 
   (* format_condition : condition option -> string
@@ -231,7 +233,8 @@ struct
         (if oper = LSH orelse oper = RSH then
          format_operand8 s else format_operand s) ^
       (if oper = DIV orelse oper = MOD then "" else ", " ^ format_operand d)
-    | format_instr (MOV(d, s)) =
+    | format_instr (MOV (TEMP _, s)) = "cmpl $0, " ^ format_operand s
+    | format_instr (MOV (d, s)) =
         "mov" ^ format_suffix (d, s) ^ " " ^ format_operand s ^ ", " ^
                  format_operand d
     | format_instr (JMP (l, jmp)) = format_condition jmp ^ " " ^ Label.name l
@@ -244,7 +247,31 @@ struct
     | format_instr (COMMENT str) = "/* " ^ str ^ "*/"
     | format_instr (RET) = "ret"
 
-  fun swap s = REG (R11D, s)
+  fun swapl s = REG (R11D, s)
+  fun swapr s = REG (R10D, s)
+
+  fun findr (MEM (r, size)) = let
+        val (rinstrs, r') = findr r
+      in
+        (rinstrs @ [MOV (swapr size, MEM (r', size))], swapr size)
+      end
+    | findr (s as REG (STACK _, size)) =
+        ([MOV (swapr size, s)], swapr size)
+    | findr r = ([], r)
+
+  fun resolve_mem (MEM (d as REG (STACK _, _), size), s) = let
+        val (sinstrs, s') = findr s
+      in
+        (sinstrs @ [MOV (swapl QUAD, d)], MEM (swapl QUAD, size), s')
+      end
+    | resolve_mem (d as (REG (STACK _, _) | MEM _), s) = let
+        val (sinstrs, s') = findr s
+      in
+        (sinstrs, d, s')
+      end
+    | resolve_mem (d, MEM (s as REG (STACK _, _), size)) =
+        ([MOV (swapr QUAD, s)], d, MEM (swapr QUAD, size))
+    | resolve_mem (d, s) = ([], d, s)
 
   (* instr_expand : instr -> instr list
    *
@@ -256,22 +283,25 @@ struct
    * @param I the instruction to expand
    * @return L a list of instructions which should be passed to format_instr
    *)
-  fun instr_expand (BINOP (oper, d as REG (STACK _, size), s)) =
-        [MOV (swap size, d), BINOP (oper, swap size, s), MOV (d, swap size)]
+  fun instr_expand (BINOP (oper, d, s)) = let
+        val (instrs, d', s') = resolve_mem (d, s)
+      in
+        instrs @ [BINOP (oper, d', s')]
+      end
     | instr_expand (MOVFLAG (d, cond)) = let
         val instr = case cond of LT => "setl" | LTE => "setle"
                                | EQ => "sete" | NEQ => "setne"
       in
         case d of REG (STACK _, size) =>
-              [ASM (instr ^ " " ^ format_operand8 (swap size)),
-               MOVFLAG (swap size, cond), MOV (d, swap size)]
+              [ASM (instr ^ " " ^ format_operand8 (swapl size)),
+               MOVFLAG (swapl size, cond), MOV (d, swapl size)]
            | _ => [ASM (instr ^ " " ^ format_operand8 d), MOVFLAG (d, cond)]
       end
-    (* Can't move between two memory locations... *)
-    | instr_expand (MOV (d as REG (STACK _, size), s as REG (STACK _, _))) =
-        [MOV (swap size, s), MOV (d, swap size)]
-    | instr_expand (MOV (d as MEM (_, size), s as MEM _)) =
-        [MOV (swap size, s), MOV (d, swap size)]
+    | instr_expand (MOV ops) = let
+        val (instrs, d, s) = resolve_mem ops
+      in
+        instrs @ [MOV (d, s)]
+      end
     | instr_expand i = [i]
 
   (* format : instr -> string
@@ -301,6 +331,7 @@ struct
    * @return the number corresponding to this register
    *)
   fun reg_num R11D = 0
+    | reg_num R10D = 0
     | reg_num EAX  = 1
     | reg_num ECX  = 2
     | reg_num EDX  = 3
@@ -308,12 +339,12 @@ struct
     | reg_num EDI  = 5
     | reg_num R8D  = 6
     | reg_num R9D  = 7
-    | reg_num R10D = 8
-    | reg_num EBX  = 9
-    | reg_num R12D = 10
-    | reg_num R13D = 11
-    | reg_num R14D = 12
-    | reg_num R15D = 13
+    | reg_num EBX  = 8
+    | reg_num R12D = 9
+    | reg_num R13D = 10
+    | reg_num R14D = 11
+    | reg_num R15D = 12
+    | reg_num EBP  = 13
     | reg_num (STACKLOC n) = n + 14
     | reg_num (STACKARG n) = 0
     | reg_num (STACK n) = 0
@@ -333,12 +364,12 @@ struct
     | num_reg  5 = EDI
     | num_reg  6 = R8D
     | num_reg  7 = R9D
-    | num_reg  8 = R10D
-    | num_reg  9 = EBX
-    | num_reg 10 = R12D
-    | num_reg 11 = R13D
-    | num_reg 12 = R14D
-    | num_reg 13 = R15D
+    | num_reg  8 = EBX
+    | num_reg  9 = R12D
+    | num_reg 10 = R13D
+    | num_reg 11 = R14D
+    | num_reg 12 = R15D
+    | num_reg 13 = EBP
     | num_reg  n = STACKLOC (n - 14)
 
   (* arg_reg : size -> int -> operand

@@ -40,11 +40,8 @@ struct
    * @return the instructions needed to move the result of the expression into
    *         the destination
    *)
-  fun munch_exp d (T.CONST n) = [AS.MOV(d, AS.IMM(n))]
+  fun munch_exp d (T.CONST (n, typ)) = [AS.MOV(d, AS.IMM (n, munch_typ typ))]
     | munch_exp d (T.TEMP (t, typ)) = [AS.MOV(d, AS.TEMP (t, munch_typ typ))]
-    | munch_exp d (T.BINOP (T.DIV, e1, T.CONST n)) =
-        if Word32.compare (n, Word32.fromInt 1) = EQUAL then munch_exp d e1
-        else munch_binop d (T.DIV, e1, T.CONST n)
     | munch_exp d (T.BINOP (binop, e1, e2)) = munch_binop d (binop, e1, e2)
     | munch_exp d (T.MEM (a, typ)) = let
         val t = AS.TEMP (Temp.new(), AS.QUAD)
@@ -85,10 +82,10 @@ struct
    *         perform the computation
    *)
   and munch_half _ oper (T.TEMP (t, typ)) = (AS.TEMP (t, munch_typ typ), [])
-    | munch_half s (AS.DIV | AS.MOD | AS.CMP) (e as T.CONST n) = let
-        val t = AS.TEMP(Temp.new(), s)
+    | munch_half _ (AS.DIV | AS.MOD | AS.CMP) (e as T.CONST (_, typ)) = let
+        val t = AS.TEMP(Temp.new(), munch_typ typ)
       in (t, munch_exp t e) end
-    | munch_half _ _ (T.CONST n) = (AS.IMM n, [])
+    | munch_half _ _ (T.CONST (n, typ)) = (AS.IMM (n, munch_typ typ), [])
     | munch_half s oper e =
         let val t = AS.TEMP(Temp.new(), s) in (t, munch_exp t e) end
 
@@ -159,10 +156,10 @@ struct
    * @param exp  the expression to evaluate
    * @return the instructions necessary to perform this conditional
    *)
-  and munch_conditional dest (T.CONST w) =
+  and munch_conditional dest (T.CONST (w, T.WORD)) =
         if Word32Signed.ZERO = w then [] else [AS.JMP(dest, NONE)]
     | munch_conditional dest (T.TEMP (n, T.WORD)) =
-        [AS.BINOP (AS.CMP, AS.TEMP (n, AS.WORD), AS.IMM Word32Signed.ZERO),
+        [AS.BINOP (AS.CMP, AS.TEMP (n, AS.WORD), AS.IMM (Word32Signed.ZERO, AS.WORD)),
          AS.JMP(dest, SOME(AS.NEQ))]
     | munch_conditional dest (f as T.CALL _) = let val t = Temp.new() in
         munch_exp (AS.TEMP (t, AS.WORD)) f @
@@ -182,7 +179,7 @@ struct
     | munch_conditional dest (T.MEM (a, T.WORD)) = let
         val (t, tinstrs) = munch_half AS.WORD AS.CMP a
       in
-        [AS.BINOP (AS.CMP, t, AS.IMM Word32Signed.ZERO),
+        [AS.BINOP (AS.CMP, t, AS.IMM (Word32Signed.ZERO, AS.WORD)),
          AS.JMP(dest, SOME(AS.NEQ))]
       end
     | munch_conditional _ _ = raise Fail "bad types in munch_conditional"
@@ -294,7 +291,7 @@ struct
         (* Make sure we have a stack for this function *)
         val stack_start = AS.reg_num (AS.STACK 0)
         fun add_rsp i = AS.BINOP(AS.ADD, AS.REG (AS.ESP, AS.QUAD),
-                                 AS.IMM (Word32.fromInt i))
+                                 AS.IMM (Word32.fromInt i, AS.QUAD))
 
         val (assem', offset) = stack_size (assem, max)
       in
