@@ -15,6 +15,7 @@ struct
   structure T = Tree
   structure AS = Assem
   structure P = Profile
+  structure IBM = IntBinaryMap
 
   fun munch_op T.ADD = AS.ADD
     | munch_op T.SUB = AS.SUB
@@ -213,17 +214,40 @@ struct
    * Computes the amount of stack space needed for the given function
    *)
   fun stack_size (I, locals) = let
+        fun build_map_ops (AS.REG (AS.STACKLOC n, s), (w, q)) =
+              (if s = AS.QUAD then
+                case IBM.find (q, n)
+                  of SOME _ => (w, q)
+                   | NONE   => (w, IBM.insert (q, n, 8 * IBM.numItems q))
+              else
+                case IBM.find (w, n)
+                  of SOME _ => (w, q)
+                   | NONE   => (IBM.insert (w, n, 4 * IBM.numItems w), q))
+          | build_map_ops (AS.MEM (r, _), maps) = build_map_ops (r, maps)
+          | build_map_ops (i, maps) = maps
+
+        fun build_maps ((AS.BINOP (_, o1, o2) | AS.MOV (o1, o2)), maps) =
+              build_map_ops (o1, (build_map_ops (o2, maps)))
+          | build_maps (AS.MOVFLAG (oper, _), maps) = build_map_ops (oper, maps)
+          | build_maps (_, maps) = maps
+        val (words, quads) = foldl build_maps (IBM.empty, IBM.empty) I
+        val local_bytes = 4 * IBM.numItems words + 8 * IBM.numItems quads
+
         (* Returns the maximum amount of stack slots needed to call functions *)
         fun max_call (AS.CALL (_, a), n) = Int.max (a - 6, n)
           | max_call (_, n) = n
         val max_args = foldr max_call 0 I
-        val local_bytes = 4 * (Int.max (0, locals - (AS.reg_num (AS.STACKLOC 0)) + 1))
         val stack_bytes = ((max_args * 8 + local_bytes - 8) div 16) * 16 + 24
+
         (* Maps stack locations to the correct place *)
         fun map_op (AS.REG (AS.STACKARG n, s)) =
               AS.REG (AS.STACK (8 * (n+1) + stack_bytes), s)
-          | map_op (AS.REG (AS.STACKLOC n, s)) =
-              AS.REG (AS.STACK (n * 4 + stack_bytes - local_bytes), s)
+          | map_op (AS.REG (AS.STACKLOC n, s)) = let
+              val off = if s = AS.QUAD then valOf(IBM.find (quads, n))
+                        else (valOf(IBM.find (words, n)) + 8*IBM.numItems quads)
+            in
+              AS.REG (AS.STACK (off + stack_bytes - local_bytes), s)
+            end
           | map_op (AS.MEM (oper, t)) = AS.MEM (map_op oper, t)
           | map_op oper = oper
 
