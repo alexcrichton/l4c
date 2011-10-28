@@ -237,7 +237,7 @@ struct
       end
 
   (* munch_function : T.typ * (Temp.temp * T.typ) list * T.stm list
-                        -> AS.instr list
+   *                    -> AS.instr list
    *
    * Converts and IR function into allocated assembly.
    * @param T the list of temps that are arguments to this function. The list
@@ -251,7 +251,7 @@ struct
         (* Move the arguments to the function from their specified registers
            into the temps of the arguments *)
         fun mkarg i = let val (_, typ) = List.nth (T, i) in
-                        AS.REG (AS.num_reg i, munch_typ typ)
+                        AS.REG (AS.arg_reg i, munch_typ typ)
                       end
         val srcs     = List.tabulate (length T, mkarg)
         val dests    = map (fn (t, typ) => AS.TEMP (t, munch_typ typ)) T
