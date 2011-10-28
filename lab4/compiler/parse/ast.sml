@@ -264,6 +264,7 @@ struct
     | elaborate_stm env (Seq (s1, s2)) =
         Seq (elaborate_stm env s1, elaborate_stm env s2)
     | elaborate_stm env (Express e) = Express (elaborate_exp env e)
+    | elaborate_stm env (Return e) = Return (elaborate_exp env e)
     | elaborate_stm env (Assign (id, s, e)) =
         Assign (id, s, elaborate_exp env e)
     | elaborate_stm _ stm = stm
