@@ -183,27 +183,31 @@ struct
          AS.JMP(dest, SOME(AS.NEQ))]
       end
 
-  (* munch_stm : T.stm -> AS.instr list
+  (* munch_stm : T.typ -> T.stm -> AS.instr list
    *
    * Converts a statement of the IL into a list of assembly instructions.
    *
+   * @param typ the return type of the current function
    * @param exp the expression to convert
    * @return L a list of abstract assembly instructions with temps
    *)
-  fun munch_stm (T.MOVE (T.TEMP (t, T.WORD), e)) = munch_exp (AS.TEMP t) e
-    | munch_stm (T.MOVE (T.TEMP (t, T.QUAD), e)) =
+  fun munch_stm _ (T.MOVE (T.TEMP (t, T.WORD), e)) = munch_exp (AS.TEMP t) e
+    | munch_stm _ (T.MOVE (T.TEMP (t, T.QUAD), e)) =
         munch_exp (AS.O64 (AS.TEMP t)) e
-    | munch_stm (T.MOVE (T.MEM a, e)) = let
+    | munch_stm _ (T.MOVE (T.MEM a, e)) = let
         val t = AS.O64 (AS.TEMP (Temp.new()))
       in
         munch_exp t a @ munch_exp (AS.MEM t) e
       end
-    | munch_stm (T.RETURN e) = munch_exp (AS.REG AS.EAX) e @ [AS.RET]
-    | munch_stm (T.LABEL l)  = [AS.LABEL l]
-    | munch_stm (T.GOTO (l, NONE)) = [AS.JMP (l, NONE)]
-    | munch_stm (T.GOTO (l, SOME e)) = munch_conditional l e
-    | munch_stm _ = raise Fail "Invalid IR"
-  and munch_stmts stmts = foldr (op @) [] (map munch_stm stmts)
+    | munch_stm t (T.RETURN e) = let
+        val eax = AS.REG AS.EAX
+        val dest = if t = T.QUAD then AS.O64 eax else eax
+      in munch_exp dest e @ [AS.RET] end
+    | munch_stm _ (T.LABEL l)  = [AS.LABEL l]
+    | munch_stm _ (T.GOTO (l, NONE)) = [AS.JMP (l, NONE)]
+    | munch_stm _ (T.GOTO (l, SOME e)) = munch_conditional l e
+    | munch_stm _ _ = raise Fail "Invalid IR"
+  and munch_stmts t stmts = foldr (op @) [] (map (munch_stm t) stmts)
 
   (* stack_size : T.stm list * int -> int
    *
@@ -240,13 +244,15 @@ struct
    * @param L the list of statements that comprise this function.
    * @return the assembly instructions for the function
    *)
-  fun munch_function (T, L) = let
+  fun munch_function (t, T, L) = let
         fun alter_ret post (AS.RET, L) = post @ AS.RET :: L
           | alter_ret _ (i, L) = i :: L
         (* Move the arguments to the function from their specified registers
            into the temps of the arguments *)
         val srcs     = List.tabulate (length T, AS.arg_reg)
-        val dests    = map (fn t => AS.TEMP t) T
+        fun arg (t, typ) =
+              if typ = T.WORD then AS.TEMP t else AS.O64 (AS.TEMP t)
+        val dests    = map arg T
         val argmvs   = ListPair.map (fn t => AS.MOV t) (dests, srcs)
 
         (* Save/restore callee save registers *)
@@ -255,7 +261,7 @@ struct
         val saves    = ListPair.map (fn t => AS.MOV t) (save_dsts, save_srcs)
         val restores = ListPair.map (fn t => AS.MOV t) (save_srcs, save_dsts)
 
-        val L' = P.time ("Munching", fn () => munch_stmts L)
+        val L' = P.time ("Munching", fn () => munch_stmts t L)
         val instrs = saves @ argmvs @ foldr (alter_ret restores) [] L'
         val (max, assem) = Allocation.allocate instrs
 
@@ -279,7 +285,7 @@ struct
    * @return a list of instructions with allocated registers
    *)
   fun codegen program = let
-        fun geni (id, T, L) = (AS.LABEL id) :: munch_function (T, L)
+        fun geni (id, t, T, L) = (AS.LABEL id) :: munch_function (t, T, L)
       in
         foldr (op @) [] (map geni program)
       end

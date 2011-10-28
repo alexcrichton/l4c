@@ -230,7 +230,7 @@ struct
    * @param prog the AST program
    * @return a list of statements in the intermediate language.
    *)
-  fun translate_fun (funs, structs) (A.Fun (_, name, args, body)) = let
+  fun translate_fun (funs, structs) (A.Fun (typ, name, args, body)) = let
         fun bind ((typ, id), (T, e)) = let val t = Temp.new() in
               (t::T, Symbol.bind e (id, (t, trans_typ typ)))
             end
@@ -238,8 +238,10 @@ struct
         val instrs = trans_stm (funs, e, structs)
                                (A.remove_for body A.Nop)
                                (Label.new "_", Label.new "_")
+        val targs = ListPair.map (fn ((a, _), b) => (b, trans_typ a))
+                                 (args, temps)
       in
-        SOME (Label.intfunc (Symbol.name name), temps, instrs)
+        SOME (Label.intfunc (Symbol.name name), trans_typ typ, targs, instrs)
       end
     | translate_fun _ _ = NONE
 
