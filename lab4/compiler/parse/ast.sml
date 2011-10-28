@@ -250,11 +250,12 @@ struct
     | elaborate_stm env (For (Markeds mark, e, s2, s3)) =
         elaborate_stm env (For (Mark.data mark, e, s2, s3))
     | elaborate_stm env (For (s1, e, s2, s3)) =
-        For (elaborate_stm env s1, e, elaborate_stm env s2,
+        For (elaborate_stm env s1, elaborate_exp env e, elaborate_stm env s2,
              elaborate_stm env s3)
     | elaborate_stm env (If (e, s1, s2)) =
-        If (e, elaborate_stm env s1, elaborate_stm env s2)
-    | elaborate_stm env (While (e, s)) = While (e, elaborate_stm env s)
+        If (elaborate_exp env e, elaborate_stm env s1, elaborate_stm env s2)
+    | elaborate_stm env (While (e, s)) =
+        While (elaborate_exp env e, elaborate_stm env s)
     | elaborate_stm env (Seq (Declare (id, typ, s1), s2)) =
         elaborate_stm env (Declare (id, typ, Seq (s1, s2)))
     | elaborate_stm env (Seq (Markeds mark, s2)) =
@@ -262,7 +263,28 @@ struct
                              Mark.ext mark))
     | elaborate_stm env (Seq (s1, s2)) =
         Seq (elaborate_stm env s1, elaborate_stm env s2)
+    | elaborate_stm env (Express e) = Express (elaborate_exp env e)
+    | elaborate_stm env (Assign (id, s, e)) =
+        Assign (id, s, elaborate_exp env e)
     | elaborate_stm _ stm = stm
+
+  and elaborate_exp env (Marked mark) =
+        Marked (Mark.mark' (elaborate_exp env (Mark.data mark), Mark.ext mark))
+    | elaborate_exp env (BinaryOp (b, e1, e2)) =
+        BinaryOp (b, elaborate_exp env e1, elaborate_exp env e2)
+    | elaborate_exp env (UnaryOp (b, e)) = UnaryOp (b, elaborate_exp env e)
+    | elaborate_exp env (Ternary (e1, e2, e3)) =
+        Ternary (elaborate_exp env e1, elaborate_exp env e2,
+                 elaborate_exp env e3)
+    | elaborate_exp env (Call (l, L)) = Call (l, map (elaborate_exp env) L)
+    | elaborate_exp env (Deref e) = Deref (elaborate_exp env e)
+    | elaborate_exp env (Field (e, i, t)) = Field (elaborate_exp env e, i, t)
+    | elaborate_exp env (ArrSub (e1, e2, t)) =
+        ArrSub (elaborate_exp env e1, elaborate_exp env e2, t)
+    | elaborate_exp env (Alloc typ) = Alloc (resolve_typ (ref env) NONE typ)
+    | elaborate_exp env (AllocArray (typ, e)) =
+        AllocArray (resolve_typ (ref env) NONE typ, elaborate_exp env e)
+    | elaborate_exp _ e = e
 
   (* elaborate_external : program -> program
    *

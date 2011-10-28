@@ -231,6 +231,10 @@ struct
         (if oper = LSH orelse oper = RSH then
          format_operand8 s else format_operand s) ^
       (if oper = DIV orelse oper = MOD then "" else ", " ^ format_operand d)
+    | format_instr (MOV(d as O64 _, s as O64 _)) =
+        "movq " ^ format_operand s ^ ", " ^ format_operand d
+    | format_instr (MOV(d as O64 _, s)) =
+        "movslq " ^ format_operand s ^ ", " ^ format_operand d
     | format_instr (MOV(d, s)) =
         "mov" ^ format_suffix (d, s) ^ " " ^ format_operand s ^ ", " ^
                  format_operand d
