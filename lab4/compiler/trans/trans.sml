@@ -150,12 +150,12 @@ struct
         val (es, e') = trans_exp env e false
       in
         (es, T.CALL (Label.extfunc "calloc", T.QUAD,
-                     [(e', T.WORD), (const (typ_size structs typ), T.WORD)]))
+                     [(e', T.QUAD), (constq (typ_size structs typ), T.QUAD)]))
       end
     | trans_exp (_, _, structs) (A.Alloc typ) _ =
         ([], T.CALL (Label.extfunc "calloc", T.QUAD,
-                     [(const 1, T.WORD),
-                      (const (typ_size structs typ), T.WORD)]))
+                     [(constq 1, T.QUAD),
+                      (constq (typ_size structs typ), T.QUAD)]))
     | trans_exp (env as (_, _, structs)) (A.ArrSub (e1, e2, ref typ)) a = let
         val (e1s, e1') = trans_exp env e1 false
         val (e2s, e2') = trans_exp env e2 false
