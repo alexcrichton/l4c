@@ -371,8 +371,8 @@ struct
       | pp_exp (Bool b) = if b then "true" else "false"
       | pp_exp Null = "NULL"
       | pp_exp (Deref (e, _)) = "*(" ^ pp_exp e ^ ")"
-      | pp_exp (ArrSub (e1, e2, _)) = pp_exp e1 ^ "[" ^ pp_exp e2 ^ "]"
-      | pp_exp (Field (e, f, _)) = pp_exp e ^ "." ^ pp_ident f
+      | pp_exp (ArrSub (e1, e2, _)) = "(" ^ pp_exp e1 ^ "[" ^ pp_exp e2 ^ "])"
+      | pp_exp (Field (e, f, _)) = "(" ^ pp_exp e ^ "." ^ pp_ident f ^ ")"
       | pp_exp (Alloc t) = "alloc(" ^ pp_typ t ^ ")"
       | pp_exp (AllocArray (t, e)) =
           "alloc_array(" ^ pp_typ t ^ "," ^ pp_exp e ^ ")"
