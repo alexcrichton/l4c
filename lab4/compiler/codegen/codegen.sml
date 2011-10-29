@@ -169,7 +169,7 @@ struct
             | T.LTE => instrs @ [AS.MOVFLAG (d, AS.LTE)]
             | T.EQ  => instrs @ [AS.MOVFLAG (d, AS.EQ)]
             | T.NEQ => instrs @ [AS.MOVFLAG (d, AS.NEQ)]
-            | _     => instrs)
+            | _     => instrs @ (if size d <> size t1 then [AS.MOV (d, d')] else []))
       end
 
   (* munch_conditional : Label.label -> T.exp -> Assem.instr list
