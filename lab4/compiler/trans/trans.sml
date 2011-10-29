@@ -140,8 +140,10 @@ struct
         val label =
           if isext then Label.extfunc (Symbol.name name)
           else Label.intfunc (Symbol.name name)
+        val result = T.TEMP (Temp.new(), rettyp)
+        val call = T.CALL (label, rettyp, ListPair.zip (args, argtyps))
       in
-        (instrs, T.CALL (label, rettyp, ListPair.zip (args, argtyps)))
+        (instrs @ [T.MOVE (result, call)], result)
       end
     | trans_exp _ A.Null _ = ([], constq 0)
     | trans_exp (env as (_, _, structs)) (A.AllocArray (typ, e)) _ = let
