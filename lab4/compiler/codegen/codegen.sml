@@ -90,7 +90,7 @@ struct
       in (t, munch_exp t e) end
     | munch_half _ (T.CONST (n, typ)) = (AS.IMM (n, munch_typ typ), [])
     | munch_half oper e = let
-        fun guess_size (T.CONST (_, t) | T.TEMP (_, t) | T.MEM (_, t) | 
+        fun guess_size (T.CONST (_, t) | T.TEMP (_, t) | T.MEM (_, t) |
                         T.CALL (_, t, _)) = munch_typ t
           | guess_size (T.BINOP (_, e1, e2)) = let
               val (e1t, e2t) = (guess_size e1, guess_size e2)
@@ -115,21 +115,27 @@ struct
   and munch_binop d (binop, e1, e2) =
       let
         val oper = munch_op binop
-        val dsize = size d
-        fun fix_size (t, tinstrs) = let val tsize = size t in
-              if tsize = size d then (t, tinstrs)
-              else let val t' = AS.TEMP (Temp.new(), dsize) in
-                (t', tinstrs @ [AS.MOV (t', t)])
-              end
+        val (t1, t1instrs) = munch_half oper e1
+        val (t2, t2instrs) = munch_half oper e2
+        fun promote r = if size r = AS.QUAD then ([], r)
+                        else let val t = AS.TEMP (Temp.new(), AS.QUAD) in
+                          ([AS.MOV(t, r)], t)
+                        end
+        val (t1, t2, t2instrs) =
+          if size t1 = AS.QUAD orelse size t2 = AS.QUAD then let
+              val (t1instrs', t1') = promote t1
+              val (t2instrs', t2') = promote t2
+            in
+              (t1', t2', t2instrs @ t1instrs' @ t2instrs')
             end
-        val (t1, t1instrs) = fix_size (munch_half oper e1)
-        val (t2, t2instrs) = fix_size (munch_half oper e2)
+          else (t1, t2, t2instrs)
         fun eq_ops (AS.TEMP (t1, _), AS.TEMP (t2, _)) = Temp.equals (t1, t2)
           | eq_ops (AS.REG (a, _), AS.REG (b, _)) = (a = b)
           | eq_ops _ = false
 
-
-        fun reg r = AS.REG (r, dsize)
+        fun reg r = AS.REG (r, size t1)
+        val d' = if size d <> size t1 then AS.TEMP (Temp.new(), AS.QUAD)
+                 else d
         (* x86 has weird conditions on instructions. Catch those oddities here
            and expand a single binop into multiple instructions as necessary *)
         val instrs =
@@ -139,7 +145,9 @@ struct
                   AS.BINOP (oper, reg AS.EAX, t2),
                   AS.MOV (d, reg (if binop = T.DIV then AS.EAX else AS.EDX))]
              | (T.RSH | T.LSH) =>
-                if eq_ops (d, t2) then let val t = AS.TEMP(Temp.new(), dsize) in
+                if eq_ops (d, t2) then let
+                    val t = AS.TEMP(Temp.new(), size t1)
+                  in
                    [AS.MOV (t, t1), AS.MOV (reg AS.ECX, t2),
                     AS.BINOP (oper, t, reg AS.ECX), AS.MOV (d, t)]
                   end
@@ -147,12 +155,12 @@ struct
                         of AS.IMM _ => [AS.MOV (d, t1), AS.BINOP (oper, d, t2)]
                          | _ => [AS.MOV (d, t1), AS.MOV (reg AS.ECX, t2),
                                  AS.BINOP (oper, d, reg AS.ECX)])
-             | _ => if not(eq_ops (d, t2)) then
-                      [AS.MOV (d, t1), AS.BINOP (oper, d, t2)]
+             | _ => if not(eq_ops (d', t2)) then
+                      [AS.MOV (d', t1), AS.BINOP (oper, d', t2)]
                     else if binop <> T.SUB then
-                      [AS.MOV (d, t2), AS.BINOP (oper, d, t1)]
-                    else let val t = AS.TEMP (Temp.new(), dsize) in
-                      [AS.MOV (t, t1), AS.BINOP (oper, t, t2), AS.MOV (d, t)]
+                      [AS.MOV (d', t2), AS.BINOP (oper, d', t1)]
+                    else let val t = AS.TEMP (Temp.new(), size t1) in
+                      [AS.MOV (t, t1), AS.BINOP (oper, t, t2), AS.MOV (d', t)]
                     end
       in
         t1instrs @ t2instrs @ (case binop
