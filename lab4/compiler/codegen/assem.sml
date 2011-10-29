@@ -320,7 +320,7 @@ struct
         val (instrs, d', s') = resolve_mem (d, s)
       in
         case d'
-          of REG (STACK _, size) =>
+          of (REG (STACK _, size) | MEM (_, size)) =>
               if oper = MUL then
                 instrs @ [MOV (swapl size, d'), BINOP (oper, swapl size, s'),
                           MOV (d', swapl size)]
