@@ -161,17 +161,31 @@ struct
         val (e2s, e2') = trans_exp env e2 false
         val offset = T.BINOP(T.MUL, e2', const (typ_size structs typ))
         val dest = T.MEM (T.BINOP (T.ADD, e1', offset), trans_typ typ)
-      in (e1s @ e2s, if a then address dest else dest) end
-    | trans_exp env (A.Deref (e, ref t)) a = let
+      in
+        if a then (e1s @ e2s, address dest)
+        else let val t = T.TEMP (Temp.new(), trans_typ typ) in
+          (e1s @ e2s @ [T.MOVE (t, dest)], t)
+        end
+      end
+        (*(e1s @ e2s, if a then address dest else dest) end*)
+    | trans_exp env (A.Deref (e, ref typ)) a = let
         val (es, e') = trans_exp env e false
       in
-        (es, if a then e' else T.MEM (e', trans_typ t))
+        if a then (es, e')
+        else let val t = T.TEMP (Temp.new(), trans_typ typ) in
+          (es @ [T.MOVE (t, T.MEM(e', trans_typ typ))], t)
+        end
       end
     | trans_exp env (A.Field (e, id, ref typ)) a = let
         val (es, e') = trans_exp env e true
         val (off, size) = struct_off env typ id
         val dest = T.MEM (T.BINOP (T.ADD, address e', const off), size)
-      in (es, if a then address dest else dest) end
+      in
+        if a then (es, address dest)
+        else let val t = T.TEMP (Temp.new(), size) in
+          (es @ [T.MOVE (t, T.MEM(dest, size))], t)
+        end
+      end
     | trans_exp env (A.Marked data) a = trans_exp env (Mark.data data) a
 
   (* trans_stm : 'a -> A.stm -> Label.label * Label.label -> T.program
