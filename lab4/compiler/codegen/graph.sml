@@ -115,9 +115,9 @@ struct
       fun forall_nodes f =
           A.appi (fn (i,SOME x) => f(i,x) | _ => ()) nodes
 
-      fun forall_edges f = raise Fail "Forall edges unimplemnted"
-      (*fun forall_edges f = A.appi (fn (i,es) =>
-            H.appi (fn (j,e) => if i <= j then f(i,j,e) else ()) es) adj*)
+      (*fun forall_edges f = raise Fail "Forall edges unimplemnted"*)
+      fun forall_edges f = A.appi (fn (i,es) =>
+            H.appi (fn (j,e) => if i <= j then f(i,j,e) else ()) (valOf es)) adj
 
       fun none _ = []
 

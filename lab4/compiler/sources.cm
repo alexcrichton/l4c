@@ -12,6 +12,7 @@ Group is
   util/safe-io.sml
   util/word32.sml
   util/profile.sml
+  util/dotfile.sml
 
   parse/ast.sml
   parse/parsestate.sml

@@ -54,7 +54,10 @@ struct
         help="header file for the program"},
        {short = "", long=["types"],
         desc=G.NoArg (fn () => Flag.set O.flag_types),
-        help="print type sizes in ASM and IR"}
+        help="print type sizes in ASM and IR"},
+       {short = "", long=["dotalloc"],
+        desc=G.NoArg (fn () => Flag.set O.flag_dotalloc),
+        help="output DOT file for llocation graph"}
       ]
 
   fun stem s = let
@@ -89,6 +92,7 @@ struct
           of [] => errfn "Error: no input file"
            | [filename] => filename
            | _ => errfn "Error: more than one input file"
+    val _ = O.set_filename source
 
     val _ = Flag.guard O.flag_profile P.enable ()
     val _ = P.startTimer "Compiling"

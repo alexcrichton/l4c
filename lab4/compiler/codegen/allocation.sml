@@ -6,7 +6,7 @@
 
 signature ALLOCATION =
 sig
-  val allocate : Assem.instr list -> (int * Assem.instr list)
+  val allocate : (Label.label * Assem.instr list) -> (int * Assem.instr list)
 end
 
 (*
@@ -250,7 +250,7 @@ struct
    *            instructions with all temps replaced with registers or stack
    *            locations
    *)
-  fun allocate L = let
+  fun allocate (f, L) = let
         val live  = P.time ("Liveness", fn () => Liveness.compute L)
         (*fun ps oper = print (Assem.format_operand oper ^ " ")
         val _ = ListPair.app (fn (i, s) => (print (Assem.format i);
@@ -285,6 +285,22 @@ struct
         val L' = P.time ("Apply coloring", fn () => apply_coloring L graph_rec)
         val max = foldl Int.max 0 (map (fn (_, d) => !(#color d))
                                        (#nodes graph ()))
+
+        fun format_node (id, data : node_data) = let
+              val opers = HT.foldi (fn (oper, id', L) =>
+                                      if id = id' then oper::L else L)
+                                   [] (#graph_info graph)
+              val color = !(#color data)
+              val operstr = foldl (op ^) "" (map Assem.format_operand opers)
+            in
+              "label=\"" ^ operstr ^ "\", style=filled, fillcolor=" ^
+                Int.toString id ^ ", colorscheme=paired12"
+            end
+        fun format_edge _ = "arrowhead=\"none\""
+
+        val _ = Flag.guard Options.flag_dotalloc Dotfile.mkdot
+                           (Options.filename () ^ "." ^ Label.name f,
+                            format_node, format_edge, graph_rec)
       in
         (* The result of an unused DIV or MOD operation cannot be elimitated
            by neededness analysis, but it never gets colored, so throw it away

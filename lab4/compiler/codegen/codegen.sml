@@ -292,7 +292,7 @@ struct
    * @param L the list of statements that comprise this function.
    * @return the assembly instructions for the function
    *)
-  fun munch_function (t, T , L) = let
+  fun munch_function (id, t, T , L) = let
         fun alter_ret post (AS.RET, L) = post @ AS.RET :: L
           | alter_ret _ (i, L) = i :: L
         (* Move the arguments to the function from their specified registers
@@ -312,7 +312,7 @@ struct
 
         val L' = P.time ("Munching", fn () => munch_stmts (munch_typ t) L)
         val instrs = saves @ argmvs @ foldr (alter_ret restores) [] L'
-        val (max, assem) = Allocation.allocate instrs
+        val (max, assem) = Allocation.allocate (id, instrs)
 
         (* Make sure we have a stack for this function *)
         val stack_start = AS.reg_num (AS.STACK 0)
@@ -334,7 +334,7 @@ struct
    * @return a list of instructions with allocated registers
    *)
   fun codegen program = let
-        fun geni (id, t, T, L) = (AS.LABEL id) :: munch_function (t, T, L)
+        fun geni (id, t, T, L) = (AS.LABEL id) :: munch_function (id, t, T, L)
       in
         foldr (op @) [] (map geni program)
       end
