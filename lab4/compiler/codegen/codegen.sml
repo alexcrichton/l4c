@@ -134,8 +134,9 @@ struct
           | eq_ops _ = false
 
         fun reg r = AS.REG (r, size t1)
-        val d' = if size d <> size t1 then AS.TEMP (Temp.new(), AS.QUAD)
+        val d' = if size d <> size t1 then AS.TEMP (Temp.new(), size t1)
                  else d
+        val _ = if size t1 <> size t2 then raise Fail "diff size" else ()
         (* x86 has weird conditions on instructions. Catch those oddities here
            and expand a single binop into multiple instructions as necessary *)
         val instrs =
@@ -183,8 +184,8 @@ struct
   and munch_conditional dest (T.CONST (w, T.WORD)) =
         if Word32Signed.ZERO = w then [] else [AS.JMP(dest, NONE)]
     | munch_conditional dest (T.TEMP (n, T.WORD)) =
-        [AS.BINOP (AS.CMP, AS.TEMP (n, AS.WORD), AS.IMM (Word32Signed.ZERO, AS.WORD)),
-         AS.JMP(dest, SOME(AS.NEQ))]
+        [AS.BINOP (AS.CMP, AS.TEMP (n, AS.WORD),
+         AS.IMM (Word32Signed.ZERO, AS.WORD)), AS.JMP(dest, SOME(AS.NEQ))]
     | munch_conditional dest (f as T.CALL _) = let val t = Temp.new() in
         munch_exp (AS.TEMP (t, AS.WORD)) f @
           munch_conditional dest (T.TEMP (t, T.WORD))

@@ -242,7 +242,8 @@ struct
       (if oper = DIV orelse oper = MOD then "" else ", " ^ format_operand d)
     (* unallocated temp, but instruction needs to happen for memory access*)
     | format_instr (MOV (TEMP _, s as MEM _)) = "cmpl $0, " ^ format_operand s
-    | format_instr (MOV (d as REG (STACK _, QUAD), s as REG (sr as _, WORD))) =
+    | format_instr (MOV (d as (REG (STACK _, QUAD) | MEM (_, QUAD)),
+                         s as REG (sr as _, WORD))) =
         "movslq " ^ format_operand s ^ ", " ^ format_operand (REG (sr, QUAD)) ^
         "\n\tmovq " ^ format_operand (REG (sr, QUAD)) ^ ", " ^ format_operand d
     | format_instr (MOV (d, s)) =
