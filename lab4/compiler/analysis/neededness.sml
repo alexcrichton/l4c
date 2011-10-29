@@ -56,7 +56,7 @@ struct
         val (U1, N1, s1) = rulegen_exp e1
         val (U2, N2, s2) = rulegen_exp e2
       in
-        (U1 @ U2, NONE, [l + 1], U1 @ N2, true)
+        (U1 @ U2, NONE, [l + 1], U1 @ U2, true)
       end
     | rulegen f (l, T.GOTO (l', NONE)) = ([], NONE, [f l'], [], false)
     | rulegen f (l, T.GOTO (l', SOME e)) = let val (U, _, s) = rulegen_exp e in
