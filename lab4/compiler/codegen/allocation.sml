@@ -211,16 +211,20 @@ struct
       end
       handle G.NotFound => ())
     | coalesce (G.GRAPH g) (AS.MOV (d as AS.TEMP _, s as AS.TEMP _)) = (let
+        val _ = if AS.oper_equal (d, s) then raise G.NotFound else ()
+
         val table = #graph_info g
         val ids as (did, sid) = (HT.lookup table d, HT.lookup table s)
+        val _ = if #has_edge g ids then raise G.NotFound else ()
+
         fun cmapfn n = !(#color (#node_info g n : node_data))
         val nbrs' = IS.addList (IS.fromList (#succ g did), #succ g sid)
         val nbrs = IS.map cmapfn nbrs'
         val (clr, _) = IS.foldl minNotIn (1, false) nbrs
         val num_regs = AS.reg_num (AS.STACK 0)
+        val _ = if clr >= num_regs then raise G.NotFound else ()
       in
-        if AS.oper_equal (d, s) orelse #has_edge g ids orelse clr >= num_regs
-        then () else let
+        let
           val new_id = #new_id g ()
           val data : node_data = #node_info g sid
         in
