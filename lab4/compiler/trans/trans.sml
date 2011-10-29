@@ -205,8 +205,13 @@ struct
 
         val (e1s, e1'') = trans_exp env e1 true
         val e1' = case unmark e1
-                    of (A.ArrSub (_,_,t) | A.Field (_,_,t) | A.Deref (_,t)) =>
+                    of (A.ArrSub (_,_,t) | A.Deref (_,t)) =>
                        T.MEM (e1'', trans_typ (!t))
+                     | (A.Field (_, id, t)) => let
+                         val (_, typ) = struct_off env (!t) id
+                       in
+                         T.MEM(e1'', typ)
+                       end
                      | _ => e1''
         val (e2s, e2') = trans_exp env e2 false
         val (e3s, e3') =
