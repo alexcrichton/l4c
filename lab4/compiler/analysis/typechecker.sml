@@ -215,10 +215,11 @@ struct
     | tc_exp env (A.UnaryOp (A.BANG, e)) ext =
         (tc_ensure env (e, A.BOOL) ext; A.BOOL)
     | tc_exp env (A.UnaryOp (_, e)) ext = (tc_ensure env (e, A.INT) ext; A.INT)
-    | tc_exp env (A.Ternary (e1, e2, e3)) ext = let
+    | tc_exp env (A.Ternary (e1, e2, e3, tref)) ext = let
         val t2 = tc_exp env e2 ext
       in
-        tc_ensure env (e1, A.BOOL) ext; tc_ensure env (e3, t2) ext; t2
+        tc_ensure env (e1, A.BOOL) ext; tc_ensure env (e3, t2) ext;
+        tref := t2; t2
       end
     | tc_exp env (A.Marked marked_exp) _ =
         tc_exp env (Mark.data marked_exp) (Mark.ext marked_exp)

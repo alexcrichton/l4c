@@ -25,7 +25,7 @@ struct
     | exp_uses sym (A.BinaryOp (_, e1, e2)) =
         exp_uses sym e1 orelse exp_uses sym e2
     | exp_uses sym (A.UnaryOp (_, e)) = exp_uses sym e
-    | exp_uses sym (A.Ternary (e1, e2, e3)) =
+    | exp_uses sym (A.Ternary (e1, e2, e3, _)) =
         exp_uses sym e1 orelse exp_uses sym e2 orelse exp_uses sym e3
     | exp_uses sym (A.Marked mark) = exp_uses sym (Mark.data mark)
     | exp_uses _ _ = false

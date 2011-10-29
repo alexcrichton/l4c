@@ -42,7 +42,7 @@ sig
    | Const of Word32.word
    | BinaryOp of binop * exp * exp
    | UnaryOp of unop * exp
-   | Ternary of exp * exp * exp
+   | Ternary of exp * exp * exp * typ ref
    | Call of ident * exp list
    | Deref of exp * typ ref
    | Field of exp * ident * typ ref
@@ -126,7 +126,7 @@ struct
    | Const of Word32.word
    | BinaryOp of binop * exp * exp
    | UnaryOp of unop * exp
-   | Ternary of exp * exp * exp
+   | Ternary of exp * exp * exp * typ ref
    | Call of ident * exp list
    | Deref of exp * typ ref
    | Field of exp * ident * typ ref
@@ -274,9 +274,9 @@ struct
     | elaborate_exp env (BinaryOp (b, e1, e2)) =
         BinaryOp (b, elaborate_exp env e1, elaborate_exp env e2)
     | elaborate_exp env (UnaryOp (b, e)) = UnaryOp (b, elaborate_exp env e)
-    | elaborate_exp env (Ternary (e1, e2, e3)) =
+    | elaborate_exp env (Ternary (e1, e2, e3, t)) =
         Ternary (elaborate_exp env e1, elaborate_exp env e2,
-                 elaborate_exp env e3)
+                 elaborate_exp env e3, t)
     | elaborate_exp env (Call (l, L)) = Call (l, map (elaborate_exp env) L)
     | elaborate_exp env (Deref (e, t)) = Deref (elaborate_exp env e, t)
     | elaborate_exp env (Field (e, i, t)) = Field (elaborate_exp env e, i, t)
@@ -381,7 +381,7 @@ struct
       | pp_exp (BinaryOp (oper, e1, e2)) =
           "(" ^ pp_exp e1 ^ " " ^ pp_oper oper ^ " " ^ pp_exp e2 ^ ")"
       | pp_exp (UnaryOp (oper, e)) = pp_unop oper ^ "(" ^ pp_exp e ^ ")"
-      | pp_exp (Ternary (e1, e2, e3)) =
+      | pp_exp (Ternary (e1, e2, e3, _)) =
           "((" ^ pp_exp e1 ^ ") ? (" ^ pp_exp e2 ^ ") : (" ^ pp_exp e3 ^ "))"
       | pp_exp (Marked(marked_exp)) = pp_exp (Mark.data marked_exp)
 

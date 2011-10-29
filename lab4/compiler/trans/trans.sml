@@ -104,9 +104,9 @@ struct
     | trans_exp env (A.BinaryOp (A.GREATEREQ, e1, e2)) a =
         trans_exp env (A.BinaryOp (A.LESSEQ, e2, e1)) a
     | trans_exp env (A.BinaryOp (A.LAND, e1, e2)) a =
-        trans_exp env (A.Ternary (e1, e2, A.Bool false)) a
+        trans_exp env (A.Ternary (e1, e2, A.Bool false, ref A.BOOL)) a
     | trans_exp env (A.BinaryOp (A.LOR, e1, e2)) a =
-        trans_exp env (A.Ternary (e1, A.Bool true, e2)) a
+        trans_exp env (A.Ternary (e1, A.Bool true, e2, ref A.BOOL)) a
     | trans_exp env (A.BinaryOp (oper, e1, e2)) a = let
         val (e1s, e1') = trans_exp env e1 a
         val (e2s, e2') = trans_exp env e2 a
@@ -120,9 +120,9 @@ struct
             (stms @ [T.MOVE (t, e)], t)
           end
       end
-    | trans_exp env (A.Ternary (e1, e2, e3)) a = let
+    | trans_exp env (A.Ternary (e1, e2, e3, ref typ)) a = let
         val (l1, l2) = (Label.new "ternary_true", Label.new "ternary_end")
-        val t = T.TEMP (Temp.new(), if a then T.QUAD else T.WORD)
+        val t = T.TEMP (Temp.new(), trans_typ typ)
         val (e1s, e1') = trans_exp env e1 false
         val (e2s, e2') = trans_exp env e2 a
         val (e3s, e3') = trans_exp env e3 a

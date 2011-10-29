@@ -16,7 +16,7 @@ fun markg (d, (left, right)) = A.Markedg (Mark.mark' (d, ParseState.ext (left, r
 fun convert_exp2 (exp1, left) (SOME binop, exp2, NONE, right) =
       mark (A.BinaryOp(binop, exp1, exp2), (left, right))
   | convert_exp2 (exp1, left) (NONE, exp2, SOME exp3, right) =
-      mark (A.Ternary(exp1, exp2, exp3), (left, right))
+      mark (A.Ternary(exp1, exp2, exp3, ref A.NULL), (left, right))
   | convert_exp2 _ _ = raise Fail "Invalid input to convert_exp2!"
 
 fun genpost (exp, oper) = A.Assign(exp, oper, A.Const(Word32.fromInt 1))
