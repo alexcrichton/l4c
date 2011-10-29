@@ -154,9 +154,14 @@ param_list : LPAREN RPAREN                          ([])
 
 sdecl      : STRUCT IDENT SEMI          (markg (A.StrDecl IDENT,
                                                (STRUCTleft, SEMIright)))
+           | STRUCT TYPE SEMI           (markg (A.StrDecl TYPE,
+                                               (STRUCTleft, SEMIright)))
 
 sdef       : STRUCT IDENT LBRACE field_list RBRACE SEMI
                                         (markg (A.Struct (IDENT, field_list),
+                                               (STRUCTleft, SEMIright)))
+           | STRUCT TYPE LBRACE field_list RBRACE SEMI
+                                        (markg (A.Struct (TYPE, field_list),
                                                (STRUCTleft, SEMIright)))
 
 field      : typ IDENT SEMI             ((typ, IDENT))

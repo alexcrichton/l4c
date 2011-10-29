@@ -227,9 +227,9 @@ struct
           | elaborate_gdecl ext (IntDecl (typ, id, params)) =
               (check_id ext id;
                IntDecl (resolve ext typ, id, check_params ext params))
-          | elaborate_gdecl ext (StrDecl id) = (check_id ext id; StrDecl id)
+          | elaborate_gdecl ext (StrDecl id) = StrDecl id
           | elaborate_gdecl ext (Struct (id, fields)) = let
-              val _ = (check_id ext id; check_set_id "Struct" (!structs) ext id)
+              val _ = (check_set_id "Struct" (!structs) ext id)
               val s = Struct (id, map (fn (t, f) => (resolve_typ types ext t, f)) fields);
             in
               structs := Symbol.add (!structs) id; s
