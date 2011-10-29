@@ -157,7 +157,7 @@ struct
                      [(const 1, T.WORD),
                       (const (typ_size structs typ), T.WORD)]))
     | trans_exp (env as (_, _, structs)) (A.ArrSub (e1, e2, ref typ)) a = let
-        val (e1s, e1') = trans_exp env e1 true
+        val (e1s, e1') = trans_exp env e1 false
         val (e2s, e2') = trans_exp env e2 false
         val offset = T.BINOP(T.MUL, e2', const (typ_size structs typ))
         val dest = T.MEM (T.BINOP (T.ADD, e1', offset), trans_typ typ)
@@ -183,7 +183,7 @@ struct
       in
         if a then (es, address dest)
         else let val t = T.TEMP (Temp.new(), size) in
-          (es @ [T.MOVE (t, T.MEM(dest, size))], t)
+          (es @ [T.MOVE (t, dest)], t)
         end
       end
     | trans_exp env (A.Marked data) a = trans_exp env (Mark.data data) a
@@ -200,7 +200,14 @@ struct
    * @return a list of statements in the IL.
    *)
   fun trans_stm env (A.Assign (e1, oper_opt, e2)) _ = let
-        val (e1s, e1') = trans_exp env e1 false
+        fun unmark (A.Marked data) = unmark (Mark.data data)
+          | unmark e = e
+
+        val (e1s, e1'') = trans_exp env e1 true
+        val e1' = case unmark e1
+                    of (A.ArrSub (_,_,t) | A.Field (_,_,t) | A.Deref (_,t)) =>
+                       T.MEM (e1'', trans_typ (!t))
+                     | _ => e1''
         val (e2s, e2') = trans_exp env e2 false
         val (e3s, e3') =
           case oper_opt
