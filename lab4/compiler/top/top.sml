@@ -125,10 +125,13 @@ struct
     val _ = P.stopTimer ()
 
     val _ = Flag.guard O.flag_verbose say "Translating..."
-    val ir' = P.time ("Translating", fn () => Trans.translate ast)
-    val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir')) ()
+    val ir'' = P.time ("Translating", fn () => Trans.translate ast)
+    (*val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir'')) ()*)
     val _ = Flag.guard O.flag_verbose say ("Neededness Analysis... " ^ source)
-    val ir = P.time ("Neededness", fn () => Neededness.eliminate ir')
+    val ir' = P.time ("Neededness", fn () => Neededness.eliminate ir'')
+    val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir')) ()
+    val _ = Flag.guard O.flag_verbose say ("Constant Folding... " ^ source)
+    val ir = P.time ("Const Folding", fn () => CFold.fold ir')
     val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir)) ()
 
     val _ = Flag.guard O.flag_verbose say "Codegen..."

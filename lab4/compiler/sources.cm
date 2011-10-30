@@ -27,6 +27,8 @@ Group is
   analysis/neededness.sml
   analysis/mainchecker.sml
 
+  optimizations/cfold.sml
+
   trans/label.sml
   trans/temp.sml
   trans/tree.sml

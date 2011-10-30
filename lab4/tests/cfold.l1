@@ -1,0 +1,8 @@
+//test return 9
+
+int main() {
+    int a = 4+5;
+    int b = ~~a + -(-a);
+    bool c = !!!(a == b);
+    return c ? a - 1 + 1 * 1 : b * 1 * 1;
+}
