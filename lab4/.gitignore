@@ -8,6 +8,7 @@ tests/*
 *.swp
 *.log
 *.old
+*.dot
 compiler/a.out
 compiler/a.result
 compiler/a.output
