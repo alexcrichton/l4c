@@ -236,9 +236,13 @@ struct
    * @raise ErrorMsg.Error if there is a typecheck error
    * @return nothing
    *)
-  fun tc_stm env (A.Assign (e1, _, e2)) ext _ =
-        if is_lvalue e1 then tc_ensure env (e2, tc_exp env e1 ext) ext
+  fun tc_stm env (A.Assign (e1, _, e2)) ext _ = let
+        val typ1 = tc_exp env e1 ext
+      in
+        if is_lvalue e1 then (tc_ensure env (e2, typ1) ext;
+                              ensure_small ext typ1)
         else (ErrorMsg.error ext "not an lvalue"; raise ErrorMsg.Error)
+      end
     | tc_stm env (A.If (e, s1, s2)) ext lp =
         (tc_ensure env (e,A.BOOL) ext; tc_stm env s1 ext lp;
          tc_stm env s2 ext lp)
