@@ -58,7 +58,7 @@ struct
             | T.LSH => (T.CONST  (W32S.lsh_  (w1, w2), t), true)
             | T.RSH => (T.CONST  (W32S.rsh_  (w1, w2), t), true)
             | (T.DIV | T.MOD) =>
-                if w2 = zero orelse not (W32S.candiv (w1, w2)) then
+                if not (W32S.candiv (w1, w2)) then
                   (T.BINOP (oper, T.CONST c1, T.CONST c2), false)
                 else case oper
                        of T.DIV => (T.CONST (W32S.div_ (w1, w2), t), true)

@@ -63,7 +63,8 @@ struct
   fun abs w = if neg w then (~w, true) else (w, false)
   fun xor (b1, b2) = (b1 andalso (not b2)) orelse ((not b1) andalso b2)
   fun mask w = Word.fromInt (Word32.toInt (Word32.andb (w, Word32.fromInt 31)))
-  fun candiv (w1, w2) = not (w1 = TMIN andalso w2 = ~(Word32.fromInt 1))
+  fun candiv (w1, w2) =
+        not (w1 = TMIN andalso w2 = ~(Word32.fromInt 1)) andalso w2 <> ZERO
 
   val add_ = Word32.+
   val sub_ = Word32.-
