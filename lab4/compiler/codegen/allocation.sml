@@ -6,7 +6,8 @@
 
 signature ALLOCATION =
 sig
-  val allocate : (Label.label * Assem.instr list) -> (int * Assem.instr list)
+  val allocate : (Label.label * Assem.instr list * Assem.operand list)
+                  -> (int * Assem.instr list)
 end
 
 (*
@@ -250,7 +251,7 @@ struct
    *            instructions with all temps replaced with registers or stack
    *            locations
    *)
-  fun allocate (f, L) = let
+  fun allocate (f, L, temps) = let
         val live  = P.time ("Liveness", fn () => Liveness.compute L)
         (*fun ps oper = print (Assem.format_operand oper ^ " ")
         val _ = ListPair.app (fn (i, s) => (print (Assem.format i);
@@ -265,6 +266,7 @@ struct
         val () = P.time ("Make graph",
                          fn () => app (make_graph graph_rec) live)
         val () = P.time ("Update weights", fn () => update_weights graph_rec)
+        val tids = IS.fromList (map (HT.lookup (#graph_info graph)) temps)
 
         fun less (n1, n2) = let
               val n1data : node_data = #node_info graph n1
@@ -276,10 +278,12 @@ struct
         val pq = PQ.create (#size graph ()) less
         val _ = P.time ("Create PQ", fn () =>
                 #forall_nodes graph (fn (nid, data) =>
-                  if !(#color data) = 0 then PQ.insert (pq, nid)
+                  if !(#color data) = 0 andalso not(IS.member (tids, nid)) then
+                    PQ.insert (pq, nid)
                   else (#in_seo data) := true))
 
         val order = P.time ("Generate SEO", fn () => generate_seo graph_rec pq)
+        val order = order @ IS.listItems tids
         val () = P.time ("Coloring", fn () => app (color graph_rec) order)
         val () = P.time ("Coalescing", fn () => app (coalesce graph_rec) L)
         val L' = P.time ("Apply coloring", fn () => apply_coloring L graph_rec)

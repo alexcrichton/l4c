@@ -312,7 +312,7 @@ struct
 
         val L' = P.time ("Munching", fn () => munch_stmts (munch_typ t) L)
         val instrs = saves @ argmvs @ foldr (alter_ret restores) [] L'
-        val (max, assem) = Allocation.allocate (id, instrs)
+        val (max, assem) = Allocation.allocate (id, instrs, save_dsts)
 
         (* Make sure we have a stack for this function *)
         val stack_start = AS.reg_num (AS.STACK 0)
