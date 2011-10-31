@@ -93,21 +93,24 @@ struct
             end
       in
         calculate (); !df
+      end
 
   fun dom_frontiers (G.GRAPH g) = let
-        val idom = idoms g
+        val nodes = S.fromList (L.map #1 (#nodes g ()))
+        val idom = idoms (G.GRAPH g)
         val df's = A.array (#order g (), S.empty)
 
         (* Returns true if a isn't the immediate dominator of b *)
         fun not_idom a b = (A.sub (idom, b) <> a)
 
-        fun df_local a = S.addList (S.empty, L.filter (not_idom a) (#succ g a))
+        fun df_local a = S.fromList (L.filter (not_idom a) (#succ g a))
         fun df_up (a, c) = if not_idom a c then S.empty else
                             S.filter (not_idom a) (A.sub (df's, c))
 
+        (* This is quadratic - it shouldn't be   FIXME, TODO, XXX *)
         fun df (a, _) = let
-              fun union (c, set) = S.union (set, df_up (a, c))
-              val nodes = S.addList (S.empty, L.map #1 (#nodes g ()))
+              fun union (c, set) = if not_idom a c then set
+                                   else S.union (set, df_up (a, c))
             in
               A.update (df's, a, S.foldl union (df_local a) nodes)
             end

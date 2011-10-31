@@ -33,6 +33,7 @@ Group is
   trans/temp.sml
   trans/tree.sml
   trans/trans.sml
+  trans/ssa.sml
 
   codegen/assem.sml
   codegen/codegen.sml 
