@@ -1,11 +1,11 @@
-signature SSA_ =
+signature SSA =
 sig
   val idoms : ('n, 'e, 'g) Graph.graph -> int array
   val dom_frontiers : ('n, 'e, 'g) Graph.graph -> IntBinarySet.set array
   val idf : IntBinarySet.set array -> IntBinarySet.set -> IntBinarySet.set
 end
 
-structure SSA :> SSA_ =
+structure SSA :> SSA =
 struct
 
   structure G = Graph
