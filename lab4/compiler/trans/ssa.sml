@@ -2,6 +2,7 @@ signature SSA_ =
 sig
   val idoms : ('n, 'e, 'g) Graph.graph -> int array
   val dom_frontiers : ('n, 'e, 'g) Graph.graph -> IntBinarySet.set array
+  val idf : IntBinarySet.set array -> IntBinarySet.set -> IntBinarySet.set
 end
 
 structure SSA :> SSA_ =
@@ -64,5 +65,31 @@ struct
             end
       in
         A.update (doms, entry, entry); change (); doms
+      end
+
+  (* idf : IntBinarySet.set array -> IntBinarySet.set -> IntBinarySet.set
+   *
+   * Calculates the iterated dominance frontier of a set.
+   *
+   * @param doms the dominance frontier of each node in the graph
+   * @param set  the initial set of nodes in question. The iterated dominance
+   *             frontier will be calculated over these elements.
+   * @return The dominance frontier of a set. If the set is the set of all nodes
+   *         where a variable is defined, then the returned set is the set of
+   *         all nodes which need a phi function for this variable.
+   *)
+  fun idf doms set = let
+        val df = ref set
+
+        fun calculate () = let
+              val set' = S.union (set, !df)
+              fun union_dfs (node, df) = S.union (df, A.sub (doms, node))
+              val set'' = S.foldl union_dfs S.empty set'
+              val changed = not (S.equal (!df, set''))
+            in
+              df := set''; if changed then calculate () else ()
+            end
+      in
+        calculate (); !df
       end
 end
