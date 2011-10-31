@@ -143,6 +143,11 @@ struct
           (HT.insert labels (l, i); find_labels (i + 1) L)
       | find_labels i (a::L) = find_labels (i + 1) L
 
+    val _ = find_labels 0 L
+    val rules = Vector.fromList L
+    val rules = Vector.mapi (fn pair => (rulegen (HT.lookup labels) pair,
+                                         ref OS.empty)) rules
+    
     (* Extract the final rule set from the list of rules *)
     fun extract _ [] = []
       | extract i ((A.MOV _)::L) = let val (_, ref s) = Vector.sub (rules, i) in
@@ -154,11 +159,6 @@ struct
         in
           OS.addList (s, List.filter isreg ds) :: (extract (i + 1) L)
         end
-
-    val _ = find_labels 0 L
-    val rules = Vector.fromList L
-    val rules = Vector.mapi (fn pair => (rulegen (HT.lookup labels) pair,
-                                         ref OS.empty)) rules
   in
     munge rules (fn label =>
       (#2 (Vector.sub (rules, label))) handle Subscript => ref OS.empty
