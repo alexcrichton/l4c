@@ -10,6 +10,8 @@ struct
 
   structure G = Graph
   structure A = Array
+  structure S = IntBinarySet
+  structure L = List
 
   (* idoms : ('n, 'e, 'g) Graph.graph -> int array
    *
@@ -91,5 +93,25 @@ struct
             end
       in
         calculate (); !df
+
+  fun dom_frontiers (G.GRAPH g) = let
+        val idom = idoms g
+        val df's = A.array (#order g (), S.empty)
+
+        (* Returns true if a isn't the immediate dominator of b *)
+        fun not_idom a b = (A.sub (idom, b) <> a)
+
+        fun df_local a = S.addList (S.empty, L.filter (not_idom a) (#succ g a))
+        fun df_up (a, c) = if not_idom a c then S.empty else
+                            S.filter (not_idom a) (A.sub (df's, c))
+
+        fun df (a, _) = let
+              fun union (c, set) = S.union (set, df_up (a, c))
+              val nodes = S.addList (S.empty, L.map #1 (#nodes g ()))
+            in
+              A.update (df's, a, S.foldl union (df_local a) nodes)
+            end
+      in
+        #forall_nodes g df; df's
       end
 end
