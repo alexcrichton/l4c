@@ -106,8 +106,9 @@ struct
           val ast = Parse.parse file
         in Ast.elaborate_external ast end
 
-    val header = P.time ("Header parsing", fn () =>
-                         Flag.branch O.flag_header (parse_header, fn () => []) ())
+    val header = P.time ("Header parsing",fn () =>
+                         Flag.branch O.flag_header (parse_header, fn () => [])
+                                     ())
 
     val _ = Flag.guard O.flag_verbose say ("Parsing... " ^ source)
     val ast = header @ P.time ("Parsing   ", fn () => Parse.parse source)
@@ -143,9 +144,8 @@ struct
 
     val _ = Flag.guard O.flag_verbose say "Translating..."
     val ir'' = P.time ("Translating", fn () => Trans.translate ast)
-    (*val _ = Flag.guard O.flag_dotcfg (fn () => app pretty ir'')*)
     val _ = P.time ("SSA", fn () => SSA.ssa ir'')
-    val _ = Flag.guard O.flag_dotcfg (fn () => (print "printing\n";app pretty ir'')) ()
+    val _ = Flag.guard O.flag_dotcfg (fn () => app pretty ir'') ()
     (*val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir'')) ()*)
 (*    val _ = Flag.guard O.flag_verbose say ("Neededness Analysis... " ^ source)
     val ir' = P.time ("Neededness", fn () => Neededness.eliminate ir'')
