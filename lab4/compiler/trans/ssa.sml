@@ -14,6 +14,7 @@ struct
   structure S = IntBinarySet
   structure L = List
   structure T = Tree
+  structure P = Profile
   structure HT = HashTable
   structure TM = BinaryMapFn(Temp)
 
@@ -112,6 +113,13 @@ struct
         calculate (); !df
       end
 
+  (* dom_frontiers : graph -> S.set array
+   *
+   * Calculates the dominance frontier for all nodes in the given graph.
+   * @return an array where each index corresponds to the same numbered node
+   *         in the graph and the value is the set of all nodes which is
+   *         considered the dominance frontier of the node in the graph.
+   *)
   fun dom_frontiers (G.GRAPH g) = let
         val _ = debug "dom_frontiers"
         val nodes = S.fromList (map #1 (#nodes g ()))
@@ -138,183 +146,227 @@ struct
         #forall_nodes g df; df's
       end
 
-  fun ssa P = let
-        fun gssa (G.GRAPH g, args) = let
-              (* Calculate where temps are defined *)
-              val _ = verbose "processing stms..."
-              val entry = List.hd (#entries g ())
-              val defs = HT.mkTable (Temp.hash, Temp.equals)
-                                    (100, Fail "Temp not found")
-              fun process_stms id (T.MOVE (T.TEMP ((t, _), _), _)) = let
-                    val set = case HT.find defs t
+  (* find_defs : graph -> (Temp, S.set) HT.table
+   *
+   * Finds all locations in which temps are defined in the graph.
+   * @return a table where keys are temps and the value are the set of locations
+   *         where this temp is defined. Each location is defined by it's ID
+   *         in the graph.
+   *)
+  fun find_defs (G.GRAPH g) = let
+        val _ = verbose "processing stms..."
+        val entry = List.hd (#entries g ())
+        val defs = HT.mkTable (Temp.hash, Temp.equals)
+                              (100, Fail "Temp not found")
+        fun process_stms id (T.MOVE (T.TEMP ((t, _), _), _)) = let
+              val set = case HT.find defs t
+                          of SOME s => s
+                           | NONE   => S.singleton entry
+              val _ = gverbose (fn () => Temp.name t ^ " => " ^
+                                         dump_is set ^ " + " ^
+                                         Int.toString id)
+            in HT.insert defs (t, S.add (set, id)) end
+          | process_stms _ _ = ()
+      in
+        #forall_nodes g (fn (id, stms) => app (process_stms id) stms);
+        defs
+      end
+
+  (* find_phis : graph * (Temp, S.set) HT.table -> (int, TS.set) HT.table
+   *
+   * Finds where all phi functions should go in the given graph.
+   * @param g the graph
+   * @param defs a table of temps to a set of locations where this temp is
+   *        defined. See #find_defs
+   * @return a table where each key is a node ID and the value is a set of
+   *         temps which need phi functions at this node.
+   *)
+  fun find_phis (G.GRAPH g, defs) = let
+        val df's = dom_frontiers (G.GRAPH g)
+        val phis = HT.mkTable (Word.fromInt, op =)
+                              (97, Fail "Node not found")
+        fun process_defs (temp, nodes) = let
+              val tphis = idf df's nodes
+              fun process_phis nid = let
+                    val set = case HT.find phis nid
                                 of SOME s => s
-                                 | NONE   => S.singleton entry
-                    val _ = gverbose (fn () => Temp.name t ^ " => " ^
-                                               dump_is set ^ " + " ^
-                                               Int.toString id)
-                  in HT.insert defs (t, S.add (set, id)) end
-                | process_stms _ _ = ()
-              val _ = #forall_nodes g
-                        (fn (id, stms) => app (process_stms id) stms)
-
-              (* Calculate where we need phi functions *)
-              val _ = verbose "processing defs..."
-              val df's = dom_frontiers (G.GRAPH g)
-              val phis = HT.mkTable (Word.fromInt, op =)
-                                    (97, Fail "Node not found")
-              fun process_defs (temp, nodes) = let
-                    val tphis = idf df's nodes
-                    fun process_phis nid = let
-                          val set = case HT.find phis nid
-                                      of SOME s => s
-                                       | NONE   => TempSet.empty
-                        in
-                          HT.insert phis (nid, TempSet.add (set, temp))
-                        end
+                                 | NONE   => TempSet.empty
                   in
-                    S.app process_phis tphis
+                    HT.insert phis (nid, TempSet.add (set, temp))
                   end
-              val _ = HT.appi process_defs defs
-
-              (* Place the phi functions *)
-              val _ = verbose "processing nodes..."
-              fun process_node (id, stms) = let
-                    val p = case HT.find phis id
-                              of SOME s => s
-                               | NONE   => TempSet.empty
-                    fun create_phi (temp, L) =
-                          (T.MOVE (T.TEMP ((temp, ~1), T.QUAD), T.PHI))::L
-                  in
-                    #add_node g (id, TempSet.foldl create_phi stms p)
-                  end
-              val _ = #forall_nodes g process_node
-
-              (* Number the temps *)
-              val tvals = HT.mkTable (Temp.hash, Temp.equals)
-                                     (97, Fail "Temp not found!")
-              val visited = A.array (#capacity g (), false)
-              val vmaps   = A.array (#capacity g (), TM.empty)
-
-              fun visit_node (nid, map) = let
-                    (* Update a temp's global next number in the hash table,
-                       returning the modified set and the new number *)
-                    fun update (t, map) = let
-                          val num = case HT.find tvals t
-                                      of SOME n => n
-                                       | NONE   => 0
-                        in
-                          HT.insert tvals (t, num + 1);
-                          (num, TM.insert (map, t, num))
-                        end
-
-                    (* Process an expression, updating all temps to have value
-                       numbers, returning the new expession *)
-                    fun process_exp (T.TEMP ((t, n), typ), map) =
-                          T.TEMP ((t, valOf (TM.find (map, t))), typ)
-                      | process_exp (T.BINOP (oper, e1, e2), map) =
-                          T.BINOP (oper, process_exp (e1, map),
-                                   process_exp (e2, map))
-                      | process_exp (T.CALL (a, b, L), m) =
-                          T.CALL (a, b, List.map (fn (e, t) =>
-                                                  (process_exp (e, m), t)) L)
-                      | process_exp (T.MEM (e, t), map) =
-                          T.MEM (process_exp (e, map), t)
-                      | process_exp (e, _) = e (* PHI and CONST *)
-
-                    (* Process a statement, possibly altering the table of
-                       currently defined variables, and also altering the
-                       instruction to have temps numbered correctly. *)
-                    fun process_stm (T.GOTO (l, SOME e), (L, map)) =
-                          (T.GOTO (l, SOME (process_exp (e, map))) :: L, map)
-                      | process_stm (T.RETURN e, (L, map)) =
-                          (T.RETURN (process_exp (e, map)) :: L, map)
-                      | process_stm (T.COND e, (L, map)) =
-                          (T.COND (process_exp (e, map)) :: L, map)
-                      | process_stm (T.MOVE (e1, e2), (L, map)) = let
-                          val e2' = process_exp (e2, map)
-                          val (e1', map') =
-                              case e1
-                                of T.TEMP ((t, n), typ) => let
-                                    val (n, map') = update (t, map)
-                                  in (T.TEMP ((t, n), typ), map') end
-                                 | e => (process_exp (e, map), map)
-                        in (T.MOVE (e1', e2') :: L, map') end
-                      | process_stm (stm, (L, map)) = (stm::L, map)
-
-                    val stms = #node_info g nid
-                  in
-                    (* If we've already visited this node, then there is
-                       nothing to do, otherwise we should process all
-                       statements, mark ourselves as visited, and then visit
-                       all of our successors with our resulting map of
-                       variables *)
-                    if A.sub (visited, nid) then ()
-                    else let
-                      val (stms', map') = foldl process_stm ([], map) stms
-                    in
-                      A.update (visited, nid, true);
-                      A.update (vmaps, nid, map');
-                      #add_node g (nid, rev stms');
-                      app (fn id => visit_node (id, map')) (#succ g nid)
-                    end
-                  end
-              val initial = foldl (fn ((t, _), s) => (HT.insert tvals (t, 0);
-                                                      TM.insert (s, t, 0)))
-                                  TM.empty args
-              val _ = visit_node (entry, initial)
-
-              (* Add MOVE instructions to the CFG - DeSSA *)
-              fun dessa (nid, stms) = let
-                    val preds = #pred g nid
-                    val pred_stms = HT.mkTable (Word.fromInt, op =)
-                                               (length preds, Subscript)
-
-                    fun getphi (T.MOVE (T.TEMP (t, _), T.PHI)) = SOME t
-                      | getphi _ = NONE
-
-                    fun process_phi (phi as (tmp, n)) = let
-                          fun add_moves id = let
-                                val set = A.sub (vmaps, id)
-                                val L = case TM.find (set, tmp)
-                                          of SOME m => if n = m then [] else
-                                              [T.MOVE (T.TEMP (phi, T.QUAD),
-                                               T.TEMP ((tmp, m), T.QUAD))]
-                                           | NONE   => []
-                                val LP = case HT.find pred_stms id
-                                           of SOME p => p
-                                            | NONE => []
-                              in
-                                HT.insert pred_stms (id, LP @ L)
-                              end
-                        in
-                          app add_moves preds
-                        end
-
-                    val phis = List.mapPartial getphi stms
-                    val _ = app process_phi phis
-                    val _ = #add_node g (nid, List.drop (stms, length phis))
-
-                    fun modify_cfg (id, _, typ) = let
-                          val L = HT.lookup pred_stms id
-                          val _ = G.remove_edge (G.GRAPH g) (id, nid)
-                          val new_id = #new_id g ()
-                        in
-                          #add_node g (new_id, L);
-                          #add_edge g (id, new_id, typ);
-                          #add_edge g (new_id, nid, T.ALWAYS)
-                        end handle Subscript => ()
-                  in
-                    app modify_cfg (#in_edges g nid)
-                  end
-
-              val _ = #forall_nodes g dessa
             in
-              ()
+              S.app process_phis tphis
             end
       in
-        app (fn (id, _, args, cfg) => (debug ("\n" ^ Label.name id);
-                                       gssa (cfg, args))) P
+        HT.appi process_defs defs; phis
       end
+
+  (* place_phis : graph * (int, TS.set) HT.table -> unit
+   *
+   * Places all phi functions into the graph.
+   * @param g the graph
+   * @param phis a table of node ids to sets of temps where each set of temps
+   *        corresponds to the set of temps which need phi functions at
+   *        the node.
+   * @note the phi functions don't have any value after this, they're all empty
+   *       and need to be filled in later.
+   *)
+  fun place_phis (G.GRAPH g, phis) = let
+        fun process_node (id, stms) = let
+              val p = case HT.find phis id
+                        of SOME s => s
+                         | NONE   => TempSet.empty
+              fun create_phi (temp, L) =
+                    (T.MOVE (T.TEMP ((temp, ~1), T.QUAD), T.PHI))::L
+            in
+              #add_node g (id, TempSet.foldl create_phi stms p)
+            end
+      in
+        #forall_nodes g process_node
+      end
+
+  (* ssa_graph : graph * (Temp.temp * int) list -> unit
+   *
+   * Helper function to transform the given graph into SSA form. The argument
+   * list is used for value numbering of all temps in the graph.
+   *)
+  fun ssa_graph (grec, args) = let
+        val G.GRAPH g = grec
+        val defs = P.time ("Finding definitions", fn () => find_defs grec)
+        val phis = P.time ("Finding phis", fn () => find_phis (grec, defs))
+        val _    = P.time ("Placing phis", fn () => place_phis (grec, phis))
+
+        (* Number the temps *)
+        val tvals = HT.mkTable (Temp.hash, Temp.equals)
+                               (97, Fail "Temp not found!")
+        val visited = A.array (#capacity g (), false)
+        val vmaps   = A.array (#capacity g (), TM.empty)
+
+        fun visit_node (nid, map) = let
+              (* Update a temp's global next number in the hash table,
+                 returning the modified set and the new number *)
+              fun update (t, map) = let
+                    val num = case HT.find tvals t
+                                of SOME n => n
+                                 | NONE   => 0
+                  in
+                    HT.insert tvals (t, num + 1);
+                    (num, TM.insert (map, t, num))
+                  end
+
+              (* Process an expression, updating all temps to have value
+                 numbers, returning the new expession *)
+              fun process_exp (T.TEMP ((t, n), typ), map) =
+                    T.TEMP ((t, valOf (TM.find (map, t))), typ)
+                | process_exp (T.BINOP (oper, e1, e2), map) =
+                    T.BINOP (oper, process_exp (e1, map),
+                             process_exp (e2, map))
+                | process_exp (T.CALL (a, b, L), m) =
+                    T.CALL (a, b, List.map (fn (e, t) =>
+                                            (process_exp (e, m), t)) L)
+                | process_exp (T.MEM (e, t), map) =
+                    T.MEM (process_exp (e, map), t)
+                | process_exp (e, _) = e (* PHI and CONST *)
+
+              (* Process a statement, possibly altering the table of
+                 currently defined variables, and also altering the
+                 instruction to have temps numbered correctly. *)
+              fun process_stm (T.GOTO (l, SOME e), (L, map)) =
+                    (T.GOTO (l, SOME (process_exp (e, map))) :: L, map)
+                | process_stm (T.RETURN e, (L, map)) =
+                    (T.RETURN (process_exp (e, map)) :: L, map)
+                | process_stm (T.COND e, (L, map)) =
+                    (T.COND (process_exp (e, map)) :: L, map)
+                | process_stm (T.MOVE (e1, e2), (L, map)) = let
+                    val e2' = process_exp (e2, map)
+                    val (e1', map') =
+                        case e1
+                          of T.TEMP ((t, n), typ) => let
+                              val (n, map') = update (t, map)
+                            in (T.TEMP ((t, n), typ), map') end
+                           | e => (process_exp (e, map), map)
+                  in (T.MOVE (e1', e2') :: L, map') end
+                | process_stm (stm, (L, map)) = (stm::L, map)
+
+              val stms = #node_info g nid
+            in
+              (* If we've already visited this node, then there is
+                 nothing to do, otherwise we should process all
+                 statements, mark ourselves as visited, and then visit
+                 all of our successors with our resulting map of
+                 variables *)
+              if A.sub (visited, nid) then ()
+              else let
+                val (stms', map') = foldl process_stm ([], map) stms
+              in
+                A.update (visited, nid, true);
+                A.update (vmaps, nid, map');
+                #add_node g (nid, rev stms');
+                app (fn id => visit_node (id, map')) (#succ g nid)
+              end
+            end
+        val initial = foldl (fn ((t, _), s) => (HT.insert tvals (t, 0);
+                                                TM.insert (s, t, 0)))
+                            TM.empty args
+        val _ = visit_node (List.hd (#entries g ()), initial)
+
+        (* Add MOVE instructions to the CFG - DeSSA *)
+        fun dessa (nid, stms) = let
+              val preds = #pred g nid
+              val pred_stms = HT.mkTable (Word.fromInt, op =)
+                                         (length preds, Subscript)
+
+              fun getphi (T.MOVE (T.TEMP (t, _), T.PHI)) = SOME t
+                | getphi _ = NONE
+
+              fun process_phi (phi as (tmp, n)) = let
+                    fun add_moves id = let
+                          val set = A.sub (vmaps, id)
+                          val L = case TM.find (set, tmp)
+                                    of SOME m => if n = m then [] else
+                                        [T.MOVE (T.TEMP (phi, T.QUAD),
+                                         T.TEMP ((tmp, m), T.QUAD))]
+                                     | NONE   => []
+                          val LP = case HT.find pred_stms id
+                                     of SOME p => p
+                                      | NONE => []
+                        in
+                          HT.insert pred_stms (id, LP @ L)
+                        end
+                  in
+                    app add_moves preds
+                  end
+
+              val phis = List.mapPartial getphi stms
+              val _ = app process_phi phis
+              val _ = #add_node g (nid, List.drop (stms, length phis))
+
+              fun modify_cfg (id, _, typ) = let
+                    val L = HT.lookup pred_stms id
+                    val _ = G.remove_edge (G.GRAPH g) (id, nid)
+                    val new_id = #new_id g ()
+                  in
+                    #add_node g (new_id, L);
+                    #add_edge g (id, new_id, typ);
+                    #add_edge g (new_id, nid, T.ALWAYS)
+                  end handle Subscript => ()
+            in
+              app modify_cfg (#in_edges g nid)
+            end
+
+        val _ = #forall_nodes g dessa
+      in
+        ()
+      end
+
+  (* ssa : Tree.cfg -> unit
+   *
+   * Transform the given control flow graph into SSA form, modifying the graph
+   * in place
+   * @param P the CFG to modify
+   *)
+  fun ssa P = app (fn (id, _, args, cfg) => (debug ("\n" ^ Label.name id);
+                                             ssa_graph (cfg, args))) P
 
   fun flatten [] = []
     | flatten ((id, typ, args, G.GRAPH g)::L) = let
