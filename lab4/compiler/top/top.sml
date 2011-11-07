@@ -110,6 +110,7 @@ struct
                          Flag.branch O.flag_header (parse_header, fn () => [])
                                      ())
 
+    (* Parsing / elaboration *)
     val _ = Flag.guard O.flag_verbose say ("Parsing... " ^ source)
     val ast = header @ P.time ("Parsing   ", fn () => Parse.parse source)
     val _ = Flag.guard O.flag_verbose say ("Elaborating... " ^ source)
@@ -117,6 +118,7 @@ struct
     val _ = Flag.guard O.flag_ast
         (fn () => say (Ast.Print.pp_program ast)) ()
 
+    (* Static Analysis *)
     val _ = P.startTimer "Analyzing..."
     val _ = Flag.guard O.flag_verbose say ("Typechecking... " ^ source)
     val _ = P.time ("Typechecking", fn () => TypeChecker.analyze ast)
@@ -127,7 +129,6 @@ struct
     val _ = Flag.guard O.flag_verbose say ("Initialization... " ^ source)
     val _ = P.time ("Initialization",
                     fn () => InitializationChecker.analyze ast)
-    val _ = P.stopTimer ()
 
     fun pretty (id, _, _, cfg) = let
           fun pp_node (nid, data) = "label=\"" ^ String.concatWith "\\n"
@@ -143,6 +144,7 @@ struct
                          pp_node, pp_edge, cfg)
         end
 
+    (* IR translation/Optimizations *)
     val _ = Flag.guard O.flag_verbose say "Translating..."
     val cfg = P.time ("Translating", fn () => Trans.translate ast)
     val _ = P.time ("SSA", fn () => SSA.ssa cfg)
@@ -155,6 +157,8 @@ struct
     val _ = Flag.guard O.flag_verbose say ("Constant Folding... " ^ source)
     val ir = P.time ("Const Folding", fn () => CFold.fold ir')
     val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir)) ()*)
+
+    (* Codegen/Assembly generation*)
     val _ = Flag.guard O.flag_verbose say "Codegen..."
     val assem = P.time ("Codegen   ", fn () => Codegen.codegen ir)
     val _ = Flag.guard O.flag_assem
@@ -165,10 +169,12 @@ struct
                                  Label.name (Label.extfunc "_c0_main"))]
           @ assem
           @ [Assem.DIRECTIVE ".ident\t\"15-411 L4 reference compiler\""]
-    val code = P.time ("Formatting", fn () => String.concat (List.map (Assem.format) assem))
+    val code = P.time ("Formatting", fn () => String.concat
+                                                (List.map (Assem.format) assem))
 
     val afname = stem source ^ ".s"
-    val _ = Flag.guard O.flag_verbose say ("Writing assembly to " ^ afname ^ " ...")
+    val _ = Flag.guard O.flag_verbose say ("Writing assembly to " ^ afname ^
+                                           " ...")
     val _ = SafeIO.withOpenOut afname (fn afstream =>
          TextIO.output (afstream, code))
     val _ = P.stopTimer ()
