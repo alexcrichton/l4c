@@ -17,6 +17,7 @@ struct
   structure L = List
   structure T = Tree
   structure HT = HashTable
+  structure TM = BinaryMapFn(Temp)
 
   (* idoms : ('n, 'e, 'g) Graph.graph -> int array
    *
@@ -141,8 +142,8 @@ struct
 
   fun ssa P = let
         fun gssa (G.GRAPH g) = let
-              val _ = verbose "processing stms..."
               (* Calculate where temps are defined *)
+              val _ = verbose "processing stms..."
               val entry = List.hd (#entries g ())
               val defs = HT.mkTable (Temp.hash, Temp.equals)
                                     (100, Fail "Temp not found")
@@ -162,7 +163,7 @@ struct
               val _ = verbose "processing defs..."
               val df's = dom_frontiers (G.GRAPH g)
               val phis = HT.mkTable (Word.fromInt, op =)
-                                    (100, Fail "Node not found")
+                                    (97, Fail "Node not found")
               fun process_defs (temp, nodes) = let
                     val tphis = idf df's nodes
                     fun process_phis nid = let
@@ -177,18 +178,50 @@ struct
                   end
               val _ = HT.appi process_defs defs
 
-              val _ = verbose "processing nodes..."
               (* Place the phi functions *)
+              val _ = verbose "processing nodes..."
               fun process_node (id, stms) = let
                     val p = case HT.find phis id
                               of SOME s => s
                                | NONE   => TempSet.empty
                     fun create_phi (temp, L) =
-                          (T.MOVE (T.TEMP (temp, ~1, T.QUAD), T.PHI []))::L
+                          (T.MOVE (T.TEMP (temp, ref ~1, T.QUAD), T.PHI []))::L
                   in
                     #add_node g (id, TempSet.foldl create_phi stms p)
                   end
               val _ = #forall_nodes g process_node
+
+              (* Number the temps *)
+              val tvals = HT.mkTable (Temp.hash, Temp.equals)
+                                     (97, Fail "Temp not found!")
+              val visited = A.array (#capacity g (), false)
+              fun visit_node (nid, map) = let
+                    fun process_exp (T.TEMP (t, n, _), map) =
+                          n := valOf (TM.find (map, t))
+                      | process_exp (T.BINOP (_, e1, e2), map) =
+                          (process_exp (e1, map); process_exp (e2, map))
+                      | process_exp (T.CALL (_, _, L), map) =
+                          app (fn (e, _) => process_exp (e, map)) L
+                      | process_exp (T.MEM (e, _), map) = process_exp (e, map)
+                      | process_exp _ = () (* PHI and CONST *)
+
+                    fun process_stm ((T.RETURN e | T.COND e |
+                                      T.GOTO (_, SOME e)), map) =
+                          (process_exp (e, map); map)
+                      | process_stm (T.MOVE (e1, e2), map) = let
+                          val _ = process_exp (e2, map)
+                          val map' = case e1
+                                       of T.TEMP (t, n, _) => update (t, n, map)
+                                        | e => (process_exp (e, map); map)
+                        in
+                        end
+                      | process_stm (_, map) = map (* GOTO NONE, LABEL *)
+
+                    val _ = A.update (visited, nid, true)
+                    val stms = #node_info g nid
+                  in
+                  end
+              val _ = visit_node (entry, TM.empty)
             in
               ()
             end

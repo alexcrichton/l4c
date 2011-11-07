@@ -14,7 +14,7 @@ sig
   datatype edge = ALWAYS | TRUE | FALSE
 
   datatype exp =
-      TEMP of Temp.temp * int * typ
+      TEMP of Temp.temp * int ref * typ
     | PHI of exp list
     | CONST of Word32.word * typ
     | BINOP of binop * exp * exp
@@ -49,7 +49,7 @@ struct
   datatype edge = ALWAYS | TRUE | FALSE
 
   datatype exp =
-      TEMP of Temp.temp * int * typ
+      TEMP of Temp.temp * int ref * typ
     | PHI of exp list
     | CONST of Word32.word * typ
     | BINOP of binop * exp * exp
@@ -92,7 +92,7 @@ struct
       | pp_typ QUAD = ":q"
 
     fun pp_exp (CONST (x, typ)) = Word32Signed.toString x ^ pp_typ typ
-      | pp_exp (TEMP (t, n, typ)) = Temp.name t ^ "#" ^ Int.toString n ^ pp_typ typ
+      | pp_exp (TEMP (t, ref n, typ)) = Temp.name t ^ "#" ^ Int.toString n ^ pp_typ typ
       | pp_exp (PHI L) = "PHI(" ^ String.concatWith ", " (map pp_exp L) ^ ")"
       | pp_exp (BINOP (binop, e1, e2)) =
           "(" ^ pp_exp e1 ^ " " ^ pp_binop binop ^ " " ^ pp_exp e2 ^ ")"
