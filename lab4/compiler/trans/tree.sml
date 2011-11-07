@@ -134,8 +134,12 @@ struct
           "if (" ^ pp_exp exp ^ ") goto " ^ Label.name l
       | pp_stm (RETURN e) = "return " ^ pp_exp e
 
-    fun pp_func (l, _, _, stms) = Label.name l ^ ":\n" ^
-                          tab (String.concatWith "\n" (map pp_stm stms)) ^ "\n\n"
+    fun pp_func (l, _, args, stms) = Label.name l ^ "(" ^
+                          String.concatWith ", "
+                                  (map (fn (t, _) => pp_tmp (t, ref 0)) args) ^
+                          "):\n" ^
+                          tab (String.concatWith "\n" (map pp_stm stms)) ^
+                          "\n\n"
 
     and pp_program [] = ""
       | pp_program (func::funcs) = pp_func func ^ pp_program funcs
