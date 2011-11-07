@@ -36,6 +36,10 @@ struct
   fun size (AS.MEM (_, t) | AS.REG (_, t) |
             AS.TEMP (_, t) | AS.IMM(_, t)) = t
 
+  (* Returns true if the operator evaluates to a bool *)
+  fun eval_bool (T.LT | T.LTE | T.EQ | T.NEQ) = true
+    | eval_bool _  = false
+
   fun munch_temp ts (t, typ) = let
         val t' = case HT.find ts t
                    of SOME t' => t'
@@ -102,7 +106,8 @@ struct
     | munch_half ts oper e = let
         fun guess_size (T.CONST (_, t) | T.TEMP (_, t) | T.MEM (_, t) |
                         T.CALL (_, t, _)) = munch_typ t
-          | guess_size (T.BINOP (_, e1, e2)) = let
+          | guess_size (T.BINOP (oper, e1, e2)) =
+            if eval_bool oper then AS.WORD else let
               val (e1t, e2t) = (guess_size e1, guess_size e2)
             in
               if e1t = AS.QUAD orelse e2t = AS.QUAD then AS.QUAD else AS.WORD
@@ -205,7 +210,7 @@ struct
     | munch_conditional ts dest (T.BINOP (oper, e1, e2)) = let
         val (t1, t1instrs) = munch_half ts AS.CMP e1
         val (t2, t2instrs) = munch_half ts AS.CMP e2
-        val _ = if size t1 <> size t2 then raise Fail "diff size" else ()
+        val _ = if size t1 <> size t2 then raise Fail "diff size!" else ()
         val cond = case oper of T.LT => AS.LT | T.LTE => AS.LTE
                               | T.EQ => AS.EQ | T.NEQ => AS.NEQ
                               | T.XOR => AS.NEQ
