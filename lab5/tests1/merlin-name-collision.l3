@@ -1,9 +1,0 @@
-//test error
-//variable name collides with type
-
-typedef int integer;
-
-int main() {
-  int integer = 0;
-  return integer;
-}

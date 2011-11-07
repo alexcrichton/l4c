@@ -1,0 +1,12 @@
+#test exception 11
+
+struct list {
+int head;
+struct list* tail;
+};
+
+int main () {
+  struct list * l;
+  l = (*alloc (struct list*))->tail;	/* must raise exception */
+  return l->head;
+}

@@ -1,0 +1,7 @@
+#test exception 11
+
+int main () {
+  int * p;
+  p = NULL;
+  return *p == *p ? 1 : 0;
+}

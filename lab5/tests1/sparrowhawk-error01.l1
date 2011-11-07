@@ -1,8 +1,0 @@
-//test error
-// tests whether the reserved keyword struct can be used as a variable name
-int main()
-{
-  int struct;
-  struct = 0;
-  return struct;
-}

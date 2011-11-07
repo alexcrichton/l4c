@@ -1,7 +1,0 @@
-//test error
-int continue(int x, int y);
-
-int main()
-{
-  return 5;
-}  

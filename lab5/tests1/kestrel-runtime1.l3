@@ -1,8 +1,0 @@
-//test exception
-// infinite recursion
-
-int main()
-{
-  return main();
-}
-

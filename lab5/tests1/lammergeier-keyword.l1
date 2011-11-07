@@ -1,5 +1,0 @@
-//test error
-int main() {
-    int alloc_array = 0;
-    return alloc_array;
-}

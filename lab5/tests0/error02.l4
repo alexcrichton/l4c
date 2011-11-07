@@ -1,0 +1,9 @@
+#test error
+
+int main () {
+  int * p;
+  int[] A;
+  p = alloc(int);
+  A = alloc_array (int, 10);
+  return *p ? p : A;
+}

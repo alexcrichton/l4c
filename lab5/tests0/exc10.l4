@@ -1,0 +1,9 @@
+#test exception 8
+// courtesy of brachiosaurus
+int main()
+{
+	int [] a = alloc_array(int, 0);
+	int *b = NULL;
+	a[1/0] = *b;
+	return a[0];
+}

@@ -1,8 +1,0 @@
-//test error
-
-int fret(int x, int y, int z, int x);
-
-int main()
-{
-  return 0;
-}

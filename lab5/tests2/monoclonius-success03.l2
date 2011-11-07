@@ -1,7 +1,0 @@
-//test return 5
-
-int main()
-{
-    return true ? 5 : 1 / 0;
-}
-

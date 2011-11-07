@@ -1,9 +1,0 @@
-//test error
-
-int main(){
-    return foo(3, 4);
-}
-
-int foo(int x, int y){
-    return x * y;
-}

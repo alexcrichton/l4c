@@ -1,0 +1,13 @@
+#test exception 11
+// courtesy of brachiosaurus
+struct foo {
+       int bar;
+};
+
+int main()
+{
+	int n = 0;
+	struct foo *foo = NULL;
+	foo->bar = 15410/n;
+	return 1337;
+}

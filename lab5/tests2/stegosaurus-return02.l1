@@ -1,6 +1,0 @@
-//test return 0
-/* Test division associativity */
-
-int main () {
-  return 3 / 3 / 3;
-}

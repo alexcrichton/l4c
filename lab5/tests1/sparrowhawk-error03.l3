@@ -1,9 +1,0 @@
-//test error
-
-bool returnSomething(bool x){
-	return x;
-}
-
-int main(){
-	return returnSomething(false);
-}

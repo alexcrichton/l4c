@@ -1,8 +1,0 @@
-//test error
-int main()
-{
-	int *a = alloc(int);
-	int *b = alloc(int);
-	a = a+b;
-	return *a;
-}

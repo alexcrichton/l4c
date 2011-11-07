@@ -1,9 +1,0 @@
-//test error
-
-struct s {
-	q i;
-	};
-
-int main() {
-	return 0;
-}

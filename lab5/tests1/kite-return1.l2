@@ -1,8 +1,0 @@
-//test return 5
-//shifting gets masked to 5 bits.
-
-int main()
-{
-  int x = 5;
-  return x <<64;
-}

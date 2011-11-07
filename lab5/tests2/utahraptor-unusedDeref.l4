@@ -1,7 +1,0 @@
-//test exception 11
-int main()
-{
-	int* n = NULL;
-	*n;
-	return 0;
-}

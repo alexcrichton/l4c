@@ -1,7 +1,0 @@
-//test error 
-// make sure alloc checks types correctly 
-
-int main () {
-    int *z = alloc(bool);
-    return 0;
-}

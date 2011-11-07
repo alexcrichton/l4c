@@ -1,9 +1,0 @@
-//test error
-
-int badtype(bool i){
-    return i;
-}
-
-int main(){
-    return 1;
-}

@@ -1,0 +1,12 @@
+#test return 2
+
+int main () {
+  bool[] A;
+  bool[] B;
+  int * p = NULL;
+  A = alloc_array(bool, 2);
+  B = alloc_array(bool, 2);
+  A[0] = true; A[1] = A[0] ? A[1] ? false : true : false;
+  B[0] = p == NULL ? false : true; B[1] = false;
+  return (A[0] != B[0] ? A : B)[1] ? 2 : 3;
+}

@@ -1,7 +1,0 @@
-//test error
-// test invalid variable name
-int main()
-{
-    int name_with_{brace = 3;
-    return name_with_{brace;
-}

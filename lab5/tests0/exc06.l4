@@ -1,0 +1,9 @@
+#test exception 11
+// courtesy of brachiosaurus 
+int main()
+{
+        int n = 0;
+        int [] foo = alloc_array(int, 1);
+        foo[-1] = 15410/n;
+        return 1337;
+}

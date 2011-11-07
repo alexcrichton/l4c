@@ -1,0 +1,12 @@
+#test return 1
+
+int main () {
+  int[] A;
+  int i;
+  A = alloc_array(int, 10);
+  for (i = 0; i < 10; i+=1)
+    A[i] = i;
+  for (i = 9; i > 0; i-=1)
+    A[i] = A[i-1];
+  return A[2];
+}

@@ -1,7 +1,0 @@
-//test exception 8
-int main()
-{
-	int* n = NULL;
-	1/0 + *n;
-	return 0;
-}

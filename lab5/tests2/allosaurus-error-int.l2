@@ -1,7 +1,0 @@
-//test error
-
-/* numeric constants must be in the range [0,2^32 = 4294967296) */
-int main(){
-  int x = 4294967296;
-  return x;
-}

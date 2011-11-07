@@ -1,8 +1,0 @@
-//test error
-
-int main()
-{
-    int meowmixOVERFLOW;
-    meowmixOVERFLOW = 2147483649;
-    return meowmixOVERFLOW;
-}

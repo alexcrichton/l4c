@@ -1,0 +1,12 @@
+#test exception 8
+
+struct foo {
+       int []a;
+};
+
+int main()
+{
+	struct foo* s = alloc(struct foo);
+	s->a[1/0] = 0;
+	return 0;
+}

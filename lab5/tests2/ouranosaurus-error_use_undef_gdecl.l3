@@ -1,8 +1,0 @@
-//test error
-// can't use undefined global functions
-
-int undefined_fun(int arg1);
-
-int main() {
-    undefined_fun(0);
-}

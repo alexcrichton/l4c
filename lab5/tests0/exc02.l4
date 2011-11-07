@@ -1,0 +1,14 @@
+#test exception 11
+
+int main () {
+  int[] A;
+  int sum;
+  int i;
+  A = alloc_array(int, 255);
+  sum = 0;
+  for (i = 0; i <= 255; i++) {
+    A[i] = i;
+    sum += i;
+  }
+  return sum;
+}

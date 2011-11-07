@@ -1,5 +1,0 @@
-//test error
-int main() {
-  continue; // Must be in a loop
-  return 0;
-}

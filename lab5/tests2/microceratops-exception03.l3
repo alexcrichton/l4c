@@ -1,9 +1,0 @@
-//test exception
-
-int main()
-{
-  int x;
-  x = 0;
-  x = fadd(10,33) / x;
-  return x;
-}
