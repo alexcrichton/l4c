@@ -428,6 +428,7 @@ struct
 
         val entry = List.hd (#entries g ())
         val visited = A.array (#capacity g (), false)
+        val skipped = ref [] (* node_ids skipped by BRANCH edges *)
 
         fun dfs nid = if A.sub (visited, nid) then [T.GOTO (label nid, NONE)]
                       else let
@@ -436,8 +437,9 @@ struct
             in
               case #out_edges g nid
                 of [] => L
-                 | [(_, id, T.BRANCH)] => L @ [T.GOTO (label id, NONE)]
                  | [(_, id, T.ALWAYS)] => L @ (dfs id)
+                 | [(_, id, T.BRANCH)] => (skipped := id::(!skipped);
+                                           L @ [T.GOTO (label id, NONE)])
                  | ([(_, tid, T.TRUE), (_, fid, T.FALSE)] |
                     [(_, fid, T.FALSE), (_, tid, T.TRUE)]) => let
                       val (e, L') = extract_cond L
@@ -449,7 +451,8 @@ struct
                     end
                  | _ => raise Fail "Invalid graph successors"
             end
-      in dfs entry end
+        val folded = dfs entry
+      in foldl (fn (nid, L) => L @ (dfs nid)) folded (!skipped) end
 
   (* dessa : Tree.cfg -> Tree.program
    *
