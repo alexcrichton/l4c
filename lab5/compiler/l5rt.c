@@ -3,20 +3,20 @@
 #include <signal.h>
 #include <string.h>
 
-void* alloc(size_t bytes) {
-  void *mem = malloc(bytes);
+/* Two arguments for compatibility with calloc */
+void* salloc(ssize_t elements, size_t size) {
+  void *mem = calloc(elements, size);
   if (mem == NULL) {
     raise(SIGSEGV);
   }
-  memset(mem, 0, bytes);
   return mem;
 }
 
-void* alloc_array(ssize_t elements, size_t size) {
+void* salloc_array(ssize_t elements, size_t size) {
   if (elements < 0) {
     raise(SIGABRT);
   }
-  return alloc(elements * size);
+  return salloc(elements, size);
 }
 
 void checkeof () {

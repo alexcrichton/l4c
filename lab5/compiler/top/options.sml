@@ -9,6 +9,7 @@ sig
   val flag_types : Flag.flag
   val flag_dotalloc : Flag.flag
   val flag_dotcfg : Flag.flag
+  val flag_safe : Flag.flag
 
   val filename : unit -> string
   val set_filename : string -> unit
@@ -25,7 +26,8 @@ struct
   val flag_header   = Flag.flag "header"
   val flag_types    = Flag.flag "types"
   val flag_dotalloc = Flag.flag "dotalloc"
-  val flag_dotcfg = Flag.flag "dotcfg"
+  val flag_dotcfg   = Flag.flag "dotcfg"
+  val flag_safe     = Flag.flag "safe"
 
   val fname = ref "output"
   fun filename () = !fname

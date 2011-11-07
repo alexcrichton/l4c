@@ -60,7 +60,10 @@ struct
         help="output DOT file for allocation graph"},
        {short = "", long=["dotcfg"],
         desc=G.NoArg (fn () => Flag.set O.flag_dotcfg),
-        help="output DOT file for control flow graph"}
+        help="output DOT file for control flow graph"},
+       {short = "", long=["safe"],
+        desc=G.NoArg (fn () => Flag.set O.flag_safe),
+        help="safe compilation with memory checks"}
       ]
 
   fun stem s = let

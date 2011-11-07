@@ -53,6 +53,7 @@ struct
    *)
   fun const n = T.CONST (Word32.fromInt n, T.WORD)
   fun constq n = T.CONST (Word32.fromInt n, T.QUAD)
+  fun safe () = Flag.isset Options.flag_safe
 
   fun address (T.MEM (a, _)) = a
     | address b = b
@@ -155,14 +156,18 @@ struct
     | trans_exp _ A.Null _ = ([], constq 0)
     | trans_exp (env as (_, structs, _)) (A.AllocArray (typ, e)) _ = let
         val (es, e') = trans_exp env e false
+        val func = Label.extfunc (if safe () then "salloc_array" else "calloc")
       in
-        (es, T.CALL (Label.extfunc "calloc", T.QUAD,
+        (es, T.CALL (func, T.QUAD,
                      [(e', T.QUAD), (constq (typ_size structs typ), T.QUAD)]))
       end
-    | trans_exp (_, structs, _) (A.Alloc typ) _ =
-        ([], T.CALL (Label.extfunc "calloc", T.QUAD,
+    | trans_exp (_, structs, _) (A.Alloc typ) _ = let
+        val func = Label.extfunc (if safe () then "salloc" else "calloc")
+      in
+        ([], T.CALL (func, T.QUAD,
                      [(constq 1, T.QUAD),
                       (constq (typ_size structs typ), T.QUAD)]))
+      end
     | trans_exp (env as (_, structs, _)) (A.ArrSub (e1, e2, ref typ)) a = let
         val (e1s, e1') = trans_exp env e1 false
         val (e2s, e2') = trans_exp env e2 false
