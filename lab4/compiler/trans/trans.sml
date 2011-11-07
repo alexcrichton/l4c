@@ -289,15 +289,14 @@ struct
    * @return a list of statements in the intermediate language.
    *)
   fun translate_fun (funs, structs) (A.Fun (typ, name, args, body)) = let
-        fun bind ((typ, id), e) = Symbol.bind e (id, (Temp.new (), trans_typ typ))
+        fun bind ((typ, id), e) =
+              Symbol.bind e (id, (Temp.new (), trans_typ typ))
         val e = foldr bind Symbol.empty args
-        val table = HT.mkTable (Symbol.hash, Symbol.equal) (10, Fail "uh oh")
-        val graph_rec = DG.graph (Symbol.name name, table, 10)
-        val _ = app (fn (_, s) => HT.insert table (s, 1)) args
+        val graph_rec = DG.graph (Symbol.name name, (), 10)
         val _ = trans_stm ((funs, structs, e), graph_rec, [], [])
                           (A.remove_for body A.Nop)
                           (ref [], ~1)
-        val targs = map (fn (t, id) => (id, trans_typ t)) args
+        val targs = map (fn (_, id) => Symbol.look' e id) args
         val G.GRAPH g = graph_rec
         val order = GraphDFS.postorder_numbering (G.GRAPH g)
                                                  (List.hd (#entries g ()))

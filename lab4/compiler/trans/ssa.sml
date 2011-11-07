@@ -141,7 +141,7 @@ struct
       end
 
   fun ssa P = let
-        fun gssa (G.GRAPH g) = let
+        fun gssa (G.GRAPH g, args) = let
               (* Calculate where temps are defined *)
               val _ = verbose "processing stms..."
               val entry = List.hd (#entries g ())
@@ -210,11 +210,8 @@ struct
 
                     (* Process an expression, updating all temps to have value
                        numbers, returning the new expession *)
-                    fun process_exp (T.TEMP (t, n, typ), map) = let
-                          val id = case TM.find (map, t)
-                                     of SOME n => n
-                                      | NONE => 0
-                        in T.TEMP (t, id, typ) end
+                    fun process_exp (T.TEMP (t, n, typ), map) =
+                          T.TEMP (t, valOf (TM.find (map, t)), typ)
                       | process_exp (T.BINOP (oper, e1, e2), map) =
                           T.BINOP (oper, process_exp (e1, map),
                                    process_exp (e2, map))
@@ -261,11 +258,15 @@ struct
                       app (fn id => visit_node (id, map')) (#succ g nid)
                     end
                   end
-              val _ = visit_node (entry, TM.empty)
+              val initial = foldl (fn ((t, _), s) => (HT.insert tvals (t, 0);
+                                                      TM.insert (s, t, 0)))
+                                  TM.empty args
+              val _ = visit_node (entry, initial)
             in
               ()
             end
       in
-        app (fn (id, _, _, cfg) => (debug ("\n" ^ Label.name id); gssa cfg)) P
+        app (fn (id, _, args, cfg) => (debug ("\n" ^ Label.name id);
+                                       gssa (cfg, args))) P
       end
 end

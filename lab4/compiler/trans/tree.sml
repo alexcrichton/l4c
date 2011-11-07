@@ -28,8 +28,8 @@ sig
     | RETURN of exp
 
   type block = stm list
-  type cfg = (block, edge, (ident, int) HashTable.hash_table) Graph.graph
-  type func = Label.label * typ * (ident * typ) list * cfg
+  type cfg = (block, edge, unit) Graph.graph
+  type func = Label.label * typ * (Temp.temp * typ) list * cfg
   type program = func list
 
   structure Print :
@@ -63,8 +63,8 @@ struct
     | RETURN of exp
 
   type block = stm list
-  type cfg = (block, edge, (ident, int) HashTable.hash_table) Graph.graph
-  type func = Label.label * typ * (ident * typ) list * cfg
+  type cfg = (block, edge, unit) Graph.graph
+  type func = Label.label * typ * (Temp.temp * typ) list * cfg
   type program = func list
 
   structure Print =
