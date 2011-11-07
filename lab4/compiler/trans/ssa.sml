@@ -195,6 +195,7 @@ struct
               val tvals = HT.mkTable (Temp.hash, Temp.equals)
                                      (97, Fail "Temp not found!")
               val visited = A.array (#capacity g (), false)
+              val vmaps   = A.array (#capacity g (), TM.empty)
 
               fun visit_node (nid, map) = let
                     (* Update a temp's global next number in the hash table,
@@ -254,6 +255,7 @@ struct
                       val (stms', map') = foldl process_stm ([], map) stms
                     in
                       A.update (visited, nid, true);
+                      A.update (vmaps, nid, map');
                       #add_node g (nid, rev stms');
                       app (fn id => visit_node (id, map')) (#succ g nid)
                     end
@@ -262,6 +264,34 @@ struct
                                                       TM.insert (s, t, 0)))
                                   TM.empty args
               val _ = visit_node (entry, initial)
+
+              (* Update all PHI functions to have the correct arguments *)
+              fun update_phis (nid, stms) = let
+                    val preds = #pred g nid
+                    fun dophi (T.MOVE (t as T.TEMP (tmp, _, tp), T.PHI _)) = let
+                          (* all sets from temps to numbers for all of our
+                             predecessors *)
+                          val sets = map (fn id => A.sub (vmaps, id)) preds
+                          fun add_temp (set, nums) =
+                                case TM.find (set, tmp)
+                                  of SOME num => S.add (nums, num)
+                                   | NONE     => nums
+                          (* Look up in each set the phi function temp, and
+                             collect all different versions of this variable
+                             coming in from everywhere. *)
+                          val nums = foldl add_temp S.empty sets
+                          (* Now that we have the numbers, convert them all
+                             to TEMPs to be arguments to PHIs *)
+                          val phi_args = map (fn n => T.TEMP (tmp, n, tp))
+                                             (S.listItems nums)
+                        in
+                          T.MOVE (t, T.PHI phi_args)
+                        end
+                      | dophi s = s
+                  in
+                    #add_node g (nid, map dophi stms)
+                  end
+              val _ = #forall_nodes g update_phis
             in
               ()
             end
