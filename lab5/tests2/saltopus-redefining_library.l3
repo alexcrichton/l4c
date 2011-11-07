@@ -1,0 +1,11 @@
+//test error
+
+int booltoint(int x)
+{
+	return x;
+}
+
+int main()
+{
+	return 0;
+}

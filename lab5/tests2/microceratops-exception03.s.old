@@ -1,0 +1,20 @@
+.file	"../tests2/microceratops-exception03.l3"
+.globl _c0_main
+_c0_main:
+	addq $-24, %rsp
+	movq %rbx, 16(%rsp)
+.main_0:
+	movl $0, %r9d
+	movl $10, %edi
+	movl $33, %esi
+	movq %r9, %rbx
+	callq fadd
+	movq %rbx, %r9
+	cltd
+	idivl %r9d
+	movl %eax, %r9d
+	movl %r9d, %eax
+	movq 16(%rsp), %rbx
+	addq $24, %rsp
+	ret
+.ident	"15-411 L4 reference compiler"

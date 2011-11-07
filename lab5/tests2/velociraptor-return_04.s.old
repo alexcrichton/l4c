@@ -1,0 +1,624 @@
+.file	"../tests2/velociraptor-return_04.l3"
+.globl _c0_main
+_c0_f1:
+	addq $-8, %rsp
+.f1_0:
+	movl %edi, %eax
+	addq $8, %rsp
+	ret
+_c0_f2:
+	addq $-24, %rsp
+	movq %rbx, 16(%rsp)
+	movl %edi, %r9d
+.f2_0:
+	movl %r9d, %edi
+	movq %r9, %rbx
+	callq _c0_f1
+	movq %rbx, %r9
+	addl %eax, %r9d
+	movl %r9d, %eax
+	movq 16(%rsp), %rbx
+	addq $24, %rsp
+	ret
+_c0_f3:
+	addq $-24, %rsp
+	movq %r12, 8(%rsp)
+	movq %rbx, 16(%rsp)
+	movl %edi, %r9d
+.f3_0:
+	movl %r9d, %edi
+	movq %r9, %rbx
+	callq _c0_f1
+	movq %rbx, %r9
+	movl %eax, %r8d
+	movl $2, %edi
+	imull %r9d, %edi
+	movq %r8, %r12
+	movq %r9, %rbx
+	callq _c0_f2
+	movq %r12, %r8
+	movq %rbx, %r9
+	addl %r8d, %r9d
+	addl %eax, %r9d
+	movl %r9d, %eax
+	movq 8(%rsp), %r12
+	movq 16(%rsp), %rbx
+	addq $24, %rsp
+	ret
+_c0_f4:
+	addq $-40, %rsp
+	movq %r13, 16(%rsp)
+	movq %r12, 24(%rsp)
+	movq %rbx, 32(%rsp)
+	movl %edi, %r9d
+.f4_0:
+	movl %r9d, %edi
+	movq %r9, %rbx
+	callq _c0_f1
+	movq %rbx, %r9
+	movl %eax, %ecx
+	movl $2, %edi
+	imull %r9d, %edi
+	movq %rcx, %r12
+	movq %r9, %rbx
+	callq _c0_f2
+	movq %r12, %rcx
+	movq %rbx, %r9
+	movl %eax, %r8d
+	movl $3, %edi
+	imull %r9d, %edi
+	movq %rcx, %r13
+	movq %r8, %r12
+	movq %r9, %rbx
+	callq _c0_f3
+	movq %r13, %rcx
+	movq %r12, %r8
+	movq %rbx, %r9
+	addl %ecx, %r9d
+	addl %r8d, %r9d
+	addl %eax, %r9d
+	movl %r9d, %eax
+	movq 16(%rsp), %r13
+	movq 24(%rsp), %r12
+	movq 32(%rsp), %rbx
+	addq $40, %rsp
+	ret
+_c0_f5:
+	addq $-40, %rsp
+	movq %r14, 8(%rsp)
+	movq %r13, 16(%rsp)
+	movq %r12, 24(%rsp)
+	movq %rbx, 32(%rsp)
+	movl %edi, %r9d
+.f5_0:
+	movl %r9d, %edi
+	movq %r9, %rbx
+	callq _c0_f1
+	movq %rbx, %r9
+	movl %eax, %ecx
+	movl $2, %edi
+	imull %r9d, %edi
+	movq %rcx, %r12
+	movq %r9, %rbx
+	callq _c0_f2
+	movq %r12, %rcx
+	movq %rbx, %r9
+	movl %eax, %r8d
+	movl $3, %edi
+	imull %r9d, %edi
+	movq %rcx, %r13
+	movq %r8, %r12
+	movq %r9, %rbx
+	callq _c0_f3
+	movq %r13, %rcx
+	movq %r12, %r8
+	movq %rbx, %r9
+	movl %eax, %edx
+	movl $4, %edi
+	imull %r9d, %edi
+	movq %rdx, %r14
+	movq %rcx, %r13
+	movq %r8, %r12
+	movq %r9, %rbx
+	callq _c0_f4
+	movq %r14, %rdx
+	movq %r13, %rcx
+	movq %r12, %r8
+	movq %rbx, %r9
+	addl %ecx, %r9d
+	addl %r8d, %r9d
+	addl %edx, %r9d
+	addl %eax, %r9d
+	movl %r9d, %eax
+	movq 8(%rsp), %r14
+	movq 16(%rsp), %r13
+	movq 24(%rsp), %r12
+	movq 32(%rsp), %rbx
+	addq $40, %rsp
+	ret
+_c0_f6:
+	addq $-56, %rsp
+	movq %r15, 16(%rsp)
+	movq %r14, 24(%rsp)
+	movq %r13, 32(%rsp)
+	movq %r12, 40(%rsp)
+	movq %rbx, 48(%rsp)
+	movl %edi, %r9d
+.f6_0:
+	movl %r9d, %edi
+	movq %r9, %rbx
+	callq _c0_f1
+	movq %rbx, %r9
+	movl %eax, %edx
+	movl $2, %edi
+	imull %r9d, %edi
+	movq %rdx, %r12
+	movq %r9, %rbx
+	callq _c0_f2
+	movq %r12, %rdx
+	movq %rbx, %r9
+	movl %eax, %r8d
+	movl $3, %edi
+	imull %r9d, %edi
+	movq %rdx, %r13
+	movq %r8, %r12
+	movq %r9, %rbx
+	callq _c0_f3
+	movq %r13, %rdx
+	movq %r12, %r8
+	movq %rbx, %r9
+	movl %eax, %esi
+	movl $4, %edi
+	imull %r9d, %edi
+	movq %rsi, %r14
+	movq %rdx, %r13
+	movq %r8, %r12
+	movq %r9, %rbx
+	callq _c0_f4
+	movq %r14, %rsi
+	movq %r13, %rdx
+	movq %r12, %r8
+	movq %rbx, %r9
+	movl %eax, %ecx
+	movl $5, %edi
+	imull %r9d, %edi
+	movq %rsi, %r15
+	movq %rdx, %r14
+	movq %rcx, %r13
+	movq %r8, %r12
+	movq %r9, %rbx
+	callq _c0_f5
+	movq %r15, %rsi
+	movq %r14, %rdx
+	movq %r13, %rcx
+	movq %r12, %r8
+	movq %rbx, %r9
+	addl %edx, %r9d
+	addl %r8d, %r9d
+	addl %esi, %r9d
+	addl %ecx, %r9d
+	addl %eax, %r9d
+	movl %r9d, %eax
+	movq 16(%rsp), %r15
+	movq 24(%rsp), %r14
+	movq 32(%rsp), %r13
+	movq 40(%rsp), %r12
+	movq 48(%rsp), %rbx
+	addq $56, %rsp
+	ret
+_c0_f7:
+	addq $-56, %rsp
+	movq %rbp, 8(%rsp)
+	movq %r15, 16(%rsp)
+	movq %r14, 24(%rsp)
+	movq %r13, 32(%rsp)
+	movq %r12, 40(%rsp)
+	movq %rbx, 48(%rsp)
+	movl %edi, %r9d
+.f7_0:
+	movl %r9d, %edi
+	movq %r9, %rbx
+	callq _c0_f1
+	movq %rbx, %r9
+	movl %eax, %esi
+	movl $2, %edi
+	imull %r9d, %edi
+	movq %rsi, %r12
+	movq %r9, %rbx
+	callq _c0_f2
+	movq %r12, %rsi
+	movq %rbx, %r9
+	movl %eax, %r8d
+	movl $3, %edi
+	imull %r9d, %edi
+	movq %rsi, %r13
+	movq %r8, %r12
+	movq %r9, %rbx
+	callq _c0_f3
+	movq %r13, %rsi
+	movq %r12, %r8
+	movq %rbx, %r9
+	movl %eax, %ebx
+	movl $4, %edi
+	imull %r9d, %edi
+	movq %rsi, %r14
+	movq %r8, %r13
+	movq %r9, %r12
+	callq _c0_f4
+	movq %r14, %rsi
+	movq %r13, %r8
+	movq %r12, %r9
+	movl %eax, %ecx
+	movl $5, %edi
+	imull %r9d, %edi
+	movq %rsi, %r15
+	movq %rcx, %r14
+	movq %r8, %r13
+	movq %r9, %r12
+	callq _c0_f5
+	movq %r15, %rsi
+	movq %r14, %rcx
+	movq %r13, %r8
+	movq %r12, %r9
+	movl %eax, %edx
+	movl $6, %edi
+	imull %r9d, %edi
+	movq %rsi, %rbp
+	movq %rdx, %r15
+	movq %rcx, %r14
+	movq %r8, %r13
+	movq %r9, %r12
+	callq _c0_f6
+	movq %rbp, %rsi
+	movq %r15, %rdx
+	movq %r14, %rcx
+	movq %r13, %r8
+	movq %r12, %r9
+	addl %esi, %r9d
+	addl %r8d, %r9d
+	addl %ebx, %r9d
+	addl %ecx, %r9d
+	addl %edx, %r9d
+	addl %eax, %r9d
+	movl %r9d, %eax
+	movq 8(%rsp), %rbp
+	movq 16(%rsp), %r15
+	movq 24(%rsp), %r14
+	movq 32(%rsp), %r13
+	movq 40(%rsp), %r12
+	movq 48(%rsp), %rbx
+	addq $56, %rsp
+	ret
+_c0_f8:
+	addq $-72, %rsp
+	movq %rbp, 16(%rsp)
+	movq %r15, 24(%rsp)
+	movq %r14, 32(%rsp)
+	movq %r13, 40(%rsp)
+	movq %r12, 48(%rsp)
+	movq %rbx, 56(%rsp)
+	movl %edi, %r9d
+.f8_0:
+	movl %r9d, %edi
+	movq %r9, %rbx
+	callq _c0_f1
+	movq %rbx, %r9
+	movl %eax, %esi
+	movl $2, %edi
+	imull %r9d, %edi
+	movq %rsi, %r12
+	movq %r9, %rbx
+	callq _c0_f2
+	movq %r12, %rsi
+	movq %rbx, %r9
+	movl %eax, %r8d
+	movl $3, %edi
+	imull %r9d, %edi
+	movq %rsi, %r13
+	movq %r8, %r12
+	movq %r9, %rbx
+	callq _c0_f3
+	movq %r13, %rsi
+	movq %r12, %r8
+	movq %rbx, %r9
+	movl %eax, %r12d
+	movl $4, %edi
+	imull %r9d, %edi
+	movq %rsi, %r14
+	movq %r8, %r13
+	movq %r9, %rbx
+	callq _c0_f4
+	movq %r14, %rsi
+	movq %r13, %r8
+	movq %rbx, %r9
+	movl %eax, %ecx
+	movl $5, %edi
+	imull %r9d, %edi
+	movq %rsi, %r15
+	movq %rcx, %r14
+	movq %r8, %r13
+	movq %r9, %rbx
+	callq _c0_f5
+	movq %r15, %rsi
+	movq %r14, %rcx
+	movq %r13, %r8
+	movq %rbx, %r9
+	movl %eax, %edx
+	movl $6, %edi
+	imull %r9d, %edi
+	movq %rsi, %rbp
+	movq %rdx, %r15
+	movq %rcx, %r14
+	movq %r8, %r13
+	movq %r9, %rbx
+	callq _c0_f6
+	movq %rbp, %rsi
+	movq %r15, %rdx
+	movq %r14, %rcx
+	movq %r13, %r8
+	movq %rbx, %r9
+	movl %eax, %ebx
+	movl $7, %edi
+	imull %r9d, %edi
+	movq %rsi, 64(%rsp)
+	movq %rdx, %rbp
+	movq %rcx, %r15
+	movq %r8, %r14
+	movq %r9, %r13
+	callq _c0_f7
+	movq 64(%rsp), %rsi
+	movq %rbp, %rdx
+	movq %r15, %rcx
+	movq %r14, %r8
+	movq %r13, %r9
+	addl %esi, %r9d
+	addl %r8d, %r9d
+	addl %r12d, %r9d
+	addl %ecx, %r9d
+	addl %edx, %r9d
+	addl %ebx, %r9d
+	addl %eax, %r9d
+	movl %r9d, %eax
+	movq 16(%rsp), %rbp
+	movq 24(%rsp), %r15
+	movq 32(%rsp), %r14
+	movq 40(%rsp), %r13
+	movq 48(%rsp), %r12
+	movq 56(%rsp), %rbx
+	addq $72, %rsp
+	ret
+_c0_f9:
+	addq $-72, %rsp
+	movq %rbp, 8(%rsp)
+	movq %r15, 16(%rsp)
+	movq %r14, 24(%rsp)
+	movq %r13, 32(%rsp)
+	movq %r12, 40(%rsp)
+	movq %rbx, 48(%rsp)
+	movl %edi, %r9d
+.f9_0:
+	movl %r9d, %edi
+	movq %r9, %rbx
+	callq _c0_f1
+	movq %rbx, %r9
+	movl %eax, %esi
+	movl $2, %edi
+	imull %r9d, %edi
+	movq %rsi, %r12
+	movq %r9, %rbx
+	callq _c0_f2
+	movq %r12, %rsi
+	movq %rbx, %r9
+	movl %eax, %r8d
+	movl $3, %edi
+	imull %r9d, %edi
+	movq %rsi, %r13
+	movq %r8, %r12
+	movq %r9, %rbx
+	callq _c0_f3
+	movq %r13, %rsi
+	movq %r12, %r8
+	movq %rbx, %r9
+	movl %eax, %r12d
+	movl $4, %edi
+	imull %r9d, %edi
+	movq %rsi, %r14
+	movq %r8, %r13
+	movq %r9, %rbx
+	callq _c0_f4
+	movq %r14, %rsi
+	movq %r13, %r8
+	movq %rbx, %r9
+	movl %eax, %ecx
+	movl $5, %edi
+	imull %r9d, %edi
+	movq %rsi, %r15
+	movq %rcx, %r14
+	movq %r8, %r13
+	movq %r9, %rbx
+	callq _c0_f5
+	movq %r15, %rsi
+	movq %r14, %rcx
+	movq %r13, %r8
+	movq %rbx, %r9
+	movl %eax, %edx
+	movl $6, %edi
+	imull %r9d, %edi
+	movq %rsi, %rbp
+	movq %rdx, %r15
+	movq %rcx, %r14
+	movq %r8, %r13
+	movq %r9, %rbx
+	callq _c0_f6
+	movq %rbp, %rsi
+	movq %r15, %rdx
+	movq %r14, %rcx
+	movq %r13, %r8
+	movq %rbx, %r9
+	movl %eax, %ebx
+	movl $7, %edi
+	imull %r9d, %edi
+	movq %rsi, 56(%rsp)
+	movq %rdx, %rbp
+	movq %rcx, %r15
+	movq %r8, %r14
+	movq %r9, %r13
+	callq _c0_f7
+	movq 56(%rsp), %rsi
+	movq %rbp, %rdx
+	movq %r15, %rcx
+	movq %r14, %r8
+	movq %r13, %r9
+	movl %eax, %r13d
+	movl $8, %edi
+	imull %r9d, %edi
+	movq %rsi, 64(%rsp)
+	movq %rdx, 56(%rsp)
+	movq %rcx, %rbp
+	movq %r8, %r15
+	movq %r9, %r14
+	callq _c0_f8
+	movq 64(%rsp), %rsi
+	movq 56(%rsp), %rdx
+	movq %rbp, %rcx
+	movq %r15, %r8
+	movq %r14, %r9
+	addl %esi, %r9d
+	addl %r8d, %r9d
+	addl %r12d, %r9d
+	addl %ecx, %r9d
+	addl %edx, %r9d
+	addl %ebx, %r9d
+	addl %r13d, %r9d
+	addl %eax, %r9d
+	movl %r9d, %eax
+	movq 8(%rsp), %rbp
+	movq 16(%rsp), %r15
+	movq 24(%rsp), %r14
+	movq 32(%rsp), %r13
+	movq 40(%rsp), %r12
+	movq 48(%rsp), %rbx
+	addq $72, %rsp
+	ret
+_c0_f10:
+	addq $-88, %rsp
+	movq %rbp, 16(%rsp)
+	movq %r15, 24(%rsp)
+	movq %r14, 32(%rsp)
+	movq %r13, 40(%rsp)
+	movq %r12, 48(%rsp)
+	movq %rbx, 56(%rsp)
+	movl %edi, %r9d
+.f10_0:
+	movl %r9d, %edi
+	movq %r9, %rbx
+	callq _c0_f1
+	movq %rbx, %r9
+	movl %eax, %ebx
+	movl $2, %edi
+	imull %r9d, %edi
+	movq %r9, %r12
+	callq _c0_f2
+	movq %r12, %r9
+	movl %eax, %r8d
+	movl $3, %edi
+	imull %r9d, %edi
+	movq %r8, %r13
+	movq %r9, %r12
+	callq _c0_f3
+	movq %r13, %r8
+	movq %r12, %r9
+	movl %eax, %r13d
+	movl $4, %edi
+	imull %r9d, %edi
+	movq %r8, %r14
+	movq %r9, %r12
+	callq _c0_f4
+	movq %r14, %r8
+	movq %r12, %r9
+	movl %eax, %ecx
+	movl $5, %edi
+	imull %r9d, %edi
+	movq %rcx, %r15
+	movq %r8, %r14
+	movq %r9, %r12
+	callq _c0_f5
+	movq %r15, %rcx
+	movq %r14, %r8
+	movq %r12, %r9
+	movl %eax, %esi
+	movl $6, %edi
+	imull %r9d, %edi
+	movq %rsi, %rbp
+	movq %rcx, %r15
+	movq %r8, %r14
+	movq %r9, %r12
+	callq _c0_f6
+	movq %rbp, %rsi
+	movq %r15, %rcx
+	movq %r14, %r8
+	movq %r12, %r9
+	movl %eax, %r12d
+	movl $7, %edi
+	imull %r9d, %edi
+	movq %rsi, 64(%rsp)
+	movq %rcx, %rbp
+	movq %r8, %r15
+	movq %r9, %r14
+	callq _c0_f7
+	movq 64(%rsp), %rsi
+	movq %rbp, %rcx
+	movq %r15, %r8
+	movq %r14, %r9
+	movl %eax, %r14d
+	movl $8, %edi
+	imull %r9d, %edi
+	movq %rsi, 72(%rsp)
+	movq %rcx, 64(%rsp)
+	movq %r8, %rbp
+	movq %r9, %r15
+	callq _c0_f8
+	movq 72(%rsp), %rsi
+	movq 64(%rsp), %rcx
+	movq %rbp, %r8
+	movq %r15, %r9
+	movl %eax, %edx
+	movl $9, %edi
+	imull %r9d, %edi
+	movq %rsi, 80(%rsp)
+	movq %rdx, 72(%rsp)
+	movq %rcx, 64(%rsp)
+	movq %r8, %rbp
+	movq %r9, %r15
+	callq _c0_f9
+	movq 80(%rsp), %rsi
+	movq 72(%rsp), %rdx
+	movq 64(%rsp), %rcx
+	movq %rbp, %r8
+	movq %r15, %r9
+	addl %ebx, %r9d
+	addl %r8d, %r9d
+	addl %r13d, %r9d
+	addl %ecx, %r9d
+	addl %esi, %r9d
+	addl %r12d, %r9d
+	addl %r14d, %r9d
+	addl %edx, %r9d
+	addl %eax, %r9d
+	movl %r9d, %eax
+	movq 16(%rsp), %rbp
+	movq 24(%rsp), %r15
+	movq 32(%rsp), %r14
+	movq 40(%rsp), %r13
+	movq 48(%rsp), %r12
+	movq 56(%rsp), %rbx
+	addq $88, %rsp
+	ret
+_c0_main:
+	addq $-8, %rsp
+.main_0:
+	movl $1, %edi
+	callq _c0_f10
+	addq $8, %rsp
+	ret
+.ident	"15-411 L4 reference compiler"

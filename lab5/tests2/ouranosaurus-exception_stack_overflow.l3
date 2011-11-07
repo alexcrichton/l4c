@@ -1,0 +1,12 @@
+//test exception
+// not a tail call, so this should stack overflow
+
+int overflow() {
+    int bogus = 0;
+    bogus = overflow() + 1;
+    return bogus;
+}
+
+int main() {
+    return overflow();
+}

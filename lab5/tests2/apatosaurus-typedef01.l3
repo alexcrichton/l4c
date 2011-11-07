@@ -1,0 +1,12 @@
+//test error
+// typedef tomfoolery (dupe taco typedef)
+
+typedef bool taco;
+typedef int taco;
+
+int main()
+{
+  taco truck;
+
+  return 0;
+}

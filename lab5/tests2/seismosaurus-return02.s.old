@@ -1,0 +1,35 @@
+.file	"../tests2/seismosaurus-return02.l2"
+.globl _c0_main
+_c0_main:
+	addq $-8, %rsp
+.main_0:
+	movl $1, %r9d
+	movl $1, %edx
+	movl $1, %ecx
+	movl %r9d, %r8d
+	cmpl %ecx, %r8d
+	sete %r8b
+	movzbl %r8b, %r8d
+	cmpl %r8d, %edx
+	jnz .main_6
+.main_1:
+	movl $1, %ecx
+	movl $2, %r8d
+	cmpl %r8d, %r9d
+	sete %r9b
+	movzbl %r9b, %r9d
+	cmpl %r9d, %ecx
+	jnz .main_2
+.main_3:
+.main_5:
+.main_7:
+	movl $2, %eax
+	addq $8, %rsp
+	ret
+.main_2:
+	movl $1, %eax
+	addq $8, %rsp
+	ret
+.main_6:
+	jmp .main_7
+.ident	"15-411 L4 reference compiler"

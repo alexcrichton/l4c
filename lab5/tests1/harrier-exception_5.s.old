@@ -1,0 +1,31 @@
+.file	"../tests1/harrier-exception_5.l2"
+.globl _c0_main
+_c0_main:
+	addq $-8, %rsp
+.main_0:
+	movl $5, %r9d
+.main_5:
+.main_1:
+	movl %r9d, %r8d
+	subl $2, %r8d
+	movl %r9d, %eax
+	cltd
+	idivl %r8d
+	movl $1, %edx
+	movl $543, %ecx
+	movl %eax, %r8d
+	cmpl %ecx, %r8d
+	setne %r8b
+	movzbl %r8b, %r8d
+	cmpl %r8d, %edx
+	jnz .main_4
+.main_2:
+	subl $1, %r9d
+	jmp .main_6
+.main_4:
+	movl $4, %eax
+	addq $8, %rsp
+	ret
+.main_6:
+	jmp .main_1
+.ident	"15-411 L4 reference compiler"

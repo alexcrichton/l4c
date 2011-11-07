@@ -1,0 +1,13 @@
+//test error
+
+int funOne(int x, int y);
+
+int funOne(int x) 
+{
+  return 1;
+}
+
+int main () {
+  int x = 100;
+  return funOne(x);
+}

@@ -1,0 +1,5 @@
+//test error
+int main() {
+  typedef int foo;
+  return 0;
+}

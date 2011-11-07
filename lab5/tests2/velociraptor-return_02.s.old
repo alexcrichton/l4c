@@ -1,0 +1,92 @@
+.file	"../tests2/velociraptor-return_02.l3"
+.globl _c0_main
+_c0_prime:
+	addq $-8, %rsp
+.prime_0:
+	movl $2, %r8d
+.prime_9:
+.prime_1:
+	movl $1, %edx
+	movl %r8d, %ecx
+	cmpl %edi, %ecx
+	setl %cl
+	movzbl %cl, %ecx
+	cmpl %ecx, %edx
+	jnz .prime_7
+.prime_2:
+	movl %edi, %eax
+	cltd
+	idivl %r8d
+	movl %edx, %ecx
+	movl $1, %esi
+	movl $0, %edx
+	cmpl %edx, %ecx
+	sete %cl
+	movzbl %cl, %ecx
+	cmpl %ecx, %esi
+	jnz .prime_5
+.prime_3:
+	movl $0, %eax
+	addq $8, %rsp
+	ret
+.prime_5:
+.prime_6:
+	addl $1, %r8d
+.prime_8:
+	jmp .prime_1
+.prime_7:
+	movl $1, %eax
+	addq $8, %rsp
+	ret
+_c0_main:
+	addq $-40, %rsp
+	movq %r13, 16(%rsp)
+	movq %r12, 24(%rsp)
+	movq %rbx, 32(%rsp)
+.main_0:
+	movl $0, %r8d
+	movl $1, %r9d
+.main_8:
+.main_1:
+	movl $1, %esi
+	movl $20, %edx
+	movl %r8d, %ecx
+	cmpl %edx, %ecx
+	setl %cl
+	movzbl %cl, %ecx
+	cmpl %ecx, %esi
+	jnz .main_6
+.main_2:
+	movl %r9d, %ecx
+	addl $1, %ecx
+	movl %ecx, %edi
+	movq %rcx, %r13
+	movq %r8, %r12
+	movq %r9, %rbx
+	callq _c0_prime
+	movq %r13, %rcx
+	movq %r12, %r8
+	movq %rbx, %r9
+	movl $1, %edx
+	cmpl %eax, %edx
+	jnz .main_4
+.main_3:
+	movl %r8d, %r9d
+	addl $1, %r9d
+.main_10:
+	movl %r9d, %r8d
+.main_5:
+.main_7:
+	movl %ecx, %r9d
+	jmp .main_1
+.main_4:
+.main_9:
+	jmp .main_5
+.main_6:
+	movl %r9d, %eax
+	movq 16(%rsp), %r13
+	movq 24(%rsp), %r12
+	movq 32(%rsp), %rbx
+	addq $40, %rsp
+	ret
+.ident	"15-411 L4 reference compiler"

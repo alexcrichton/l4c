@@ -1,0 +1,24 @@
+//test return 1
+// verifies callee saved registers are ok after extern C call
+
+int f()
+{
+  int a = 1;
+  int b = 2;
+  int c = 3;
+  int d = 4;
+  int e = 5;
+  int f = 6;
+
+  fadd(e, f);
+
+  if(a == 1 && b == 2 && c == 3 && d == 4 && e == 5 && f == 6)
+    return 1;
+  else
+    return -1;
+}
+
+int main()
+{
+  return f();
+}

@@ -1,0 +1,9 @@
+//test return 42
+
+int _l3_main(int a) {
+	return 6 * a;
+}
+
+int main() {
+	return _l3_main(7);
+}

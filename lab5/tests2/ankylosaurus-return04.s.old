@@ -1,0 +1,73 @@
+.file	"../tests2/ankylosaurus-return04.l3"
+.globl _c0_main
+_c0_spill:
+	addq $-72, %rsp
+	movq %rbp, 4(%rsp)
+	movq %r15, 12(%rsp)
+	movq %r14, 20(%rsp)
+	movq %r13, 28(%rsp)
+	movq %r12, 36(%rsp)
+	movq %rbx, 44(%rsp)
+.spill_0:
+	movl $0, %edx
+	movl $1, %eax
+	movl $2, 52(%rsp)
+	movl $3, 56(%rsp)
+	movl $4, 60(%rsp)
+	movl $5, 64(%rsp)
+	movl $6, 68(%rsp)
+	movl $7, %r9d
+	movl $8, %r8d
+	movl $9, %ebx
+	movl $10, %r12d
+	movl $11, %r13d
+	movl $12, %r14d
+	movl $13, %r15d
+	movl $14, %ebp
+	movl $15, %ecx
+	movl $16, %esi
+	movl $17, %edi
+	addl %eax, %edx
+	imull 52(%rsp), %edx
+	subl 56(%rsp), %edx
+	addl 60(%rsp), %edx
+	imull 64(%rsp), %edx
+	movl %edx, %eax
+	addl 68(%rsp), %eax
+	cltd
+	idivl %r9d
+	movl %eax, %r9d
+	imull %r8d, %r9d
+	addl %ebx, %r9d
+	movl %r9d, %eax
+	imull %r12d, %eax
+	cltd
+	idivl %r13d
+	movl %edx, %r9d
+	addl %r14d, %r9d
+	imull %r15d, %r9d
+	movl %r9d, %eax
+	subl %ebp, %eax
+	cltd
+	idivl %ecx
+	movl %edx, %r9d
+	subl %esi, %r9d
+	movl $0, %r8d
+	subl %edi, %r8d
+	imull %r8d, %r9d
+	movl %r9d, %eax
+	movq 4(%rsp), %rbp
+	movq 12(%rsp), %r15
+	movq 20(%rsp), %r14
+	movq 28(%rsp), %r13
+	movq 36(%rsp), %r12
+	movq 44(%rsp), %rbx
+	addq $72, %rsp
+	ret
+_c0_main:
+	addq $-8, %rsp
+.main_0:
+	callq _c0_spill
+	addq $8, %rsp
+	ret
+.ident	"15-411 L4 reference compiler"

@@ -1,0 +1,7 @@
+//test return 0
+
+typedef int foo;
+
+foo main() {
+  return 0;
+}

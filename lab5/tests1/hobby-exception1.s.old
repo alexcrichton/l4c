@@ -1,0 +1,32 @@
+.file	"../tests1/hobby-exception1.l2"
+.globl _c0_main
+_c0_main:
+	addq $-8, %rsp
+.main_0:
+	movl $0, %r9d
+	movl $0, %r8d
+.main_5:
+.main_1:
+	movl $1, %esi
+	movl $20, %edx
+	movl %r8d, %ecx
+	cmpl %edx, %ecx
+	setl %cl
+	movzbl %cl, %ecx
+	cmpl %ecx, %esi
+	jnz .main_3
+.main_2:
+	movl $10, %ecx
+	subl %r8d, %ecx
+	movl %r8d, %eax
+	cltd
+	idivl %ecx
+	addl %eax, %r9d
+	addl $1, %r8d
+.main_4:
+	jmp .main_1
+.main_3:
+	movl %r9d, %eax
+	addq $8, %rsp
+	ret
+.ident	"15-411 L4 reference compiler"

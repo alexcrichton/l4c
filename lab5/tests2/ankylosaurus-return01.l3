@@ -1,0 +1,15 @@
+//test return 74565
+// Test function calling. Also tests using different variable names in argument list
+
+int get_max(int a, int b);
+
+int main()
+{
+    return get_max(0x12345, 12345);
+}
+
+int get_max(int x, int y)
+{
+    if(x > y) return x;
+    else return y;
+}

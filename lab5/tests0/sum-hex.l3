@@ -1,0 +1,11 @@
+//test return 55
+int main() {
+	int sum = 0;
+	while (!eof()) {
+		int c = readhex();
+		sum += c;
+	}
+	return sum;
+}
+
+

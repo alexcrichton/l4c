@@ -1,0 +1,179 @@
+.file	"../tests1/falcon-return06.l2"
+.globl _c0_main
+_c0_main:
+	addq $-8, %rsp
+.main_0:
+	movl $10, %r9d
+	movl $1, %edx
+	movl $11, %ecx
+	movl %r9d, %r8d
+	cmpl %ecx, %r8d
+	setl %r8b
+	movzbl %r8b, %r8d
+	cmpl %r8d, %edx
+	jnz .main_42
+.main_1:
+	movl $1, %edx
+	movl $11, %ecx
+	movl %r9d, %r8d
+	cmpl %ecx, %r8d
+	setl %r8b
+	movzbl %r8b, %r8d
+	cmpl %r8d, %edx
+	jnz .main_40
+.main_2:
+	movl $1, %edx
+	movl $11, %ecx
+	movl %r9d, %r8d
+	cmpl %ecx, %r8d
+	setl %r8b
+	movzbl %r8b, %r8d
+	cmpl %r8d, %edx
+	jnz .main_38
+.main_3:
+	movl $1, %edx
+	movl $11, %ecx
+	movl %r9d, %r8d
+	cmpl %ecx, %r8d
+	setl %r8b
+	movzbl %r8b, %r8d
+	cmpl %r8d, %edx
+	jnz .main_36
+.main_4:
+	movl $1, %edx
+	movl $11, %ecx
+	movl %r9d, %r8d
+	cmpl %ecx, %r8d
+	setl %r8b
+	movzbl %r8b, %r8d
+	cmpl %r8d, %edx
+	jnz .main_34
+.main_5:
+	movl $1, %edx
+	movl $11, %ecx
+	movl %r9d, %r8d
+	cmpl %ecx, %r8d
+	setl %r8b
+	movzbl %r8b, %r8d
+	cmpl %r8d, %edx
+	jnz .main_32
+.main_6:
+	movl $1, %edx
+	movl $11, %ecx
+	movl %r9d, %r8d
+	cmpl %ecx, %r8d
+	setl %r8b
+	movzbl %r8b, %r8d
+	cmpl %r8d, %edx
+	jnz .main_30
+.main_7:
+	movl $1, %edx
+	movl $11, %ecx
+	movl %r9d, %r8d
+	cmpl %ecx, %r8d
+	setl %r8b
+	movzbl %r8b, %r8d
+	cmpl %r8d, %edx
+	jnz .main_28
+.main_8:
+	movl $1, %edx
+	movl $11, %ecx
+	movl %r9d, %r8d
+	cmpl %ecx, %r8d
+	setl %r8b
+	movzbl %r8b, %r8d
+	cmpl %r8d, %edx
+	jnz .main_26
+.main_9:
+	movl $1, %edx
+	movl $11, %ecx
+	movl %r9d, %r8d
+	cmpl %ecx, %r8d
+	setl %r8b
+	movzbl %r8b, %r8d
+	cmpl %r8d, %edx
+	jnz .main_24
+.main_10:
+	movl $1, %edx
+	movl $11, %ecx
+	movl %r9d, %r8d
+	cmpl %ecx, %r8d
+	setl %r8b
+	movzbl %r8b, %r8d
+	cmpl %r8d, %edx
+	jnz .main_22
+.main_11:
+	movl $1, %edx
+	movl $11, %ecx
+	movl %r9d, %r8d
+	cmpl %ecx, %r8d
+	setl %r8b
+	movzbl %r8b, %r8d
+	cmpl %r8d, %edx
+	jnz .main_20
+.main_12:
+	movl $1, %edx
+	movl $11, %ecx
+	movl %r9d, %r8d
+	cmpl %ecx, %r8d
+	setl %r8b
+	movzbl %r8b, %r8d
+	cmpl %r8d, %edx
+	jnz .main_18
+.main_13:
+	movl $1, %ecx
+	movl $10, %r8d
+	cmpl %r8d, %r9d
+	setl %r9b
+	movzbl %r9b, %r9d
+	cmpl %r9d, %ecx
+	jnz .main_16
+.main_14:
+	movl $5, %eax
+	addq $8, %rsp
+	ret
+.main_16:
+.main_17:
+.main_19:
+.main_21:
+.main_23:
+.main_25:
+.main_27:
+.main_29:
+.main_31:
+.main_33:
+.main_35:
+.main_37:
+.main_39:
+.main_41:
+.main_43:
+	movl $20, %eax
+	addq $8, %rsp
+	ret
+.main_18:
+	jmp .main_19
+.main_20:
+	jmp .main_21
+.main_22:
+	jmp .main_23
+.main_24:
+	jmp .main_25
+.main_26:
+	jmp .main_27
+.main_28:
+	jmp .main_29
+.main_30:
+	jmp .main_31
+.main_32:
+	jmp .main_33
+.main_34:
+	jmp .main_35
+.main_36:
+	jmp .main_37
+.main_38:
+	jmp .main_39
+.main_40:
+	jmp .main_41
+.main_42:
+	jmp .main_43
+.ident	"15-411 L4 reference compiler"

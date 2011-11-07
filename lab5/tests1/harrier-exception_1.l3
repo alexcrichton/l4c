@@ -1,0 +1,16 @@
+//test exception
+
+int f1(int a)
+{
+    if ((a & 0x800) == 0x800)
+        return 3;
+    
+    return f1((a + 3) ^ 0x7);
+}
+
+int main()
+{
+
+    return f1(52);
+
+}

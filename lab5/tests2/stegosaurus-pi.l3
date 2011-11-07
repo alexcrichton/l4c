@@ -1,0 +1,19 @@
+//test return 1078530028
+
+int main() {
+  int one = tofloat(1);
+  int sum = tofloat(0);
+  int result;
+  int i;
+  for (i = 0; i < 20000000; i++) {
+    int denom = tofloat(2*i+1);
+    if (i % 2 == 0)
+      sum = fadd(sum, fdiv(one, denom));
+    else
+      sum = fsub(sum, fdiv(one, denom));
+  }
+  result = fmul(sum, tofloat(4));
+  printfloat(result);
+  printchar(10);
+  return result;
+}

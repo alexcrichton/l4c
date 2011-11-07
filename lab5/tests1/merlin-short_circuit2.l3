@@ -1,0 +1,28 @@
+//test return 0
+
+bool i_loop_u_return();
+bool i_loop_u_loop()
+{
+  while(true)
+  {
+    if(1<0)
+      break;
+  }
+  return false;
+}
+
+int main()
+{
+  int i;
+  for(i = 0; i < 99; i++)
+  {
+    if(i_loop_u_return() || i_loop_u_loop())
+      break;
+  }
+  return i;
+}
+
+bool i_loop_u_return()
+{
+  return ((true||!true)&&(false||!true||!false));
+}

@@ -1,0 +1,26 @@
+//test return 0
+// turns a binary file into an ascii file
+
+typedef int mychar;
+
+mychar readbyte()
+{
+    mychar c = 0;
+    for (int i = 0; i < 8; i++) {
+        c = 2*c + readchar() - 0x30;
+        if (i == 0 && eof()) {
+            return -1;
+        }
+    }
+    return c;
+}
+
+int main()
+{
+    while (!eof()) {
+        mychar c = readbyte();
+        if (c != -1)
+            printchar(c);
+    }
+    return 0;
+}

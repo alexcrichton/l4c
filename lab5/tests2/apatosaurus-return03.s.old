@@ -1,0 +1,75 @@
+.file	"../tests2/apatosaurus-return03.l2"
+.globl _c0_main
+_c0_main:
+	addq $-8, %rsp
+.main_0:
+	movl $1, %r9d
+	movl $1, %r8d
+	cmpl %r8d, %r9d
+	jnz .main_18
+.main_1:
+	movl $1, %r8d
+	movl $0, %r9d
+	cmpl %r9d, %r8d
+	jnz .main_11
+.main_2:
+	movl $1, %ecx
+	movl $10, %r9d
+	subl $10, %r9d
+	movl $0, %r8d
+	cmpl %r8d, %r9d
+	sete %r9b
+	movzbl %r9b, %r9d
+	cmpl %r9d, %ecx
+	jnz .main_8
+.main_3:
+	movl $1, %ecx
+	movl $64, %r9d
+	sarl $3, %r9d
+	movl $8, %r8d
+	cmpl %r8d, %r9d
+	sete %r9b
+	movzbl %r9b, %r9d
+	cmpl %r9d, %ecx
+	jnz .main_5
+.main_4:
+	movl $0, %eax
+	subl $1, %eax
+	addq $8, %rsp
+	ret
+.main_5:
+	movl $0, %eax
+	subl $3, %eax
+	addq $8, %rsp
+	ret
+.main_8:
+	movl $2, %eax
+	addq $8, %rsp
+	ret
+.main_11:
+	movl $100, %r8d
+	sarl $1, %r8d
+	movl $50, %r9d
+	cmpl %r9d, %r8d
+	jz .ternary_true1
+	movl $0, %r8d
+	jmp .ternary_end2
+.ternary_true1:
+	movl $1, %r8d
+.ternary_end2:
+	movl $1, %r9d
+	cmpl %r8d, %r9d
+	jnz .main_13
+.main_12:
+	movl $5, %eax
+	addq $8, %rsp
+	ret
+.main_13:
+	movl $1, %eax
+	addq $8, %rsp
+	ret
+.main_18:
+	movl $1337, %eax
+	addq $8, %rsp
+	ret
+.ident	"15-411 L4 reference compiler"

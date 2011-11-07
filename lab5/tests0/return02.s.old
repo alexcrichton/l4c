@@ -1,0 +1,39 @@
+.file	"../tests0/return02.l3"
+.globl _c0_main
+_c0_gcd:
+	addq $-8, %rsp
+	movl %esi, %r8d
+.gcd_0:
+.gcd_5:
+	movl %edi, %eax
+	movl %r8d, %r9d
+.gcd_1:
+	movl $1, %edx
+	movl $0, %ecx
+	movl %r9d, %r8d
+	cmpl %ecx, %r8d
+	setne %r8b
+	movzbl %r8b, %r8d
+	cmpl %r8d, %edx
+	jnz .gcd_3
+.gcd_2:
+	cltd
+	idivl %r9d
+	movl %edx, %ecx
+	movl %r9d, %r8d
+	movl %ecx, %r9d
+.gcd_4:
+	movl %r8d, %eax
+	jmp .gcd_1
+.gcd_3:
+	addq $8, %rsp
+	ret
+_c0_main:
+	addq $-8, %rsp
+.main_0:
+	movl $24, %edi
+	movl $56, %esi
+	callq _c0_gcd
+	addq $8, %rsp
+	ret
+.ident	"15-411 L4 reference compiler"

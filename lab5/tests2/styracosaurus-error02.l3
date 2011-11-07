@@ -1,0 +1,9 @@
+//test error
+//Using a typedef before it's defined
+
+a main()
+{
+	return 5;
+}
+
+typedef a int;

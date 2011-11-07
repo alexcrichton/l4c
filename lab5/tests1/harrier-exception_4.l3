@@ -1,0 +1,32 @@
+//test exception
+
+int f1(int a)
+{
+    return a + a;
+}
+
+int f2(int a)
+{
+    return a * a;
+}
+
+int f3(int a)
+{
+    return a - 5;
+}
+
+int f4(int a)
+{
+    return (a + 1) / (a - 1);
+}
+
+int main()
+{
+    int i = 50;
+    while (true)
+    {
+        i--;
+        f1(i) / f2(i) * f3(i) - f4(i);
+    }
+    return i;
+}

@@ -1,0 +1,15 @@
+//test exception
+//nonterminating program... stack overflows 
+
+int bottom(int x)
+{
+	//No tail call optimization can save you :(
+	int y = bottom(x);
+	int z = bottom(y);
+	return z;
+}
+
+int main()
+{
+	return bottom(100);
+}

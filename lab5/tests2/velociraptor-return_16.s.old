@@ -1,0 +1,310 @@
+.file	"../tests2/velociraptor-return_16.l3"
+.globl _c0_main
+_c0_digit:
+	addq $-8, %rsp
+	movl %esi, %r9d
+.digit_0:
+	movl $0, %r8d
+.digit_5:
+	movl %edi, %eax
+.digit_1:
+	movl $1, %esi
+	movl %r8d, %ecx
+	cmpl %r9d, %ecx
+	setl %cl
+	movzbl %cl, %ecx
+	cmpl %ecx, %esi
+	jnz .digit_3
+.digit_2:
+	movl $10, %ecx
+	cltd
+	idivl %ecx
+	movl %eax, %ecx
+	addl $1, %r8d
+.digit_4:
+	movl %ecx, %eax
+	jmp .digit_1
+.digit_3:
+	movl $10, %r9d
+	cltd
+	idivl %r9d
+	movl %edx, %eax
+	addq $8, %rsp
+	ret
+_c0_length:
+	addq $-8, %rsp
+.length_0:
+	movl $0, %esi
+	movl $1, %r9d
+	movl $0, %edx
+	movl %edi, %ecx
+	cmpl %edx, %ecx
+	sete %cl
+	movzbl %cl, %ecx
+	cmpl %ecx, %r9d
+	jnz .length_3
+.length_1:
+	movl $1, %eax
+	addq $8, %rsp
+	ret
+.length_3:
+.length_4:
+.length_9:
+	movl %esi, %edx
+	movl %edi, %eax
+.length_5:
+	movl $1, %r8d
+	movl $0, %r9d
+	cmpl %eax, %r9d
+	setl %r9b
+	movzbl %r9b, %r9d
+	cmpl %r9d, %r8d
+	jnz .length_7
+.length_6:
+	movl %edx, %r9d
+	addl $1, %r9d
+	movl $10, %r8d
+	cltd
+	idivl %r8d
+	movl %eax, %r8d
+.length_8:
+	movl %r9d, %edx
+	movl %r8d, %eax
+	jmp .length_5
+.length_7:
+	movl %edx, %eax
+	addq $8, %rsp
+	ret
+_c0_isPalindrome:
+	addq $-40, %rsp
+	movq %r14, 8(%rsp)
+	movq %r13, 16(%rsp)
+	movq %r12, 24(%rsp)
+	movq %rbx, 32(%rsp)
+	movl %edi, %r9d
+.isPalindrome_0:
+	movl %r9d, %edi
+	movq %r9, %rbx
+	callq _c0_length
+	movq %rbx, %r9
+	movl %eax, %r8d
+	movl $0, %ecx
+.isPalindrome_9:
+	movl %ecx, %edx
+.isPalindrome_1:
+	movl $1, %ecx
+	movl %edx, %esi
+	cmpl %r8d, %esi
+	setl %sil
+	movzbl %sil, %esi
+	cmpl %esi, %ecx
+	jnz .isPalindrome_7
+.isPalindrome_2:
+	movl %r9d, %edi
+	movl %edx, %esi
+	movq %rdx, %r13
+	movq %r8, %r12
+	movq %r9, %rbx
+	callq _c0_digit
+	movq %r13, %rdx
+	movq %r12, %r8
+	movq %rbx, %r9
+	movl %eax, %ecx
+	movl %r9d, %edi
+	movl %r8d, %esi
+	subl $1, %esi
+	subl %edx, %esi
+	movq %rdx, %r14
+	movq %rcx, %r13
+	movq %r8, %r12
+	movq %r9, %rbx
+	callq _c0_digit
+	movq %r14, %rdx
+	movq %r13, %rcx
+	movq %r12, %r8
+	movq %rbx, %r9
+	movl $1, %edi
+	cmpl %eax, %ecx
+	setne %cl
+	movzbl %cl, %ecx
+	cmpl %ecx, %edi
+	jnz .isPalindrome_5
+.isPalindrome_3:
+	movl $0, %eax
+	movq 8(%rsp), %r14
+	movq 16(%rsp), %r13
+	movq 24(%rsp), %r12
+	movq 32(%rsp), %rbx
+	addq $40, %rsp
+	ret
+.isPalindrome_5:
+.isPalindrome_6:
+	movl %edx, %ecx
+	addl $1, %ecx
+.isPalindrome_8:
+	movl %ecx, %edx
+	jmp .isPalindrome_1
+.isPalindrome_7:
+	movl $1, %eax
+	movq 8(%rsp), %r14
+	movq 16(%rsp), %r13
+	movq 24(%rsp), %r12
+	movq 32(%rsp), %rbx
+	addq $40, %rsp
+	ret
+_c0_isPrime:
+	addq $-8, %rsp
+.isPrime_0:
+	movl $2, %esi
+	movl $1, %r8d
+	movl $2, %edx
+	movl %edi, %ecx
+	cmpl %edx, %ecx
+	setl %cl
+	movzbl %cl, %ecx
+	cmpl %ecx, %r8d
+	jnz .isPrime_3
+.isPrime_1:
+	movl $0, %eax
+	addq $8, %rsp
+	ret
+.isPrime_3:
+.isPrime_4:
+.isPrime_13:
+	movl %esi, %r8d
+.isPrime_5:
+	movl $1, %edx
+	movl %r8d, %ecx
+	cmpl %edi, %ecx
+	setl %cl
+	movzbl %cl, %ecx
+	cmpl %ecx, %edx
+	jnz .isPrime_11
+.isPrime_6:
+	movl %edi, %eax
+	cltd
+	idivl %r8d
+	movl %edx, %ecx
+	movl $1, %esi
+	movl $0, %edx
+	cmpl %edx, %ecx
+	sete %cl
+	movzbl %cl, %ecx
+	cmpl %ecx, %esi
+	jnz .isPrime_9
+.isPrime_7:
+	movl $0, %eax
+	addq $8, %rsp
+	ret
+.isPrime_9:
+.isPrime_10:
+	addl $1, %r8d
+.isPrime_12:
+	jmp .isPrime_5
+.isPrime_11:
+	movl $1, %eax
+	addq $8, %rsp
+	ret
+_c0_isPalindromicPrime:
+	addq $-24, %rsp
+	movq %rbx, 16(%rsp)
+	movl %edi, %r9d
+.isPalindromicPrime_0:
+	movl %r9d, %edi
+	movq %r9, %rbx
+	callq _c0_isPrime
+	movq %rbx, %r9
+	cmpl $0, %eax
+	jnz .ternary_true1
+	movl $0, %r8d
+	jmp .ternary_end2
+.ternary_true1:
+	movl %r9d, %edi
+	callq _c0_isPalindrome
+	movl %eax, %r8d
+.ternary_end2:
+	movl %r8d, %eax
+	movq 16(%rsp), %rbx
+	addq $24, %rsp
+	ret
+_c0_nthPalindromicPrime:
+	addq $-40, %rsp
+	movq %r14, 8(%rsp)
+	movq %r13, 16(%rsp)
+	movq %r12, 24(%rsp)
+	movq %rbx, 32(%rsp)
+	movl %edi, %r9d
+.nthPalindromicPrime_0:
+	movl $0, %ecx
+	movl $0, %esi
+	movl $1, %edx
+	movl $0, %edi
+	movl %r9d, %r8d
+	cmpl %edi, %r8d
+	setle %r8b
+	movzbl %r8b, %r8d
+	cmpl %r8d, %edx
+	jnz .nthPalindromicPrime_3
+.nthPalindromicPrime_1:
+	movl $0, %eax
+	subl $1, %eax
+	movq 8(%rsp), %r14
+	movq 16(%rsp), %r13
+	movq 24(%rsp), %r12
+	movq 32(%rsp), %rbx
+	addq $40, %rsp
+	ret
+.nthPalindromicPrime_3:
+.nthPalindromicPrime_4:
+.nthPalindromicPrime_12:
+	movl %esi, %r8d
+.nthPalindromicPrime_5:
+	movl $1, %esi
+	movl %r8d, %edx
+	cmpl %r9d, %edx
+	setl %dl
+	movzbl %dl, %edx
+	cmpl %edx, %esi
+	jnz .nthPalindromicPrime_10
+.nthPalindromicPrime_6:
+	movl %ecx, %edx
+	addl $1, %edx
+	movl %edx, %edi
+	movq %rdx, %r14
+	movq %rcx, %r13
+	movq %r8, %r12
+	movq %r9, %rbx
+	callq _c0_isPalindromicPrime
+	movq %r14, %rdx
+	movq %r13, %rcx
+	movq %r12, %r8
+	movq %rbx, %r9
+	movl $1, %esi
+	cmpl %eax, %esi
+	jnz .nthPalindromicPrime_8
+.nthPalindromicPrime_7:
+	addl $1, %r8d
+.nthPalindromicPrime_14:
+.nthPalindromicPrime_9:
+.nthPalindromicPrime_11:
+	movl %edx, %ecx
+	jmp .nthPalindromicPrime_5
+.nthPalindromicPrime_8:
+.nthPalindromicPrime_13:
+	jmp .nthPalindromicPrime_9
+.nthPalindromicPrime_10:
+	movl %ecx, %eax
+	movq 8(%rsp), %r14
+	movq 16(%rsp), %r13
+	movq 24(%rsp), %r12
+	movq 32(%rsp), %rbx
+	addq $40, %rsp
+	ret
+_c0_main:
+	addq $-8, %rsp
+.main_0:
+	movl $10, %edi
+	callq _c0_nthPalindromicPrime
+	addq $8, %rsp
+	ret
+.ident	"15-411 L4 reference compiler"

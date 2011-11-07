@@ -1,0 +1,148 @@
+//test return 627737137
+
+int init(int[] chars) {
+	chars[0] = 32;
+	chars[1] = 46;
+	chars[2] = 44;
+	chars[3] = 58;
+	chars[4] = 59;
+	chars[5] = 61;
+	chars[6] = 124;
+	chars[7] = 105;
+	chars[8] = 73;
+	chars[9] = 43;
+	chars[10] = 104;
+	chars[11] = 72;
+	chars[12] = 79;
+	chars[13] = 69;
+	chars[14] = 35;
+	chars[15] = 36;
+	chars[16] = 45;
+	return 0;
+}
+
+
+struct cksum_state_t {
+	int a;
+	int b;
+};
+typedef struct cksum_state_t cksum_state;
+
+cksum_state *cksum_start() {
+	return alloc(cksum_state);
+}
+cksum_state *cksum_update(cksum_state *s, int data) {
+	s->a = (s->a + data) % 65521;
+	s->b = (s->b + s->a) % 65521;
+	return s;
+}
+int cksum_finish(cksum_state *s) {
+	return (s->b << 16) | s->a;
+}
+
+int print_memoriam(cksum_state *s) {
+	printchar(10); cksum_update(s, 10);
+	printchar(32); cksum_update(s, 32);
+	printchar(32); cksum_update(s, 32);
+	printchar(32); cksum_update(s, 32);
+	printchar(32); cksum_update(s, 32);
+	printchar(32); cksum_update(s, 32);
+	printchar(32); cksum_update(s, 32);
+	printchar(32); cksum_update(s, 32);
+	printchar(32); cksum_update(s, 32);
+	printchar(32); cksum_update(s, 32);
+	printchar(32); cksum_update(s, 32);
+	printchar(32); cksum_update(s, 32);
+	printchar(32); cksum_update(s, 32);
+	printchar(32); cksum_update(s, 32);
+	printchar(32); cksum_update(s, 32);
+	printchar(32); cksum_update(s, 32);
+	printchar(32); cksum_update(s, 32);
+	printchar(32); cksum_update(s, 32);
+	printchar(32); cksum_update(s, 32);
+	printchar(73); cksum_update(s, 73);
+	printchar(110); cksum_update(s, 110);
+	printchar(32); cksum_update(s, 32);
+	printchar(109); cksum_update(s, 109);
+	printchar(101); cksum_update(s, 101);
+	printchar(109); cksum_update(s, 109);
+	printchar(111); cksum_update(s, 111);
+	printchar(114); cksum_update(s, 114);
+	printchar(121); cksum_update(s, 121);
+	printchar(32); cksum_update(s, 32);
+	printchar(111); cksum_update(s, 111);
+	printchar(102); cksum_update(s, 102);
+	printchar(32); cksum_update(s, 32);
+	printchar(66); cksum_update(s, 66);
+	printchar(101); cksum_update(s, 101);
+	printchar(110); cksum_update(s, 110);
+	printchar(111); cksum_update(s, 111);
+	printchar(105); cksum_update(s, 105);
+	printchar(116); cksum_update(s, 116);
+	printchar(32); cksum_update(s, 32);
+	printchar(77); cksum_update(s, 77);
+	printchar(97); cksum_update(s, 97);
+	printchar(110); cksum_update(s, 110);
+	printchar(100); cksum_update(s, 100);
+	printchar(101); cksum_update(s, 101);
+	printchar(108); cksum_update(s, 108);
+	printchar(98); cksum_update(s, 98);
+	printchar(114); cksum_update(s, 114);
+	printchar(111); cksum_update(s, 111);
+	printchar(116); cksum_update(s, 116);
+	printchar(32); cksum_update(s, 32);
+	printchar(40); cksum_update(s, 40);
+	printchar(49); cksum_update(s, 49);
+	printchar(57); cksum_update(s, 57);
+	printchar(50); cksum_update(s, 50);
+	printchar(52); cksum_update(s, 52);
+	printchar(45); cksum_update(s, 45);
+	printchar(50); cksum_update(s, 50);
+	printchar(48); cksum_update(s, 48);
+	printchar(49); cksum_update(s, 49);
+	printchar(48); cksum_update(s, 48);
+	printchar(41); cksum_update(s, 41);
+	printchar(10); cksum_update(s, 10);
+	printchar(10); cksum_update(s, 10);
+	return 0;
+}
+
+
+int main() {
+	int max_x = 79;
+	int max_y = 36;
+	int im = -65535;
+	int y; int x;
+	cksum_state *s = cksum_start();
+	int[] chars = alloc_array(int, 17);
+	init(chars);
+	for(y = 0; y < max_y; y++) {
+		int re = -131072;
+		int lineptr = 0;
+		for(x = 0; x < max_x; x++) {
+			int zr = re;
+			int zi = im;
+			int n = 0; int i;
+			for(i = 0; i < 20; i++) {
+				int a; int b; int tmp;
+				zr >>= 4;
+				zi >>= 4;
+				a = (zr * zr) >> 8;
+				b = (zi * zi) >> 8;
+				tmp = a+b;
+				if(tmp >= 0x040000) break;
+				zi = 2*((zr * zi) >> 8) + im;
+				zr = a - b + re;
+				n++;
+			}
+			printchar(chars[n % 17]); 
+			cksum_update(s, chars[n % 17]);
+			re += 0x030000/max_x;	
+		}
+		printchar(10);
+		cksum_update(s, 10);
+		im += 0x020000/(max_y-1);
+	}
+	print_memoriam(s);
+	return cksum_finish(s);
+}

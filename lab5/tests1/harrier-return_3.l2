@@ -1,0 +1,9 @@
+//test return 1223114513
+
+int main()
+{
+    int i = 0;
+    for (i = 321; i < 999999999; i *= 221)
+        continue;
+    return i;
+}

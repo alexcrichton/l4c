@@ -1,0 +1,48 @@
+.file	"../tests2/ankylosaurus-return08.l3"
+.globl _c0_main
+_c0_main:
+	addq $-8, %rsp
+.main_0:
+	movl $1234, %r8d
+	movl $0, %r9d
+	movl %r8d, %edi
+	movl %r9d, %esi
+	callq _c0_reverse
+	addq $8, %rsp
+	ret
+_c0_reverse:
+	addq $-8, %rsp
+	movl %esi, %r8d
+.reverse_0:
+	movl $1, %edx
+	movl $0, %ecx
+	movl %edi, %esi
+	cmpl %ecx, %esi
+	sete %sil
+	movzbl %sil, %esi
+	cmpl %esi, %edx
+	jnz .reverse_3
+.reverse_1:
+	movl %r8d, %eax
+	addq $8, %rsp
+	ret
+.reverse_3:
+.reverse_4:
+	movl $10, %ecx
+	movl %edi, %eax
+	cltd
+	idivl %ecx
+	movl %eax, %ecx
+	movl $10, %esi
+	movl %edi, %eax
+	cltd
+	idivl %esi
+	movl %ecx, %edi
+	movl %r8d, %r9d
+	imull $10, %r9d
+	movl %r9d, %esi
+	addl %edx, %esi
+	callq _c0_reverse
+	addq $8, %rsp
+	ret
+.ident	"15-411 L4 reference compiler"

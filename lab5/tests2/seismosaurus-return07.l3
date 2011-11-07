@@ -1,0 +1,19 @@
+//test return -5235
+/* Type aliases are transparent */
+
+typedef bool flag;
+
+int work(bool stop, int x){
+    if(stop)
+	return x;
+
+    if(x == -5234)
+    	 stop = true;
+    x--;
+    return work(stop, x);
+}
+
+int main(){
+    flag stop = false;
+    return work(stop, -100);
+}

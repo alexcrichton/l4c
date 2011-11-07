@@ -1,0 +1,6 @@
+//test error
+// main must take no arguments and return an int
+
+int main (int argc) {
+  return argc;
+}

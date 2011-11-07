@@ -1,0 +1,35 @@
+//test return 1348730880
+// Counts the number of k-colored labeled graphs with n nodes.
+typedef int n;
+typedef n k;
+
+int pow(n base, k power) {
+  if (power == 1) return base;
+  return base * pow(base, power-1);
+}
+
+int choose(n pirates, k gold) {
+  n noob = 1;
+  n yarr;
+  for (yarr = pirates; yarr > gold; yarr--) {
+    noob *= yarr;
+  }
+  for (yarr = 2; yarr <= pirates - gold; yarr++) {
+    noob /= yarr;
+  }
+  return noob;
+}
+
+int a(n nodes, k colors) {
+  n nod;
+  k result = 0;
+  if (colors == 1) return 1;
+  for (nod = 1; nod < nodes; nod++) {
+    result += choose(nodes, nod) * pow(2, nod*(nodes-nod)) * a(nod, colors-1);
+  }
+  return result;
+}
+
+int main() {
+  return a(7,4);
+}

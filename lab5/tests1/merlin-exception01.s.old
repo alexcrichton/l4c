@@ -1,0 +1,90 @@
+.file	"../tests1/merlin-exception01.l2"
+.globl _c0_main
+_c0_main:
+	addq $-24, %rsp
+	movq %rbx, 16(%rsp)
+.main_0:
+	movl $0, %r9d
+.main_11:
+.main_1:
+	movl $1, %ecx
+	movl $1, %r8d
+	cmpl %r8d, %ecx
+	jnz .main_9
+.main_2:
+	movl $0, %r8d
+.main_13:
+.main_3:
+	movl $1, %esi
+	movl $195816623, %edx
+	movl %r8d, %ecx
+	cmpl %edx, %ecx
+	setl %cl
+	movzbl %cl, %ecx
+	cmpl %ecx, %esi
+	jnz .main_8
+.main_4:
+	movl $0, %ecx
+.main_15:
+	movl %edi, %ebx
+.main_5:
+	movl $1, %edi
+	movl $12513262, %esi
+	movl %ecx, %edx
+	cmpl %esi, %edx
+	setl %dl
+	movzbl %dl, %edx
+	cmpl %edx, %edi
+	jnz .main_7
+.main_6:
+	movl $-1, %edx
+	xorl %r8d, %edx
+	movl $0, %esi
+	subl $1, %esi
+	xorl %esi, %edx
+	movl %edx, %eax
+	orl %ecx, %eax
+	cltd
+	idivl %r9d
+	movl $0, %edx
+	subl $-559038737, %edx
+	movl $-1, %esi
+	xorl %edx, %esi
+	movl $0, %edx
+	subl %esi, %edx
+	movl $-1, %esi
+	xorl %edx, %esi
+	movl $0, %edx
+	subl %esi, %edx
+	movl $-1, %esi
+	xorl %edx, %esi
+	movl $0, %edx
+	subl %esi, %edx
+	movl $-1, %edi
+	xorl %edx, %edi
+	movl %eax, %edx
+	sall $31, %edx
+	movl %edx, %esi
+	sarl $31, %esi
+	movl %edi, %edx
+	xorl %esi, %edx
+	addl $1, %ecx
+.main_14:
+	movl %eax, %ebx
+	movl %edx, %eax
+	jmp .main_5
+.main_7:
+	addl $1, %r8d
+.main_12:
+	movl %ebx, %edi
+	jmp .main_3
+.main_8:
+	addl $2, %r9d
+.main_10:
+	jmp .main_1
+.main_9:
+	movl %r9d, %eax
+	movq 16(%rsp), %rbx
+	addq $24, %rsp
+	ret
+.ident	"15-411 L4 reference compiler"

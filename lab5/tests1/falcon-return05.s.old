@@ -1,0 +1,185 @@
+.file	"../tests1/falcon-return05.l2"
+.globl _c0_main
+_c0_main:
+	addq $-24, %rsp
+	movq %rbx, 16(%rsp)
+.main_0:
+	movl $7484, %edx
+	movl $24, %r8d
+	movl $0, %r9d
+	cmpl %r9d, %edx
+	jz .ternary_true1
+	movl $0, %r9d
+	movl %r8d, %ecx
+	cmpl %r9d, %ecx
+	sete %cl
+	movzbl %cl, %ecx
+	jmp .ternary_end2
+.ternary_true1:
+	movl $1, %ecx
+.ternary_end2:
+	movl $1, %r9d
+	cmpl %ecx, %r9d
+	jnz .main_3
+.main_1:
+	movl %edx, %eax
+	orl %r8d, %eax
+	movq 16(%rsp), %rbx
+	addq $24, %rsp
+	ret
+.main_3:
+.main_4:
+	movl $0, %r9d
+.main_27:
+	movl %r8d, %edi
+	movl %r9d, %ebx
+.main_5:
+	movl $1, %ecx
+	movl %edx, %r9d
+	orl %edi, %r9d
+	andl $1, %r9d
+	movl $0, %r8d
+	cmpl %r8d, %r9d
+	sete %r9b
+	movzbl %r9b, %r9d
+	cmpl %r9d, %ecx
+	jnz .main_7
+.main_6:
+	movl %edx, %ecx
+	sarl $1, %ecx
+	movl %edi, %r8d
+	sarl $1, %r8d
+	movl %ebx, %r9d
+	addl $1, %r9d
+.main_26:
+	movl %r8d, %edi
+	movl %ecx, %edx
+	movl %r9d, %ebx
+	jmp .main_5
+.main_7:
+.main_29:
+	movl %edx, %esi
+.main_8:
+	movl $1, %ecx
+	movl %esi, %r9d
+	andl $1, %r9d
+	movl $0, %r8d
+	cmpl %r8d, %r9d
+	sete %r9b
+	movzbl %r9b, %r9d
+	cmpl %r9d, %ecx
+	jnz .main_10
+.main_9:
+	movl %esi, %r9d
+	sarl $1, %r9d
+.main_28:
+	movl %r9d, %esi
+	jmp .main_8
+.main_10:
+.main_31:
+	movl %edi, %edx
+.main_11:
+	movl $1, %ecx
+	movl %edx, %r8d
+	andl $1, %r8d
+	movl $0, %r9d
+	cmpl %r9d, %r8d
+	sete %r8b
+	movzbl %r8b, %r8d
+	cmpl %r8d, %ecx
+	jnz .main_13
+.main_12:
+	movl %edx, %r9d
+	sarl $1, %r9d
+.main_30:
+	movl %r9d, %edx
+	jmp .main_11
+.main_13:
+	movl $1, %r8d
+	movl %esi, %r9d
+	cmpl %edx, %r9d
+	setl %r9b
+	movzbl %r9b, %r9d
+	cmpl %r9d, %r8d
+	jnz .main_15
+.main_14:
+	movl %edx, %r9d
+	subl %esi, %r9d
+.main_33:
+	movl %esi, %r8d
+.main_16:
+	sarl $1, %r9d
+.main_35:
+	movl %r9d, %edi
+	movl %r8d, %esi
+.main_17:
+	movl $1, %ecx
+	movl $0, %r8d
+	movl %edi, %r9d
+	cmpl %r8d, %r9d
+	setne %r9b
+	movzbl %r9b, %r9d
+	cmpl %r9d, %ecx
+	jnz .main_25
+.main_18:
+.main_37:
+	movl %edi, %edx
+.main_19:
+	movl $1, %ecx
+	movl %edx, %r9d
+	andl $1, %r9d
+	movl $0, %r8d
+	cmpl %r8d, %r9d
+	sete %r9b
+	movzbl %r9b, %r9d
+	cmpl %r9d, %ecx
+	jnz .main_21
+.main_20:
+	movl %edx, %r9d
+	sarl $1, %r9d
+.main_36:
+	movl %r9d, %edx
+	jmp .main_19
+.main_21:
+	movl $1, %r8d
+	movl %esi, %r9d
+	cmpl %edx, %r9d
+	setl %r9b
+	movzbl %r9b, %r9d
+	cmpl %r9d, %r8d
+	jnz .main_23
+.main_22:
+	movl %edx, %r9d
+	subl %esi, %r9d
+.main_39:
+	movl %eax, %ecx
+	movl %esi, %r8d
+.main_24:
+	sarl $1, %r9d
+.main_34:
+	movl %ecx, %eax
+	movl %r9d, %edi
+	movl %r8d, %esi
+	jmp .main_17
+.main_23:
+	movl %esi, %ecx
+	subl %edx, %ecx
+	movl %edx, %r8d
+	movl %ecx, %r9d
+.main_38:
+	jmp .main_24
+.main_25:
+	movl %esi, %eax
+	movl %ebx, %ecx
+	sall %cl, %eax
+	movq 16(%rsp), %rbx
+	addq $24, %rsp
+	ret
+.main_15:
+	movl %esi, %eax
+	subl %edx, %eax
+	movl %edx, %r8d
+	movl %eax, %r9d
+.main_32:
+	jmp .main_16
+.ident	"15-411 L4 reference compiler"

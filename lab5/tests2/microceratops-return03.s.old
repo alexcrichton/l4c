@@ -1,0 +1,19 @@
+.file	"../tests2/microceratops-return03.l3"
+.globl _c0_main
+_c0_plus:
+	addq $-8, %rsp
+.plus_0:
+	movl %edi, %eax
+	addl %esi, %eax
+	addq $8, %rsp
+	ret
+_c0_main:
+	addq $-8, %rsp
+.main_0:
+	movl $100, %r9d
+	movl %r9d, %edi
+	movl $0, %esi
+	callq _c0_plus
+	addq $8, %rsp
+	ret
+.ident	"15-411 L4 reference compiler"

@@ -1,0 +1,21 @@
+.file	"../tests1/falcon-return02.l2"
+.globl _c0_main
+_c0_main:
+	addq $-8, %rsp
+.main_0:
+	movl $-1, %r9d
+	movl $1, %ecx
+	movl %r9d, %r8d
+	addl %ecx, %r8d
+	movl $3, %r9d
+	cmpl %r9d, %r8d
+	jz .ternary_true1
+	movl $100, %r9d
+	jmp .ternary_end2
+.ternary_true1:
+	movl $10, %r9d
+.ternary_end2:
+	movl %r9d, %eax
+	addq $8, %rsp
+	ret
+.ident	"15-411 L4 reference compiler"

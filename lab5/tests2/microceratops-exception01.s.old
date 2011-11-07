@@ -1,0 +1,36 @@
+.file	"../tests2/microceratops-exception01.l2"
+.globl _c0_main
+_c0_main:
+	addq $-8, %rsp
+.main_0:
+	movl $65536, %r8d
+	movl $0, %r9d
+.main_5:
+	movl %r9d, %eax
+	movl %r8d, %r9d
+.main_1:
+	movl $1, %r8d
+	movl $1024, %edx
+	movl %eax, %ecx
+	cmpl %edx, %ecx
+	setl %cl
+	movzbl %cl, %ecx
+	cmpl %ecx, %r8d
+	jnz .main_3
+.main_2:
+	cltd
+	idivl %r9d
+	movl %eax, %r8d
+	movl $2, %ecx
+	movl %r9d, %eax
+	cltd
+	idivl %ecx
+	movl %eax, %r9d
+	addl $1, %r8d
+.main_4:
+	movl %r8d, %eax
+	jmp .main_1
+.main_3:
+	addq $8, %rsp
+	ret
+.ident	"15-411 L4 reference compiler"

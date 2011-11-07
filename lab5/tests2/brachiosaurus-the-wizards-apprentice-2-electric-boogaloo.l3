@@ -1,0 +1,15 @@
+//test return 256
+/* Tests interactions between argument-passing and fixed-register operations. */
+
+int shift_stuff(int edi, int esi, int edx, int ecx)
+{
+	/* Shift fixes ECX. Make sure the ecx arg is live after the shift.
+	 * A broken compiler may qlobber ecx's value. */
+	return ((edi << esi) >> edx) + ecx;
+}
+
+int main()
+{
+	/* 1024 << 21 >> 23 == -256. */
+	return shift_stuff(1024, 21, 23, 512);
+}

@@ -1,0 +1,114 @@
+.file	"../tests2/ankylosaurus-return01.l2"
+.globl _c0_main
+_c0_main:
+	addq $-72, %rsp
+	movq %rbp, 12(%rsp)
+	movq %r15, 20(%rsp)
+	movq %r14, 28(%rsp)
+	movq %r13, 36(%rsp)
+	movq %r12, 44(%rsp)
+	movq %rbx, 52(%rsp)
+.main_0:
+	movl $1, %r9d
+	movl %r9d, %r8d
+	addl $1, %r8d
+	movl %r8d, 60(%rsp)
+	addl $1, 60(%rsp)
+	movl $2, 64(%rsp)
+	movl $2, %r8d
+	movl $2, 68(%rsp)
+	movl $2, %ebp
+	movl $2, %r15d
+	movl $2, %r14d
+	movl $2, %r13d
+	movl $2, %r12d
+	movl $2, %ebx
+	movl $2, %eax
+	movl $2, %edi
+	movl $2, %ecx
+	movl $2, %esi
+	movl $2, %edx
+	cmpl %r8d, 64(%rsp)
+	jz .ternary_true11
+	movl $0, %r8d
+	jmp .ternary_end12
+.ternary_true11:
+	movl 68(%rsp), %r8d
+	cmpl %ebp, %r8d
+	sete %r8b
+	movzbl %r8b, %r8d
+.ternary_end12:
+	cmpl $0, %r8d
+	jnz .ternary_true9
+	movl $0, %r8d
+	jmp .ternary_end10
+.ternary_true9:
+	movl %r15d, %r8d
+	cmpl %r14d, %r8d
+	sete %r8b
+	movzbl %r8b, %r8d
+.ternary_end10:
+	cmpl $0, %r8d
+	jnz .ternary_true7
+	movl $0, %r8d
+	jmp .ternary_end8
+.ternary_true7:
+	movl %r13d, %r8d
+	cmpl %r12d, %r8d
+	sete %r8b
+	movzbl %r8b, %r8d
+.ternary_end8:
+	cmpl $0, %r8d
+	jnz .ternary_true5
+	movl $0, %r8d
+	jmp .ternary_end6
+.ternary_true5:
+	movl %ebx, %r8d
+	cmpl %eax, %r8d
+	sete %r8b
+	movzbl %r8b, %r8d
+.ternary_end6:
+	cmpl $0, %r8d
+	jnz .ternary_true3
+	movl $0, %r8d
+	jmp .ternary_end4
+.ternary_true3:
+	movl %edi, %r8d
+	cmpl %ecx, %r8d
+	sete %r8b
+	movzbl %r8b, %r8d
+.ternary_end4:
+	cmpl $0, %r8d
+	jnz .ternary_true1
+	movl $0, %ecx
+	jmp .ternary_end2
+.ternary_true1:
+	movl %esi, %ecx
+	cmpl %edx, %ecx
+	sete %cl
+	movzbl %cl, %ecx
+.ternary_end2:
+	movl $1, %r8d
+	cmpl %ecx, %r8d
+	jnz .main_2
+.main_1:
+	movl 60(%rsp), %eax
+	movq 12(%rsp), %rbp
+	movq 20(%rsp), %r15
+	movq 28(%rsp), %r14
+	movq 36(%rsp), %r13
+	movq 44(%rsp), %r12
+	movq 52(%rsp), %rbx
+	addq $72, %rsp
+	ret
+.main_2:
+	movl %r9d, %eax
+	movq 12(%rsp), %rbp
+	movq 20(%rsp), %r15
+	movq 28(%rsp), %r14
+	movq 36(%rsp), %r13
+	movq 44(%rsp), %r12
+	movq 52(%rsp), %rbx
+	addq $72, %rsp
+	ret
+.ident	"15-411 L4 reference compiler"

@@ -1,0 +1,66 @@
+//test return 0
+
+/* Computes Ackermann using the noob math */
+
+/******************************************************************/
+/* Does a bunch of noob arithmetic. Modeled after the presentation
+ * of arithmetic in The Little Schemer. */
+int add1(int n) { return n+1; }
+int sub1(int n) { return n == 0 ? n/n : n - 1; }
+bool iszero(int n) { return n == 0; }
+
+int plus(int n, int m) {
+	return iszero(n) ? m : add1(plus(sub1(n), m));
+}
+int minus(int n, int m) {
+	return iszero(m) ? n : sub1(minus(n, sub1(m)));
+}
+int times(int n, int m) {
+	return iszero(m) ? 0 : plus(n, times(n, sub1(m)));
+}
+
+bool gt(int n, int m) {
+	return iszero(n) ? false : (iszero(m) || gt(sub1(n), sub1(m)));
+}
+bool lt(int n, int m) {
+	return gt(m, n);
+}
+bool eq(int n, int m) {
+	return !gt(n, m) && !lt(n, m);
+}
+
+int power(int n, int m) {
+	return iszero(m) ? 1 : times(n, power(n, sub1(m)));
+}
+
+int quotient(int n, int m) {
+	return lt(n, m) ? 0 : add1(quotient(minus(n, m), m));
+}
+
+bool odd(int n);
+bool even(int n) {
+	return iszero(n) ? true : odd(sub1(n));
+}
+bool odd(int n) {
+	return iszero(n) ? false : even(sub1(n));
+}
+/******************************************************************/
+
+int A(int m, int n) {
+	return iszero(m) ?
+		n + 1 :
+		(iszero(n) ? A(sub1(m), 1) :
+		 A(sub1(m), A(m, sub1(n))));
+}
+
+int main() {
+	int n;
+
+	for (n = 0; n < 10; n++) {
+		int a3_calculated = A(3, n);
+		int a3_expected = minus(power(2, plus(n, 3)), 3);
+		if (!eq(a3_calculated, a3_expected)) return -n;
+	}
+
+	return 0;	
+}

@@ -1,0 +1,11 @@
+//test exception 8
+
+int exeffect(){
+    1%0;
+    return 0;
+}
+
+int main(){
+    exeffect();
+    return 10;
+}

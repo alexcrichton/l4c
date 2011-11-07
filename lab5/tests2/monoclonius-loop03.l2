@@ -1,0 +1,12 @@
+//test error
+
+int main()
+{
+    int i;
+    for (i = 0; ; i++)
+    {
+        break;
+    }
+    return 0;
+}
+

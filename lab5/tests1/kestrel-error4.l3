@@ -1,0 +1,10 @@
+//test error
+// typedef/var name conflict
+
+typedef int baddy;
+
+int main()
+{
+  int baddy = 5;
+  return 42;
+}

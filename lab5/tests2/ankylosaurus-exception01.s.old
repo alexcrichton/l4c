@@ -1,0 +1,28 @@
+.file	"../tests2/ankylosaurus-exception01.l2"
+.globl _c0_main
+_c0_main:
+	addq $-8, %rsp
+.main_0:
+	movl $0, %r9d
+	movl $1, %r8d
+	movl $1, %esi
+	movl $0, %edx
+	movl %r9d, %ecx
+	cmpl %edx, %ecx
+	setne %cl
+	movzbl %cl, %ecx
+	cmpl %ecx, %esi
+	jnz .main_2
+.main_1:
+	movl %r9d, %eax
+	cltd
+	idivl %r8d
+	addq $8, %rsp
+	ret
+.main_2:
+	movl %r8d, %eax
+	cltd
+	idivl %r9d
+	addq $8, %rsp
+	ret
+.ident	"15-411 L4 reference compiler"

@@ -1,0 +1,15 @@
+//test error
+
+int foo(int a, bool b);
+//int foo(int c, bool d, int e);
+
+int main()
+{
+    return foo(1, true);
+}
+
+int foo(int a, bool d, int c)
+{
+    if(d)
+        return a+c;
+}

@@ -1,0 +1,97 @@
+.file	"../tests2/ankylosaurus-return12.l4"
+.globl _c0_main
+_c0_reverse:
+	addq $-24, %rsp
+	movq %r12, 8(%rsp)
+	movq %rbx, 16(%rsp)
+	movq %rdi, %r9
+	movl %esi, %r8d
+.reverse_0:
+	movslq %r8d, %rdi
+	movq $4, %rsi
+	movq %r8, %r12
+	movq %r9, %rbx
+	callq calloc
+	movq %r12, %r8
+	movq %rbx, %r9
+	movl $0, %ecx
+.reverse_5:
+	movl %ecx, %edi
+.reverse_1:
+	movl $1, %edx
+	movl %edi, %ecx
+	cmpl %r8d, %ecx
+	setl %cl
+	movzbl %cl, %ecx
+	cmpl %ecx, %edx
+	jnz .reverse_3
+.reverse_2:
+	movl %r8d, %ecx
+	subl %edi, %ecx
+	subl $1, %ecx
+	imull $4, %ecx
+	movslq %ecx, %rdx
+	movq %r9, %rcx
+	addq %rdx, %rcx
+	movl (%rcx), %esi
+	movl %edi, %ecx
+	imull $4, %ecx
+	movslq %ecx, %rdx
+	movq %rax, %rcx
+	addq %rdx, %rcx
+	movl %esi, (%rcx)
+	movl %edi, %ecx
+	addl $1, %ecx
+.reverse_4:
+	movl %ecx, %edi
+	jmp .reverse_1
+.reverse_3:
+	movq 8(%rsp), %r12
+	movq 16(%rsp), %rbx
+	addq $24, %rsp
+	ret
+_c0_main:
+	addq $-8, %rsp
+.main_0:
+	movq $20, %rdi
+	movq $4, %rsi
+	callq calloc
+	movl $0, %r9d
+.main_5:
+	movl %r9d, %esi
+.main_1:
+	movl $1, %edx
+	movl $20, %r9d
+	movl %esi, %r8d
+	cmpl %r9d, %r8d
+	setl %r8b
+	movzbl %r8b, %r8d
+	cmpl %r8d, %edx
+	jnz .main_3
+.main_2:
+	movl %esi, %r9d
+	imull $4, %r9d
+	movslq %r9d, %r8
+	movq %rax, %r9
+	addq %r8, %r9
+	movl %esi, (%r9)
+	movl %esi, %r9d
+	addl $1, %r9d
+.main_4:
+	movl %r9d, %esi
+	jmp .main_1
+.main_3:
+	movq %rax, %rdi
+	movl $20, %esi
+	callq _c0_reverse
+	movq %rax, %rcx
+	movl $19, %r9d
+	imull $4, %r9d
+	movslq %r9d, %r8
+	movq %rcx, %r9
+	addq %r8, %r9
+	movl (%r9), %r9d
+	movl %r9d, %eax
+	addq $8, %rsp
+	ret
+.ident	"15-411 L4 reference compiler"

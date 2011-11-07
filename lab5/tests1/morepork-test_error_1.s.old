@@ -1,0 +1,30 @@
+.file	"../tests1/morepork-test_error_1.l2"
+.globl _c0_main
+_c0_main:
+	addq $-8, %rsp
+.main_0:
+	movl $15, %r9d
+	movl $0, %r8d
+	movl $1, %esi
+	movl $5, %edx
+	movl %r8d, %ecx
+	cmpl %edx, %ecx
+	setl %cl
+	movzbl %cl, %ecx
+	cmpl %ecx, %esi
+	jnz .main_2
+.main_1:
+	movl $2, %eax
+	cltd
+	idivl %r8d
+	movl %eax, %r8d
+.main_5:
+.main_3:
+	movl %r8d, %eax
+	addl %r9d, %eax
+	addq $8, %rsp
+	ret
+.main_2:
+.main_4:
+	jmp .main_3
+.ident	"15-411 L4 reference compiler"

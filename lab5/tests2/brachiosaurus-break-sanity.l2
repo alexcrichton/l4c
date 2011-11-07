@@ -1,0 +1,10 @@
+//test return 0
+int main() {
+    int i = 2;
+    int j = 3;
+    bool t = true;
+    for (i = 0; t; i++){
+        break;
+    }
+    return 0;
+}

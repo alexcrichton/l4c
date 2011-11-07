@@ -1,0 +1,117 @@
+.file	"../tests1/goshawk-exception01.l2"
+.globl _c0_main
+_c0_main:
+	addq $-24, %rsp
+	movq %r12, 8(%rsp)
+	movq %rbx, 16(%rsp)
+.main_0:
+	movl $15, %r8d
+	movl $411, %r9d
+.main_20:
+	movl %r9d, %edx
+	movl %r8d, %ecx
+.main_1:
+	movl $1, %r8d
+	movl $1, %r9d
+	cmpl %r9d, %r8d
+	jnz .main_18
+.main_2:
+.main_22:
+	movl %edx, %r8d
+	movl %ecx, %esi
+.main_3:
+	movl $1, %ecx
+	movl $1, %r9d
+	cmpl %r9d, %ecx
+	jnz .main_17
+.main_4:
+	movl $1337, %r9d
+.main_24:
+	movl %edi, %r12d
+	movl %eax, %ebx
+	movl %r8d, %edx
+	movl %esi, %ecx
+.main_5:
+	movl $1, %r8d
+	movl $1, %esi
+	cmpl %esi, %r8d
+	jnz .main_16
+.main_6:
+.main_26:
+	movl %r12d, %esi
+	movl %edx, %eax
+	movl %ecx, %edi
+.main_7:
+	movl $1, %ecx
+	movl $1, %r8d
+	xorl $0, %r8d
+	cmpl %r8d, %ecx
+	jnz .main_15
+.main_8:
+.main_28:
+	movl %edi, %edx
+.main_9:
+	movl $1, %ecx
+	movl $1, %r8d
+	cmpl %r8d, %ecx
+	jnz .main_14
+.main_10:
+.main_30:
+	movl %eax, %r8d
+	movl %edx, %edi
+.main_11:
+	jmp .ternary_true1
+	movl $0, %ecx
+	jmp .ternary_end2
+.ternary_true1:
+	movl $1, %ecx
+.ternary_end2:
+	movl $1, %edx
+	cmpl %ecx, %edx
+	jnz .main_13
+.main_12:
+	movl %r8d, %esi
+	subl $1, %esi
+	movl %edi, %eax
+	cltd
+	idivl %esi
+	movl %eax, %edi
+	subl $1, %r8d
+.main_29:
+	movl %eax, %esi
+	jmp .main_11
+.main_13:
+.main_27:
+	movl %ecx, %ebx
+	movl %r8d, %eax
+	movl %edi, %edx
+	jmp .main_9
+.main_14:
+.main_25:
+	movl %edx, %edi
+	jmp .main_7
+.main_15:
+.main_23:
+	movl %esi, %r12d
+	movl %eax, %edx
+	movl %edi, %ecx
+	jmp .main_5
+.main_16:
+.main_21:
+	movl %r12d, %edi
+	movl %ebx, %eax
+	movl %edx, %r8d
+	movl %ecx, %esi
+	jmp .main_3
+.main_17:
+.main_19:
+	movl %r8d, %edx
+	movl %esi, %ecx
+	jmp .main_1
+.main_18:
+	movl $2989, %eax
+	movq 8(%rsp), %r12
+	movq 16(%rsp), %rbx
+	addq $24, %rsp
+	ret
+.ident	"15-411 L4 reference compiler"

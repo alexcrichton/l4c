@@ -1,0 +1,68 @@
+//test return 762
+// lots of variables used across functions
+
+int q(int x, int y, int z) {
+  int a;
+  int b;
+  int c;
+  int d;
+  int e;
+  int f;
+  int g;
+  int h;
+  int i;
+  int j;
+  int k;
+  int l;
+
+  a = x;
+  b = y;
+  c = z;
+
+  d = a + b;
+  e = a + c;
+  f = b + c;
+
+  g = d + e;
+  h = d + f;
+  i = e + f;
+
+  j = g + h;
+  k = g + i;
+  l = h + i;
+
+  return a + b + c + d + e + f + g + h + i + j + k + l;
+}
+
+int main() {
+  int a;
+  int b;
+  int c;
+  int d;
+  int e;
+  int f;
+  int g;
+  int h;
+  int i;
+  int j;
+  int k;
+  int l;
+
+  a = 1;
+  b = 2;
+  c = 3;
+
+  d = a + b;
+  e = a + c;
+  f = b + c;
+
+  g = d + e;
+  h = d + f;
+  i = e + f;
+
+  j = g + h;
+  k = g + i;
+  l = h + i;
+
+  return q(j, k, l) + a + b + c + d + e + f + g + h + i;
+}

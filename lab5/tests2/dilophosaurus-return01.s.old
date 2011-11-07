@@ -1,0 +1,30 @@
+.file	"../tests2/dilophosaurus-return01.l2"
+.globl _c0_main
+_c0_main:
+	addq $-8, %rsp
+.main_0:
+	movl $1, %ecx
+	sall $5, %ecx
+.main_1:
+	movl $1, %r8d
+	movl $1, %r9d
+	cmpl %r9d, %r8d
+	jnz .main_4
+.main_2:
+	movl %ecx, %r9d
+	orl $10, %r9d
+	movl %r9d, %eax
+	addq $8, %rsp
+	ret
+.main_4:
+	movl $1, %eax
+	movl $0, %r9d
+	cltd
+	idivl %r9d
+	movl $0, %r9d
+	cltd
+	idivl %r9d
+	movl %edx, %eax
+	addq $8, %rsp
+	ret
+.ident	"15-411 L4 reference compiler"

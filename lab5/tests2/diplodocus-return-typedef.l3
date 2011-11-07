@@ -1,0 +1,37 @@
+//test return 8
+
+typedef int int2;
+typedef bool bool2;
+typedef int2 int3;
+typedef bool2 bool3;
+
+bool2 foo(int2 a, bool3 b, int3 c, bool d);
+int3 bar(int3 a, bool b, int c, bool2 d);
+
+int main()
+{
+    int a = 5;
+    bool3 b = true;
+    return bar(3, true, a, foo(a, false, 5, b));
+}
+
+bool2 foo(int2 a, bool3 b, int3 c, bool d)
+{
+    if (a>c)
+    {
+        return b;
+    }
+    else
+    {
+        return d;
+    }
+}
+int3 bar(int3 a, bool b, int c, bool2 d)
+{
+    if (b&&d)
+    {
+        return a+c;
+    }
+    return a-c;
+}
+

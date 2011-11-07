@@ -1,0 +1,179 @@
+.file	"../tests1/goshawk-return03.l2"
+.globl _c0_main
+_c0_main:
+	addq $-8, %rsp
+.main_0:
+	movl $-559038737, %edx
+	movl $0, %esi
+	movl %edx, %r8d
+	sarl $31, %r8d
+	movl $-1, %r9d
+	xorl %edx, %r9d
+	movl %r8d, %ecx
+	andl %r9d, %ecx
+	movl $-1, %r9d
+	xorl %r8d, %r9d
+	movl %r9d, %r8d
+	andl %edx, %r8d
+	movl %ecx, %r9d
+	orl %r8d, %r9d
+	sall $1, %r9d
+	addl $1, %r9d
+	movl %r9d, %edx
+	movl $255, %edi
+	sall $24, %edi
+	movl %edi, %r8d
+	andl %edx, %r8d
+	movl $0, %ecx
+	cmpl %ecx, %r8d
+	jnz .ternary_true1
+	movl $1, %r8d
+	jmp .ternary_end2
+.ternary_true1:
+	movl $0, %r8d
+.ternary_end2:
+	sall $3, %r8d
+	addl %r8d, %esi
+	movl %edx, %ecx
+	sall $8, %ecx
+	movl %edx, %r8d
+	orl %ecx, %r8d
+	movl %edi, %edx
+	andl %r8d, %edx
+	movl $0, %ecx
+	cmpl %ecx, %edx
+	jnz .ternary_true3
+	movl $1, %ecx
+	jmp .ternary_end4
+.ternary_true3:
+	movl $0, %ecx
+.ternary_end4:
+	sall $3, %ecx
+	addl %ecx, %esi
+	movl %r8d, %ecx
+	sall $8, %ecx
+	orl %ecx, %r8d
+	movl %edi, %edx
+	andl %r8d, %edx
+	movl $0, %ecx
+	cmpl %ecx, %edx
+	jnz .ternary_true5
+	movl $1, %ecx
+	jmp .ternary_end6
+.ternary_true5:
+	movl $0, %ecx
+.ternary_end6:
+	sall $3, %ecx
+	movl %esi, %edx
+	addl %ecx, %edx
+	movl %r8d, %ecx
+	sall $8, %ecx
+	orl %ecx, %r8d
+	movl %edi, %ecx
+	andl %r8d, %ecx
+	movl $0, %r8d
+	cmpl %r8d, %ecx
+	jnz .ternary_true7
+	movl $1, %r8d
+	jmp .ternary_end8
+.ternary_true7:
+	movl $0, %r8d
+.ternary_end8:
+	movl %r8d, %ecx
+	sall $3, %ecx
+	movl %edx, %r8d
+	addl %ecx, %r8d
+	movl %r9d, %edx
+	movl %r8d, %ecx
+	sall %cl, %edx
+	movl $15, %edi
+	sall $28, %edi
+	movl %edi, %esi
+	andl %edx, %esi
+	movl $0, %ecx
+	cmpl %ecx, %esi
+	jnz .ternary_true9
+	movl $1, %ecx
+	jmp .ternary_end10
+.ternary_true9:
+	movl $0, %ecx
+.ternary_end10:
+	sall $2, %ecx
+	movl %r8d, %esi
+	addl %ecx, %esi
+	movl %edx, %ecx
+	sall $4, %ecx
+	movl %edx, %r8d
+	orl %ecx, %r8d
+	movl %edi, %ecx
+	andl %r8d, %ecx
+	movl $0, %r8d
+	cmpl %r8d, %ecx
+	jnz .ternary_true11
+	movl $1, %r8d
+	jmp .ternary_end12
+.ternary_true11:
+	movl $0, %r8d
+.ternary_end12:
+	movl %r8d, %ecx
+	sall $2, %ecx
+	movl %esi, %r8d
+	addl %ecx, %r8d
+	movl %r9d, %edx
+	movl %r8d, %ecx
+	sall %cl, %edx
+	movl $3, %edi
+	sall $30, %edi
+	movl %edi, %esi
+	andl %edx, %esi
+	movl $0, %ecx
+	cmpl %ecx, %esi
+	jnz .ternary_true13
+	movl $1, %ecx
+	jmp .ternary_end14
+.ternary_true13:
+	movl $0, %ecx
+.ternary_end14:
+	sall $1, %ecx
+	movl %r8d, %esi
+	addl %ecx, %esi
+	movl %edx, %ecx
+	sall $2, %ecx
+	movl %edx, %r8d
+	orl %ecx, %r8d
+	movl %edi, %ecx
+	andl %r8d, %ecx
+	movl $0, %r8d
+	cmpl %r8d, %ecx
+	jnz .ternary_true15
+	movl $1, %r8d
+	jmp .ternary_end16
+.ternary_true15:
+	movl $0, %r8d
+.ternary_end16:
+	movl %r8d, %ecx
+	sall $1, %ecx
+	movl %esi, %r8d
+	addl %ecx, %r8d
+	movl %r8d, %ecx
+	sall %cl, %r9d
+	movl $1, %ecx
+	sall $31, %ecx
+	andl %r9d, %ecx
+	movl $0, %r9d
+	cmpl %r9d, %ecx
+	jnz .ternary_true17
+	movl $1, %ecx
+	jmp .ternary_end18
+.ternary_true17:
+	movl $0, %ecx
+.ternary_end18:
+	movl %r8d, %r9d
+	addl %ecx, %r9d
+	movl $-1, %r8d
+	xorl %r9d, %r8d
+	movl $33, %eax
+	addl %r8d, %eax
+	addq $8, %rsp
+	ret
+.ident	"15-411 L4 reference compiler"

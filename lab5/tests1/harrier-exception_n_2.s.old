@@ -1,0 +1,69 @@
+.file	"../tests1/harrier-exception_n_2.l4"
+.globl _c0_main
+_c0_myfun1:
+	addq $-8, %rsp
+.myfun1_0:
+	movl $353, %r8d
+	movl %edi, %esi
+	movl %r8d, %edi
+	callq _c0_myfun2
+	addq $8, %rsp
+	ret
+_c0_myfun2:
+	addq $-8, %rsp
+.myfun2_0:
+	movl $27, %edx
+	callq _c0_myfun3
+	addq $8, %rsp
+	ret
+_c0_myfun3:
+	addq $-40, %rsp
+	movq %r14, 8(%rsp)
+	movq %r13, 16(%rsp)
+	movq %r12, 24(%rsp)
+	movq %rbx, 32(%rsp)
+	movl %edi, %r9d
+	movl %esi, %r8d
+.myfun3_0:
+	movl %r9d, %edi
+	movq %rdx, %r13
+	movq %r8, %r12
+	movq %r9, %rbx
+	callq _c0_myfun1
+	movq %r13, %rdx
+	movq %r12, %r8
+	movq %rbx, %r9
+	movl %eax, %ebx
+	movl %r9d, %edi
+	movl %r8d, %esi
+	movq %rdx, %r14
+	movq %r8, %r13
+	movq %r9, %r12
+	callq _c0_myfun2
+	movq %r14, %rdx
+	movq %r13, %r8
+	movq %r12, %r9
+	movl %eax, %ecx
+	movl %r9d, %edi
+	movl %r8d, %esi
+	movq %rcx, %r12
+	callq _c0_myfun3
+	movq %r12, %rcx
+	movl %ebx, %r9d
+	addl %ecx, %r9d
+	addl %eax, %r9d
+	movl %r9d, %eax
+	movq 8(%rsp), %r14
+	movq 16(%rsp), %r13
+	movq 24(%rsp), %r12
+	movq 32(%rsp), %rbx
+	addq $40, %rsp
+	ret
+_c0_main:
+	addq $-8, %rsp
+.main_0:
+	movl $76, %edi
+	callq _c0_myfun1
+	addq $8, %rsp
+	ret
+.ident	"15-411 L4 reference compiler"

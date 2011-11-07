@@ -1,0 +1,38 @@
+//test return 88
+// for loops, returning in an if/else pair
+
+int main() {
+  int x = 7;
+  int y = 11;
+  int i;
+  bool xprime = true;
+  bool yprime = true;
+  bool xyprime = true;
+
+  for (i = 2; i < x; i++)
+    if (x % i == 0) {
+      xprime = false;
+      break;
+    }
+
+  for (i = 2; i < y; i++)
+    if (y % i == 0) {
+      xprime = false;
+      break;
+    }
+
+  for (i = 2; i < x*y; i++)
+    if (x * y % i == 0) {
+      xyprime = false;
+      break;
+    }
+
+  if (xyprime) {
+    x -= x * y;
+    return xprime ? x : y;
+  }
+  else {
+    y += x * y;
+    return yprime ? y : x;
+  }
+}

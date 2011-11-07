@@ -1,0 +1,15 @@
+//test error
+
+typedef bool a;
+typedef a b;
+typedef b c;
+typedef c d;
+typedef d e;
+
+e foo(e){
+    return e++;
+}
+int main(){
+    return foo(false);
+}
+

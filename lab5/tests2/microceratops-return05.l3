@@ -1,0 +1,25 @@
+//test return 1
+// returns from the middle of a nested if statement
+
+bool retABool();
+
+bool retABool()
+{
+  return true;
+}
+
+int main() 
+{
+  bool trueorfalse = retABool();
+    if (trueorfalse) {
+        if (trueorfalse) {
+            if (trueorfalse) {
+                {
+                  bool retABool = true;
+                  return booltoint(retABool);
+                }
+            }
+        }
+    }
+  return 0;
+}

@@ -1,0 +1,10 @@
+//test return 829
+int spin(int s10, int s9, int s8, int s7, int s6, int s5, int s4, int s3, int s2, int s1, int i) {
+    int s0 = s10 ^ s7;
+    if (s0 == 0)
+         return i;
+    return spin(s9, s8, s7, s6, s5, s4, s3, s2, s1, s0, i + 1);
+}
+int main() {
+    return spin(825, 565, 424, 57, 440, 247, 181, 879, 379, 511, 0);
+}

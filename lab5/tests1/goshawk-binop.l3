@@ -1,0 +1,26 @@
+//test error
+// generic binop
+
+typedef int func;  // this is total bs, of course
+
+int plus(int a, int b);
+
+int binop(func plus, int a, int b);
+
+int main()
+{
+    int a = 42;
+    int b = 1337;
+
+    return binop(plus, a, b);
+}
+
+int plus(int a, int b);
+{
+    a + b;
+}
+
+int binop(func op, int a, int b)
+{
+    op(a, b);
+}

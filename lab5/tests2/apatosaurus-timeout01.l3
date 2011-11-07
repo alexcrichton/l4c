@@ -1,0 +1,12 @@
+//test exception 14
+// timeout specifically
+
+int main()
+{
+  int f = 0;
+
+  while(true)
+    f = tofloat(f);
+
+  return 5/0;
+}

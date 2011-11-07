@@ -1,0 +1,16 @@
+//test exception 8
+
+int f()
+{
+  return 0;
+}
+
+int g()
+{
+  return f();
+}
+
+int main()
+{
+  return f() / g();
+}

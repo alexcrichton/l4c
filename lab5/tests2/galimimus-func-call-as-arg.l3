@@ -1,0 +1,13 @@
+//test return 36
+
+int square(int x) {
+  return x * x;
+}
+
+int double(int x) {
+  return x + x;
+}
+
+int main() {
+  return square(double(3));
+}

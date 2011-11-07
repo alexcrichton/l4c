@@ -1,0 +1,12 @@
+//test error
+
+typedef bool type;
+
+int main() {
+
+	while (true) {
+		type type = true;
+		if (type) break;
+	}
+	return 100;
+}

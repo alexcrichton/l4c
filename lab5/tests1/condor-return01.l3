@@ -1,0 +1,9 @@
+//test return 0
+
+int pirate_arg(int i) {
+    return i;
+}
+
+int main () {
+    return pirate_arg(0);
+}

@@ -1,0 +1,14 @@
+//test return 0
+//Type transparency
+
+int apple();
+
+typedef int banana;
+
+int main() {
+  return apple();
+}
+
+banana apple() {
+  return 0;
+}

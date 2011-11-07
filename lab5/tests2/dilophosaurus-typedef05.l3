@@ -1,0 +1,21 @@
+//test return 42
+// aliasing and names
+typedef int _x;
+typedef int x_;
+
+_x plus (_x x, x_ xx) {
+  return x + xx;
+}
+
+x_ times(_x x__, x_ __x){
+  return x__ * __x;
+}
+
+_x plus(x_ __x, _x x__);
+x_ plus(_x x__, x_ __x);
+
+x_ main () {
+  _x x__ = 5;
+	x_ __x = 7;
+  return plus(times(x__, __x), __x);
+}

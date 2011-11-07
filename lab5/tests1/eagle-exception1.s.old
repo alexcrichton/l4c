@@ -1,0 +1,50 @@
+.file	"../tests1/eagle-exception1.l2"
+.globl _c0_main
+_c0_main:
+	addq $-8, %rsp
+.main_0:
+	movl $7257600, %r9d
+	movl $10, %r8d
+.main_10:
+.main_1:
+	movl $1, %edx
+	movl $0, %ecx
+	cmpl %r8d, %ecx
+	setle %cl
+	movzbl %cl, %ecx
+	cmpl %ecx, %edx
+	jnz .main_7
+.main_2:
+	movl $2, %ecx
+	movl %r8d, %eax
+	cltd
+	idivl %ecx
+	movl %edx, %ecx
+	movl $1, %esi
+	movl $0, %edx
+	cmpl %edx, %ecx
+	setne %cl
+	movzbl %cl, %ecx
+	cmpl %ecx, %esi
+	jnz .main_5
+.main_3:
+	movl %r8d, %ecx
+	subl $1, %ecx
+	jmp .main_9
+.main_5:
+.main_6:
+	movl %r9d, %eax
+	cltd
+	idivl %r8d
+	movl %eax, %r9d
+	subl $1, %r8d
+.main_8:
+	jmp .main_1
+.main_7:
+	movl %r9d, %eax
+	addq $8, %rsp
+	ret
+.main_9:
+	movl %ecx, %r8d
+	jmp .main_1
+.ident	"15-411 L4 reference compiler"

@@ -1,0 +1,50 @@
+.file	"../tests2/seismosaurus-return07.l3"
+.globl _c0_main
+_c0_work:
+	addq $-8, %rsp
+.work_0:
+	movl $1, %r8d
+	cmpl %edi, %r8d
+	jnz .work_3
+.work_1:
+	movl %esi, %eax
+	addq $8, %rsp
+	ret
+.work_3:
+.work_4:
+	movl $1, %edx
+	movl $0, %r8d
+	subl $5234, %r8d
+	movl %esi, %ecx
+	cmpl %r8d, %ecx
+	sete %cl
+	movzbl %cl, %ecx
+	cmpl %ecx, %edx
+	jnz .work_6
+.work_5:
+	movl $1, %r9d
+.work_9:
+	movl %r9d, %r8d
+.work_7:
+	movl %esi, %r9d
+	subl $1, %r9d
+	movl %r8d, %edi
+	movl %r9d, %esi
+	callq _c0_work
+	addq $8, %rsp
+	ret
+.work_6:
+.work_8:
+	movl %edi, %r8d
+	jmp .work_7
+_c0_main:
+	addq $-8, %rsp
+.main_0:
+	movl $0, %r9d
+	movl %r9d, %edi
+	movl $0, %esi
+	subl $100, %esi
+	callq _c0_work
+	addq $8, %rsp
+	ret
+.ident	"15-411 L4 reference compiler"

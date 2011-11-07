@@ -1,0 +1,10 @@
+//test error
+
+// Cannot redeclare function with different prototype
+
+int foo(int x);
+bool foo(int x);
+
+int main() {
+  return 0;
+}

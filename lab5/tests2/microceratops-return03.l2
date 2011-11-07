@@ -1,0 +1,33 @@
+//test return 6
+// 
+
+int main ()
+{
+  int a;
+  int b;
+  int c;
+	int d;
+
+	a = 5;
+	b = 1;
+	c = 4;
+	d = 1;
+
+	while ( (a) == (d)) {
+		a = a%b;
+		c = c%d;
+		if ( (a) == (c) ) {
+			break;
+		}
+		a++;
+		d++;
+		c++;
+		b = c;
+		a = d;
+	}
+
+	if ( (a == d) || (b == c))
+		return 0;
+
+  return a + b;
+}
