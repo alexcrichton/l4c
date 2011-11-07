@@ -74,7 +74,7 @@ struct
 
   fun main (name, args) =
   let
-    val _ = Debug.set_level Debug.ERROR
+    val _ = Debug.set_level Debug.DEBUG
     val header = "Usage: compile [OPTION...] SOURCEFILE\nwhere OPTION is"
     val usageinfo = G.usageInfo {header = header, options = options}
     fun errfn msg = (say (msg ^ "\n" ^ usageinfo) ; raise EXIT)

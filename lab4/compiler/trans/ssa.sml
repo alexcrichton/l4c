@@ -185,7 +185,7 @@ struct
                               of SOME s => s
                                | NONE   => TempSet.empty
                     fun create_phi (temp, L) =
-                          (T.MOVE (T.TEMP (temp, ref ~1, T.QUAD), T.PHI []))::L
+                          (T.MOVE (T.TEMP (temp, ~1, T.QUAD), T.PHI []))::L
                   in
                     #add_node g (id, TempSet.foldl create_phi stms p)
                   end
@@ -195,31 +195,71 @@ struct
               val tvals = HT.mkTable (Temp.hash, Temp.equals)
                                      (97, Fail "Temp not found!")
               val visited = A.array (#capacity g (), false)
+
               fun visit_node (nid, map) = let
-                    fun process_exp (T.TEMP (t, n, _), map) =
-                          n := valOf (TM.find (map, t))
-                      | process_exp (T.BINOP (_, e1, e2), map) =
-                          (process_exp (e1, map); process_exp (e2, map))
-                      | process_exp (T.CALL (_, _, L), map) =
-                          app (fn (e, _) => process_exp (e, map)) L
-                      | process_exp (T.MEM (e, _), map) = process_exp (e, map)
-                      | process_exp _ = () (* PHI and CONST *)
-
-                    fun process_stm ((T.RETURN e | T.COND e |
-                                      T.GOTO (_, SOME e)), map) =
-                          (process_exp (e, map); map)
-                      | process_stm (T.MOVE (e1, e2), map) = let
-                          val _ = process_exp (e2, map)
-                          val map' = case e1
-                                       of T.TEMP (t, n, _) => update (t, n, map)
-                                        | e => (process_exp (e, map); map)
+                    (* Update a temp's global next number in the hash table,
+                       returning the modified set and the new number *)
+                    fun update (t, map) = let
+                          val num = case HT.find tvals t
+                                      of SOME n => n
+                                       | NONE   => 0
                         in
+                          HT.insert tvals (t, num + 1);
+                          (num, TM.insert (map, t, num))
                         end
-                      | process_stm (_, map) = map (* GOTO NONE, LABEL *)
 
-                    val _ = A.update (visited, nid, true)
+                    (* Process an expression, updating all temps to have value
+                       numbers, returning the new expession *)
+                    fun process_exp (T.TEMP (t, n, typ), map) = let
+                          val id = case TM.find (map, t)
+                                     of SOME n => n
+                                      | NONE => 0
+                        in T.TEMP (t, id, typ) end
+                      | process_exp (T.BINOP (oper, e1, e2), map) =
+                          T.BINOP (oper, process_exp (e1, map),
+                                   process_exp (e2, map))
+                      | process_exp (T.CALL (a, b, L), m) =
+                          T.CALL (a, b, List.map (fn (e, t) =>
+                                                  (process_exp (e, m), t)) L)
+                      | process_exp (T.MEM (e, t), map) =
+                          T.MEM (process_exp (e, map), t)
+                      | process_exp (e, _) = e (* PHI and CONST *)
+
+                    (* Process a statement, possibly altering the table of
+                       currently defined variables, and also altering the
+                       instruction to have temps numbered correctly. *)
+                    fun process_stm (T.GOTO (l, SOME e), (L, map)) =
+                          (T.GOTO (l, SOME (process_exp (e, map))) :: L, map)
+                      | process_stm (T.RETURN e, (L, map)) =
+                          (T.RETURN (process_exp (e, map)) :: L, map)
+                      | process_stm (T.COND e, (L, map)) =
+                          (T.COND (process_exp (e, map)) :: L, map)
+                      | process_stm (T.MOVE (e1, e2), (L, map)) = let
+                          val e2' = process_exp (e2, map)
+                          val (e1', map') =
+                              case e1
+                                of T.TEMP (t, n, typ) => let
+                                    val (n, map') = update (t, map)
+                                  in (T.TEMP (t, n, typ), map') end
+                                 | e => (process_exp (e, map), map)
+                        in (T.MOVE (e1', e2') :: L, map') end
+                      | process_stm (stm, (L, map)) = (stm::L, map)
+
                     val stms = #node_info g nid
                   in
+                    (* If we've already visited this node, then there is
+                       nothing to do, otherwise we should process all
+                       statements, mark ourselves as visited, and then visit
+                       all of our successors with our resulting map of
+                       variables *)
+                    if A.sub (visited, nid) then ()
+                    else let
+                      val (stms', map') = foldl process_stm ([], map) stms
+                    in
+                      A.update (visited, nid, true);
+                      #add_node g (nid, rev stms');
+                      app (fn id => visit_node (id, map')) (#succ g nid)
+                    end
                   end
               val _ = visit_node (entry, TM.empty)
             in
