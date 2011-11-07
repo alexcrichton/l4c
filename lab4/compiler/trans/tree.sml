@@ -11,13 +11,11 @@ sig
   datatype binop = ADD | SUB | MUL | DIV | MOD | LT | LTE | EQ | NEQ
                  | AND | OR  | XOR | LSH | RSH
   datatype typ = WORD | QUAD
-  datatype ssavar = PHI of ssavar list | PHI' of ident
   datatype edge = ALWAYS | TRUE | FALSE
 
   datatype exp =
-      TEMP of Temp.temp * typ
-    | VAR of ident * typ
-    | SSA of ssavar * typ
+      TEMP of Temp.temp * int * typ
+    | PHI of exp list
     | CONST of Word32.word * typ
     | BINOP of binop * exp * exp
     | CALL of Label.label * typ * (exp * typ) list
@@ -47,13 +45,11 @@ struct
   datatype binop = ADD | SUB | MUL | DIV | MOD | LT | LTE | EQ | NEQ
                  | AND | OR  | XOR | LSH | RSH
   datatype typ = WORD | QUAD
-  datatype ssavar = PHI of ssavar list | PHI' of ident
   datatype edge = ALWAYS | TRUE | FALSE
 
   datatype exp =
-      TEMP of Temp.temp * typ
-    | VAR of ident * typ
-    | SSA of ssavar * typ
+      TEMP of Temp.temp * int * typ
+    | PHI of exp list
     | CONST of Word32.word * typ
     | BINOP of binop * exp * exp
     | CALL of Label.label * typ * (exp * typ) list
@@ -95,7 +91,7 @@ struct
       | pp_typ QUAD = ":q"
 
     fun pp_exp (CONST (x, typ)) = Word32Signed.toString x ^ pp_typ typ
-      | pp_exp (TEMP (t, typ)) = Temp.name t ^ pp_typ typ
+      | pp_exp (TEMP (t, n, typ)) = Temp.name t ^ "#" ^ Int.toString n ^ pp_typ typ
       | pp_exp (BINOP (binop, e1, e2)) =
           "(" ^ pp_exp e1 ^ " " ^ pp_binop binop ^ " " ^ pp_exp e2 ^ ")"
       | pp_exp (CALL (l, _, L)) = let
