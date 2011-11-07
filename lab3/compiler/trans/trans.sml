@@ -12,7 +12,10 @@ end
 structure Trans :> TRANS =
 struct
 
+  structure HT = HashTable
   structure A = Ast
+  structure DG = DirectedGraph(DynArray)
+  structure G = Graph
   structure T = Tree
 
   (* trans_oper : A.binop -> T.binop
@@ -46,7 +49,7 @@ struct
    *         commands that need to be executed beforehand, and the expression
    *         contains the result of this operation.
    *)
-  fun trans_exp (_, env) (A.Var id) = ([], T.TEMP (Symbol.look' env id))
+  fun trans_exp _ (A.Var id) = ([], T.VAR id)
     | trans_exp _ (A.Bool b) =
         ([], T.CONST (Word32.fromInt (if b then 1 else 0)))
     | trans_exp _ (A.Const w) = ([], T.CONST w)
@@ -89,9 +92,9 @@ struct
          e3s @ [T.MOVE (t, e3'), T.GOTO (l2, NONE), T.LABEL l1] @
          e2s @ [T.MOVE (t, e2'), T.LABEL l2], t)
       end
-    | trans_exp (funs, env) (A.Call (name, EL)) = let
+    | trans_exp (e as (funs, env, _, _)) (A.Call (name, EL)) = let
         fun ev (d, (instrs, dests)) = let
-              val (dinstrs, dest) = trans_exp (funs, env) d
+              val (dinstrs, dest) = trans_exp e d
             in
               (dinstrs @ instrs, dest::dests)
             end
@@ -100,10 +103,14 @@ struct
         val label =
           if Symbol.member funs name then Label.extfunc (Symbol.name name)
           else Label.intfunc (Symbol.name name)
-      in
-        (instrs, T.CALL (label, args))
-      end
+      in (instrs, T.CALL (label, args)) end
     | trans_exp _ (A.Marked _) = raise Fail "no marked data!"
+
+  fun commit (G.GRAPH g) block preds = let val nid = #new_id g () in
+        #add_node g (nid, block);
+        app (fn (pred, edge) => #add_edge g (pred, nid, edge)) preds;
+        nid
+      end
 
   (* trans_stm : Temp.temp Symbol.table -> A.stm -> Label.label * Label.label
                                         -> T.program
@@ -117,49 +124,46 @@ struct
             break or continue statement.
    * @return a list of statements in the IL.
    *)
-  fun trans_stm (funs, env) (A.Assign (id, e)) _ = let
-        val (es, e') = trans_exp (funs, env) e
-      in
-        es @ [T.MOVE (T.TEMP (Symbol.look' env id), e')]
-      end
-    | trans_stm env (A.If(e, s1, s2)) lp = let
+  fun trans_stm (env as (funs, g, stms, preds)) (A.Assign (id, e)) _ = let
         val (es, e') = trans_exp env e
-        val (truel, endl) = (Label.new "if_true", Label.new "if_end")
-      in
-        es @ [T.GOTO (truel, SOME e')] @
-          trans_stm env s2 lp @ [T.GOTO (endl, NONE), T.LABEL truel] @
-          trans_stm env s1 lp @ [T.LABEL endl]
-      end
-    | trans_stm env (A.While (e, s)) _ = let
+      in (es @ [T.MOVE (T.VAR id, e')], preds) end
+    | trans_stm (env as (funs, g, stms, preds)) (A.If(e, s1, s2)) lp = let
         val (es, e') = trans_exp env e
-        val start    = Label.new "lp_start"
-        val continue = Label.new "lp_continue"
-        val break    = Label.new "lp_break"
-      in
-        [T.GOTO (continue, NONE), T.LABEL start] @
-        trans_stm env s (break, continue) @
-        [T.LABEL continue] @ es @ [T.GOTO (start, SOME e'), T.LABEL break]
-      end
-    | trans_stm _ A.Continue (_, continue) = [T.GOTO (continue, NONE)]
-    | trans_stm _ A.Break (break, _) = [T.GOTO (break, NONE)]
-    | trans_stm env (A.Return e) _ = let val (einstrs, e') = trans_exp env e in
-        einstrs @ [T.RETURN e']
-      end
-    | trans_stm env (A.Seq (s1, s2)) lp =
-        (trans_stm env s1 lp) @ (trans_stm env s2 lp)
-    | trans_stm (funs, env) (A.Declare (id, _, s)) lp = let
-        val env' = Symbol.bind env (id, Temp.new ())
-      in
-        trans_stm (funs, env') s lp
-      end
-    | trans_stm env (A.Express e) _ = let
+        val id = commit g (es @ [T.COND e']) preds
+        val (tstms, tpreds) = trans_stm (funs, g, [], [(id, T.TRUE)]) s1 lp
+        val (estms, epreds) = trans_stm (funs, g, [], [(id, T.FALSE)]) s2 lp
+        val tid = commit g tstms tpreds
+        val eid = commit g estms epreds
+      in ([], [(tid, T.ALWAYS), (eid, T.ALWAYS)]) end
+    | trans_stm (env as (funs, g, stms, preds)) (A.While (e, s)) _ = let
+        val pred = commit g stms preds
+        val (es, e') = trans_exp env e
+        val eid = commit g (es @ [T.COND e']) [(pred, T.ALWAYS)]
+        val blist = ref []
+        val (bstms, bpreds) = trans_stm (funs, g, [], [(eid, T.TRUE)]) s
+                                        (blist, eid)
+        val bid = commit g bstms bpreds
+      in ([], (eid, T.FALSE) :: (!blist)) end
+    | trans_stm (_, g, stms, preds) A.Continue (_, cexp) = let
+        val id = commit g stms preds
+        val G.GRAPH graph = g
+      in #add_edge graph (id, cexp, T.ALWAYS); ([], []) end
+    | trans_stm (_, g, stms, preds) A.Break (blist, _) =
+        (blist := (commit g stms preds, T.ALWAYS) :: (!blist); ([], []))
+    | trans_stm (env as (_, g, stms, preds)) (A.Return e) _ = let
+        val (einstrs, e') = trans_exp env e
+        val _ = commit g (stms @ einstrs @ [T.RETURN e']) preds
+      in ([], []) end
+    | trans_stm (env as (f, g, stms, preds)) (A.Seq (s1, s2)) lp = let
+        val (s', preds') = trans_stm env s1 lp
+      in trans_stm (f, g, s', preds') s2 lp end
+    | trans_stm (env as (_, _, stms, preds)) (A.Express e) _ = let
         val t = T.TEMP (Temp.new())
         val (instrs, exp) = trans_exp env e
-      in
-        instrs @ [T.MOVE (t, exp)]
-      end
-    | trans_stm _ A.Nop _ = []
-    | trans_stm _ (A.For (_, _, _, _)) _ = raise Fail "no for loops!"
+      in (stms @ instrs @ [T.MOVE (t, exp)], preds) end
+    | trans_stm env (A.Declare (id, _, s)) lp = trans_stm env s lp
+    | trans_stm (_, _, stms, preds) A.Nop _ = (stms, preds)
+    | trans_stm _ (A.For _) _ = raise Fail "no for loops!"
     | trans_stm _ (A.Markeds _) _ = raise Fail "No mark data!"
 
   (* translate_fun : Ast.gdecl -> T.func
@@ -169,15 +173,15 @@ struct
    * @return a list of statements in the intermediate language.
    *)
   fun translate_fun funs (A.Fun (_, name, args, body)) = let
-        fun bind ((_, id), (T, e)) = let val t = Temp.new() in
-              (t::T, Symbol.bind e (id, t))
-            end
-        val (temps, e) = foldr bind ([], Symbol.empty) args
-        val instrs = trans_stm (funs, e)
-                               (A.remove_mark (A.remove_for body A.Nop))
-                               (Label.new "_", Label.new "_")
+        val temps = #2 (ListPair.unzip args)
+        val table = HT.mkTable (Symbol.hash, Symbol.equal) (10, Fail "uh oh")
+        val graph_rec = DG.graph (Symbol.name name, table, 10)
+        val _ = app (fn (_, s) => HT.insert table (s, 1)) args
+        val _ = trans_stm (funs, graph_rec, [], [])
+                          (A.remove_mark (A.remove_for body A.Nop))
+                          (ref [], ~1)
       in
-        SOME (Label.intfunc (Symbol.name name), temps, instrs)
+        SOME (Label.intfunc (Symbol.name name), temps, graph_rec)
       end
     | translate_fun _ _ = NONE
 

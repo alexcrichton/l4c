@@ -11,8 +11,13 @@ sig
   datatype binop = ADD | SUB | MUL | DIV | MOD | LT | LTE | EQ | NEQ
                  | AND | OR  | XOR | LSH | RSH
 
+  datatype ssavar = PHI of ssavar list | PHI' of ident
+  datatype edge = ALWAYS | TRUE | FALSE
+
   datatype exp =
       TEMP of Temp.temp
+    | VAR of ident
+    | SSA of ssavar
     | CONST of Word32.word
     | BINOP of binop * exp * exp
     | CALL of Label.label * exp list
@@ -20,13 +25,12 @@ sig
       MOVE of exp * exp
     | LABEL of Label.label
     | GOTO  of Label.label * exp option
+    | COND  of exp
     | RETURN of exp
 
-  datatype ssavar = VAR of ident * int | PHI of ssavar list | PHI' of ident
-  
-  type block = (ident, ssavar) HashTable.hash_table * bool ref * stm list
+  type block = stm list
   type func = Label.label * ident list *
-              (block, unit, (ident, int) HashTable.hash_table) Graph.graph
+              (block, edge, (ident, int) HashTable.hash_table) Graph.graph
 
   type program = func list
 
@@ -43,8 +47,13 @@ struct
   datatype binop = ADD | SUB | MUL | DIV | MOD | LT | LTE | EQ | NEQ
                  | AND | OR  | XOR | LSH | RSH
 
+  datatype ssavar = PHI of ssavar list | PHI' of ident
+  datatype edge = ALWAYS | TRUE | FALSE
+
   datatype exp =
       TEMP of Temp.temp
+    | VAR of ident
+    | SSA of ssavar
     | CONST of Word32.word
     | BINOP of binop * exp * exp
     | CALL of Label.label * exp list
@@ -52,13 +61,12 @@ struct
       MOVE of exp * exp
     | LABEL of Label.label
     | GOTO  of Label.label * exp option
+    | COND  of exp
     | RETURN of exp
 
-  datatype ssavar = VAR of ident * int | PHI of ssavar list | PHI' of ident
-
-  type block = (ident, ssavar) HashTable.hash_table * bool ref * stm list
+  type block = stm list
   type func = Label.label * ident list *
-              (block, unit, (ident, int) HashTable.hash_table) Graph.graph
+              (block, edge, (ident, int) HashTable.hash_table) Graph.graph
 
   type program = func list
 
@@ -95,9 +103,9 @@ struct
 
     fun pp_stm (MOVE (e1,e2)) = pp_exp e1 ^ " <- " ^ pp_exp e2
       | pp_stm (LABEL l) = Label.name l
-      | pp_stm (GOTO (l, NONE)) = "goto " ^ Label.name l
-      | pp_stm (GOTO (l, SOME exp)) =
-          "if (" ^ pp_exp exp ^ ") goto " ^ Label.name l
+      (*| pp_stm (GOTO (l, NONE)) = "goto " ^ Label.name l*)
+      (*| pp_stm (GOTO (l, SOME exp)) =*)
+          (*"if (" ^ pp_exp exp ^ ") goto " ^ Label.name l*)
       | pp_stm (RETURN e) = "return " ^ pp_exp e
 
     fun pp_func (l, _, stms) = Label.name l ^ ":\n" ^

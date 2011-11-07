@@ -16,6 +16,8 @@ sig
   val compare : symbol * symbol -> order (* compare symbols by their creation time
             * GREATER if they can not be compared
             *)
+  val equal : symbol * symbol -> bool
+  val hash : symbol -> word
 
   val bogus : symbol    (* a dummy symbol, less than others *)
   val is_bogus : symbol -> bool
@@ -60,6 +62,9 @@ struct
   fun compare ((n, i), (n', i')) =
       if i < 0 orelse i' < 0 then GREATER
       else Int.compare (i, i')
+
+  fun equal s = (compare s = EQUAL)
+  fun hash (s, i) = (Word.fromInt (i * 17)) + (HashString.hashString s)
 
   local
     exception Symbol

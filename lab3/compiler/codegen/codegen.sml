@@ -11,6 +11,7 @@ end
 
 structure Codegen :> CODEGEN =
 struct
+  structure TR = Trans
   structure T = Tree
   structure AS = Assem
   structure P = Profile
