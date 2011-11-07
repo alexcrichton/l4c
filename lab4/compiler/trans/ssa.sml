@@ -145,7 +145,7 @@ struct
               val entry = List.hd (#entries g ())
               val defs = HT.mkTable (Temp.hash, Temp.equals)
                                     (100, Fail "Temp not found")
-              fun process_stms id (T.MOVE (T.TEMP (t, _, _), _)) = let
+              fun process_stms id (T.MOVE (T.TEMP ((t, _), _), _)) = let
                     val set = case HT.find defs t
                                 of SOME s => s
                                  | NONE   => S.singleton entry
@@ -183,7 +183,7 @@ struct
                               of SOME s => s
                                | NONE   => TempSet.empty
                     fun create_phi (temp, L) =
-                          (T.MOVE (T.TEMP (temp, ~1, T.QUAD), T.PHI))::L
+                          (T.MOVE (T.TEMP ((temp, ~1), T.QUAD), T.PHI))::L
                   in
                     #add_node g (id, TempSet.foldl create_phi stms p)
                   end
@@ -209,8 +209,8 @@ struct
 
                     (* Process an expression, updating all temps to have value
                        numbers, returning the new expession *)
-                    fun process_exp (T.TEMP (t, n, typ), map) =
-                          T.TEMP (t, valOf (TM.find (map, t)), typ)
+                    fun process_exp (T.TEMP ((t, n), typ), map) =
+                          T.TEMP ((t, valOf (TM.find (map, t))), typ)
                       | process_exp (T.BINOP (oper, e1, e2), map) =
                           T.BINOP (oper, process_exp (e1, map),
                                    process_exp (e2, map))
@@ -234,9 +234,9 @@ struct
                           val e2' = process_exp (e2, map)
                           val (e1', map') =
                               case e1
-                                of T.TEMP (t, n, typ) => let
+                                of T.TEMP ((t, n), typ) => let
                                     val (n, map') = update (t, map)
-                                  in (T.TEMP (t, n, typ), map') end
+                                  in (T.TEMP ((t, n), typ), map') end
                                  | e => (process_exp (e, map), map)
                         in (T.MOVE (e1', e2') :: L, map') end
                       | process_stm (stm, (L, map)) = (stm::L, map)
@@ -269,17 +269,16 @@ struct
                     val pred_stms = HT.mkTable (Word.fromInt, op =)
                                                (length preds, Subscript)
 
-                    fun getphi (T.MOVE (T.TEMP (tmp, n, _), T.PHI)) =
-                          SOME (tmp, n)
+                    fun getphi (T.MOVE (T.TEMP (t, _), T.PHI)) = SOME t
                       | getphi _ = NONE
 
-                    fun process_phi (tmp, n) = let
+                    fun process_phi (phi as (tmp, n)) = let
                           fun add_moves id = let
                                 val set = A.sub (vmaps, id)
                                 val L = case TM.find (set, tmp)
                                           of SOME m => if n = m then [] else
-                                              [T.MOVE (T.TEMP (tmp, n, T.QUAD),
-                                               T.TEMP (tmp, m, T.QUAD))]
+                                              [T.MOVE (T.TEMP (phi, T.QUAD),
+                                               T.TEMP ((tmp, m), T.QUAD))]
                                            | NONE   => []
                                 val LP = case HT.find pred_stms id
                                            of SOME p => p
@@ -316,7 +315,7 @@ struct
         app (fn (id, _, args, cfg) => (debug ("\n" ^ Label.name id);
                                        gssa (cfg, args))) P
       end
-  
+
   fun flatten [] = []
     | flatten ((id, typ, args, G.GRAPH g)::L) = let
         fun label id = Label.literal (#name g ^ "_" ^ Int.toString id)

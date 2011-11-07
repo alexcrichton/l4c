@@ -12,9 +12,10 @@ sig
                  | AND | OR  | XOR | LSH | RSH
   datatype typ = WORD | QUAD
   datatype edge = ALWAYS | TRUE | FALSE | BRANCH
+  type tmp = Temp.temp * int
 
   datatype exp =
-      TEMP of Temp.temp * int * typ
+      TEMP of tmp * typ
     | PHI
     | CONST of Word32.word * typ
     | BINOP of binop * exp * exp
@@ -34,6 +35,10 @@ sig
 
   type func = Label.label * typ * (Temp.temp * typ) list * stm list
   type program = func list
+
+  val tmphash : tmp -> word
+  val tmpcompare : tmp * tmp -> order
+  val tmpequals : tmp * tmp -> bool
 
   structure Print :
   sig
@@ -50,9 +55,10 @@ struct
                  | AND | OR  | XOR | LSH | RSH
   datatype typ = WORD | QUAD
   datatype edge = ALWAYS | TRUE | FALSE | BRANCH
+  type tmp = Temp.temp * int
 
   datatype exp =
-      TEMP of Temp.temp * int * typ
+      TEMP of tmp * typ
     | PHI
     | CONST of Word32.word * typ
     | BINOP of binop * exp * exp
@@ -72,6 +78,13 @@ struct
 
   type func = Label.label * typ * (Temp.temp * typ) list * stm list
   type program = func list
+
+  fun tmphash (t, n) = Word.fromInt (17 * n) + Temp.hash t
+  fun tmpcompare ((t1, n1), (t2, n2)) = let val ord = Temp.compare (t1, t2) in
+        if ord = EQUAL then Int.compare (n1, n2)
+        else ord
+      end
+  fun tmpequals p = (tmpcompare p = EQUAL)
 
   structure Print =
   struct
@@ -98,7 +111,8 @@ struct
       | pp_typ QUAD = ":q"
 
     fun pp_exp (CONST (x, typ)) = Word32Signed.toString x ^ pp_typ typ
-      | pp_exp (TEMP (t, n, typ)) = Temp.name t ^ "#" ^ Int.toString n ^ pp_typ typ
+      | pp_exp (TEMP ((t, n), typ)) = Temp.name t ^ "#" ^ Int.toString n ^
+                                      pp_typ typ
       | pp_exp (PHI) = "PHI"
       | pp_exp (BINOP (binop, e1, e2)) =
           "(" ^ pp_exp e1 ^ " " ^ pp_binop binop ^ " " ^ pp_exp e2 ^ ")"

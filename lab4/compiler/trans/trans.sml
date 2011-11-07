@@ -94,7 +94,7 @@ struct
   fun trans_exp (_, _, env) (A.Var id) _ = let
         val (temp, typ) = Symbol.look' env id
       in
-        ([], T.TEMP (temp, ~1, typ))
+        ([], T.TEMP ((temp, ~1), typ))
       end
     | trans_exp _ (A.Bool b) _ = ([], const (if b then 1 else 0))
     | trans_exp _ (A.Const w) _ = ([], T.CONST (w, T.WORD))
@@ -123,13 +123,13 @@ struct
         else
           (* Divides and mods can have side effects. Make sure that they always
              happen by moving the result of the operation into a temp *)
-          let val t = T.TEMP(Temp.new(), ~1, T.WORD) in
+          let val t = T.TEMP((Temp.new(), ~1), T.WORD) in
             (stms @ [T.MOVE (t, e)], t)
           end
       end
     | trans_exp env (A.Ternary (e1, e2, e3, ref typ)) a = let
         val (l1, l2) = (Label.new "ternary_true", Label.new "ternary_end")
-        val t = T.TEMP (Temp.new(), ~1, trans_typ typ)
+        val t = T.TEMP ((Temp.new(), ~1), trans_typ typ)
         val (e1s, e1') = trans_exp env e1 false
         val (e2s, e2') = trans_exp env e2 a
         val (e3s, e3') = trans_exp env e3 a
@@ -147,7 +147,7 @@ struct
         val label =
           if isext then Label.extfunc (Symbol.name name)
           else Label.intfunc (Symbol.name name)
-        val result = T.TEMP (Temp.new(), ~1, rettyp)
+        val result = T.TEMP ((Temp.new(), ~1), rettyp)
         val call = T.CALL (label, rettyp, ListPair.zip (args, argtyps))
       in
         (instrs @ [T.MOVE (result, call)], result)
@@ -170,7 +170,7 @@ struct
         val dest = T.MEM (T.BINOP (T.ADD, e1', offset), trans_typ typ)
       in
         if a then (e1s @ e2s, address dest)
-        else let val t = T.TEMP (Temp.new(), ~1, trans_typ typ) in
+        else let val t = T.TEMP ((Temp.new(), ~1), trans_typ typ) in
           (e1s @ e2s @ [T.MOVE (t, dest)], t)
         end
       end
@@ -179,7 +179,7 @@ struct
         val (es, e') = trans_exp env e false
       in
         if a then (es, e')
-        else let val t = T.TEMP (Temp.new(), ~1, trans_typ typ) in
+        else let val t = T.TEMP ((Temp.new(), ~1), trans_typ typ) in
           (es @ [T.MOVE (t, T.MEM(e', trans_typ typ))], t)
         end
       end
@@ -189,7 +189,7 @@ struct
         val dest = T.MEM (T.BINOP (T.ADD, address e', const off), size)
       in
         if a then (es, address dest)
-        else let val t = T.TEMP (Temp.new(), ~1, size) in
+        else let val t = T.TEMP ((Temp.new(), ~1), size) in
           (es @ [T.MOVE (t, dest)], t)
         end
       end
@@ -274,7 +274,7 @@ struct
         val e' = Symbol.bind e (id, (Temp.new (), trans_typ typ))
       in trans_stm ((f, s, e'), g, stms, preds) stm lp end
     | trans_stm (env, _, stms, preds) (A.Express e) _ = let
-        val t = T.TEMP (Temp.new(), ~1, T.QUAD) (* TODO: figure out type for real *)
+        val t = T.TEMP ((Temp.new(), ~1), T.QUAD)
         val (instrs, exp) = trans_exp env e false
       in (stms @ instrs @ [T.MOVE (t, exp)], preds) end
     | trans_stm (_, _, stms, preds) A.Nop _ = (stms, preds)
