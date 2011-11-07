@@ -11,9 +11,13 @@ sig
   datatype binop = ADD | SUB | MUL | DIV | MOD | LT | LTE | EQ | NEQ
                  | AND | OR  | XOR | LSH | RSH
   datatype typ = WORD | QUAD
+  datatype ssavar = PHI of ssavar list | PHI' of ident
+  datatype edge = ALWAYS | TRUE | FALSE
 
   datatype exp =
       TEMP of Temp.temp * typ
+    | VAR of ident * typ
+    | SSA of ssavar * typ
     | CONST of Word32.word * typ
     | BINOP of binop * exp * exp
     | CALL of Label.label * typ * (exp * typ) list
@@ -22,10 +26,12 @@ sig
       MOVE of exp * exp
     | LABEL of Label.label
     | GOTO  of Label.label * exp option
+    | COND  of exp
     | RETURN of exp
 
-  type func = Label.label * typ * (Temp.temp * typ) list * stm list
-
+  type block = stm list
+  type func = Label.label * typ * (ident * typ) list *
+              (block, edge, (ident, int) HashTable.hash_table) Graph.graph
   type program = func list
 
   structure Print :
@@ -41,9 +47,13 @@ struct
   datatype binop = ADD | SUB | MUL | DIV | MOD | LT | LTE | EQ | NEQ
                  | AND | OR  | XOR | LSH | RSH
   datatype typ = WORD | QUAD
+  datatype ssavar = PHI of ssavar list | PHI' of ident
+  datatype edge = ALWAYS | TRUE | FALSE
 
   datatype exp =
       TEMP of Temp.temp * typ
+    | VAR of ident * typ
+    | SSA of ssavar * typ
     | CONST of Word32.word * typ
     | BINOP of binop * exp * exp
     | CALL of Label.label * typ * (exp * typ) list
@@ -52,10 +62,12 @@ struct
       MOVE of exp * exp
     | LABEL of Label.label
     | GOTO  of Label.label * exp option
+    | COND  of exp
     | RETURN of exp
 
-  type func = Label.label * typ * (Temp.temp * typ) list * stm list
-
+  type block = stm list
+  type func = Label.label * typ * (ident * typ) list *
+              (block, edge, (ident, int) HashTable.hash_table) Graph.graph
   type program = func list
 
   structure Print =
@@ -103,7 +115,7 @@ struct
     fun pp_func (l, _, _, stms) = Label.name l ^ ":\n" ^
                           tab (String.concatWith "\n" (map pp_stm stms)) ^ "\n\n"
 
-    and pp_program [] = ""
-      | pp_program (func::funcs) = pp_func func ^ pp_program funcs
+    and pp_program [] = "TODO"
+      (*| pp_program (func::funcs) = pp_func func ^ pp_program funcs*)
   end
 end

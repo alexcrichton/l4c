@@ -14,6 +14,9 @@ struct
 
   structure A = Ast
   structure T = Tree
+  structure G = Graph
+  structure DG = DirectedGraph(DynArray)
+  structure HT = HashTable
 
   type struct_table = ((int * T.typ) Symbol.table * int) Symbol.table
 
@@ -40,7 +43,7 @@ struct
    * @param field the name of the field to find the offset for
    * @return the offset of the field into the struct.
    *)
-  fun struct_off (_, _, s : struct_table) (A.STRUCT id) field =
+  fun struct_off (_, s : struct_table, _) (A.STRUCT id) field =
         Symbol.look' (#1 (Symbol.look' s id)) field
     | struct_off _ _ _ = raise Fail "Invalid struct"
 
@@ -88,7 +91,7 @@ struct
    *         commands that need to be executed beforehand, and the expression
    *         contains the result of this operation.
    *)
-  fun trans_exp (_, env, _) (A.Var id) _ = ([], T.TEMP (Symbol.look' env id))
+  fun trans_exp (_, _, env) (A.Var id) _ = ([], T.VAR (id, Symbol.look' env id))
     | trans_exp _ (A.Bool b) _ = ([], const (if b then 1 else 0))
     | trans_exp _ (A.Const w) _ = ([], T.CONST (w, T.WORD))
     | trans_exp env (A.UnaryOp (A.NEGATIVE, A.Const w)) _ =
@@ -146,17 +149,17 @@ struct
         (instrs @ [T.MOVE (result, call)], result)
       end
     | trans_exp _ A.Null _ = ([], constq 0)
-    | trans_exp (env as (_, _, structs)) (A.AllocArray (typ, e)) _ = let
+    | trans_exp (env as (_, structs, _)) (A.AllocArray (typ, e)) _ = let
         val (es, e') = trans_exp env e false
       in
         (es, T.CALL (Label.extfunc "calloc", T.QUAD,
                      [(e', T.QUAD), (constq (typ_size structs typ), T.QUAD)]))
       end
-    | trans_exp (_, _, structs) (A.Alloc typ) _ =
+    | trans_exp (_, structs, _) (A.Alloc typ) _ =
         ([], T.CALL (Label.extfunc "calloc", T.QUAD,
                      [(constq 1, T.QUAD),
                       (constq (typ_size structs typ), T.QUAD)]))
-    | trans_exp (env as (_, _, structs)) (A.ArrSub (e1, e2, ref typ)) a = let
+    | trans_exp (env as (_, structs, _)) (A.ArrSub (e1, e2, ref typ)) a = let
         val (e1s, e1') = trans_exp env e1 false
         val (e2s, e2') = trans_exp env e2 false
         val offset = T.BINOP(T.MUL, e2', const (typ_size structs typ))
@@ -188,6 +191,12 @@ struct
       end
     | trans_exp env (A.Marked data) a = trans_exp env (Mark.data data) a
 
+  fun commit (G.GRAPH g) block preds = let val nid = #new_id g () in
+        #add_node g (nid, block);
+        app (fn (pred, edge) => #add_edge g (pred, nid, edge)) preds;
+        nid
+      end
+
   (* trans_stm : 'a -> A.stm -> Label.label * Label.label -> T.program
    *
    * Translates statements from the AST to the IL representation. This assumes
@@ -199,7 +208,7 @@ struct
             break or continue statement.
    * @return a list of statements in the IL.
    *)
-  fun trans_stm env (A.Assign (e1, oper_opt, e2)) _ = let
+  fun trans_stm (env, _, stms, preds) (A.Assign (e1, oper_opt, e2)) _ = let
         fun unmark (A.Marked data) = unmark (Mark.data data)
           | unmark e = e
 
@@ -219,43 +228,49 @@ struct
             of SOME oper => (e2s, T.BINOP (trans_oper oper, e1', e2'))
               | NONE => (e2s, e2')
       in
-        e1s @ e3s @ [T.MOVE (e1', e3')]
+        (stms @ e1s @ e3s @ [T.MOVE (e1', e3')], preds)
       end
-    | trans_stm env (A.If(e, s1, s2)) lp = let
+    | trans_stm (env, g, stms, preds) (A.If(e, s1, s2)) lp = let
         val (es, e') = trans_exp env e false
-        val (truel, endl) = (Label.new "if_true", Label.new "if_end")
-      in
-        es @ [T.GOTO (truel, SOME e')] @
-          trans_stm env s2 lp @ [T.GOTO (endl, NONE), T.LABEL truel] @
-          trans_stm env s1 lp @ [T.LABEL endl]
-      end
-    | trans_stm env (A.While (e, s)) _ = let
+        val id = commit g (es @ [T.COND e']) preds
+        val (tstms, tpreds) = trans_stm (env, g, [], [(id, T.TRUE)]) s1 lp
+        val (estms, epreds) = trans_stm (env, g, [], [(id, T.FALSE)]) s2 lp
+        val tid = commit g tstms tpreds
+        val eid = commit g estms epreds
+      in ([], [(tid, T.ALWAYS), (eid, T.ALWAYS)]) end
+    | trans_stm (env, g, stms, preds) (A.While (e, s)) _ = let
+        val pred = commit g stms preds
         val (es, e') = trans_exp env e false
-        val start    = Label.new "lp_start"
-        val continue = Label.new "lp_continue"
-        val break    = Label.new "lp_break"
-      in
-        [T.GOTO (continue, NONE), T.LABEL start] @
-        trans_stm env s (break, continue) @
-        [T.LABEL continue] @ es @ [T.GOTO (start, SOME e'), T.LABEL break]
-      end
-    | trans_stm _ A.Continue (_, continue) = [T.GOTO (continue, NONE)]
-    | trans_stm _ A.Break (break, _) = [T.GOTO (break, NONE)]
-    | trans_stm env (A.Return e) _ = let
+        val eid = commit g (es @ [T.COND e']) [(pred, T.ALWAYS)]
+        val blist = ref []
+        val (bstms, bpreds) = trans_stm (env, g, [], [(eid, T.TRUE)]) s
+                                        (blist, eid)
+        val bid = commit g bstms bpreds
+      in ([], (eid, T.FALSE) :: (!blist)) end
+
+    | trans_stm (_, g, stms, preds) A.Continue (_, cexp) = let
+        val id = commit g stms preds
+        val G.GRAPH graph = g
+      in #add_edge graph (id, cexp, T.ALWAYS); ([], []) end
+    | trans_stm (_, g, stms, preds) A.Break (blist, _) =
+        (blist := (commit g stms preds, T.ALWAYS) :: (!blist); ([], []))
+    | trans_stm (env, g, stms, preds) (A.Return e) _ = let
         val (einstrs, e') = trans_exp env e false
-      in einstrs @ [T.RETURN e'] end
-    | trans_stm env (A.Seq (s1, s2)) lp =
-        (trans_stm env s1 lp) @ (trans_stm env s2 lp)
-    | trans_stm (funs, env, structs) (A.Declare (id, typ, s)) lp = let
-        val env' = Symbol.bind env (id, (Temp.new (), trans_typ typ))
-      in trans_stm (funs, env', structs) s lp end
-    | trans_stm env (A.Express e) _ = let
+        val _ = commit g (stms @ einstrs @ [T.RETURN e']) preds
+      in ([], []) end
+    | trans_stm (env as (f, g, _, _)) (A.Seq (s1, s2)) lp = let
+        val (s', p') = trans_stm env s1 lp
+      in trans_stm (f, g, s', p') s2 lp end
+    | trans_stm ((f, s, e), g, stms, preds) (A.Declare (id, typ, stm)) lp = let
+        val e' = Symbol.bind e (id, trans_typ typ)
+      in trans_stm ((f, s, e'), g, stms, preds) stm lp end
+    | trans_stm (env, _, stms, preds) (A.Express e) _ = let
         val t = T.TEMP (Temp.new(), T.QUAD) (* TODO: figure out type for real *)
         val (instrs, exp) = trans_exp env e false
-      in instrs @ [T.MOVE (t, exp)] end
-    | trans_stm _ A.Nop _ = []
+      in (stms @ instrs @ [T.MOVE (t, exp)], preds) end
+    | trans_stm (_, _, stms, preds) A.Nop _ = (stms, preds)
     | trans_stm env (A.Markeds data) lp = trans_stm env (Mark.data data) lp
-    | trans_stm _ (A.For (_, _, _, _)) _ = raise Fail "no for loops!"
+    | trans_stm _ (A.For _) _ = raise Fail "no for loops!"
 
   (* translate_fun : 'a -> Ast.gdecl -> T.func
    *
@@ -265,17 +280,17 @@ struct
    * @return a list of statements in the intermediate language.
    *)
   fun translate_fun (funs, structs) (A.Fun (typ, name, args, body)) = let
-        fun bind ((typ, id), (T, e)) = let val t = Temp.new() in
-              (t::T, Symbol.bind e (id, (t, trans_typ typ)))
-            end
-        val (temps, e) = foldr bind ([], Symbol.empty) args
-        val instrs = trans_stm (funs, e, structs)
-                               (A.remove_for body A.Nop)
-                               (Label.new "_", Label.new "_")
-        val targs = ListPair.map (fn ((a, _), b) => (b, trans_typ a))
-                                 (args, temps)
+        fun bind ((typ, id), e) = Symbol.bind e (id, trans_typ typ)
+        val e = foldr bind Symbol.empty args
+        val table = HT.mkTable (Symbol.hash, Symbol.equal) (10, Fail "uh oh")
+        val graph_rec = DG.graph (Symbol.name name, table, 10)
+        val _ = app (fn (_, s) => HT.insert table (s, 1)) args
+        val _ = trans_stm ((funs, structs, e), graph_rec, [], [])
+                          (A.remove_for body A.Nop)
+                          (ref [], ~1)
+        val targs = map (fn (t, id) => (id, trans_typ t)) args
       in
-        SOME (Label.intfunc (Symbol.name name), trans_typ typ, targs, instrs)
+        SOME (Label.intfunc (Symbol.name name), trans_typ typ, targs, graph_rec)
       end
     | translate_fun _ _ = NONE
 

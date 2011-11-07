@@ -14,6 +14,7 @@ signature SYMBOL =
 sig
   type symbol
   val equal : symbol * symbol -> bool (* checks wheter the symbols are equal *)
+  val hash : symbol -> word
   val compare : symbol * symbol -> order (* compare symbols by their creation time
             * GREATER if they can not be compared
             *)
@@ -65,6 +66,7 @@ struct
       else Int.compare (i, i')
 
   fun equal p = (compare p = EQUAL)
+  fun hash (s, i) = (Word.fromInt (i * 17)) + HashString.hashString s
 
   local
     exception Symbol
