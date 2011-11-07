@@ -6,7 +6,7 @@
 
 signature TRANS =
 sig
-  val translate : Ast.program -> Tree.program
+  val translate : Ast.program -> Tree.cfg
 end
 
 structure Trans :> TRANS =
@@ -260,9 +260,9 @@ struct
     | trans_stm (_, g, stms, preds) A.Continue (_, cexp) = let
         val id = commit g stms preds
         val G.GRAPH graph = g
-      in #add_edge graph (id, cexp, T.ALWAYS); ([], []) end
+      in #add_edge graph (id, cexp, T.BRANCH); ([], []) end
     | trans_stm (_, g, stms, preds) A.Break (blist, _) =
-        (blist := (commit g stms preds, T.ALWAYS) :: (!blist); ([], []))
+        (blist := (commit g stms preds, T.BRANCH) :: (!blist); ([], []))
     | trans_stm (env, g, stms, preds) (A.Return e) _ = let
         val (einstrs, e') = trans_exp env e false
         val _ = commit g (stms @ einstrs @ [T.RETURN e']) preds

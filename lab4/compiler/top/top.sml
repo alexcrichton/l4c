@@ -136,6 +136,7 @@ struct
                                     "shape=box"
           fun pp_edge (_, _, Tree.TRUE) = "label=true"
             | pp_edge (_, _, Tree.FALSE) = "label=false"
+            | pp_edge (_, _, Tree.BRANCH) = "label=branch"
             | pp_edge (_, _, Tree.ALWAYS) = ""
         in
           Dotfile.mkdot (Options.filename () ^ ".cfg." ^ Label.name id,
@@ -143,10 +144,11 @@ struct
         end
 
     val _ = Flag.guard O.flag_verbose say "Translating..."
-    val ir'' = P.time ("Translating", fn () => Trans.translate ast)
-    val _ = P.time ("SSA", fn () => SSA.ssa ir'')
-    val _ = Flag.guard O.flag_dotcfg (fn () => app pretty ir'') ()
-    (*val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir'')) ()*)
+    val cfg = P.time ("Translating", fn () => Trans.translate ast)
+    val _ = P.time ("SSA", fn () => SSA.ssa cfg)
+    val _ = Flag.guard O.flag_dotcfg (fn () => app pretty cfg) ()
+    val ir = P.time ("Flatten", fn () => SSA.flatten cfg)
+    val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir)) ()
 (*    val _ = Flag.guard O.flag_verbose say ("Neededness Analysis... " ^ source)
     val ir' = P.time ("Neededness", fn () => Neededness.eliminate ir'')
     val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir')) ()

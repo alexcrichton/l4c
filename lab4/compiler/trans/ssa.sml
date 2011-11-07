@@ -1,9 +1,7 @@
 signature SSA =
 sig
-  val idoms : ('n, 'e, 'g) Graph.graph -> int array
-  val dom_frontiers : ('n, 'e, 'g) Graph.graph -> IntBinarySet.set array
-  val idf : IntBinarySet.set array -> IntBinarySet.set -> IntBinarySet.set
-  val ssa : Tree.program -> unit
+  val ssa : Tree.cfg -> unit
+  val flatten : Tree.cfg -> Tree.program
 end
 
 structure SSA :> SSA =
@@ -185,7 +183,7 @@ struct
                               of SOME s => s
                                | NONE   => TempSet.empty
                     fun create_phi (temp, L) =
-                          (T.MOVE (T.TEMP (temp, ~1, T.QUAD), T.PHI []))::L
+                          (T.MOVE (T.TEMP (temp, ~1, T.QUAD), T.PHI))::L
                   in
                     #add_node g (id, TempSet.foldl create_phi stms p)
                   end
@@ -265,38 +263,91 @@ struct
                                   TM.empty args
               val _ = visit_node (entry, initial)
 
-              (* Update all PHI functions to have the correct arguments *)
-              fun update_phis (nid, stms) = let
+              (* Add MOVE instructions to the CFG - DeSSA *)
+              fun dessa (nid, stms) = let
                     val preds = #pred g nid
-                    fun dophi (T.MOVE (t as T.TEMP (tmp, _, tp), T.PHI _)) = let
-                          (* all sets from temps to numbers for all of our
-                             predecessors *)
-                          val sets = map (fn id => A.sub (vmaps, id)) preds
-                          fun add_temp (set, nums) =
-                                case TM.find (set, tmp)
-                                  of SOME num => S.add (nums, num)
-                                   | NONE     => nums
-                          (* Look up in each set the phi function temp, and
-                             collect all different versions of this variable
-                             coming in from everywhere. *)
-                          val nums = foldl add_temp S.empty sets
-                          (* Now that we have the numbers, convert them all
-                             to TEMPs to be arguments to PHIs *)
-                          val phi_args = map (fn n => T.TEMP (tmp, n, tp))
-                                             (S.listItems nums)
+                    val pred_stms = HT.mkTable (Word.fromInt, op =)
+                                               (length preds, Subscript)
+
+                    fun getphi (T.MOVE (T.TEMP (tmp, n, _), T.PHI)) =
+                          SOME (tmp, n)
+                      | getphi _ = NONE
+
+                    fun process_phi (tmp, n) = let
+                          fun add_moves id = let
+                                val set = A.sub (vmaps, id)
+                                val L = case TM.find (set, tmp)
+                                          of SOME m => if n = m then [] else
+                                              [T.MOVE (T.TEMP (tmp, n, T.QUAD),
+                                               T.TEMP (tmp, m, T.QUAD))]
+                                           | NONE   => []
+                                val LP = case HT.find pred_stms id
+                                           of SOME p => p
+                                            | NONE => []
+                              in
+                                HT.insert pred_stms (id, LP @ L)
+                              end
                         in
-                          T.MOVE (t, T.PHI phi_args)
+                          app add_moves preds
                         end
-                      | dophi s = s
+
+                    val phis = List.mapPartial getphi stms
+                    val _ = app process_phi phis
+                    val _ = #add_node g (nid, List.drop (stms, length phis))
+
+                    fun modify_cfg (id, _, typ) = let
+                          val L = HT.lookup pred_stms id
+                          val _ = G.remove_edge (G.GRAPH g) (id, nid)
+                          val new_id = #new_id g ()
+                        in
+                          #add_node g (new_id, L);
+                          #add_edge g (id, new_id, typ);
+                          #add_edge g (new_id, nid, T.ALWAYS)
+                        end handle Subscript => ()
                   in
-                    #add_node g (nid, map dophi stms)
+                    app modify_cfg (#in_edges g nid)
                   end
-              val _ = #forall_nodes g update_phis
+
+              val _ = #forall_nodes g dessa
             in
               ()
             end
       in
         app (fn (id, _, args, cfg) => (debug ("\n" ^ Label.name id);
                                        gssa (cfg, args))) P
+      end
+  
+  fun flatten [] = []
+    | flatten ((id, typ, args, G.GRAPH g)::L) = let
+        fun label id = Label.literal (#name g ^ "_" ^ Int.toString id)
+        fun extract_cond L = case List.nth (L, length L - 1)
+                               of T.COND e => (e, List.take (L, length L -1))
+                                | _ => raise Fail "End of cond block not a cond"
+
+        val entry = List.hd (#entries g ())
+        val visited = A.array (#capacity g (), false)
+
+        fun dfs nid = if A.sub (visited, nid) then [T.GOTO (label nid, NONE)]
+                      else let
+              val _ = A.update (visited, nid, true)
+              val L = (T.LABEL (label nid))::(#node_info g nid)
+            in
+              case #out_edges g nid
+                of [] => L
+                 | [(_, id, T.BRANCH)] => L @ [T.GOTO (label id, NONE)]
+                 | [(_, id, T.ALWAYS)] => L @ (dfs id)
+                 | ([(_, tid, T.TRUE), (_, fid, T.FALSE)] |
+                    [(_, fid, T.FALSE), (_, tid, T.TRUE)]) => let
+                      val (e, L') = extract_cond L
+                      val e' = T.BINOP (T.XOR,
+                                        T.CONST (Word32.fromInt 1, T.WORD), e)
+                      val L'' = L' @ [T.GOTO (label fid, SOME e')]
+                    in
+                      L'' @ dfs tid @ dfs fid
+                    end
+                 | _ => raise Fail "Invalid graph successors"
+            end
+      in
+        (id, typ, args, dfs entry)::(flatten L)
       end
 end

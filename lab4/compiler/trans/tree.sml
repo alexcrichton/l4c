@@ -11,11 +11,11 @@ sig
   datatype binop = ADD | SUB | MUL | DIV | MOD | LT | LTE | EQ | NEQ
                  | AND | OR  | XOR | LSH | RSH
   datatype typ = WORD | QUAD
-  datatype edge = ALWAYS | TRUE | FALSE
+  datatype edge = ALWAYS | TRUE | FALSE | BRANCH
 
   datatype exp =
       TEMP of Temp.temp * int * typ
-    | PHI of exp list
+    | PHI
     | CONST of Word32.word * typ
     | BINOP of binop * exp * exp
     | CALL of Label.label * typ * (exp * typ) list
@@ -28,8 +28,11 @@ sig
     | RETURN of exp
 
   type block = stm list
-  type cfg = (block, edge, unit) Graph.graph
-  type func = Label.label * typ * (Temp.temp * typ) list * cfg
+  type cfg_func = Label.label * typ * (Temp.temp * typ) list *
+                  (block, edge, unit) Graph.graph
+  type cfg = cfg_func list
+
+  type func = Label.label * typ * (Temp.temp * typ) list * stm list
   type program = func list
 
   structure Print :
@@ -46,11 +49,11 @@ struct
   datatype binop = ADD | SUB | MUL | DIV | MOD | LT | LTE | EQ | NEQ
                  | AND | OR  | XOR | LSH | RSH
   datatype typ = WORD | QUAD
-  datatype edge = ALWAYS | TRUE | FALSE
+  datatype edge = ALWAYS | TRUE | FALSE | BRANCH
 
   datatype exp =
       TEMP of Temp.temp * int * typ
-    | PHI of exp list
+    | PHI
     | CONST of Word32.word * typ
     | BINOP of binop * exp * exp
     | CALL of Label.label * typ * (exp * typ) list
@@ -63,8 +66,11 @@ struct
     | RETURN of exp
 
   type block = stm list
-  type cfg = (block, edge, unit) Graph.graph
-  type func = Label.label * typ * (Temp.temp * typ) list * cfg
+  type cfg_func = Label.label * typ * (Temp.temp * typ) list *
+                  (block, edge, unit) Graph.graph
+  type cfg = cfg_func list
+
+  type func = Label.label * typ * (Temp.temp * typ) list * stm list
   type program = func list
 
   structure Print =
@@ -93,7 +99,7 @@ struct
 
     fun pp_exp (CONST (x, typ)) = Word32Signed.toString x ^ pp_typ typ
       | pp_exp (TEMP (t, n, typ)) = Temp.name t ^ "#" ^ Int.toString n ^ pp_typ typ
-      | pp_exp (PHI L) = "PHI(" ^ String.concatWith ", " (map pp_exp L) ^ ")"
+      | pp_exp (PHI) = "PHI"
       | pp_exp (BINOP (binop, e1, e2)) =
           "(" ^ pp_exp e1 ^ " " ^ pp_binop binop ^ " " ^ pp_exp e2 ^ ")"
       | pp_exp (CALL (l, _, L)) = let
@@ -114,7 +120,7 @@ struct
     fun pp_func (l, _, _, stms) = Label.name l ^ ":\n" ^
                           tab (String.concatWith "\n" (map pp_stm stms)) ^ "\n\n"
 
-    and pp_program _ = "TODO"
-      (*| pp_program (func::funcs) = pp_func func ^ pp_program funcs*)
+    and pp_program [] = ""
+      | pp_program (func::funcs) = pp_func func ^ pp_program funcs
   end
 end

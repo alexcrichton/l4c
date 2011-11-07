@@ -9,6 +9,7 @@ sig
   type label
 
   val new : string -> label
+  val literal : string -> label
   val extfunc : string -> label
   val intfunc : string -> label
   val name : label -> string
@@ -19,7 +20,7 @@ end
 
 structure Label :> LABEL =
 struct
-  datatype typ = EXTFUNC | INTFUNC | GENERIC of int
+  datatype typ = EXTFUNC | INTFUNC | LITERAL | GENERIC of int
   type label = string * typ
 
   local
@@ -38,12 +39,15 @@ struct
     fun new str = (str, GENERIC(!counter)) before (counter := !counter + 1)
   end
 
+  fun literal str = (str, LITERAL)
+
   fun extfunc str = (str, EXTFUNC)
   fun intfunc str = (str, INTFUNC)
 
   val extprefix = if SMLofNJ.SysInfo.getOSName () = "Darwin" then "_" else ""
 
   fun name (s, GENERIC i) = "." ^ s ^ Int.toString i
+    | name (s, LITERAL) = "." ^ s
     | name (s, INTFUNC) = extprefix ^ "_c0_" ^ s
     | name (s, _) = extprefix ^ s
 
