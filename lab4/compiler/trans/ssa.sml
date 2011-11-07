@@ -164,7 +164,7 @@ struct
         app df order; df's
       end
 
-  (* find_defs : graph -> (Temp, S.set) HT.table
+  (* find_defs : graph -> (Temp, S.set) HT.table * (Temp, T.typ) HT.table
    *
    * Finds all locations in which temps are defined in the graph.
    * @return a table where keys are temps and the value are the set of locations
@@ -176,7 +176,7 @@ struct
         val entry = List.hd (#entries g ())
         val defs = HT.mkTable (Temp.hash, Temp.equals)
                               (100, Fail "Temp not found")
-        fun process_stms id (T.MOVE (T.TEMP ((t, _), _), _)) = let
+        fun process_stms id (T.MOVE (T.TEMP ((t, _), typ), _)) = let
               val set = case HT.find defs t
                           of SOME s => s
                            | NONE   => S.singleton entry
@@ -364,7 +364,7 @@ struct
   fun ssa P = app (fn (id, _, args, cfg) => (debug ("\n" ^ Label.name id);
                                              ssa_graph (cfg, args))) P
 
-  (* build_temp_maps : graph * (Temp.temp * T.typ) -> int TM.map array
+  (* build_temp_maps : graph * (Temp.temp * T.typ) -> (int * T.typ) TM.map array
    *
    * Builds an array of temp maps. For the returned array, each index
    * corresponds to the id of a node, and the value is a mapping of temps to
@@ -375,8 +375,8 @@ struct
         val arr = A.array (#capacity g (), TM.empty)
         val visited = A.array (#capacity g (), false)
 
-        fun update_map (T.MOVE (T.TEMP ((t, ref n), _), _), m) =
-              TM.insert (m, t, n)
+        fun update_map (T.MOVE (T.TEMP ((t, ref n), typ), _), m) =
+              TM.insert (m, t, (n, typ))
           | update_map (_, m) = m
 
         fun visit_node m id = if A.sub (visited, id) then () else let
@@ -388,7 +388,7 @@ struct
               app (visit_node m') (#succ g id)
             end
 
-        val initial = foldl (fn ((t, _), s) => TM.insert (s, t, 0))
+        val initial = foldl (fn ((t, typ), s) => TM.insert (s, t, (0, typ)))
                             TM.empty args
       in visit_node initial (List.hd (#entries g ())); arr end
 
@@ -409,9 +409,9 @@ struct
               fun add_moves id = let
                     val set = A.sub (vmaps, id)
                     val L = case TM.find (set, tmp)
-                              of SOME m => if !n = m then [] else
-                                  [T.MOVE (T.TEMP (phi, T.QUAD),
-                                   T.TEMP ((tmp, ref m), T.QUAD))]
+                              of SOME (m, typ) => if !n = m then [] else
+                                  [T.MOVE (T.TEMP (phi, typ),
+                                   T.TEMP ((tmp, ref m), typ))]
                                | NONE   => []
                     val LP = case HT.find pred_stms id
                                of SOME p => p
