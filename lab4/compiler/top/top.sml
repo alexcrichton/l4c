@@ -59,7 +59,7 @@ struct
         desc=G.NoArg (fn () => Flag.set O.flag_dotalloc),
         help="output DOT file for allocation graph"},
        {short = "", long=["dotcfg"],
-        desc=G.NoArg (fn () => (print "dotcfg\n";Flag.set O.flag_dotcfg)),
+        desc=G.NoArg (fn () => Flag.set O.flag_dotcfg),
         help="output DOT file for control flow graph"}
       ]
 
@@ -74,6 +74,7 @@ struct
 
   fun main (name, args) =
   let
+    val _ = Debug.set_level Debug.ERROR
     val header = "Usage: compile [OPTION...] SOURCEFILE\nwhere OPTION is"
     val usageinfo = G.usageInfo {header = header, options = options}
     fun errfn msg = (say (msg ^ "\n" ^ usageinfo) ; raise EXIT)
@@ -129,7 +130,8 @@ struct
 
     fun pretty (id, _, _, cfg) = let
           fun pp_node (nid, data) = "label=\"" ^ String.concatWith "\\n"
-                                    (map Tree.Print.pp_stm data) ^ "\\n" ^ Int.toString nid^ "\" " ^
+                                                  (map Tree.Print.pp_stm data) ^
+                                    "\\n" ^ Int.toString nid^ "\" " ^
                                     "shape=box"
           fun pp_edge (_, _, Tree.TRUE) = "label=true"
             | pp_edge (_, _, Tree.FALSE) = "label=false"

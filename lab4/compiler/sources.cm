@@ -13,6 +13,7 @@ Group is
   util/word32.sml
   util/profile.sml
   util/dotfile.sml
+  util/debug.sml
 
   parse/ast.sml
   parse/parsestate.sml
