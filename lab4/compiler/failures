@@ -1,439 +1,167 @@
-   ../tests0/bool.l4
-   ../tests0/brainf.ck.l4
-   ../tests0/fibarray.l4
-   ../tests0/intmap.l4
-   ../tests0/list.l4
-   ../tests0/mmult.l4
-   ../tests0/name-val-alias.l4
-   ../tests0/qsort.l4
-   ../tests0/swap.l4
-   ../tests0/exception01.l3
-   ../tests0/return01.l3
-   ../tests0/return02.l3
-   ../tests0/return03.l3
-   ../tests0/return06.l3
-   ../tests0/return07.l3
-   ../tests0/return08.l3
-   ../tests0/return10.l3
-   ../tests0/return14.l3
-   ../tests0/for01.l2
-   ../tests0/for02.l2
-   ../tests0/for04.l2
-   ../tests0/for05.l2
-   ../tests1/condor-return03.l4
-   ../tests1/condor-return07.l4
-   ../tests1/eagle-nested.l4
-   ../tests1/goshawk-dp.l4
-   ../tests1/goshawk-exception01.l4
-   ../tests1/goshawk-find_treasure.l4
-   ../tests1/goshawk-return01.l4
-   ../tests1/goshawk-return02.l4
-   ../tests1/goshawk-return03.l4
-   ../tests1/goshawk-return04.l4
-   ../tests1/goshawk-return05.l4
-   ../tests1/harrier-exception_n_4.l4
-   ../tests1/harrier-return_1.l4
-   ../tests1/hawk-bubble_sort.l4
-   ../tests1/hawk-findmax.l4
-   ../tests1/hawk-list-rev.l4
-   ../tests1/hawk-pq.l4
-   ../tests1/hobby-bst.l4
-   ../tests1/hobby-circular.l4
-   ../tests1/hobby-reverse-list.l4
-   ../tests1/kestrel-ski1.l4
-   ../tests1/kestrel-ski2.l4
-   ../tests1/kestrel-ski3.l4
-   ../tests1/kestrel-table1.l4
-   ../tests1/kestrel-table2.l4
-   ../tests1/kestrel-two-dimensional-array.l4
-   ../tests1/kite-flowers.l4
-   ../tests1/kite-pointer.l4
-   ../tests1/kite-superprime.l4
-   ../tests1/kite-towerparking.l4
-   ../tests1/lammergeier-marshtomp.l4
-   ../tests1/lammergeier-torchic.l4
-   ../tests1/merlin-error-field-and-type-collision.l4
-   ../tests1/merlin-exception-left-to-right.l4
-   ../tests1/merlin-exception-neg-access.l4
-   ../tests1/merlin-return-binary-tree-inorder.l4
-   ../tests1/merlin-return-dynamic-mult.l4
-   ../tests1/merlin-return-hashtable.l4
-   ../tests1/merlin-return-sieve.l4
-   ../tests1/merlin-return-union-find.l4
-   ../tests1/sparrowhawk-linkedlist.l4
-   ../tests1/sparrowhawk-linkedlist2.l4
-   ../tests1/sparrowhawk-return01.l4
-   ../tests1/sparrowhawk-return02.l4
-   ../tests1/sparrowhawk-return03.l4
-   ../tests1/condor-mutrec01.l3
-   ../tests1/condor-mutrec02.l3
-   ../tests1/condor-pow.l3
-   ../tests1/condor-return03.l3
-   ../tests1/condor-return04.l3
-   ../tests1/eagle-arg-munching.l3
-   ../tests1/eagle-exception.l3
-   ../tests1/eagle-exception2.l3
-   ../tests1/eagle-fun.l3
-   ../tests1/eagle-return01.l3
-   ../tests1/eagle-sanity.l3
-   ../tests1/eagle-vigenere.l3
-   ../tests1/goshawk-dec2bin.l3
-   ../tests1/goshawk-pascal.l3
-   ../tests1/goshawk-return01.l3
-   ../tests1/goshawk-return02.l3
-   ../tests1/goshawk-translate.l3
-   ../tests1/goshawk-transpose.l3
-   ../tests1/harrier-exception_1.l3
-   ../tests1/harrier-exception_n_4.l3
-   ../tests1/harrier-return_1.l3
-   ../tests1/harrier-return_2.l3
-   ../tests1/hobby-ackermann.l3
-   ../tests1/hobby-check-shadowing.l3
-   ../tests1/hobby-div.l3
-   ../tests1/hobby-function-calls.l3
-   ../tests1/hobby-its-mutual.l3
-   ../tests1/kestrel-fun2.l3
-   ../tests1/kestrel-fun3.l3
-   ../tests1/kestrel-fun4.l3
-   ../tests1/kestrel-fun5.l3
-   ../tests1/kestrel-fun6.l3
-   ../tests1/kestrel-runtime2.l3
-   ../tests1/kestrel-runtime4.l3
-   ../tests1/kite-beer.l3
-   ../tests1/kite-clique.l3
-   ../tests1/kite-complement.l3
-   ../tests1/lammergeier-cyndaquil.l3
-   ../tests1/lammergeier-feraligatr.l3
-   ../tests1/lammergeier-meganium.l3
-   ../tests1/lammergeier-quilava.l3
-   ../tests1/merlin-ackermann.l3
-   ../tests1/merlin-mult.l3
-   ../tests1/merlin-optimization_fail.l3
-   ../tests1/merlin-typedef2.l3
-   ../tests1/sparrowhawk-exception03.l3
-   ../tests1/sparrowhawk-return02.l3
-   ../tests1/sparrowhawk-return03.l3
-   ../tests1/sparrowhawk-return04.l3
-   ../tests1/sparrowhawk-return05.l3
-   ../tests1/sparrowhawk-return06.l3
-   ../tests1/sparrowhawk-return07.l3
-   ../tests1/eagle-break-continue-both-work.l2
-   ../tests1/eagle-break.l2
-   ../tests1/eagle-exception1.l2
-   ../tests1/eagle-nested-for.l2
-   ../tests1/falcon-return02.l2
-   ../tests1/goshawk-return01.l2
-   ../tests1/goshawk-return03.l2
-   ../tests1/goshawk-return05.l2
-   ../tests1/harrier-exception_4.l2
-   ../tests1/harrier-exception_5.l2
-   ../tests1/harrier-return_1.l2
-   ../tests1/harrier-return_3.l2
-   ../tests1/hawk-loopdeloop.l2
-   ../tests1/hobby-danger-loops.l2
-   ../tests1/hobby-nested-tern.l2
-   ../tests1/kestrel-logical01.l2
-   ../tests1/kestrel-loopdeloop01.l2
-   ../tests1/kite-return3.l2
-   ../tests1/kite-return4.l2
-   ../tests1/lammergeier-ivysaur.l2
-   ../tests1/lammergeier-metapod.l2
-   ../tests1/merlin-return01.l2
-   ../tests1/merlin-return06.l2
-   ../tests1/merlin-return07.l2
-   ../tests1/morepork-test_succeed_4.l2
-   ../tests1/morepork-test_succeed_5.l2
-   ../tests1/sparrowhawk-return06.l2
-   ../tests1/sparrowhawk-return07.l2
-   ../tests1/sparrowhawk-return10.l2
-   ../tests2/ankylosaurus-exception01.l4
-   ../tests2/ankylosaurus-return01.l4
-   ../tests2/ankylosaurus-return02.l4
-   ../tests2/ankylosaurus-return03.l4
-   ../tests2/ankylosaurus-return04.l4
-   ../tests2/ankylosaurus-return05.l4
-   ../tests2/ankylosaurus-return06.l4
-   ../tests2/ankylosaurus-return08.l4
-   ../tests2/ankylosaurus-return09.l4
-   ../tests2/ankylosaurus-return10.l4
-   ../tests2/apatosaurus-pnt-func.l4
-   ../tests2/apatosaurus-struct-def-late.l4
-   ../tests2/apatosaurus-struct-padding.l4
-   ../tests2/apatosaurus-struct-point-pass.l4
-   ../tests2/brachiosaurus-milli-max-chess-test.l4
-   ../tests2/brachiosaurus-null-little-little-test.l4
-   ../tests2/brachiosaurus-operand-size.l4
-   ../tests2/brachiosaurus-operand-size2.l4
-   ../tests2/brachiosaurus-ptr-compare2.l4
-   ../tests2/brachiosaurus-struct-little-test.l4
-   ../tests2/brachiosaurus-twiddle-stress.l4
-   ../tests2/dilophosaurus-alloc.l4
-   ../tests2/dilophosaurus-arrays1.l4
-   ../tests2/dilophosaurus-goodSwap.l4
-   ../tests2/dilophosaurus-random.l4
-   ../tests2/dilophosaurus-struct_large.l4
-   ../tests2/dilophosaurus-structComparison.l4
-   ../tests2/diplodocus-alloc_test.l4
-   ../tests2/diplodocus-allocintstararray.l4
-   ../tests2/diplodocus-circle.l4
-   ../tests2/diplodocus-ll.l4
-   ../tests2/diplodocus-nullpointer.l4
-   ../tests2/diplodocus-zip.l4
-   ../tests2/galimimus-bsearch.l4
-   ../tests2/galimimus-bst.l4
-   ../tests2/galimimus-compare-null.l4
-   ../tests2/galimimus-left-right-eval3.l4
-   ../tests2/monoclonius-val1.l4
-   ../tests2/monoclonius-val2.l4
-   ../tests2/monoclonius-val4.l4
-   ../tests2/ouranosaurus-badswap.l4
-   ../tests2/ouranosaurus-binary_search.l4
-   ../tests2/ouranosaurus-longest_inc_sub.l4
-   ../tests2/ouranosaurus-maxContSeqVal.l4
-   ../tests2/ouranosaurus-reverselist.l4
-   ../tests2/ouranosaurus-reverselistException.l4
-   ../tests2/saltopus-8queens_better.l4
-   ../tests2/saltopus-ackermann_peano2.l4
-   ../tests2/saltopus-brainfuck.l4
-   ../tests2/saltopus-collatz_peano2.l4
-   ../tests2/saltopus-edit.l4
-   ../tests2/saltopus-mandelbrot.l4
-   ../tests2/saltopus-peano2.l4
-   ../tests2/saltopus-reverse-a-bunch.l4
-   ../tests2/saltopus-reverse.l4
-   ../tests2/saltopus-umvm-fib.l4
-   ../tests2/saltopus-umvm-sandmark.l4
-   ../tests2/seismosaurus-error11.l4
-   ../tests2/seismosaurus-return01.l4
-   ../tests2/seismosaurus-return02.l4
-   ../tests2/seismosaurus-return03.l4
-   ../tests2/seismosaurus-return04.l4
-   ../tests2/seismosaurus-return06.l4
-   ../tests2/seismosaurus-return08.l4
-   ../tests2/sort-nus.l4
-   ../tests2/stegosaurus-122-lcg.l4
-   ../tests2/stegosaurus-122-mersenne.l4
-   ../tests2/stegosaurus-array-yakkety-recurse.l4
-   ../tests2/stegosaurus-convolution.l4
-   ../tests2/stegosaurus-distant_points.l4
-   ../tests2/stegosaurus-heap.l4
-   ../tests2/stegosaurus-mazegen.l4
-   ../tests2/stegosaurus-null_comp.l4
-   ../tests2/stegosaurus-romania.l4
-   ../tests2/stegosaurus-tm.l4
-   ../tests2/stegosaurus-zero-town.l4
-   ../tests2/styracosaurus-buckets.l4
-   ../tests2/styracosaurus-dannysplaytor.l4
-   ../tests2/styracosaurus-fractalfun.l4
-   ../tests2/styracosaurus-linkedlist.l4
-   ../tests2/styracosaurus-matrix.l4
-   ../tests2/styracosaurus-mergesort.l4
-   ../tests2/styracosaurus-mersenne-twister.l4
-   ../tests2/trex-arraycomp.l4
-   ../tests2/trex-lists1.l4
-   ../tests2/trex-lists2.l4
-   ../tests2/trex-lists3.l4
-   ../tests2/trex-lists4.l4
-   ../tests2/trex-moresums.l4
-   ../tests2/trex-sums.l4
-   ../tests2/trex-unionfind1.l4
-   ../tests2/trex-unionfind2.l4
-   ../tests2/triceratops-ret05.l4
-   ../tests2/triceratops-ret07.l4
-   ../tests2/triceratops-ret08.l4
-   ../tests2/utahraptor-bitpacker.l4
-   ../tests2/utahraptor-defibrillate.l4
-   ../tests2/utahraptor-nest.l4
-   ../tests2/utahraptor-recSearch.l4
-   ../tests2/utahraptor-signalchain.l4
-   ../tests2/velociraptor-every-other-linked-list.l4
-   ../tests2/velociraptor-ghosts.l4
-   ../tests2/velociraptor-heap-heap-hooray.l4
-   ../tests2/velociraptor-much-alloc-about-nothing.l4
-   ../tests2/velociraptor-optimize-this.l4
-   ../tests2/velociraptor-optimizing-much.l4
-   ../tests2/velociraptor-ordered-vector.l4
-   ../tests2/velociraptor-persis-tree.l4
-   ../tests2/velociraptor-reverse-linked-list.l4
-   ../tests2/velociraptor-stranded.l4
-   ../tests2/velociraptor-time-warp.l4
-   ../tests2/velociraptor-tree-o-clock.l4
-   ../tests2/ankylosaurus-return01.l3
-   ../tests2/ankylosaurus-return02.l3
-   ../tests2/ankylosaurus-return03.l3
-   ../tests2/ankylosaurus-return05.l3
-   ../tests2/ankylosaurus-return06.l3
-   ../tests2/ankylosaurus-return07.l3
-   ../tests2/ankylosaurus-return08.l3
-   ../tests2/ankylosaurus-return09.l3
-   ../tests2/ankylosaurus-return10.l3
-   ../tests2/apatosaurus-fn-args01.l3
-   ../tests2/apatosaurus-fn-binary-search.l3
-   ../tests2/apatosaurus-fn-decl01.l3
-   ../tests2/apatosaurus-fn-so-many-args01.l3
-   ../tests2/apatosaurus-fn-sum01.l3
-   ../tests2/apatosaurus-hanoi01.l3
-   ../tests2/brachiosaurus-conjuration-calling.l3
-   ../tests2/brachiosaurus-destiny-bond.l3
-   ../tests2/brachiosaurus-laziness4.l3
-   ../tests2/brachiosaurus-stress-func2.l3
-   ../tests2/brachiosaurus-stress-func3.l3
-   ../tests2/brachiosaurus-the-wizards-apprentice-2-electric-boogaloo.l3
-   ../tests2/brachiosaurus-the-wizards-apprentice.l3
-   ../tests2/brachiosaurus-wizards-of-the-coast.l3
-   ../tests2/dilophosaurus-args01.l3
-   ../tests2/dilophosaurus-args02.l3
-   ../tests2/dilophosaurus-binom.l3
-   ../tests2/dilophosaurus-control.l3
-   ../tests2/dilophosaurus-guess.l3
-   ../tests2/dilophosaurus-ifs.l3
-   ../tests2/dilophosaurus-namespace.l3
-   ../tests2/dilophosaurus-order-of-eval.l3
-   ../tests2/dilophosaurus-primes.l3
-   ../tests2/dilophosaurus-stack3.l3
-   ../tests2/dilophosaurus-typedef01.l3
-   ../tests2/dilophosaurus-typedef02.l3
-   ../tests2/dilophosaurus-typedef05.l3
-   ../tests2/diplodocus-argsonstack.l3
-   ../tests2/diplodocus-bubblesort.l3
-   ../tests2/diplodocus-compound.l3
-   ../tests2/diplodocus-divmod.l3
-   ../tests2/diplodocus-forloopfun.l3
-   ../tests2/diplodocus-return-tco.l3
-   ../tests2/diplodocus-return-typedef.l3
-   ../tests2/diplodocus-reverse.l3
-   ../tests2/galimimus-func-call-as-arg.l3
-   ../tests2/galimimus-mutually-recursive.l3
-   ../tests2/microceratops-return01.l3
-   ../tests2/microceratops-return02.l3
-   ../tests2/microceratops-return03.l3
-   ../tests2/microceratops-return04.l3
-   ../tests2/microceratops-return07.l3
-   ../tests2/microceratops-return08.l3
-   ../tests2/microceratops-return10.l3
-   ../tests2/microceratops-return11.l3
-   ../tests2/microceratops-return12.l3
-   ../tests2/monoclonius-val01.l3
-   ../tests2/monoclonius-val02.l3
-   ../tests2/monoclonius-val03.l3
-   ../tests2/monoclonius-val04.l3
-   ../tests2/monoclonius-val05.l3
-   ../tests2/ouranosaurus-binary_search.l3
-   ../tests2/ouranosaurus-check_prime.l3
-   ../tests2/ouranosaurus-gen_prime.l3
-   ../tests2/saltopus-8queens.l3
-   ../tests2/saltopus-ackermann_peano.l3
-   ../tests2/saltopus-amicable.l3
-   ../tests2/saltopus-binsearch.l3
-   ../tests2/saltopus-clobber.l3
-   ../tests2/saltopus-collatz_peano.l3
-   ../tests2/saltopus-float_f2i_more_better.l3
-   ../tests2/saltopus-goldbach.l3
-   ../tests2/saltopus-knapsack.l3
-   ../tests2/saltopus-little_douche.l3
-   ../tests2/saltopus-main.l3
-   ../tests2/saltopus-mangle.l3
-   ../tests2/saltopus-peano.l3
-   ../tests2/seismosaurus-return05.l3
-   ../tests2/seismosaurus-return06.l3
-   ../tests2/seismosaurus-return08.l3
-   ../tests2/stegosaurus-ackermann.l3
-   ../tests2/stegosaurus-bigfunc.l3
-   ../tests2/stegosaurus-colored_graphs.l3
-   ../tests2/stegosaurus-digits.l3
-   ../tests2/stegosaurus-exception01.l3
-   ../tests2/stegosaurus-kittylan.l3
-   ../tests2/stegosaurus-minimize.l3
-   ../tests2/stegosaurus-newton.l3
-   ../tests2/stegosaurus-queens.l3
-   ../tests2/stegosaurus-romania.l3
-   ../tests2/styracosaurus-arguments.l3
-   ../tests2/styracosaurus-bitswap.l3
-   ../tests2/styracosaurus-byteswap.l3
-   ../tests2/styracosaurus-e.l3
-   ../tests2/styracosaurus-exception02.l3
-   ../tests2/styracosaurus-phi.l3
-   ../tests2/styracosaurus-pi.l3
-   ../tests2/styracosaurus-return02.l3
-   ../tests2/styracosaurus-toggle.l3
-   ../tests2/styracosaurus-xorswap.l3
-   ../tests2/trex-digits.l3
-   ../tests2/trex-project_euler_9.l3
-   ../tests2/trex-sillycounting.l3
-   ../tests2/trex-variableshadowing1.l3
-   ../tests2/triceratops-exception02.l3
-   ../tests2/triceratops-exception03.l3
-   ../tests2/triceratops-exception04.l3
-   ../tests2/triceratops-exception05.l3
-   ../tests2/triceratops-return01.l3
-   ../tests2/triceratops-return02.l3
-   ../tests2/triceratops-return03.l3
-   ../tests2/triceratops-return04.l3
-   ../tests2/triceratops-return05.l3
-   ../tests2/triceratops-return06.l3
-   ../tests2/utahraptor-bigArgs.l3
-   ../tests2/utahraptor-busy.l3
-   ../tests2/utahraptor-funcStress.l3
-   ../tests2/velociraptor-return_01.l3
-   ../tests2/velociraptor-return_02.l3
-   ../tests2/velociraptor-return_03.l3
-   ../tests2/velociraptor-return_04.l3
-   ../tests2/velociraptor-return_05.l3
-   ../tests2/velociraptor-return_07.l3
-   ../tests2/velociraptor-return_08.l3
-   ../tests2/velociraptor-return_09.l3
-   ../tests2/velociraptor-return_11.l3
-   ../tests2/velociraptor-return_14.l3
-   ../tests2/velociraptor-return_16.l3
-   ../tests2/ankylosaurus-return06.l2
-   ../tests2/ankylosaurus-return07.l2
-   ../tests2/ankylosaurus-return09.l2
-   ../tests2/apatosaurus-return01.l2
-   ../tests2/apatosaurus-return05.l2
-   ../tests2/brachiosaurus-continue-break-little-test.l2
-   ../tests2/brachiosaurus-for-men-with-int-necks.l2
-   ../tests2/brachiosaurus-variable8.l2
-   ../tests2/dilophosaurus-for01.l2
-   ../tests2/dilophosaurus-for02.l2
-   ../tests2/dilophosaurus-for03.l2
-   ../tests2/diplodocus-conditionalnest.l2
-   ../tests2/galimimus-inception.l2
-   ../tests2/galimimus-madness.l2
-   ../tests2/galimimus-nested-for.l2
-   ../tests2/microceratops-return01.l2
-   ../tests2/microceratops-return02.l2
-   ../tests2/monoclonius-control01.l2
-   ../tests2/monoclonius-gcd.l2
-   ../tests2/ouranosaurus-continue.l2
-   ../tests2/ouranosaurus-longest_subseq.l2
-   ../tests2/ouranosaurus-precedence_nightmare.l2
-   ../tests2/ouranosaurus-stress01.l2
-   ../tests2/saltopus-collatz_diq.l2
-   ../tests2/saltopus-float_f2i.l2
-   ../tests2/seismosaurus-exception01.l2
-   ../tests2/seismosaurus-return03.l2
-   ../tests2/seismosaurus-return06.l2
-   ../tests2/seismosaurus-return08.l2
-   ../tests2/seismosaurus-return09.l2
-   ../tests2/stegosaurus-return03.l2
-   ../tests2/stegosaurus-return06.l2
-   ../tests2/stegosaurus-return07.l2
-   ../tests2/stegosaurus-return09.l2
-   ../tests2/trex-interesting03.l2
-   ../tests2/triceratops-test03.l2
-   ../tests2/triceratops-test07.l2
-   ../tests2/utahraptor-return05.l2
-   ../tests2/utahraptor-return11.l2
-   ../tests2/velociraptor-return_02.l2
-   ../tests2/velociraptor-return_04.l2
-   ../tests2/velociraptor-return_05.l2
-   ../tests2/velociraptor-return_06.l2
-   ../tests2/velociraptor-return_07.l2
-   ../tests2/velociraptor-return_10.l2
-   ../tests2/velociraptor-return_12.l2
-   ../tests2/velociraptor-return_15.l2
-   ../tests2/vulcanodon-exception03.l2
-   ../tests2/vulcanodon-exception04.l2
-   ../tests2/vulcanodon-return04.l2
-   ../tests2/vulcanodon-return06.l2
-   ../tests2/vulcanodon-return07.l2
+../tests0/brainf.ck.l4
+../tests0/list.l4
+../tests0/return07.l3
+../tests0/for01.l2
+../tests0/for02.l2
+../tests0/for04.l2
+../tests0/for05.l2
+../tests1/condor-return03.l4
+../tests1/condor-return07.l4
+../tests1/goshawk-exception01.l4
+../tests1/goshawk-return01.l4
+../tests1/goshawk-return03.l4
+../tests1/goshawk-return04.l4
+../tests1/harrier-return_1.l4
+../tests1/hawk-bubble_sort.l4
+../tests1/hawk-findmax.l4
+../tests1/hawk-list-rev.l4
+../tests1/hawk-pq.l4
+../tests1/hobby-bst.l4
+../tests1/hobby-circular.l4
+../tests1/hobby-reverse-list.l4
+../tests1/kestrel-ski2.l4
+../tests1/kestrel-ski3.l4
+../tests1/kite-superprime.l4
+../tests1/kite-towerparking.l4
+../tests1/lammergeier-torchic.l4
+../tests1/merlin-return-binary-tree-inorder.l4
+../tests1/merlin-return-hashtable.l4
+../tests1/merlin-return-union-find.l4
+../tests1/sparrowhawk-linkedlist.l4
+../tests1/sparrowhawk-linkedlist2.l4
+../tests1/sparrowhawk-return03.l4
+../tests1/eagle-vigenere.l3
+../tests1/goshawk-translate.l3
+../tests1/harrier-exception_n_4.l3
+../tests1/harrier-return_1.l3
+../tests1/harrier-return_2.l3
+../tests1/kite-clique.l3
+../tests1/kite-complement.l3
+../tests1/lammergeier-cyndaquil.l3
+../tests1/lammergeier-feraligatr.l3
+../tests1/lammergeier-quilava.l3
+../tests1/eagle-break-continue-both-work.l2
+../tests1/eagle-break.l2
+../tests1/eagle-exception1.l2
+../tests1/eagle-nested-for.l2
+../tests1/goshawk-return01.l2
+../tests1/harrier-exception_4.l2
+../tests1/harrier-exception_5.l2
+../tests1/harrier-return_1.l2
+../tests1/harrier-return_3.l2
+../tests1/hawk-loopdeloop.l2
+../tests1/hobby-danger-loops.l2
+../tests1/kestrel-loopdeloop01.l2
+../tests1/kite-return3.l2
+../tests1/kite-return4.l2
+../tests1/lammergeier-metapod.l2
+../tests1/merlin-return01.l2
+../tests1/merlin-return06.l2
+../tests1/merlin-return07.l2
+../tests1/morepork-test_succeed_4.l2
+../tests1/morepork-test_succeed_5.l2
+../tests1/sparrowhawk-return07.l2
+../tests1/sparrowhawk-return10.l2
+../tests2/ankylosaurus-return02.l4
+../tests2/ankylosaurus-return03.l4
+../tests2/ankylosaurus-return04.l4
+../tests2/ankylosaurus-return05.l4
+../tests2/ankylosaurus-return08.l4
+../tests2/brachiosaurus-milli-max-chess-test.l4
+../tests2/brachiosaurus-null-little-little-test.l4
+../tests2/brachiosaurus-ptr-compare2.l4
+../tests2/brachiosaurus-twiddle-stress.l4
+../tests2/diplodocus-allocintstararray.l4
+../tests2/diplodocus-circle.l4
+../tests2/diplodocus-ll.l4
+../tests2/diplodocus-nullpointer.l4
+../tests2/galimimus-bsearch.l4
+../tests2/galimimus-bst.l4
+../tests2/galimimus-compare-null.l4
+../tests2/monoclonius-val1.l4
+../tests2/ouranosaurus-reverselist.l4
+../tests2/ouranosaurus-reverselistException.l4
+../tests2/saltopus-brainfuck.l4
+../tests2/saltopus-edit.l4
+../tests2/saltopus-mandelbrot.l4
+../tests2/saltopus-reverse-a-bunch.l4
+../tests2/saltopus-reverse.l4
+../tests2/saltopus-umvm-fib.l4
+../tests2/saltopus-umvm-sandmark.l4
+../tests2/seismosaurus-return02.l4
+../tests2/seismosaurus-return03.l4
+../tests2/stegosaurus-convolution.l4
+../tests2/stegosaurus-distant_points.l4
+../tests2/stegosaurus-mazegen.l4
+../tests2/stegosaurus-null_comp.l4
+../tests2/stegosaurus-romania.l4
+../tests2/stegosaurus-zero-town.l4
+../tests2/styracosaurus-buckets.l4
+../tests2/styracosaurus-dannysplaytor.l4
+../tests2/styracosaurus-linkedlist.l4
+../tests2/styracosaurus-matrix.l4
+../tests2/styracosaurus-mergesort.l4
+../tests2/trex-lists2.l4
+../tests2/trex-lists3.l4
+../tests2/trex-lists4.l4
+../tests2/triceratops-ret07.l4
+../tests2/triceratops-ret08.l4
+../tests2/utahraptor-recSearch.l4
+../tests2/utahraptor-signalchain.l4
+../tests2/velociraptor-every-other-linked-list.l4
+../tests2/velociraptor-optimize-this.l4
+../tests2/velociraptor-persis-tree.l4
+../tests2/velociraptor-reverse-linked-list.l4
+../tests2/velociraptor-stranded.l4
+../tests2/velociraptor-tree-o-clock.l4
+../tests2/ankylosaurus-return06.l3
+../tests2/dilophosaurus-control.l3
+../tests2/dilophosaurus-guess.l3
+../tests2/dilophosaurus-ifs.l3
+../tests2/diplodocus-forloopfun.l3
+../tests2/microceratops-return02.l3
+../tests2/saltopus-float_f2i_more_better.l3
+../tests2/stegosaurus-queens.l3
+../tests2/velociraptor-return_02.l3
+../tests2/velociraptor-return_16.l3
+../tests2/ankylosaurus-return06.l2
+../tests2/ankylosaurus-return07.l2
+../tests2/apatosaurus-return01.l2
+../tests2/apatosaurus-return05.l2
+../tests2/brachiosaurus-continue-break-little-test.l2
+../tests2/brachiosaurus-for-men-with-int-necks.l2
+../tests2/brachiosaurus-variable8.l2
+../tests2/dilophosaurus-for01.l2
+../tests2/dilophosaurus-for02.l2
+../tests2/dilophosaurus-for03.l2
+../tests2/galimimus-inception.l2
+../tests2/galimimus-madness.l2
+../tests2/galimimus-nested-for.l2
+../tests2/microceratops-return01.l2
+../tests2/monoclonius-control01.l2
+../tests2/monoclonius-gcd.l2
+../tests2/ouranosaurus-continue.l2
+../tests2/ouranosaurus-stress01.l2
+../tests2/saltopus-collatz_diq.l2
+../tests2/saltopus-float_f2i.l2
+../tests2/seismosaurus-return06.l2
+../tests2/seismosaurus-return08.l2
+../tests2/stegosaurus-return03.l2
+../tests2/stegosaurus-return06.l2
+../tests2/stegosaurus-return07.l2
+../tests2/stegosaurus-return09.l2
+../tests2/trex-interesting03.l2
+../tests2/triceratops-test03.l2
+../tests2/triceratops-test07.l2
+../tests2/utahraptor-return11.l2
+../tests2/velociraptor-return_04.l2
+../tests2/velociraptor-return_05.l2
+../tests2/velociraptor-return_06.l2
+../tests2/velociraptor-return_10.l2
+../tests2/velociraptor-return_12.l2
+../tests2/velociraptor-return_15.l2
+../tests2/vulcanodon-exception03.l2
+../tests2/vulcanodon-exception04.l2
+../tests2/vulcanodon-return04.l2
+../tests2/vulcanodon-return06.l2
+../tests2/vulcanodon-return07.l2
