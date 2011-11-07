@@ -3,20 +3,27 @@
 #include <signal.h>
 #include <string.h>
 
-/* Two arguments for compatibility with calloc */
-void* salloc(ssize_t elements, size_t size) {
-  void *mem = calloc(elements, size);
+void* zeromem(size_t bytes) {
+  void *mem = malloc(bytes);
   if (mem == NULL) {
     raise(SIGSEGV);
   }
+  memset(mem, 0, bytes);
   return mem;
+}
+
+/* Two arguments for compatibility with calloc when using --safe/--unsafe */
+void* salloc(ssize_t elements, size_t size) {
+  return zeromem(elements * size);
 }
 
 void* salloc_array(ssize_t elements, size_t size) {
   if (elements < 0) {
     raise(SIGABRT);
   }
-  return salloc(elements, size);
+  size_t *mem = zeromem(elements * size + sizeof(size_t));
+  *mem = elements;
+  return mem + 1;
 }
 
 void checkeof () {
