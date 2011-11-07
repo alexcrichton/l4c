@@ -22,7 +22,11 @@ sig
     | GOTO  of Label.label * exp option
     | RETURN of exp
 
-  type func = Label.label * Temp.temp list * stm list
+  datatype ssavar = VAR of ident * int | PHI of ssavar list | PHI' of ident
+  
+  type block = (ident, ssavar) HashTable.hash_table * bool ref * stm list
+  type func = Label.label * ident list *
+              (block, unit, (ident, int) HashTable.hash_table) Graph.graph
 
   type program = func list
 
@@ -50,7 +54,11 @@ struct
     | GOTO  of Label.label * exp option
     | RETURN of exp
 
-  type func = Label.label * Temp.temp list * stm list
+  datatype ssavar = VAR of ident * int | PHI of ssavar list | PHI' of ident
+
+  type block = (ident, ssavar) HashTable.hash_table * bool ref * stm list
+  type func = Label.label * ident list *
+              (block, unit, (ident, int) HashTable.hash_table) Graph.graph
 
   type program = func list
 
@@ -95,7 +103,6 @@ struct
     fun pp_func (l, _, stms) = Label.name l ^ ":\n" ^
                           tab (String.concatWith "\n" (map pp_stm stms)) ^ "\n\n"
 
-    and pp_program [] = ""
-      | pp_program (func::funcs) = pp_func func ^ pp_program funcs
+    and pp_program _ = "TODO"
   end
 end
