@@ -305,7 +305,7 @@ struct
    * @param L the list of statements that comprise this function.
    * @return the assembly instructions for the function
    *)
-  fun munch_function (id, t, T , L) = let
+  fun munch_function (id, t, T, L) = let
         fun alter_ret post (AS.RET, L) = post @ AS.RET :: L
           | alter_ret _ (i, L) = i :: L
         (* Move the arguments to the function from their specified registers
@@ -324,6 +324,7 @@ struct
         val restores = ListPair.map (fn t => AS.MOV t) (save_srcs, save_dsts)
 
         val ts = HT.mkTable (T.tmphash, T.tmpequals) (97, Fail "Temp bug")
+        val _  = app (fn (t, _) => HT.insert ts ((t, ref 0), t)) T
         val L' = P.time ("Munching", fn () => munch_stmts ts (munch_typ t) L)
         val instrs = saves @ argmvs @ foldr (alter_ret restores) [] L'
         val (max, assem) = Allocation.allocate (id, instrs, save_dsts)

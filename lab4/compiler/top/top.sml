@@ -149,7 +149,7 @@ struct
     val cfg = P.time ("Translating", fn () => Trans.translate ast)
     val _ = P.time ("SSA", fn () => SSA.ssa cfg)
     val _ = Flag.guard O.flag_dotcfg (fn () => app pretty cfg) ()
-    val ir = P.time ("Flatten", fn () => SSA.flatten cfg)
+    val ir = P.time ("Flatten", fn () => SSA.dessa cfg)
     val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir)) ()
 (*    val _ = Flag.guard O.flag_verbose say ("Neededness Analysis... " ^ source)
     val ir' = P.time ("Neededness", fn () => Neededness.eliminate ir'')

@@ -1,7 +1,7 @@
 signature SSA =
 sig
   val ssa : Tree.cfg -> unit
-  val flatten : Tree.cfg -> Tree.program
+  val dessa : Tree.cfg -> Tree.program
 end
 
 structure SSA :> SSA =
@@ -257,11 +257,11 @@ struct
                  numbers *)
               fun process_exp (T.TEMP ((t, n), _), map) =
                     (n := valOf (TM.find (map, t)))
-                | process_exp (T.BINOP (oper, e1, e2), map) =
+                | process_exp (T.BINOP (_, e1, e2), map) =
                     (process_exp (e1, map); process_exp (e2, map))
-                | process_exp (T.CALL (a, b, L), m) =
+                | process_exp (T.CALL (_, _, L), m) =
                     app (fn (e, _) => process_exp (e, m)) L
-                | process_exp (T.MEM (e, t), map) = process_exp (e, map)
+                | process_exp (T.MEM (e, _), map) = process_exp (e, map)
                 | process_exp _ = () (* PHI and CONST *)
 
               (* Process a statement, possibly altering the table of
@@ -271,7 +271,8 @@ struct
                                 T.COND e), map) =
                     (process_exp (e, map); map)
                 | process_stm (T.MOVE (e1, e2), map) =
-                   (case e1
+                   (process_exp (e2, map);
+                    case e1
                       of T.TEMP ((t, n), _) => update (t, n, map)
                        | e => (process_exp (e, map); map))
                 | process_stm (_, map) = map
@@ -334,55 +335,7 @@ struct
         val vmaps = P.time ("Numbering temps", fn () =>
                                                     number_temps (grec, args))
         val _     = P.time ("Fixing phis", fn () => fix_phis (grec, vmaps))
-
-        (* Add MOVE instructions to the CFG - DeSSA *)
-        fun dessa (nid, stms) = let
-              val preds = #pred g nid
-              val pred_stms = HT.mkTable (Word.fromInt, op =)
-                                         (length preds, Subscript)
-
-              fun getphi (T.MOVE (T.TEMP (t, _), T.PHI _)) = SOME t
-                | getphi _ = NONE
-
-              fun process_phi (phi as (tmp, n)) = let
-                    fun add_moves id = let
-                          val set = A.sub (vmaps, id)
-                          val L = case TM.find (set, tmp)
-                                    of SOME m => if !n = m then [] else
-                                        [T.MOVE (T.TEMP (phi, T.QUAD),
-                                         T.TEMP ((tmp, ref m), T.QUAD))]
-                                     | NONE   => []
-                          val LP = case HT.find pred_stms id
-                                     of SOME p => p
-                                      | NONE => []
-                        in
-                          HT.insert pred_stms (id, LP @ L)
-                        end
-                  in
-                    app add_moves preds
-                  end
-
-              val phis = List.mapPartial getphi stms
-              val _ = app process_phi phis
-              val _ = #add_node g (nid, List.drop (stms, length phis))
-
-              fun modify_cfg (id, _, typ) = let
-                    val L = HT.lookup pred_stms id
-                    val _ = G.remove_edge (G.GRAPH g) (id, nid)
-                    val new_id = #new_id g ()
-                  in
-                    #add_node g (new_id, L);
-                    #add_edge g (id, new_id, typ);
-                    #add_edge g (new_id, nid, T.ALWAYS)
-                  end handle Subscript => ()
-            in
-              app modify_cfg (#in_edges g nid)
-            end
-
-        val _ = #forall_nodes g dessa
-      in
-        ()
-      end
+      in () end
 
   (* ssa : Tree.cfg -> unit
    *
@@ -393,8 +346,81 @@ struct
   fun ssa P = app (fn (id, _, args, cfg) => (debug ("\n" ^ Label.name id);
                                              ssa_graph (cfg, args))) P
 
-  fun flatten [] = []
-    | flatten ((id, typ, args, G.GRAPH g)::L) = let
+  (* build_temp_maps : graph * (Temp.temp * T.typ) -> int TM.map array
+   *
+   * Builds an array of temp maps. For the returned array, each index
+   * corresponds to the id of a node, and the value is a mapping of temps to
+   * numbers. These maps symbolize the currently known number of temps at the
+   * exit from this node.
+   *)
+  fun build_temp_maps (G.GRAPH g, args) = let
+        val arr = A.array (#capacity g (), TM.empty)
+        val visited = A.array (#capacity g (), false)
+
+        fun update_map (T.MOVE (T.TEMP ((t, ref n), _), _), m) =
+              TM.insert (m, t, n)
+          | update_map (_, m) = m
+
+        fun visit_node m id = if A.sub (visited, id) then () else let
+              val stms = #node_info g id
+              val m' = foldl update_map m stms
+            in
+              A.update (visited, id, true);
+              A.update (arr, id, m');
+              app (visit_node m') (#succ g id)
+            end
+
+        val initial = foldl (fn ((t, _), s) => TM.insert (s, t, 0))
+                            TM.empty args
+      in visit_node initial (List.hd (#entries g ())); arr end
+
+  (* remove_phis : graph -> Graph.node_id * T.stm list -> unit
+   *
+   * Removes all phi functions from the graph by inserting basic blocks along
+   * each incoming edge.
+   *)
+  fun remove_phis (G.GRAPH g, vmaps) (nid, stms) = let
+        val preds = #pred g nid
+        val pred_stms = HT.mkTable (Word.fromInt, op =)
+                                   (length preds, Subscript)
+
+        fun getphi (T.MOVE (T.TEMP (t, _), T.PHI _)) = SOME t
+          | getphi _ = NONE
+
+        fun process_phi (phi as (tmp, n)) = let
+              fun add_moves id = let
+                    val set = A.sub (vmaps, id)
+                    val L = case TM.find (set, tmp)
+                              of SOME m => if !n = m then [] else
+                                  [T.MOVE (T.TEMP (phi, T.QUAD),
+                                   T.TEMP ((tmp, ref m), T.QUAD))]
+                               | NONE   => []
+                    val LP = case HT.find pred_stms id
+                               of SOME p => p
+                                | NONE => []
+                  in HT.insert pred_stms (id, LP @ L) end
+            in app add_moves preds end
+
+        fun modify_cfg (id, _, typ) = let
+              val L = HT.lookup pred_stms id
+              val _ = G.remove_edge (G.GRAPH g) (id, nid)
+              val new_id = #new_id g ()
+            in
+              #add_node g (new_id, L);
+              #add_edge g (id, new_id, typ);
+              #add_edge g (new_id, nid, T.ALWAYS)
+            end handle Subscript => ()
+
+        val phis = List.mapPartial getphi stms
+        val _ = app process_phi phis
+        val _ = #add_node g (nid, List.drop (stms, length phis))
+      in app modify_cfg (#in_edges g nid) end
+
+  (* flatten : graph -> T.stm list
+   *
+   * Flattens the given graph into a statement list.
+   *)
+  fun flatten (G.GRAPH g) = let
         fun label id = Label.literal (#name g ^ "_" ^ Int.toString id)
         fun extract_cond L = case List.nth (L, length L - 1)
                                of T.COND e => (e, List.take (L, length L -1))
@@ -423,7 +449,23 @@ struct
                     end
                  | _ => raise Fail "Invalid graph successors"
             end
+      in dfs entry end
+
+  (* dessa : Tree.cfg -> Tree.program
+   *
+   * Takes an SSA-form CFG and converts it into lists of instructions for
+   * each function.
+   * @param cfg the program of cfgs to convert
+   * @return the program with each cfg flattened into a list
+   *)
+  fun dessa [] = []
+    | dessa ((id, typ, args, cfg)::L) = let
+        val G.GRAPH g = cfg
+        val vmaps = P.time ("Building maps...",
+                            fn () => build_temp_maps (cfg, args))
+        val _ = P.time ("Removing PHI",
+                            fn () => #forall_nodes g (remove_phis (cfg, vmaps)))
       in
-        (id, typ, args, dfs entry)::(flatten L)
+        (id, typ, args, flatten cfg) :: (dessa L)
       end
 end
