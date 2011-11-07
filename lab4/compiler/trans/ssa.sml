@@ -313,7 +313,7 @@ struct
             end
 
         (* The initial set has all arguments with number 0 *)
-        val initial = foldl (fn ((t, _), s) => (HT.insert tvals (t, 0);
+        val initial = foldl (fn ((t, _), s) => (HT.insert tvals (t, 1);
                                                 TM.insert (s, t, 0)))
                             TM.empty args
       in
