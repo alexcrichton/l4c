@@ -1,31 +1,31 @@
 # the following are SML-NJ specific defines
 SML = sml
 MLTON = mlton -const "Exn.keepHistory true" -default-ann "redundantMatch warn" -default-ann "sequenceNonUnit warn" -output
-MLTON_TARG = bin/mlton-l4c
+MLTON_TARG = bin/mlton-l5c
 
 # buildid target "redundant" if called from ../Makefile, but who cares?
 
-l4c: parse FORCE
-	echo 'use "compile-l4c.sml";' | ${SML}
+l5c: parse FORCE
+	echo 'use "compile-l5c.sml";' | ${SML}
 
-mlton-l4c: sources.mlb mlton-parse FORCE
+mlton-l5c: sources.mlb mlton-parse FORCE
 	$(MLTON) $(MLTON_TARG) sources.mlb
 
-parse/l4.lex.sml: parse/l4.lex
-	ml-lex parse/l4.lex
+parse/l5.lex.sml: parse/l5.lex
+	ml-lex parse/l5.lex
 
-parse/l4.grm.sml: parse/l4.grm
-	ml-yacc parse/l4.grm
+parse/l5.grm.sml: parse/l5.grm
+	ml-yacc parse/l5.grm
 
-parse: parse/l4.lex.sml parse/l4.grm.sml
+parse: parse/l5.lex.sml parse/l5.grm.sml
 
-mlton-parse/l4.lex.sml: parse/l4.lex
-	mllex parse/l4.lex
+mlton-parse/l5.lex.sml: parse/l5.lex
+	mllex parse/l5.lex
 
-mlton-parse/l4.grm.sml: parse/l4.grm
-	mlyacc parse/l4.grm
+mlton-parse/l5.grm.sml: parse/l5.grm
+	mlyacc parse/l5.grm
 
-mlton-parse: mlton-parse/l4.lex.sml mlton-parse/l4.grm.sml
+mlton-parse: mlton-parse/l5.lex.sml mlton-parse/l5.grm.sml
 
 sources.mlb: sources.cm mlton-parse
 	${RM} sources.mlb
@@ -37,7 +37,7 @@ clean:
 	find . -type d -name .cm | xargs rm -rf
 	${RM} parse/*.lex.* parse/*.grm.*
 	find . -type f | grep '~$$' | xargs ${RM}
-	${RM} bin/l4c.heap.* $(MLTON_TARG)
+	${RM} bin/l5c.heap.* $(MLTON_TARG)
 	${RM} sources.mlb sources-mlton.cm
 
 TAGS: clean

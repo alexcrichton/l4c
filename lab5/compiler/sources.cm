@@ -17,9 +17,9 @@ Group is
 
   parse/ast.sml
   parse/parsestate.sml
-  parse/l4.lex.sml
-  parse/l4.grm.sig
-  parse/l4.grm.sml
+  parse/l5.lex.sml
+  parse/l5.grm.sig
+  parse/l5.grm.sml
   parse/parse.sml
 
   codegen/assem.sml
