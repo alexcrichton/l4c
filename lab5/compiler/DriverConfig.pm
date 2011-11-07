@@ -15,7 +15,7 @@ use vars qw($LAB $COMPILER $COMPILER_EXEC $COMPILER_ARGS @LEXTS $GCC $RUNTIME
             $GCC_TIMEOUT $RUN_TIMEOUT $TEST_SUITES_PATH $MAX_VALIDATE_SCORE
             $MIN_TESTS &tests_grade $CMPL_GRADE);
 
-our $LAB             = 4;
+our $LAB             = 5;
 
 my $rt_stem = "l${LAB}rt";
 
