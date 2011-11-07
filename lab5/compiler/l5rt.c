@@ -21,8 +21,10 @@ void* salloc_array(ssize_t elements, size_t size) {
   if (elements < 0) {
     raise(SIGABRT);
   }
+  /* 8 extra bytes to shove the size of the array before the array */
   size_t *mem = zeromem(elements * size + sizeof(size_t));
   *mem = elements;
+  /* Return the pointer to actual data so everything is compatible */
   return mem + 1;
 }
 
