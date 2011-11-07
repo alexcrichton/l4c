@@ -28,7 +28,7 @@ Group is
   codegen/graph.sml
   codegen/liveness.sml
 
-  analysis/analysis.sml
+  analysis/analysis.sig
   analysis/typechecker.sml
   analysis/returnchecker.sml
   analysis/initchecker.sml

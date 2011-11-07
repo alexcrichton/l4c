@@ -6,7 +6,7 @@
  * Checks that the program will always return.
  *)
 
-structure ReturnChecker :> Analysis =
+structure ReturnChecker :> ANALYSIS =
 struct
   structure A = Ast
 

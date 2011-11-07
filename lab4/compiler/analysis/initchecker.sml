@@ -4,7 +4,7 @@
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
 
-structure InitializationChecker :> Analysis =
+structure InitializationChecker :> ANALYSIS =
 struct
   structure A = Ast
 

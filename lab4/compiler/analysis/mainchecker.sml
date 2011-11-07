@@ -7,7 +7,7 @@
  * arguments
  *)
 
-structure MainChecker :> Analysis =
+structure MainChecker :> ANALYSIS =
 struct
   structure A = Ast
 

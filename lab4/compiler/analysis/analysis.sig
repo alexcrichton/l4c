@@ -3,7 +3,7 @@
  * Author: Alex Crichton <acrichto@andrew.cmu.edu>
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
-signature Analysis =
+signature ANALYSIS =
 sig
   val analyze : Ast.program -> unit
 end

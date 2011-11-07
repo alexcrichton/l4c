@@ -4,7 +4,7 @@
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
 
-structure TypeChecker :> Analysis =
+structure TypeChecker :> ANALYSIS =
 struct
   structure A = Ast
   structure LP = ListPair
