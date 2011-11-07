@@ -18,6 +18,27 @@ struct
   structure HT = HashTable
   structure TM = BinaryMapFn(Temp)
 
+  (* genorder : graph -> (int list * int array)
+   *
+   * Generates the reverse postorder ordering of the nodes of the given graph.
+   * This list is used to iterate over the graph in generating dominance
+   * frontiers.
+   *
+   * @return a pair where the first list is the order of nodes in reverse
+   *         postorder and the second is an array where each index corresponds
+   *         to a node and the value is the position in the reverse postorder
+   *)
+  fun genorder (G.GRAPH g) = let
+        val entry = List.hd (#entries g ())
+        val order = A.array (#capacity g (), ~1)
+        fun remap (node, ~2) = ()
+          | remap (node, number) = A.update (order, number, node)
+        val postorder = GraphDFS.postorder_numbering (G.GRAPH g) entry
+        val _ = A.appi remap postorder
+      in
+        (A.foldl (fn (i, L) => if i <> ~1 then i::L else L) [] order, postorder)
+      end
+
   (* idoms : ('n, 'e, 'g) Graph.graph -> int array
    *
    * Calculates the immediate dominators for every node in the given graph. This
@@ -34,17 +55,12 @@ struct
   fun idoms (G.GRAPH g) = let
         val _ = debug "idoms"
         val entry = List.hd (#entries g ())
-        val size = #capacity g ()
-        val order = A.array (size, ~1)
-        fun remap (node, ~2) = ()
-          | remap (node, number) = A.update (order, number, node)
-        val postorder = GraphDFS.postorder_numbering (G.GRAPH g) entry
-        val _ = A.appi remap postorder
-        val doms = A.array (size, ~1)
-        val _ = gverbose (fn () => dump_arr Int.toString order)
+        val (order, postorder) = genorder (G.GRAPH g)
+        val doms = A.array (#capacity g (), ~1)
+        val _ = gverbose (fn () => dump_list Int.toString order)
 
         fun compare (n1, n2) = Int.compare (A.sub (postorder, n1),
-                                            A.sub(postorder, n2))
+                                            A.sub (postorder, n2))
 
         fun intersect (b1, b2) = if compare (b1, b2) = EQUAL then b1 else let
               fun find (finger, other) = if compare (finger, other) <> LESS then
@@ -79,7 +95,7 @@ struct
               fun modify (id, changed) = if id = entry then changed
                                          else update_node id orelse changed
               (* Iterate in reverse postorder *)
-              val changed = A.foldr modify false order
+              val changed = foldl modify false order
             in
               if changed then change () else ()
             end
@@ -127,6 +143,8 @@ struct
 
         val _ = gverbose (fn () => dump_arri Int.toString idom)
         val df's = A.array (#capacity g (), S.empty)
+        val (order, _) = genorder (G.GRAPH g)
+        val order = rev order
 
         (* Returns true if a isn't the immediate dominator of b *)
         fun not_idom a b = (A.sub (idom, b) <> a)
@@ -136,14 +154,14 @@ struct
                            else S.filter (not_idom a) (A.sub (df's, c))
 
         (* This is quadratic - it shouldn't be   FIXME, TODO, XXX *)
-        fun df (a, _) = let
+        fun df a = let
               fun union (c, set) = if not_idom a c then set
                                    else S.union (set, df_up (a, c))
             in
               A.update (df's, a, S.foldl union (df_local a) nodes)
             end
       in
-        #forall_nodes g df; df's
+        app df order; df's
       end
 
   (* find_defs : graph -> (Temp, S.set) HT.table

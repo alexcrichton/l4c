@@ -1,86 +1,31 @@
-   ../tests0/brainf.ck.l4
-   ../tests0/for04.l2
-   ../tests0/for05.l2
-   ../tests1/goshawk-return01.l4
-   ../tests1/harrier-return_1.l4
-   ../tests1/hawk-bubble_sort.l4
-   ../tests1/kite-towerparking.l4
-   ../tests1/merlin-return-union-find.l4
-   ../tests1/goshawk-translate.l3
-   ../tests1/harrier-exception_n_4.l3
-   ../tests1/harrier-return_1.l3
-   ../tests1/harrier-return_2.l3
-   ../tests1/kite-clique.l3
-   ../tests1/kite-complement.l3
-   ../tests1/lammergeier-cyndaquil.l3
-   ../tests1/lammergeier-feraligatr.l3
-   ../tests1/lammergeier-quilava.l3
-   ../tests1/eagle-nested-for.l2
-   ../tests1/goshawk-return01.l2
-   ../tests1/harrier-exception_4.l2
-   ../tests1/hawk-loopdeloop.l2
-   ../tests1/kestrel-loopdeloop01.l2
-   ../tests1/kite-return3.l2
-   ../tests1/lammergeier-metapod.l2
-   ../tests1/merlin-return06.l2
-   ../tests1/morepork-test_succeed_5.l2
-   ../tests1/sparrowhawk-return07.l2
-   ../tests1/sparrowhawk-return10.l2
-   ../tests2/ankylosaurus-return05.l4
-   ../tests2/ankylosaurus-return08.l4
-   ../tests2/brachiosaurus-milli-max-chess-test.l4
-   ../tests2/brachiosaurus-twiddle-stress.l4
-   ../tests2/galimimus-bsearch.l4
-   ../tests2/monoclonius-val1.l4
-   ../tests2/saltopus-brainfuck.l4
-   ../tests2/saltopus-edit.l4
-   ../tests2/saltopus-mandelbrot.l4
-   ../tests2/saltopus-umvm-fib.l4
-   ../tests2/saltopus-umvm-sandmark.l4
-   ../tests2/seismosaurus-return02.l4
-   ../tests2/seismosaurus-return03.l4
-   ../tests2/stegosaurus-convolution.l4
-   ../tests2/stegosaurus-distant_points.l4
-   ../tests2/stegosaurus-mazegen.l4
-   ../tests2/styracosaurus-matrix.l4
-   ../tests2/styracosaurus-mergesort.l4
-   ../tests2/triceratops-ret07.l4
-   ../tests2/triceratops-ret08.l4
-   ../tests2/velociraptor-optimize-this.l4
-   ../tests2/velociraptor-stranded.l4
-   ../tests2/dilophosaurus-guess.l3
-   ../tests2/dilophosaurus-ifs.l3
-   ../tests2/diplodocus-forloopfun.l3
-   ../tests2/microceratops-return02.l3
-   ../tests2/saltopus-float_f2i_more_better.l3
-   ../tests2/stegosaurus-queens.l3
-   ../tests2/velociraptor-return_02.l3
-   ../tests2/velociraptor-return_16.l3
-   ../tests2/ankylosaurus-return06.l2
-   ../tests2/ankylosaurus-return07.l2
-   ../tests2/apatosaurus-return01.l2
-   ../tests2/brachiosaurus-for-men-with-int-necks.l2
-   ../tests2/dilophosaurus-for02.l2
-   ../tests2/dilophosaurus-for03.l2
-   ../tests2/galimimus-inception.l2
-   ../tests2/galimimus-madness.l2
-   ../tests2/galimimus-nested-for.l2
-   ../tests2/microceratops-return01.l2
-   ../tests2/monoclonius-gcd.l2
-   ../tests2/ouranosaurus-stress01.l2
-   ../tests2/saltopus-collatz_diq.l2
-   ../tests2/saltopus-float_f2i.l2
-   ../tests2/seismosaurus-return08.l2
-   ../tests2/stegosaurus-return03.l2
-   ../tests2/stegosaurus-return06.l2
-   ../tests2/stegosaurus-return07.l2
-   ../tests2/stegosaurus-return09.l2
-   ../tests2/triceratops-test03.l2
-   ../tests2/utahraptor-return11.l2
-   ../tests2/velociraptor-return_06.l2
-   ../tests2/velociraptor-return_10.l2
-   ../tests2/velociraptor-return_12.l2
-   ../tests2/vulcanodon-exception03.l2
-   ../tests2/vulcanodon-return04.l2
-   ../tests2/vulcanodon-return06.l2
-   ../tests2/vulcanodon-return07.l2
+../tests0/brainf.ck.l4
+../tests1/kite-towerparking.l4
+../tests1/merlin-return-union-find.l4
+../tests1/kite-clique.l3
+../tests1/kite-complement.l3
+../tests1/lammergeier-cyndaquil.l3
+../tests1/lammergeier-feraligatr.l3
+../tests1/lammergeier-quilava.l3
+../tests1/lammergeier-metapod.l2
+../tests2/ankylosaurus-return05.l4
+../tests2/brachiosaurus-milli-max-chess-test.l4
+../tests2/monoclonius-val1.l4
+../tests2/saltopus-brainfuck.l4
+../tests2/saltopus-mandelbrot.l4
+../tests2/saltopus-umvm-fib.l4
+../tests2/saltopus-umvm-sandmark.l4
+../tests2/seismosaurus-return03.l4
+../tests2/stegosaurus-convolution.l4
+../tests2/stegosaurus-distant_points.l4
+../tests2/stegosaurus-mazegen.l4
+../tests2/styracosaurus-matrix.l4
+../tests2/styracosaurus-mergesort.l4
+../tests2/velociraptor-optimize-this.l4
+../tests2/velociraptor-stranded.l4
+../tests2/dilophosaurus-guess.l3
+../tests2/dilophosaurus-ifs.l3
+../tests2/microceratops-return02.l3
+../tests2/saltopus-float_f2i_more_better.l3
+../tests2/stegosaurus-queens.l3
+../tests2/brachiosaurus-for-men-with-int-necks.l2
+../tests2/saltopus-float_f2i.l2

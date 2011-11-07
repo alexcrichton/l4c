@@ -9,6 +9,7 @@ tests/*
 *.log
 *.old
 *.dot
+*.svg
 compiler/a.out
 compiler/a.result
 compiler/a.output
