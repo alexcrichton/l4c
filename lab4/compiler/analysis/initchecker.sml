@@ -4,13 +4,7 @@
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
 
-signature INITIALIZATION_CHECK =
-sig
-  (* prints error message and raises ErrorMsg.error if error found *)
-  val initializationcheck : Ast.program -> unit
-end;
-
-structure InitializationChecker :> INITIALIZATION_CHECK =
+structure InitializationChecker :> Analysis =
 struct
   structure A = Ast
 
@@ -86,39 +80,39 @@ struct
     | live sym (A.For (_, _, _, _)) = raise Fail "No for loops!"
     | live sym (A.Markeds mark) = live sym (Mark.data mark)
 
-  (* analyze : A.stm -> Mark.ext option -> unit
+  (* analyze_stm : A.stm -> Mark.ext option -> unit
    *
    * Analyzes the given statement to make sure that all variables are
    * initialized before use. It is assumed that it has already been checked
    * that all variables used are declared somewhere before they are used.
    *
-   * @param stm the statement (or program) to analyze
+   * @param stm the statement (or program) to analyze_stm
    * @param ext the extents of the statement used for error messages
    * @raise ErrorMsg.Error if there is any variable in stm which is used before
    *        it is initialized
    *)
-  fun analyze (A.Declare (id, _, s)) ext =
-        if not (live id s) then analyze s ext
+  fun analyze_stm (A.Declare (id, _, s)) ext =
+        if not (live id s) then analyze_stm s ext
         else (ErrorMsg.error ext ("Uninitialized variable: " ^ Symbol.name id);
               raise ErrorMsg.Error)
-    | analyze (A.If (e, s1, s2)) ext = (analyze s1 ext; analyze s2 ext)
-    | analyze (A.While (e, s)) ext = analyze s ext
-    | analyze (A.Seq (s1, s2)) ext = (analyze s1 ext; analyze s2 ext)
-    | analyze (A.For (_, _, _, _)) _ = raise Fail "No for loops!"
-    | analyze (A.Markeds mark) _ = analyze (Mark.data mark) (Mark.ext mark)
-    | analyze _ _ = ()
+    | analyze_stm (A.If (e, s1, s2)) ext = (analyze_stm s1 ext; analyze_stm s2 ext)
+    | analyze_stm (A.While (e, s)) ext = analyze_stm s ext
+    | analyze_stm (A.Seq (s1, s2)) ext = (analyze_stm s1 ext; analyze_stm s2 ext)
+    | analyze_stm (A.For (_, _, _, _)) _ = raise Fail "No for loops!"
+    | analyze_stm (A.Markeds mark) _ = analyze_stm (Mark.data mark) (Mark.ext mark)
+    | analyze_stm _ _ = ()
 
   (* analyze_adecl : A.gdecl -> unit
    *
    * Analyzes a global declaration for intialization checking. This really only
    * looks inside of function definitions.
-   * @see same args/raise as #analyze
+   * @see same args/raise as #analyze_stm
    *)
   fun analyze_adecl (A.Fun (_, _, _, body)) =
-        analyze (A.remove_for body A.Nop) NONE
+        analyze_stm (A.remove_for body A.Nop) NONE
     | analyze_adecl _ = ()
 
-  (* initializationcheck : A.program -> unit
+  (* analyze : A.program -> unit
    *
    * Performs semantic analysis on the given program to make sure that all
    * variables are initialized before use.
@@ -126,6 +120,6 @@ struct
    * @param p the program to check
    * @raise ErrorMsg.Error if a variable is used before initialization
    *)
-  fun initializationcheck prog = app analyze_adecl prog
+  fun analyze prog = app analyze_adecl prog
 
 end

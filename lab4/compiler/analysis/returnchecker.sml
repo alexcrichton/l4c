@@ -6,13 +6,7 @@
  * Checks that the program will always return.
  *)
 
-signature RETURN_CHECK =
-sig
-  (* prints error message and raises ErrorMsg.error if error found *)
-  val returncheck : Ast.program -> unit
-end;
-
-structure ReturnChecker :> RETURN_CHECK =
+structure ReturnChecker :> Analysis =
 struct
   structure A = Ast
 
@@ -29,19 +23,19 @@ struct
     | returns (A.Return _) = true
     | returns _ = false
 
-  (* returncheck : A.program -> unit
+  (* analyze : A.program -> unit
    *
    * Checks a program to make sure that it always returns
    *
    * @param prog the program to check
    * @raise ErrorMsg.Error if the program does not return
    *)
-  fun returncheck [] = ()
-    | returncheck ((A.Fun (_, name, _, f))::G) = if returns f then ()
+  fun analyze [] = ()
+    | analyze ((A.Fun (_, name, _, f))::G) = if returns f then ()
         else (ErrorMsg.error NONE ("Function " ^ Symbol.name name ^
                                    " does not return");
               raise ErrorMsg.Error)
-    | returncheck ((A.Markedg data)::G) = returncheck ((Mark.data data)::G)
-    | returncheck (g::G) = returncheck G
+    | analyze ((A.Markedg data)::G) = analyze ((Mark.data data)::G)
+    | analyze (g::G) = analyze G
 
 end

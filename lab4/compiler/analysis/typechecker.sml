@@ -4,13 +4,7 @@
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
 
-signature TYPE_CHECK =
-sig
-  (* prints error message and raises ErrorMsg.error if error found *)
-  val typecheck : Ast.program -> unit
-end;
-
-structure TypeChecker :> TYPE_CHECK =
+structure TypeChecker :> Analysis =
 struct
   structure A = Ast
   structure LP = ListPair
@@ -272,14 +266,14 @@ struct
     | tc_stm env (A.Markeds marked_stm) _ lp =
         tc_stm env (Mark.data marked_stm) (Mark.ext marked_stm) lp
 
-  (* typecheck : A.program -> unit
+  (* analyze : A.program -> unit
    *
    * Performs static analysis on the program to typecheck it. An error is raised
    * if there is a type problem, otherwise nothing happens.
    *
    * @param prog the program to typecheck
    *)
-  fun typecheck L = let
+  fun analyze L = let
         val funs = ref Symbol.empty
         val structs = ref Symbol.empty
 

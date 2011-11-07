@@ -119,14 +119,14 @@ struct
 
     val _ = P.startTimer "Analyzing..."
     val _ = Flag.guard O.flag_verbose say ("Typechecking... " ^ source)
-    val _ = P.time ("Typechecking", fn () => TypeChecker.typecheck ast)
+    val _ = P.time ("Typechecking", fn () => TypeChecker.analyze ast)
     val _ = Flag.guard O.flag_verbose say ("Returns... " ^ source)
-    val _ = P.time ("Returns", fn () => ReturnChecker.returncheck ast)
+    val _ = P.time ("Returns", fn () => ReturnChecker.analyze ast)
     val _ = Flag.guard O.flag_verbose say ("Main... " ^ source)
-    val _ = P.time ("Main", fn () => MainChecker.maincheck ast)
+    val _ = P.time ("Main", fn () => MainChecker.analyze ast)
     val _ = Flag.guard O.flag_verbose say ("Initialization... " ^ source)
     val _ = P.time ("Initialization",
-                    fn () => InitializationChecker.initializationcheck ast)
+                    fn () => InitializationChecker.analyze ast)
     val _ = P.stopTimer ()
 
     fun pretty (id, _, _, cfg) = let

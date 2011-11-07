@@ -7,13 +7,7 @@
  * arguments
  *)
 
-signature MAIN_CHECK =
-sig
-  (* prints error message and raises ErrorMsg.error if error found *)
-  val maincheck : Ast.program -> unit
-end;
-
-structure MainChecker :> MAIN_CHECK =
+structure MainChecker :> Analysis =
 struct
   structure A = Ast
 
@@ -32,7 +26,7 @@ struct
         else true
     | ismain _ = false
 
-  (* maincheck : A.program -> unit
+  (* analyze : A.program -> unit
    *
    * Checks a program has a main() function which takes no arguments and returns
    * an integer.
@@ -40,7 +34,7 @@ struct
    * @param prog the program to check
    * @raise ErrorMsg.Error if the program does not have a correct main
    *)
-  fun maincheck L = (foldl (fn (a, b) => b orelse ismain a) false L
+  fun analyze L = (foldl (fn (a, b) => b orelse ismain a) false L
         orelse (ErrorMsg.error NONE "No main function was found";
                 raise ErrorMsg.Error); ())
 
