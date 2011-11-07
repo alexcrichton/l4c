@@ -178,54 +178,50 @@ struct
                               (100, Fail "Temp not found")
         fun process_stms id (T.MOVE (T.TEMP ((t, _), typ), _)) = let
               val set = case HT.find defs t
-                          of SOME s => s
-                           | NONE   => S.singleton entry
+                          of SOME (s, _) => s
+                           | NONE        => S.singleton entry
               val _ = gverbose (fn () => Temp.name t ^ " => " ^
                                          dump_is set ^ " + " ^
                                          Int.toString id)
-            in HT.insert defs (t, S.add (set, id)) end
+            in HT.insert defs (t, (S.add (set, id), typ)) end
           | process_stms _ _ = ()
       in
         #forall_nodes g (fn (id, stms) => app (process_stms id) stms);
         defs
       end
 
-  (* find_phis : graph * (Temp, S.set) HT.table -> (int, TS.set) HT.table
+  (* find_phis : graph * (Temp, S.set) HT.table -> (int, T.typ TM.map) HT.table
    *
    * Finds where all phi functions should go in the given graph.
    * @param g the graph
    * @param defs a table of temps to a set of locations where this temp is
    *        defined. See #find_defs
-   * @return a table where each key is a node ID and the value is a set of
-   *         temps which need phi functions at this node.
+   * @return a table where each key is a node ID and the value is a mapping of
+   *         temps to their respective sizes
    *)
   fun find_phis (G.GRAPH g, defs) = let
         val df's = dom_frontiers (G.GRAPH g)
         val phis = HT.mkTable (Word.fromInt, op =)
                               (97, Fail "Node not found")
-        fun process_defs (temp, nodes) = let
+        fun process_defs (temp, (nodes, typ)) = let
               val tphis = idf df's nodes
               fun process_phis nid = let
-                    val set = case HT.find phis nid
+                    val map = case HT.find phis nid
                                 of SOME s => s
-                                 | NONE   => TempSet.empty
-                  in
-                    HT.insert phis (nid, TempSet.add (set, temp))
-                  end
-            in
-              S.app process_phis tphis
-            end
+                                 | NONE   => TM.empty
+                  in HT.insert phis (nid, TM.insert (map, temp, typ)) end
+            in S.app process_phis tphis end
       in
         HT.appi process_defs defs; phis
       end
 
-  (* place_phis : graph * (int, TS.set) HT.table -> unit
+  (* place_phis : graph * (int, T.typ TM.map) HT.table -> unit
    *
    * Places all phi functions into the graph.
    * @param g the graph
-   * @param phis a table of node ids to sets of temps where each set of temps
+   * @param phis a table of node ids to maps of temps where each map of temps
    *        corresponds to the set of temps which need phi functions at
-   *        the node.
+   *        the node and the size of each temp.
    * @note the phi functions don't have any value after this, they're all empty
    *       and need to be filled in later.
    *)
@@ -233,11 +229,11 @@ struct
         fun process_node (id, stms) = let
               val p = case HT.find phis id
                         of SOME s => s
-                         | NONE   => TempSet.empty
-              fun create_phi (temp, L) =
-                    (T.MOVE (T.TEMP ((temp, ref ~1), T.QUAD), T.PHI []))::L
+                         | NONE   => TM.empty
+              fun create_phi (temp, size, L) =
+                    (T.MOVE (T.TEMP ((temp, ref ~1), size), T.PHI []))::L
             in
-              #add_node g (id, TempSet.foldl create_phi stms p)
+              #add_node g (id, TM.foldli create_phi stms p)
             end
       in
         #forall_nodes g process_node
