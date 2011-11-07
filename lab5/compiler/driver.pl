@@ -281,6 +281,7 @@ sub test {
     my ($directive, $expected, $valid, $error, $asm_file, $result, $line);
     my $command;
     my $ret;
+    my $timeout;
     if (-e "a.out") { unlink "a.out" or die "could not remove a.out\n"; }
     if (-e "a.result") { unlink "a.result" or die "could not remove a.result\n"; }
 
@@ -306,17 +307,17 @@ sub test {
             or die "could not rename $asm_file from previous compilation\n";}
 
     $command = "$COMPILER_EXEC $COMPILER_ARGS $file $Opt_Pass";
-    $result = system_with_timeout($COMPILER_TIMEOUT, "$command",
-                                  $write, $write);
+    ($result, $timeout) = system_with_timeout($COMPILER_TIMEOUT, "$command",
+                                              $write, $write);
 
     if ($result == 0) {
         $command = "$GCC $asm_file $RUNTIME";
-        $result = system_with_timeout($GCC_TIMEOUT, $command,
-                                      $write, $write);
+        ($result, $timeout) = system_with_timeout($GCC_TIMEOUT, $command,
+                                                  $write, $write);
     }
 
     # the 0 means "this is not the reference compiler"
-    $ret = grade_compilation($file, $result, $directive, $expected, 0, $p);
+    $ret = grade_compilation($file, $result, $timeout, $directive, $expected, 0, $p);
     if (defined $ret) {
         return $ret;
     }
@@ -329,9 +330,11 @@ sub test {
     else {
         $in_file = undef;
     }
-    $result = system_with_timeout($RUN_TIMEOUT, $command, "> a.result", "> a.output", $in_file);
+    ($result, $timeout) = system_with_timeout($RUN_TIMEOUT, $command,
+                                              "> a.result", "> a.output",
+                                              $in_file);
     
-    return grade_execution($file, $result, $directive, $expected, $p);
+    return grade_execution($file, $result, $timeout, $directive, $expected, $p);
 }
 
 ###
@@ -343,6 +346,7 @@ sub validate {
     my ($directive, $expected, $result, $valid, $error);
     my ($command, $compiler_result, $res_known, $res_quarantine, $res_crash);
     my $ret;
+    my $timeout;
 
     if (-e "a.out") { unlink "a.out" or die "could not remove a.out\n"; }
     if (-e "a.result") { unlink "a.result" or die "could not remove a.result\n"; }
@@ -365,13 +369,13 @@ sub validate {
     }
 
     $command = "$REF_COMPILER $REF_COMPILER_ARGS $file";
-    $result = system_with_timeout($COMPILER_TIMEOUT, "$command",
-                                  $write, $write);
+    ($result, $timeout) = system_with_timeout($COMPILER_TIMEOUT, "$command",
+                                              $write, $write);
 
     $result = ($result >> 8) & 0x7F; # shift because shell return code
 
     # the 1 means "this is the reference compiler"
-    $ret = grade_compilation($file, $result, $directive, $expected, 1, $p);
+    $ret = grade_compilation($file, $result, $timeout, $directive, $expected, 1, $p);
     if (defined $ret) {
         return $ret;
     }
@@ -384,13 +388,15 @@ sub validate {
     else {
         $in_file = undef;
     }
-    $result = system_with_timeout($RUN_TIMEOUT, $command, "> a.result", "> a.output", $in_file);
+    ($result, $timeout) = system_with_timeout($RUN_TIMEOUT, $command,
+                                              "> a.result", "> a.output",
+                                              $in_file);
 
-    return grade_execution($file, $result, $directive, $expected, $p);
+    return grade_execution($file, $result, $timeout, $directive, $expected, $p);
 }
 
 ###
-# $ret = grade_compilation($file, $result, $directive, $expected, $is_ref);
+# $ret = grade_compilation($file, $result, $timeout, $directive, $expected, $is_ref);
 # if (defined $ret) {
 #     return $ret;
 # }
@@ -398,6 +404,7 @@ sub validate {
 sub grade_compilation {
     my $file = shift;
     my $result = shift;
+    my $timeout = shift;
     my $directive = shift;
     my $expected = shift;
     my $is_ref_compiler = shift;
@@ -431,7 +438,7 @@ sub grade_compilation {
     if ($result != 0) {
         ## build error, but we didn't have an error directive.
         ## bail now.
-        if (!$is_ref_compiler || $result == $res_known) {
+        if (!$is_ref_compiler || $result == $res_known || $timeout) {
             return fail("Compilation unexpectedly failed on $file.\n",
                         $file, $p);
         }
@@ -447,16 +454,17 @@ sub grade_compilation {
 }
 
 ###
-# return grade_execution($file, $result, $directive, $expected);
+# return grade_execution($file, $result, $timeout, $directive, $expected);
 #
 sub grade_execution {
     my $file = shift;
     my $result = shift;
+    my $timeout = shift;
     my $directive = shift;
     my $expected = shift;
     my $p = shift;
 
-    if ($result > 128) {
+    if ($result != 0) {
         $result = $result - 128; # killed by signal
     }
 
@@ -470,7 +478,7 @@ sub grade_execution {
                         $file, $p);
         }
         $expected = $expected+0;  # convert to integer, for sanity's sake
-        if ($result == $expected) {
+        if ($result == $expected || $timeout == $expected) {
             return pass("Execution of binary raised appropriate exception $result.\n",
                         $file, $p);
         }
@@ -516,6 +524,7 @@ sub grade_execution {
 sub make_compiler {
     my $result;
     my $write;
+    my $timeout;
 
     if ($Opt_Quiet < 4) {
         $write = undef;
@@ -524,8 +533,8 @@ sub make_compiler {
         $write = ">/dev/null";
     }
 
-    $result = system_with_timeout($MAKE_TIMEOUT, "make $COMPILER",
-                                  $write, $write);
+    ($result, $timeout) = system_with_timeout($MAKE_TIMEOUT, "make $COMPILER",
+                                              $write, $write);
     if ($result != 0) {
         die "make did not succeed\n";
     }

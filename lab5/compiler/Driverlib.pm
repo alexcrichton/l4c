@@ -128,7 +128,7 @@ sub system_with_timeout {
 
     if (!$@) {                   # check whether "eval" died
         printd(2, "%% process $p returned normally\n");
-        return $result;
+        return ($result, 0);
     }
 
     if ($@ !~ /^alarm/) {
@@ -145,7 +145,7 @@ sub system_with_timeout {
         }
     }
     printd(2, "%% reaped all children\n");
-    return 128 + 14;              # return SIGALRM to signal timeout
+    return (-1, 14);              # return SIGALRM to signal timeout
 }
 
 ###
