@@ -35,6 +35,7 @@ sig
   structure Print :
   sig
     val pp_program : program -> string
+    val pp_stm : stm -> string
   end
 end
 
@@ -92,6 +93,7 @@ struct
 
     fun pp_exp (CONST (x, typ)) = Word32Signed.toString x ^ pp_typ typ
       | pp_exp (TEMP (t, n, typ)) = Temp.name t ^ "#" ^ Int.toString n ^ pp_typ typ
+      | pp_exp (PHI L) = "PHI(" ^ String.concatWith ", " (map pp_exp L) ^ ")"
       | pp_exp (BINOP (binop, e1, e2)) =
           "(" ^ pp_exp e1 ^ " " ^ pp_binop binop ^ " " ^ pp_exp e2 ^ ")"
       | pp_exp (CALL (l, _, L)) = let
@@ -101,7 +103,8 @@ struct
         end
       | pp_exp (MEM (e, t)) = "M[" ^ pp_exp e ^ "]" ^ pp_typ t
 
-    fun pp_stm (MOVE (e1,e2)) = pp_exp e1 ^ " <- " ^ pp_exp e2
+    fun pp_stm (MOVE (e1,e2)) = pp_exp e1 ^ " = " ^ pp_exp e2
+      | pp_stm (COND e) = "if (" ^ pp_exp e ^ ") ..."
       | pp_stm (LABEL l) = Label.name l
       | pp_stm (GOTO (l, NONE)) = "goto " ^ Label.name l
       | pp_stm (GOTO (l, SOME exp)) =
@@ -111,7 +114,7 @@ struct
     fun pp_func (l, _, _, stms) = Label.name l ^ ":\n" ^
                           tab (String.concatWith "\n" (map pp_stm stms)) ^ "\n\n"
 
-    and pp_program [] = "TODO"
+    and pp_program _ = "TODO"
       (*| pp_program (func::funcs) = pp_func func ^ pp_program funcs*)
   end
 end

@@ -57,7 +57,10 @@ struct
         help="print type sizes in ASM and IR"},
        {short = "", long=["dotalloc"],
         desc=G.NoArg (fn () => Flag.set O.flag_dotalloc),
-        help="output DOT file for llocation graph"}
+        help="output DOT file for allocation graph"},
+       {short = "", long=["dotcfg"],
+        desc=G.NoArg (fn () => Flag.set O.flag_dotcfg),
+        help="output DOT file for control flow graph"}
       ]
 
   fun stem s = let
@@ -124,16 +127,29 @@ struct
                     fn () => InitializationChecker.initializationcheck ast)
     val _ = P.stopTimer ()
 
+    fun pretty (id, _, _, cfg) = let
+          fun pp_node (nid, data) = "label=\"" ^ String.concatWith "\\n"
+                                    (map Tree.Print.pp_stm data) ^ "\" " ^
+                                    "shape=box"
+          fun pp_edge (_, _, Tree.TRUE) = "label=true"
+            | pp_edge (_, _, Tree.FALSE) = "label=false"
+            | pp_edge (_, _, Tree.ALWAYS) = ""
+        in
+          Dotfile.mkdot (Options.filename () ^ ".cfg." ^ Label.name id,
+                         pp_node, pp_edge, cfg)
+        end
+
     val _ = Flag.guard O.flag_verbose say "Translating..."
     val ir'' = P.time ("Translating", fn () => Trans.translate ast)
+    val _ = Flag.guard O.flag_dotcfg (fn () => app pretty ir'')
     (*val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir'')) ()*)
-    val _ = Flag.guard O.flag_verbose say ("Neededness Analysis... " ^ source)
+(*    val _ = Flag.guard O.flag_verbose say ("Neededness Analysis... " ^ source)
     val ir' = P.time ("Neededness", fn () => Neededness.eliminate ir'')
     val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir')) ()
     val _ = Flag.guard O.flag_verbose say ("Constant Folding... " ^ source)
     val ir = P.time ("Const Folding", fn () => CFold.fold ir')
-    val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir)) ()
-
+    val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir)) ()*)
+(*
     val _ = Flag.guard O.flag_verbose say "Codegen..."
     val assem = P.time ("Codegen   ", fn () => Codegen.codegen ir)
     val _ = Flag.guard O.flag_assem
@@ -153,6 +169,7 @@ struct
     val _ = Flag.guard O.flag_verbose say ("Writing assembly to " ^ afname ^ " ...")
     val _ = SafeIO.withOpenOut afname (fn afstream =>
          TextIO.output (afstream, code))
+         *)
     val _ = P.stopTimer ()
     val _ = P.print ()
   in

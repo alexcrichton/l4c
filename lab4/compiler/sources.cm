@@ -24,22 +24,13 @@ Group is
   analysis/typechecker.sml
   analysis/returnchecker.sml
   analysis/initchecker.sml
-  analysis/neededness.sml
   analysis/mainchecker.sml
-
-  optimizations/cfold.sml
 
   trans/label.sml
   trans/temp.sml
   trans/tree.sml
   trans/trans.sml
   trans/ssa.sml
-
-  codegen/assem.sml
-  codegen/codegen.sml 
-  codegen/liveness.sml
-  codegen/allocation.sml
-  codegen/graph.sml
 
   top/top.sml
   top/options.sml

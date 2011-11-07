@@ -250,6 +250,8 @@ struct
         val (bstms, bpreds) = trans_stm (env, g, [], [(eid, T.TRUE)]) s
                                         (blist, eid)
         val bid = commit g bstms bpreds
+        val G.GRAPH graph = g
+        val _ = #add_edge graph (bid, eid, T.ALWAYS)
       in ([], (eid, T.FALSE) :: (!blist)) end
     | trans_stm (_, g, stms, preds) A.Continue (_, cexp) = let
         val id = commit g stms preds
