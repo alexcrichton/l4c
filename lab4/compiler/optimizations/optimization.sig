@@ -5,5 +5,5 @@
  *)
 signature OPTIMIZATION =
 sig
-  val optimize : Tree.program -> Tree.program
+  val optimize : Tree.cfg -> Tree.cfg
 end

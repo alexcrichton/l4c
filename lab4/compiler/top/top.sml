@@ -130,7 +130,7 @@ struct
     val _ = P.time ("Initialization",
                     fn () => InitializationChecker.analyze ast)
 
-    fun pretty (id, _, _, cfg) = let
+    fun pretty key (id, _, _, cfg) = let
           fun pp_node (nid, data) = "label=\"" ^ String.concatWith "\\n"
                                                   (map Tree.Print.pp_stm data) ^
                                     "\\n" ^ Int.toString nid^ "\" " ^
@@ -140,15 +140,17 @@ struct
             | pp_edge (_, _, Tree.BRANCH) = "label=branch"
             | pp_edge (_, _, Tree.ALWAYS) = ""
         in
-          Dotfile.mkdot (Options.filename () ^ ".cfg." ^ Label.name id,
-                         pp_node, pp_edge, cfg)
+          Dotfile.mkdot (Options.filename () ^ ".cfg." ^ key ^ "." ^
+                         Label.name id, pp_node, pp_edge, cfg)
         end
 
     (* IR translation/Optimizations *)
     val _ = Flag.guard O.flag_verbose say "Translating..."
-    val cfg = P.time ("Translating", fn () => Trans.translate ast)
-    val _ = P.time ("SSA", fn () => SSA.ssa cfg)
-    val _ = Flag.guard O.flag_dotcfg (fn () => app pretty cfg) ()
+    val cfg' = P.time ("Translating", fn () => Trans.translate ast)
+    val _ = P.time ("SSA", fn () => SSA.ssa cfg')
+    val _ = Flag.guard O.flag_dotcfg (fn () => app (pretty "ssa") cfg') ()
+    val cfg = SimpPhis.optimize cfg'
+    val _ = Flag.guard O.flag_dotcfg (fn () => app (pretty "phis") cfg) ()
     val ir = P.time ("Flatten", fn () => SSA.dessa cfg)
     val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir)) ()
 (*    val _ = Flag.guard O.flag_verbose say ("Neededness Analysis... " ^ source)
