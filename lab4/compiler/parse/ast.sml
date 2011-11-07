@@ -265,8 +265,12 @@ struct
         Seq (elaborate_stm env s1, elaborate_stm env s2)
     | elaborate_stm env (Express e) = Express (elaborate_exp env e)
     | elaborate_stm env (Return e) = Return (elaborate_exp env e)
-    | elaborate_stm env (Assign (id, s, e)) =
-        Assign (id, s, elaborate_exp env e)
+    | elaborate_stm env (Assign (Marked mark, s, e2)) =
+        elaborate_stm env (Assign (Mark.data mark, s, e2))
+    | elaborate_stm env (Assign (Var id, SOME oper, e2)) =
+        elaborate_stm env (Assign (Var id, NONE, BinaryOp (oper, Var id, e2)))
+    | elaborate_stm env (Assign (e1, s, e2)) =
+        Assign (elaborate_exp env e1, s, elaborate_exp env e2)
     | elaborate_stm _ stm = stm
 
   and elaborate_exp env (Marked mark) =

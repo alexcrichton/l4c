@@ -12,7 +12,7 @@ sig
                  | AND | OR  | XOR | LSH | RSH
   datatype typ = WORD | QUAD
   datatype edge = ALWAYS | TRUE | FALSE | BRANCH
-  type tmp = Temp.temp * int
+  type tmp = Temp.temp * int ref
 
   datatype exp =
       TEMP of tmp * typ
@@ -55,7 +55,7 @@ struct
                  | AND | OR  | XOR | LSH | RSH
   datatype typ = WORD | QUAD
   datatype edge = ALWAYS | TRUE | FALSE | BRANCH
-  type tmp = Temp.temp * int
+  type tmp = Temp.temp * int ref
 
   datatype exp =
       TEMP of tmp * typ
@@ -79,8 +79,10 @@ struct
   type func = Label.label * typ * (Temp.temp * typ) list * stm list
   type program = func list
 
-  fun tmphash (t, n) = Word.fromInt (17 * n) + Temp.hash t
-  fun tmpcompare ((t1, n1), (t2, n2)) = let val ord = Temp.compare (t1, t2) in
+  fun tmphash (t, ref n) = Word.fromInt (17 * n) + Temp.hash t
+  fun tmpcompare ((t1, ref n1), (t2, ref n2)) = let
+        val ord = Temp.compare (t1, t2)
+      in
         if ord = EQUAL then Int.compare (n1, n2)
         else ord
       end
@@ -111,8 +113,8 @@ struct
       | pp_typ QUAD = ":q"
 
     fun pp_exp (CONST (x, typ)) = Word32Signed.toString x ^ pp_typ typ
-      | pp_exp (TEMP ((t, n), typ)) = Temp.name t ^ "#" ^ Int.toString n ^
-                                      pp_typ typ
+      | pp_exp (TEMP ((t, ref n), typ)) = Temp.name t ^ "#" ^ Int.toString n ^
+                                          pp_typ typ
       | pp_exp (PHI) = "PHI"
       | pp_exp (BINOP (binop, e1, e2)) =
           "(" ^ pp_exp e1 ^ " " ^ pp_binop binop ^ " " ^ pp_exp e2 ^ ")"
