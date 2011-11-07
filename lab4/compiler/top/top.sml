@@ -74,7 +74,7 @@ struct
 
   fun main (name, args) =
   let
-    val _ = Debug.set_level Debug.DEBUG
+    val _ = Debug.set_level Debug.WARN
     val header = "Usage: compile [OPTION...] SOURCEFILE\nwhere OPTION is"
     val usageinfo = G.usageInfo {header = header, options = options}
     fun errfn msg = (say (msg ^ "\n" ^ usageinfo) ; raise EXIT)
@@ -155,15 +155,11 @@ struct
     val _ = Flag.guard O.flag_verbose say ("Constant Folding... " ^ source)
     val ir = P.time ("Const Folding", fn () => CFold.fold ir')
     val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir)) ()*)
-(*
     val _ = Flag.guard O.flag_verbose say "Codegen..."
     val assem = P.time ("Codegen   ", fn () => Codegen.codegen ir)
     val _ = Flag.guard O.flag_assem
         (fn () => List.app (TextIO.print o Assem.format) assem) ()
 
-    (* OSX gcc apparently doesn't like '.global' or an _l1_main with only
-       one underscore. Unix gcc, however, expects these two. As a compromise,
-       output '.globl' for both and have a _c0_main and a __c0_main *)
     val assem = [Assem.DIRECTIVE(".file\t\"" ^ source ^ "\""),
                  Assem.DIRECTIVE(".globl " ^
                                  Label.name (Label.extfunc "_c0_main"))]
@@ -175,7 +171,6 @@ struct
     val _ = Flag.guard O.flag_verbose say ("Writing assembly to " ^ afname ^ " ...")
     val _ = SafeIO.withOpenOut afname (fn afstream =>
          TextIO.output (afstream, code))
-         *)
     val _ = P.stopTimer ()
     val _ = P.print ()
   in

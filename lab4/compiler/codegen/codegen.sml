@@ -16,6 +16,7 @@ struct
   structure AS = Assem
   structure P = Profile
   structure IBM = IntBinaryMap
+  structure HT = HashTable
 
   fun munch_op T.ADD = AS.ADD
     | munch_op T.SUB = AS.SUB
@@ -35,6 +36,14 @@ struct
   fun size (AS.MEM (_, t) | AS.REG (_, t) |
             AS.TEMP (_, t) | AS.IMM(_, t)) = t
 
+  fun munch_temp ts (t, typ) = let
+        val t' = case HT.find ts t
+                   of SOME t' => t'
+                    | NONE => let val t' = Temp.new () in
+                                HT.insert ts (t, t'); t'
+                              end
+      in AS.TEMP (t', munch_typ typ) end
+
   (* munch_exp : AS.operand -> T.exp -> AS.instr list
    *
    * generates instructions to achieve d <- e, d must be TEMP(t) or REG(r)
@@ -43,23 +52,23 @@ struct
    * @return the instructions needed to move the result of the expression into
    *         the destination
    *)
-  fun munch_exp d (T.CONST (n, typ)) = [AS.MOV(d, AS.IMM (n, munch_typ typ))]
-    | munch_exp d (T.TEMP (t, typ)) = [AS.MOV(d, AS.TEMP (t, munch_typ typ))]
-    | munch_exp d (T.BINOP (binop, e1, e2)) = munch_binop d (binop, e1, e2)
-    | munch_exp d (T.MEM (a, typ)) = let
+  fun munch_exp ts d (T.CONST (n, typ)) = [AS.MOV(d, AS.IMM (n, munch_typ typ))]
+    | munch_exp ts d (T.TEMP (t, typ)) = [AS.MOV (d, munch_temp ts (t, typ))]
+    | munch_exp ts d (T.BINOP (binop, e1, e2)) = munch_binop ts d (binop, e1, e2)
+    | munch_exp ts d (T.MEM (a, typ)) = let
         val t = AS.TEMP (Temp.new(), AS.QUAD)
-        val instrs = munch_exp t a
+        val instrs = munch_exp ts t a
       in
         instrs @ [AS.MOV(d, AS.MEM (t, munch_typ typ))]
       end
-    | munch_exp d (T.CALL (l, t, L)) = let
+    | munch_exp ts d (T.CALL (l, t, L)) = let
           fun argdest typ n =
                 case AS.arg_reg n
                   of AS.STACKARG n => AS.REG (AS.STACK (8 * n), munch_typ typ)
                    | _ => AS.TEMP (Temp.new(), munch_typ typ)
 
           fun eval ((e, t), (i, T, I)) = let val d = argdest t i in
-                                           (i - 1, d::T, (munch_exp d e) @ I)
+                                           (i - 1, d::T, (munch_exp ts d e) @ I)
                                          end
           val (_, T, I) = foldr eval (length L - 1, [], []) L
           fun mv (s as (AS.TEMP (_, typ)), (i, L)) =
@@ -70,6 +79,7 @@ struct
         in
           I @ moves @ [AS.CALL (l, length L), AS.MOV (d, ret)]
         end
+    | munch_exp _ _ _ = raise Fail "Invalid expression"
 
   (* munch_half : T.typ -> AS.binop -> T.exp -> (AS.operand * AS.instr list)
    *
@@ -84,12 +94,12 @@ struct
    * @return the result of the computation and the instructions necessary to
    *         perform the computation
    *)
-  and munch_half oper (T.TEMP (t, typ)) = (AS.TEMP (t, munch_typ typ), [])
-    | munch_half (AS.DIV | AS.MOD | AS.CMP) (e as T.CONST (_, typ)) = let
+  and munch_half ts oper (T.TEMP (t, typ)) = (munch_temp ts (t, typ), [])
+    | munch_half ts (AS.DIV | AS.MOD | AS.CMP) (e as T.CONST (_, typ)) = let
         val t = AS.TEMP(Temp.new(), munch_typ typ)
-      in (t, munch_exp t e) end
-    | munch_half _ (T.CONST (n, typ)) = (AS.IMM (n, munch_typ typ), [])
-    | munch_half oper e = let
+      in (t, munch_exp ts t e) end
+    | munch_half _ _ (T.CONST (n, typ)) = (AS.IMM (n, munch_typ typ), [])
+    | munch_half ts oper e = let
         fun guess_size (T.CONST (_, t) | T.TEMP (_, t) | T.MEM (_, t) |
                         T.CALL (_, t, _)) = munch_typ t
           | guess_size (T.BINOP (_, e1, e2)) = let
@@ -97,8 +107,9 @@ struct
             in
               if e1t = AS.QUAD orelse e2t = AS.QUAD then AS.QUAD else AS.WORD
             end
+          | guess_size _ = raise Fail "Invalid expression!"
         val t = AS.TEMP(Temp.new(), guess_size e)
-      in (t, munch_exp t e) end
+      in (t, munch_exp ts t e) end
 
   (* munch_binop : AS.operand -> T.binop * T.exp * T.exp -> AS.instr list
    *
@@ -112,11 +123,11 @@ struct
    * @return the list of instructions needed to perform the operation and move
    *         it into the destination register
    *)
-  and munch_binop d (binop, e1, e2) =
+  and munch_binop ts d (binop, e1, e2) =
       let
         val oper = munch_op binop
-        val (t1, t1instrs) = munch_half oper e1
-        val (t2, t2instrs) = munch_half oper e2
+        val (t1, t1instrs) = munch_half ts oper e1
+        val (t2, t2instrs) = munch_half ts oper e2
         fun promote r = if size r = AS.QUAD then ([], r)
                         else let val t = AS.TEMP (Temp.new(), AS.QUAD) in
                           ([AS.MOV(t, r)], t)
@@ -181,18 +192,19 @@ struct
    * @param exp  the expression to evaluate
    * @return the instructions necessary to perform this conditional
    *)
-  and munch_conditional dest (T.CONST (w, T.WORD)) =
+  and munch_conditional _ dest (T.CONST (w, T.WORD)) =
         if Word32Signed.ZERO = w then [] else [AS.JMP(dest, NONE)]
-    | munch_conditional dest (T.TEMP (n, T.WORD)) =
-        [AS.BINOP (AS.CMP, AS.TEMP (n, AS.WORD),
+    | munch_conditional ts dest (T.TEMP (n, T.WORD)) =
+        [AS.BINOP (AS.CMP, munch_temp ts (n, T.WORD),
          AS.IMM (Word32Signed.ZERO, AS.WORD)), AS.JMP(dest, SOME(AS.NEQ))]
-    | munch_conditional dest (f as T.CALL _) = let val t = Temp.new() in
-        munch_exp (AS.TEMP (t, AS.WORD)) f @
-          munch_conditional dest (T.TEMP (t, T.WORD))
+    | munch_conditional ts dest (f as T.CALL _) = let val t = Temp.new() in
+        munch_exp ts (AS.TEMP (t, AS.WORD)) f @
+        [AS.BINOP (AS.CMP, AS.TEMP (t, AS.WORD),
+         AS.IMM (Word32Signed.ZERO, AS.WORD)), AS.JMP(dest, SOME(AS.NEQ))]
       end
-    | munch_conditional dest (T.BINOP (oper, e1, e2)) = let
-        val (t1, t1instrs) = munch_half AS.CMP e1
-        val (t2, t2instrs) = munch_half AS.CMP e2
+    | munch_conditional ts dest (T.BINOP (oper, e1, e2)) = let
+        val (t1, t1instrs) = munch_half ts AS.CMP e1
+        val (t2, t2instrs) = munch_half ts AS.CMP e2
         val _ = if size t1 <> size t2 then raise Fail "diff size" else ()
         val cond = case oper of T.LT => AS.LT | T.LTE => AS.LTE
                               | T.EQ => AS.EQ | T.NEQ => AS.NEQ
@@ -202,13 +214,13 @@ struct
         t1instrs @ t2instrs @
           [AS.BINOP (AS.CMP, t1, t2), AS.JMP(dest, SOME cond)]
       end
-    | munch_conditional dest (T.MEM (a, T.WORD)) = let
-        val (t, tinstrs) = munch_half AS.CMP a
+    | munch_conditional ts dest (T.MEM (a, T.WORD)) = let
+        val (t, tinstrs) = munch_half ts AS.CMP a
       in
         [AS.BINOP (AS.CMP, t, AS.IMM (Word32Signed.ZERO, size t)),
          AS.JMP(dest, SOME(AS.NEQ))]
       end
-    | munch_conditional _ _ = raise Fail "bad types in munch_conditional"
+    | munch_conditional _ _ _ = raise Fail "bad types in munch_conditional"
 
   (* munch_stm : T.typ -> T.stm -> AS.instr list
    *
@@ -218,19 +230,20 @@ struct
    * @param exp the expression to convert
    * @return L a list of abstract assembly instructions with temps
    *)
-  fun munch_stm _ (T.MOVE (T.TEMP (t, typ), e)) =
-        munch_exp (AS.TEMP (t, munch_typ typ)) e
-    | munch_stm _ (T.MOVE (T.MEM (a, typ), e)) = let
+  fun munch_stm ts _ (T.MOVE (T.TEMP (t, typ), e)) =
+        munch_exp ts (munch_temp ts (t, typ)) e
+    | munch_stm ts _ (T.MOVE (T.MEM (a, typ), e)) = let
         val t = AS.TEMP (Temp.new(), AS.QUAD)
       in
-        munch_exp t a @ munch_exp (AS.MEM (t, munch_typ typ)) e
+        munch_exp ts t a @ munch_exp ts (AS.MEM (t, munch_typ typ)) e
       end
-    | munch_stm t (T.RETURN e) = munch_exp (AS.REG (AS.EAX, t)) e @ [AS.RET]
-    | munch_stm _ (T.LABEL l)  = [AS.LABEL l]
-    | munch_stm _ (T.GOTO (l, NONE)) = [AS.JMP (l, NONE)]
-    | munch_stm _ (T.GOTO (l, SOME e)) = munch_conditional l e
-    | munch_stm _ _ = raise Fail "Invalid IR"
-  and munch_stmts t stmts = foldr (op @) [] (map (munch_stm t) stmts)
+    | munch_stm ts t (T.RETURN e) =
+        munch_exp ts (AS.REG (AS.EAX, t)) e @ [AS.RET]
+    | munch_stm _ _ (T.LABEL l)  = [AS.LABEL l]
+    | munch_stm _ _ (T.GOTO (l, NONE)) = [AS.JMP (l, NONE)]
+    | munch_stm ts _ (T.GOTO (l, SOME e)) = munch_conditional ts l e
+    | munch_stm _ _ _ = raise Fail "Invalid IR"
+  and munch_stmts ts t stmts = foldr (op @) [] (map (munch_stm ts t) stmts)
 
   (* stack_size : T.stm list * int -> int
    *
@@ -310,7 +323,8 @@ struct
         val saves    = ListPair.map (fn t => AS.MOV t) (save_dsts, save_srcs)
         val restores = ListPair.map (fn t => AS.MOV t) (save_srcs, save_dsts)
 
-        val L' = P.time ("Munching", fn () => munch_stmts (munch_typ t) L)
+        val ts = HT.mkTable (T.tmphash, T.tmpequals) (97, Fail "Temp bug")
+        val L' = P.time ("Munching", fn () => munch_stmts ts (munch_typ t) L)
         val instrs = saves @ argmvs @ foldr (alter_ret restores) [] L'
         val (max, assem) = Allocation.allocate (id, instrs, save_dsts)
 

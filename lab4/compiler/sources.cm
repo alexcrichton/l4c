@@ -22,6 +22,12 @@ Group is
   parse/l4.grm.sml
   parse/parse.sml
 
+  codegen/assem.sml
+  codegen/allocation.sml
+  codegen/codegen.sml
+  codegen/graph.sml
+  codegen/liveness.sml
+
   analysis/typechecker.sml
   analysis/returnchecker.sml
   analysis/initchecker.sml
