@@ -1,6 +1,23 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <signal.h>
+#include <string.h>
+
+void* alloc(size_t bytes) {
+  void *mem = malloc(bytes);
+  if (mem == NULL) {
+    raise(SIGSEGV);
+  }
+  memset(mem, 0, bytes);
+  return mem;
+}
+
+void* alloc_array(ssize_t elements, size_t size) {
+  if (elements < 0) {
+    raise(SIGABRT);
+  }
+  return alloc(elements * size);
+}
 
 void checkeof () {
   if (feof(stdin)) {
