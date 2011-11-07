@@ -225,9 +225,10 @@ struct
         #forall_nodes g process_node
       end
 
-  (* number_temps : graph * (Temp.temp * typ) list -> TM.set array
+  (* number_temps : graph * (Temp.temp * typ) list -> int TM.map array
    *
    * Walks through the graph, numbering all temps with their correct SSA values.
+   *
    * @param g the graph
    * @param args the arguments to the function that this graph represents. These
    *        are needed to create the initial set of temp numberings
@@ -300,6 +301,26 @@ struct
         visit_node (List.hd (#entries g ()), initial); vmaps
       end
 
+  (* fix_phis : graph * int TM.map array -> unit
+   *
+   * Fixes all PHI functions in the graph to be a PHI of the correct set of
+   * arguments.
+   *)
+  fun fix_phis (G.GRAPH g, vmaps) = let
+        fun update_phi preds (T.MOVE (tmp as T.TEMP ((t, _), s), T.PHI _)) = let
+              fun getnum pred = valOf (TM.find (A.sub (vmaps, pred), t))
+              val nums = foldl (fn (pred, s) => (S.add (s, getnum pred)
+                                                 handle Option => s))
+                               S.empty preds
+            in
+              T.MOVE (tmp, T.PHI (map (fn n => (t, ref n)) (S.listItems nums)))
+            end
+          | update_phi _ stm = stm
+        fun fix_node (node, stms) = let
+              val stms' = map (update_phi (#pred g node)) stms
+            in #add_node g (node, stms') end
+      in #forall_nodes g fix_node end
+
   (* ssa_graph : graph * (Temp.temp * int) list -> unit
    *
    * Helper function to transform the given graph into SSA form. The argument
@@ -307,11 +328,12 @@ struct
    *)
   fun ssa_graph (grec, args) = let
         val G.GRAPH g = grec
-        val defs = P.time ("Finding definitions", fn () => find_defs grec)
-        val phis = P.time ("Finding phis", fn () => find_phis (grec, defs))
-        val _    = P.time ("Placing phis", fn () => place_phis (grec, phis))
+        val defs  = P.time ("Finding definitions", fn () => find_defs grec)
+        val phis  = P.time ("Finding phis", fn () => find_phis (grec, defs))
+        val _     = P.time ("Placing phis", fn () => place_phis (grec, phis))
         val vmaps = P.time ("Numbering temps", fn () =>
                                                     number_temps (grec, args))
+        val _     = P.time ("Fixing phis", fn () => fix_phis (grec, vmaps))
 
         (* Add MOVE instructions to the CFG - DeSSA *)
         fun dessa (nid, stms) = let
