@@ -1,4 +1,4 @@
-(* L4 Compiler
+(* L5 Compiler
  * Error messages
  * Author: Kaustuv Chaudhuri <kaustuv+@cs.cmu.edu>
  * Annotations: Alex Vaynberg <alv@andrew.cmu.edu>

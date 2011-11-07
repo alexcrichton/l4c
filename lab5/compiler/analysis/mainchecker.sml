@@ -1,4 +1,4 @@
-(* L4 Compiler
+(* L5 Compiler
  * MainChecker
  * Author: Alex Crichton <acrichto@andrew.cmu.edu>
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>

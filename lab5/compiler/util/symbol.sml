@@ -1,4 +1,4 @@
-(* L4 Compiler
+(* L5 Compiler
  * The symbol tables
  * Author: Kaustuv Chaudhuri <kaustuv+@cs.cmu.edu>
  *)

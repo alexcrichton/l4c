@@ -1,5 +1,5 @@
-(* L4 Compiler
- * L4 grammar
+(* L5 Compiler
+ * L5 grammar
  * Author: Alex Crichton <acrichto@andrew.cmu.edu>
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
@@ -24,7 +24,7 @@ fun genptrinc (exp, oper) =
   A.Seq (A.Express (A.Deref (exp, ref A.NULL)), genpost (exp, oper))
 
 %%
-%header (functor L4LrValsFn (structure Token : TOKEN))
+%header (functor L5LrValsFn (structure Token : TOKEN))
 
 %term
    EOF
@@ -99,7 +99,7 @@ fun genptrinc (exp, oper) =
 %pure          (* Apparently has the effect of executing the reduce code as soon
                   as a reduction is possible. *)
 
-%name L4
+%name L5
 
 (* The precedence grows down! *)
 %right ASNOP

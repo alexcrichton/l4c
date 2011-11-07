@@ -1,4 +1,4 @@
-(* L4 Compiler
+(* L5 Compiler
  * Parsing
  * Author: Kaustuv Chaudhuri <kaustuv+@cs.cmu.edu>
  * Modified: Frank Pfenning <fp@cs.cmu.edu>
@@ -17,10 +17,10 @@ end
 structure Parse :> PARSE =
 struct 
 
-  structure L4LrVals = L4LrValsFn (structure Token = LrParser.Token)
-  structure L4Lex = L4LexFn (structure Tokens = L4LrVals.Tokens)
-  structure L4Parse = Join (structure ParserData = L4LrVals.ParserData
-                            structure Lex = L4Lex
+  structure L5LrVals = L5LrValsFn (structure Token = LrParser.Token)
+  structure L5Lex = L5LexFn (structure Tokens = L5LrVals.Tokens)
+  structure L5Parse = Join (structure ParserData = L5LrVals.ParserData
+                            structure Lex = L5Lex
                             structure LrParser = LrParser)
 
   (* Main parsing function *)
@@ -31,9 +31,9 @@ struct
 	  val _ = ParseState.setfile filename (* start at position 0 in filename *)
 	  fun parseerror (s, p1, p2) = ErrorMsg.error (ParseState.ext (p1,p2)) s
 	  val lexer = LrParser.Stream.streamify
-			  (L4Lex.makeLexer (fn _ => TextIO.input instream))
+			  (L5Lex.makeLexer (fn _ => TextIO.input instream))
 	  (* 0 = no error correction, 15 = reasonable lookahead for correction *)
-	  val (absyn, _) = L4Parse.parse(0, lexer, parseerror, ())
+	  val (absyn, _) = L5Parse.parse(0, lexer, parseerror, ())
           val _ = if !ErrorMsg.anyErrors
 		  then raise ErrorMsg.Error
 		  else ()
@@ -44,7 +44,7 @@ struct
            | e as IO.Io _ => ( ErrorMsg.error NONE (exnMessage e);
                                raise ErrorMsg.Error )
            (* moved here for portability between v110.59 and later versions *)
-	   (* was: L4Lex.LexError => ... *)
+	   (* was: L5Lex.LexError => ... *)
            | e => ( ErrorMsg.error NONE "lexer error" ;
                     raise ErrorMsg.Error )
 

@@ -1,0 +1,15 @@
+compiler/bin/*.heap*
+compiler/parse/*.grm.*
+compiler/parse/*.lex.*
+tests/*
+!tests/*.*
+*.s
+.cm
+*.swp
+*.log
+*.old
+*.dot
+*.svg
+compiler/a.out
+compiler/a.result
+compiler/a.output
