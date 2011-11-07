@@ -16,7 +16,7 @@ sig
 
   datatype exp =
       TEMP of tmp * typ
-    | PHI
+    | PHI of tmp list
     | CONST of Word32.word * typ
     | BINOP of binop * exp * exp
     | CALL of Label.label * typ * (exp * typ) list
@@ -59,7 +59,7 @@ struct
 
   datatype exp =
       TEMP of tmp * typ
-    | PHI
+    | PHI of tmp list
     | CONST of Word32.word * typ
     | BINOP of binop * exp * exp
     | CALL of Label.label * typ * (exp * typ) list
@@ -94,6 +94,8 @@ struct
     fun tab str = "  " ^ (String.translate
       (fn c => if c = #"\n" then "\n  " else (String.str c)) str)
 
+    fun pp_tmp (t, ref n) = Temp.name t ^ "#" ^ Int.toString n
+
     fun pp_binop ADD = "+"
       | pp_binop SUB = "-"
       | pp_binop MUL = "*"
@@ -113,9 +115,8 @@ struct
       | pp_typ QUAD = ":q"
 
     fun pp_exp (CONST (x, typ)) = Word32Signed.toString x ^ pp_typ typ
-      | pp_exp (TEMP ((t, ref n), typ)) = Temp.name t ^ "#" ^ Int.toString n ^
-                                          pp_typ typ
-      | pp_exp (PHI) = "PHI"
+      | pp_exp (TEMP (t, typ)) = pp_tmp t ^ pp_typ typ
+      | pp_exp (PHI L) = "PHI(" ^ String.concatWith "," (map pp_tmp L) ^ ")"
       | pp_exp (BINOP (binop, e1, e2)) =
           "(" ^ pp_exp e1 ^ " " ^ pp_binop binop ^ " " ^ pp_exp e2 ^ ")"
       | pp_exp (CALL (l, _, L)) = let

@@ -217,7 +217,7 @@ struct
                         of SOME s => s
                          | NONE   => TempSet.empty
               fun create_phi (temp, L) =
-                    (T.MOVE (T.TEMP ((temp, ref ~1), T.QUAD), T.PHI))::L
+                    (T.MOVE (T.TEMP ((temp, ref ~1), T.QUAD), T.PHI []))::L
             in
               #add_node g (id, TempSet.foldl create_phi stms p)
             end
@@ -225,18 +225,16 @@ struct
         #forall_nodes g process_node
       end
 
-  (* ssa_graph : graph * (Temp.temp * int) list -> unit
+  (* number_temps : graph * (Temp.temp * typ) list -> TM.set array
    *
-   * Helper function to transform the given graph into SSA form. The argument
-   * list is used for value numbering of all temps in the graph.
+   * Walks through the graph, numbering all temps with their correct SSA values.
+   * @param g the graph
+   * @param args the arguments to the function that this graph represents. These
+   *        are needed to create the initial set of temp numberings
+   * @return an array where each index corresponds to a graph node and the value
+   *         is the set of known numbers for variables when exiting that node
    *)
-  fun ssa_graph (grec, args) = let
-        val G.GRAPH g = grec
-        val defs = P.time ("Finding definitions", fn () => find_defs grec)
-        val phis = P.time ("Finding phis", fn () => find_phis (grec, defs))
-        val _    = P.time ("Placing phis", fn () => place_phis (grec, phis))
-
-        (* Number the temps *)
+  fun number_temps (G.GRAPH g, args) = let
         val tvals = HT.mkTable (Temp.hash, Temp.equals)
                                (97, Fail "Temp not found!")
         val visited = A.array (#capacity g (), false)
@@ -293,10 +291,27 @@ struct
                 app (fn id => visit_node (id, map')) (#succ g nid)
               end
             end
+
+        (* The initial set has all arguments with number 0 *)
         val initial = foldl (fn ((t, _), s) => (HT.insert tvals (t, 0);
                                                 TM.insert (s, t, 0)))
                             TM.empty args
-        val _ = visit_node (List.hd (#entries g ()), initial)
+      in
+        visit_node (List.hd (#entries g ()), initial); vmaps
+      end
+
+  (* ssa_graph : graph * (Temp.temp * int) list -> unit
+   *
+   * Helper function to transform the given graph into SSA form. The argument
+   * list is used for value numbering of all temps in the graph.
+   *)
+  fun ssa_graph (grec, args) = let
+        val G.GRAPH g = grec
+        val defs = P.time ("Finding definitions", fn () => find_defs grec)
+        val phis = P.time ("Finding phis", fn () => find_phis (grec, defs))
+        val _    = P.time ("Placing phis", fn () => place_phis (grec, phis))
+        val vmaps = P.time ("Numbering temps", fn () =>
+                                                    number_temps (grec, args))
 
         (* Add MOVE instructions to the CFG - DeSSA *)
         fun dessa (nid, stms) = let
@@ -304,7 +319,7 @@ struct
               val pred_stms = HT.mkTable (Word.fromInt, op =)
                                          (length preds, Subscript)
 
-              fun getphi (T.MOVE (T.TEMP (t, _), T.PHI)) = SOME t
+              fun getphi (T.MOVE (T.TEMP (t, _), T.PHI _)) = SOME t
                 | getphi _ = NONE
 
               fun process_phi (phi as (tmp, n)) = let
