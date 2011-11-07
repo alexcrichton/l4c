@@ -370,15 +370,15 @@ struct
    * @param reg the register to convert
    * @return the number corresponding to this register
    *)
-  fun reg_num R11D = 0
+  fun reg_num R11D = ~1
     | reg_num R10D = 0
-    | reg_num EAX  = 1
-    | reg_num ECX  = 2
-    | reg_num EDX  = 3
-    | reg_num ESI  = 4
-    | reg_num EDI  = 5
-    | reg_num R8D  = 6
-    | reg_num R9D  = 7
+    | reg_num R9D  = 1
+    | reg_num R8D  = 2
+    | reg_num ECX  = 3
+    | reg_num EDX  = 4
+    | reg_num ESI  = 5
+    | reg_num EDI  = 6
+    | reg_num EAX  = 7
     | reg_num EBX  = 8
     | reg_num R12D = 9
     | reg_num R13D = 10
@@ -396,14 +396,15 @@ struct
    * @param x the number of the register
    * @return the register corresponding to this number
    *)
-  fun num_reg  0 = R11D
-    | num_reg  1 = EAX
-    | num_reg  2 = ECX
-    | num_reg  3 = EDX
-    | num_reg  4 = ESI
-    | num_reg  5 = EDI
-    | num_reg  6 = R8D
-    | num_reg  7 = R9D
+  fun num_reg ~1 = R11D
+    | num_reg  0 = R10D
+    | num_reg  1 = R9D
+    | num_reg  2 = R8D
+    | num_reg  3 = ECX
+    | num_reg  4 = EDX
+    | num_reg  5 = ESI
+    | num_reg  6 = EDI
+    | num_reg  7 = EAX
     | num_reg  8 = EBX
     | num_reg  9 = R12D
     | num_reg 10 = R13D

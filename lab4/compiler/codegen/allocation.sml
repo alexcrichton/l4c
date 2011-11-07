@@ -6,8 +6,7 @@
 
 signature ALLOCATION =
 sig
-  val allocate : (Label.label * Assem.instr list * Assem.operand list)
-                  -> (int * Assem.instr list)
+  val allocate : (Label.label * Assem.instr list) -> Assem.instr list
 end
 
 (*
@@ -27,6 +26,12 @@ struct
   structure HT = HashTable
   structure PQ = NodePriorityQueue(DynArray)
   type node_data = {color:int ref, weight:int ref, in_seo:bool ref}
+
+  (* default : int -> node_data
+   *
+   * Creates the default data for the given color.
+   *)
+  fun default clr = {color=ref clr, weight=ref 0, in_seo=ref true}
 
   (* make_graph : graph -> OperandSet-> unit
    * Converts the liveness information map into an interference graph.
@@ -48,16 +53,14 @@ struct
         fun process_op (AS.IMM _, L) = L
           | process_op (AS.MEM _, _) = raise Fail "mem!"
           | process_op (AS.REG ((AS.STACK _ | AS.STACKARG _ | AS.STACKLOC _
-                                            | AS.R11D), _), L) = L
+                                            | AS.R11D | AS.R10D), _), L) = L
           | process_op (oper, L) = let
-              val clr = case oper of AS.REG (r, _) => AS.reg_num r | _ => 0
+              val clr = case oper of AS.REG (r, _) => AS.reg_num r | _ => ~2
               val id  = case HT.find (#graph_info graph) oper
                           of SOME id => id
                            | NONE => let val nid = #new_id graph () in
                                HT.insert (#graph_info graph) (oper, nid);
-                               #add_node graph (nid, {color=ref clr,
-                                                     weight=ref 0,
-                                                     in_seo=ref false});
+                               #add_node graph (nid, default clr);
                                nid
                              end
             in id :: L end
@@ -71,8 +74,8 @@ struct
   fun update_weights (G.GRAPH graph) = let
         fun count (node, cnt) =
               case !(#color (#node_info graph node))
-                of 0 => cnt
-                 | _ => cnt + 1
+                of ~2 => cnt
+                 | _  => cnt + 1
         fun update (node, info : node_data) = let
               val w = foldl count 0 (#succ graph node)
             in
@@ -158,7 +161,7 @@ struct
         )
         fun map_op (oper as (AS.TEMP (t, s))) =
               ((case !(get_color oper)
-                  of 0 => oper
+                  of ~2 => oper
                    | c => AS.REG (AS.num_reg c, s))
              handle G.NotFound => oper)
           | map_op (AS.MEM (oper, t)) = AS.MEM (map_op oper, t)
@@ -185,7 +188,8 @@ struct
   fun filter_instrs L = let
         fun isTemp (AS.TEMP _) = true | isTemp _ = false
         fun hasTemps (a as AS.MOV (o1, o2)) =
-              if (isTemp o2) then raise Fail "Live temp not allocated"
+              if (isTemp o2) then raise Fail ("Temp not allocated: " ^
+                                              Assem.format_operand o2)
               else (isTemp o1)
           | hasTemps (AS.BINOP (oper, o1, o2)) = false
           | hasTemps _ = false
@@ -205,10 +209,12 @@ struct
     | coalesce (G.GRAPH g) (AS.MOV (d as AS.TEMP _, s as AS.REG (r, _))) = (let
         val table = #graph_info g
         val ids as (did, _) = (HT.lookup table d, HT.lookup table s)
-        fun cmapfn n = !(#color (#node_info g n : node_data)) = AS.reg_num r
+        val _ = if #has_edge g ids then raise G.NotFound else ()
+        val color = AS.reg_num r
+        fun cmapfn n = !(#color (#node_info g n : node_data)) = color
       in
-        if #has_edge g ids orelse List.exists cmapfn (#succ g did) then () else
-          #color (#node_info g did : node_data) := AS.reg_num r
+        if List.exists cmapfn (#succ g did) then () else
+          (#color (#node_info g did : node_data) := color)
       end
       handle G.NotFound => ())
     | coalesce (G.GRAPH g) (AS.MOV (d as AS.TEMP _, s as AS.TEMP _)) = (let
@@ -241,6 +247,113 @@ struct
       handle G.NotFound => ())
     | coalesce _ _ = ()
 
+  (* caller_save : ('n, 'e, 'g)  Graph.graph
+   *                -> AS.instr * OS.set * AS.instr list
+   *                -> AS.instr list
+   *
+   * Add all of the caller save register operations into the instruction stream.
+   * This is meant to be used in a ListPair.foldl or similarly.
+   *
+   * @param g the interference graph
+   * @param c the instruction currently being looked at.
+   * @param live the live operands on the current instruction
+   * @param L the resulting list of instructions.
+   *
+   * @return all CALL instructions surrounded with saves/restores of caller
+   *         save registers. All saves are ensured they are in the graph as lone
+   *         nodes because otherwise callee_regs wouldn't know new registers
+   *         were added but need to be saved.
+   *)
+  fun caller_save (G.GRAPH g) (c as AS.CALL (_, args), live, L) = let
+        (* Map the live operands to the set of live colors of registers on the
+           current line *)
+        fun getcolor id = !(#color (#node_info g id : node_data))
+        val lookup = getcolor o (HT.lookup (#graph_info g))
+        fun add_operand (oper, set) =
+              IS.add (set, lookup oper) handle NotFound => set
+        val live_clrs = OperandSet.foldl add_operand IS.empty live
+
+        (* precalculate the set of colors for the caller_save registers *)
+        val caller_save = foldl (fn (r, s) => IS.add (s, AS.reg_num r))
+                                (IS.singleton (AS.reg_num AS.EAX))
+                                AS.caller_regs
+
+        (* We need to save all caller-save registers, except for those which
+           are parameters to the CALL. The parameters never need to be saved *)
+        val to_save = IS.fromList (map AS.reg_num AS.caller_regs)
+        fun remove (reg, set) =
+              IS.delete (set, AS.reg_num reg) handle NotFound => set
+        val to_save = foldl remove to_save (List.tabulate (args, AS.arg_reg))
+
+        (* Generates a save instruction for each register which needs to be
+           saved *)
+        fun gensave (r, (operands, set)) =
+              (* Skip if we don't need to save the register *)
+              if not(IS.member (set, r)) then (operands, set)
+              else let
+                (* The location for this saved register can't been in any other
+                   caller save registers, nor the current live colors. *)
+                val set' = IS.union (set, IS.delete (caller_save, r))
+                val (clr, _) = IS.foldl minNotIn (~1, false) set'
+                val dest = AS.REG (AS.num_reg clr, AS.QUAD)
+                (* Make sure to add this register to the graph so callee_regs
+                   knows that we need to save this color if it happens to be
+                   a callee-save register *)
+                val id = #new_id g ()
+                val _ = #add_node g (id, default clr)
+              in
+                ((dest, AS.REG (AS.num_reg r, AS.QUAD))::operands,
+                 IS.add (set, clr))
+              end
+        val (operands, _) = IS.foldl gensave ([], live_clrs) to_save
+        val saves    = map (fn t => AS.MOV t) operands
+        val restores = map (fn (a, b) => AS.MOV (b, a)) operands
+      in
+        saves @ [c] @ restores @ L
+      end
+    | caller_save _ (instr, _, L) = instr::L
+
+  (* callee_save : ('n, 'e, 'g)  Graph.graph -> AS.instr list -> AS.instr list
+   *
+   * Add all of the callee save register operations into the instruction stream.
+   *
+   * @param g the interference graph
+   * @param L the current list of instructions
+   *
+   * @return the same instruction list, except that callee-save registers are
+   *         preserved across the function. The graph must contain all registers
+   *         currently in use by the function
+   *)
+  fun callee_save (G.GRAPH g) L = let
+        val callee_save = foldl (fn (r, s) => IS.add (s, AS.reg_num r)) IS.empty
+                                AS.callee_regs
+        val caller_save = foldl (fn (r, s) => IS.add (s, AS.reg_num r)) IS.empty
+                                AS.caller_regs
+        fun add_node ((_, data : node_data), clrs) =
+              IS.add (clrs, !(#color data))
+        (* Callee-save registers cannot be saved in any used register, nor any
+           caller-save register. That would just be silly. *)
+        val live_clrs = foldl add_node IS.empty (#nodes g ())
+        val live_clrs = IS.union (live_clrs, caller_save)
+
+        (* Similar to caller_save, generates the save operands to save *)
+        fun gensave (r, (operands, set)) =
+              if not(IS.member (set, AS.reg_num r)) then (operands, set)
+              else let
+                val set' = IS.union (set, IS.delete (callee_save, AS.reg_num r))
+                val (clr, _) = IS.foldl minNotIn (~1, false) set'
+                val dest = AS.REG (AS.num_reg clr, AS.QUAD)
+              in ((dest, AS.REG (r, AS.QUAD))::operands, IS.add (set, clr)) end
+
+        val (operands, _) = foldl gensave ([], live_clrs) AS.callee_regs
+        val saves    = map (fn t => AS.MOV t) operands
+        val restores = map (fn (a, b) => AS.MOV (b, a)) operands
+        fun alter_ret (AS.RET, L) = restores @ (AS.RET :: L)
+          | alter_ret (i, L) = i::L
+      in
+        saves @ foldr alter_ret [] L
+      end
+
   (* allocate : instr list -> int * instr list
    * Returns the given instruction list with all temps and variables assigned
    * to specific registers or stack locations. This function will perform the
@@ -251,22 +364,14 @@ struct
    *            instructions with all temps replaced with registers or stack
    *            locations
    *)
-  fun allocate (f, L, temps) = let
+  fun allocate (f, L) = let
         val live  = P.time ("Liveness", fn () => Liveness.compute L)
-        (*fun ps oper = print (Assem.format_operand oper ^ " ")
-        val _ = ListPair.app (fn (i, s) => (print (Assem.format i);
-                                            print "\t\t";
-                                            OperandSet.app ps s;
-                                            print "\n")) (L, live)
-        val _ = print "\n"*)
         val table = HT.mkTable (AS.oper_hash, AS.oper_equal)
                                (length L, G.NotFound)
         val graph_rec = UDG.graph ("allocation", table, List.length L)
         val G.GRAPH graph = graph_rec
-        val () = P.time ("Make graph",
-                         fn () => app (make_graph graph_rec) live)
-        val () = P.time ("Update weights", fn () => update_weights graph_rec)
-        val tids = IS.fromList (map (HT.lookup (#graph_info graph)) temps)
+        val _ = P.time ("Make graph", fn () => app (make_graph graph_rec) live)
+        val _ = P.time ("Update weights", fn () => update_weights graph_rec)
 
         fun less (n1, n2) = let
               val n1data : node_data = #node_info graph n1
@@ -277,19 +382,23 @@ struct
 
         val pq = PQ.create (#size graph ()) less
         val _ = P.time ("Create PQ", fn () =>
-                #forall_nodes graph (fn (nid, data) =>
-                  if !(#color data) = 0 andalso not(IS.member (tids, nid)) then
-                    PQ.insert (pq, nid)
-                  else (#in_seo data) := true))
+                  #forall_nodes graph (fn (nid, data) =>
+                    if !(#color data) = ~2 then PQ.insert (pq, nid)
+                    else (#in_seo data) := true))
 
         val order = P.time ("Generate SEO", fn () => generate_seo graph_rec pq)
-        val order = order @ IS.listItems tids
-        val () = P.time ("Coloring", fn () => app (color graph_rec) order)
-        val () = P.time ("Coalescing", fn () => app (coalesce graph_rec) L)
-        val L' = P.time ("Apply coloring", fn () => apply_coloring L graph_rec)
-        val max = foldl Int.max 0 (map (fn (_, d) => !(#color d))
-                                       (#nodes graph ()))
+        val _ = P.time ("Coloring", fn () => app (color graph_rec) order)
+        val _ = P.time ("Coalescing", fn () => app (coalesce graph_rec) L)
 
+        (* Adhere to callee/caller register saving conventions *)
+        val L = P.time ("Caller/callee", fn () => let
+                    val L = ListPair.foldr (caller_save graph_rec) [] (L, live)
+                    val L' = callee_save graph_rec L
+                  in L' end)
+
+        val L' = P.time ("Apply coloring", fn () => apply_coloring L graph_rec)
+
+        (* DOT - file formatters *)
         fun format_node (id, data : node_data) = let
               val opers = HT.foldi (fn (oper, id', L) =>
                                       if id = id' then oper::L else L)
@@ -309,6 +418,6 @@ struct
         (* The result of an unused DIV or MOD operation cannot be elimitated
            by neededness analysis, but it never gets colored, so throw it away
            here *)
-        (max, filter_instrs L')
+        filter_instrs L'
       end
 end

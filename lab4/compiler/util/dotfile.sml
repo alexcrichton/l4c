@@ -19,6 +19,8 @@ struct
           val out = TextIO.output
           fun nid id = "n" ^ Int.toString id
           val _ = out (stream, "digraph \"")
+          val _ = out (stream , #name graph)
+          val _ = out (stream, " - ")
           val _ = out (stream, fname)
           val _ = out (stream , "\" {\n")
           val _ = #forall_nodes graph (fn (id, data) => let

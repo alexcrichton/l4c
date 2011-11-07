@@ -242,19 +242,20 @@ struct
       in
         munch_exp ts t a @ munch_exp ts (AS.MEM (t, munch_typ typ)) e
       end
-    | munch_stm ts t (T.RETURN e) =
-        munch_exp ts (AS.REG (AS.EAX, t)) e @ [AS.RET]
+    | munch_stm ts t (T.RETURN e) = let val tmp = AS.TEMP (Temp.new(), t) in
+        munch_exp ts tmp e @ [AS.MOV (AS.REG (AS.EAX, t), tmp), AS.RET]
+      end
     | munch_stm _ _ (T.LABEL l)  = [AS.LABEL l]
     | munch_stm _ _ (T.GOTO (l, NONE)) = [AS.JMP (l, NONE)]
     | munch_stm ts _ (T.GOTO (l, SOME e)) = munch_conditional ts l e
     | munch_stm _ _ _ = raise Fail "Invalid IR"
   and munch_stmts ts t stmts = foldr (op @) [] (map (munch_stm ts t) stmts)
 
-  (* stack_size : T.stm list * int -> int
+  (* stack_size : T.stm list -> int
    *
    * Computes the amount of stack space needed for the given function
    *)
-  fun stack_size (I, locals) = let
+  fun stack_size I = let
         fun build_map_ops (AS.REG (AS.STACKLOC n, s), (w, q)) =
               (if s = AS.QUAD then
                 case IBM.find (q, n)
@@ -315,31 +316,23 @@ struct
           | alter_ret _ (i, L) = i :: L
         (* Move the arguments to the function from their specified registers
            into the temps of the arguments *)
-        fun mkarg i = let val (_, typ) = List.nth (T, i) in
-                        AS.REG (AS.arg_reg i, munch_typ typ)
-                      end
-        val srcs     = List.tabulate (length T, mkarg)
+        fun mkargs i [] = []
+          | mkargs i ((_, typ)::L) =
+              AS.REG (AS.arg_reg i, munch_typ typ) :: mkargs (i + 1) L
+        val srcs     = mkargs 0 T
         val dests    = map (fn (t, typ) => AS.TEMP (t, munch_typ typ)) T
         val argmvs   = ListPair.map (fn t => AS.MOV t) (dests, srcs)
-
-        (* Save/restore callee save registers *)
-        val save_srcs = map (fn r => AS.REG (r, AS.QUAD)) AS.callee_regs
-        val save_dsts = map (fn _ => AS.TEMP (Temp.new(), AS.QUAD)) save_srcs
-        val saves    = ListPair.map (fn t => AS.MOV t) (save_dsts, save_srcs)
-        val restores = ListPair.map (fn t => AS.MOV t) (save_srcs, save_dsts)
 
         val ts = HT.mkTable (T.tmphash, T.tmpequals) (97, Fail "Temp bug")
         val _  = app (fn (t, _) => HT.insert ts ((t, ref 0), t)) T
         val L' = P.time ("Munching", fn () => munch_stmts ts (munch_typ t) L)
-        val instrs = saves @ argmvs @ foldr (alter_ret restores) [] L'
-        val (max, assem) = Allocation.allocate (id, instrs, save_dsts)
+        val instrs = argmvs @ L'
+        val assem = Allocation.allocate (id, instrs)
 
         (* Make sure we have a stack for this function *)
-        val stack_start = AS.reg_num (AS.STACK 0)
         fun add_rsp i = AS.BINOP(AS.ADD, AS.REG (AS.ESP, AS.QUAD),
                                  AS.IMM (Word32.fromInt i, AS.QUAD))
-
-        val (assem', offset) = stack_size (assem, max)
+        val (assem', offset) = stack_size assem
       in
         add_rsp (~offset) :: foldr (alter_ret [add_rsp offset]) [] assem'
       end

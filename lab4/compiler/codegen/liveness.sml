@@ -52,10 +52,10 @@ struct
     | rulegen f (l, A.JMP (lbl, _)) = ([], [], [f lbl, l + 1])
     | rulegen f (l, A.DIRECTIVE _) = ([], [], [l + 1])
     | rulegen f (l, A.COMMENT _) = ([], [], [l + 1])
-    | rulegen f (l, A.RET) = (eax::(map mkreg A.callee_regs), [], [])
+    | rulegen f (l, A.RET) = ([eax], [], [])
     | rulegen f (l, A.LABEL _) = ([], [], [l + 1])
     | rulegen f (l, A.CALL (_, n)) = (List.tabulate (n, mkreg o A.arg_reg),
-                                      eax::(map mkreg A.caller_regs), [l + 1])
+                                      [eax], [l + 1])
     | rulegen f (l, A.ASM s) =
         if s = "cltd" then ([], [A.REG (A.EDX, A.WORD)], [l + 1])
         else ([], [], [l + 1])
@@ -147,23 +147,11 @@ struct
     val rules = Vector.fromList L
     val rules = Vector.mapi (fn pair => (rulegen (HT.lookup labels) pair,
                                          ref OS.empty)) rules
-    
-    (* Extract the final rule set from the list of rules *)
-    fun extract _ [] = []
-      | extract i ((A.MOV _)::L) = let val (_, ref s) = Vector.sub (rules, i) in
-          s :: (extract (i + 1) L)
-        end
-      | extract i (_::L) = let
-          val ((_, ds, _), ref s) = Vector.sub (rules, i)
-          fun isreg (A.REG _) = true | isreg _ = false
-        in
-          OS.addList (s, List.filter isreg ds) :: (extract (i + 1) L)
-        end
   in
     munge rules (fn label =>
       (#2 (Vector.sub (rules, label))) handle Subscript => ref OS.empty
     );
-    extract 0 L
+    Vector.foldr (fn ((_, ref s), L) => s::L) [] rules
   end
 
 end

@@ -171,8 +171,8 @@ struct
                                  Label.name (Label.extfunc "_c0_main"))]
           @ assem
           @ [Assem.DIRECTIVE ".ident\t\"15-411 L4 reference compiler\""]
-    val code = P.time ("Formatting", fn () => String.concat
-                                                (List.map (Assem.format) assem))
+    val code = P.time ("Formatting",
+                       fn () => String.concat (List.map (Assem.format) assem))
 
     val afname = stem source ^ ".s"
     val _ = Flag.guard O.flag_verbose say ("Writing assembly to " ^ afname ^
