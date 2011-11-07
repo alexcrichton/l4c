@@ -195,7 +195,11 @@ struct
       end
     | trans_exp env (A.Marked data) a = trans_exp env (Mark.data data) a
 
-  fun commit (G.GRAPH g) block preds = let val nid = #new_id g () in
+  fun commit (G.GRAPH g) block preds = let
+        val nid = #new_id g ()
+        val _ = if List.length (#entries g ()) <> 0 then ()
+                else #set_entries g [nid]
+      in
         #add_node g (nid, block);
         app (fn (pred, edge) => #add_edge g (pred, nid, edge)) preds;
         nid
@@ -294,6 +298,11 @@ struct
                           (A.remove_for body A.Nop)
                           (ref [], ~1)
         val targs = map (fn (t, id) => (id, trans_typ t)) args
+        val G.GRAPH g = graph_rec
+        val order = GraphDFS.postorder_numbering (G.GRAPH g)
+                                                 (List.hd (#entries g ()))
+        val _ = Array.appi (fn (i, v) => if v >= 0 then ()
+                                         else #remove_node g i) order
       in
         SOME (Label.intfunc (Symbol.name name), trans_typ typ, targs, graph_rec)
       end

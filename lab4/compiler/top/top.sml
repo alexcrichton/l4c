@@ -59,7 +59,7 @@ struct
         desc=G.NoArg (fn () => Flag.set O.flag_dotalloc),
         help="output DOT file for allocation graph"},
        {short = "", long=["dotcfg"],
-        desc=G.NoArg (fn () => Flag.set O.flag_dotcfg),
+        desc=G.NoArg (fn () => (print "dotcfg\n";Flag.set O.flag_dotcfg)),
         help="output DOT file for control flow graph"}
       ]
 
@@ -129,7 +129,7 @@ struct
 
     fun pretty (id, _, _, cfg) = let
           fun pp_node (nid, data) = "label=\"" ^ String.concatWith "\\n"
-                                    (map Tree.Print.pp_stm data) ^ "\" " ^
+                                    (map Tree.Print.pp_stm data) ^ "\\n" ^ Int.toString nid^ "\" " ^
                                     "shape=box"
           fun pp_edge (_, _, Tree.TRUE) = "label=true"
             | pp_edge (_, _, Tree.FALSE) = "label=false"
@@ -141,7 +141,9 @@ struct
 
     val _ = Flag.guard O.flag_verbose say "Translating..."
     val ir'' = P.time ("Translating", fn () => Trans.translate ast)
-    val _ = Flag.guard O.flag_dotcfg (fn () => app pretty ir'')
+    (*val _ = Flag.guard O.flag_dotcfg (fn () => app pretty ir'')*)
+    val _ = P.time ("SSA", fn () => SSA.ssa ir'')
+    val _ = Flag.guard O.flag_dotcfg (fn () => (print "printing\n";app pretty ir'')) ()
     (*val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir'')) ()*)
 (*    val _ = Flag.guard O.flag_verbose say ("Neededness Analysis... " ^ source)
     val ir' = P.time ("Neededness", fn () => Neededness.eliminate ir'')
