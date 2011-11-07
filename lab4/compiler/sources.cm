@@ -42,6 +42,7 @@ Group is
 
   optimizations/optimization.sig
   optimizations/simp_phis.sml
+  optimizations/simp_cfg.sml
 
   top/top.sml
   top/options.sml
