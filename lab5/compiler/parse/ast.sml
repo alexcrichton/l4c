@@ -343,7 +343,7 @@ struct
       | pp_typ INT  = "int"
       | pp_typ NULL = "(null)"
       | pp_typ (PTR t)  = pp_typ t ^ "*"
-      | pp_typ (STRUCT id)  = "struct" ^ pp_ident id
+      | pp_typ (STRUCT id)  = "struct " ^ pp_ident id
       | pp_typ (ARRAY t)  = pp_typ t ^ "[]"
       | pp_typ (TYPEDEF id)  = pp_ident id
 
@@ -381,7 +381,7 @@ struct
       | pp_exp (AllocArray (t, e)) =
           "alloc_array(" ^ pp_typ t ^ "," ^ pp_exp e ^ ")"
       | pp_exp (Call (id, E)) =
-          pp_ident id ^ "(" ^ foldr (fn (e, s) => s ^ ", " ^ pp_exp e) "" E ^ ")"
+          pp_ident id ^ "(" ^ String.concatWith ", " (map pp_exp E) ^ ")"
       | pp_exp (BinaryOp (oper, e1, e2)) =
           "(" ^ pp_exp e1 ^ " " ^ pp_oper oper ^ " " ^ pp_exp e2 ^ ")"
       | pp_exp (UnaryOp (oper, e)) = pp_unop oper ^ "(" ^ pp_exp e ^ ")"
@@ -392,38 +392,43 @@ struct
     fun tab str = "  " ^ (String.translate
       (fn c => if c = #"\n" then "\n  " else (String.str c)) str)
 
-    fun pp_stm (Assign (e1, _, e2)) = pp_exp e1 ^ " ?= " ^ pp_exp e2 ^ ""
+    fun pp_stm (Assign (e1, NONE, e2)) = pp_exp e1 ^ " = " ^ pp_exp e2 ^ ""
+      | pp_stm (Assign (e1, SOME oper, e2)) =
+          pp_exp e1 ^ " " ^ pp_oper oper ^ "= " ^ pp_exp e2 ^ ""
       | pp_stm (If (e, s1, s2)) =
           "if (" ^ pp_exp e ^ ") {\n" ^ tab(pp_stm s1) ^ "\n} else {\n" ^
           pp_stm s2 ^ "\n}"
-      | pp_stm (While (e, s)) = "while (" ^ tab(pp_exp e) ^ ") {\n" ^
-          pp_stm s ^ " }"
+      | pp_stm (While (e, s)) = "while (" ^ pp_exp e ^ ") {\n" ^
+          tab (pp_stm s) ^ "\n}"
       | pp_stm (For (s1, e, s2, s3)) = "for (" ^ pp_stm s1 ^ "; " ^ pp_exp e ^
           "; " ^ pp_stm s2 ^ ") {\n" ^ tab(pp_stm s3) ^ "\n}"
       | pp_stm Continue = "continue"
       | pp_stm Break = "break"
       | pp_stm Nop = ""
       | pp_stm (Express e) = pp_exp e
+      | pp_stm (Seq (Nop, Nop)) = ""
+      | pp_stm (Seq (Nop, s)) = pp_stm s
+      | pp_stm (Seq (s, Nop)) = pp_stm s
       | pp_stm (Seq (s1, s2)) = pp_stm s1 ^ "\n" ^ pp_stm s2
       | pp_stm (Return e) = "return " ^ pp_exp e ^ ";"
       | pp_stm (Declare (id, t, s)) = pp_typ t ^ " " ^ pp_ident id ^ "\n" ^
           tab(pp_stm s)
       | pp_stm (Markeds (marked_stm)) = pp_stm (Mark.data marked_stm)
 
+    fun pp_def (typ, id) = pp_typ typ ^ " " ^ pp_ident id
+
     fun pp_adecl (Typedef (id, typ)) =
           "typedef " ^ Symbol.name id ^ " " ^ pp_typ typ
       | pp_adecl (Markedg d) = pp_adecl (Mark.data d)
       | pp_adecl (IntDecl (t, i, L)) =
           pp_typ t ^ " " ^ pp_ident i ^ "(" ^
-          (foldl (fn ((typ,id), s) => s ^ ", " ^ pp_typ typ ^ " " ^ pp_ident id)
-                 "" L) ^ ")"
+          String.concatWith ", " (map pp_def L) ^ ")"
       | pp_adecl (ExtDecl t) = "extern " ^ pp_adecl (IntDecl t)
       | pp_adecl (Fun (t, i, L, s)) =
           pp_adecl (IntDecl (t, i, L)) ^ "{\n" ^ tab(pp_stm s) ^ "\n}"
       | pp_adecl (StrDecl s) = "struct " ^ pp_ident s ^ ";"
       | pp_adecl (Struct (s, F)) = "struct " ^ pp_ident s ^ " {\n" ^
-        (foldl (fn ((typ, id), s) => s ^ "\n" ^ pp_typ typ ^ " " ^ pp_ident id ^ ";") "" F) ^
-          "\n}"
+          tab (String.concatWith "\n" (map pp_def F)) ^ "\n}"
 
     fun pp_program prog = foldl (fn (d, s) => s ^ pp_adecl d ^ "\n") "" prog
   end

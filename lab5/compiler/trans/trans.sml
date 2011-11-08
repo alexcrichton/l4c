@@ -179,7 +179,6 @@ struct
           (e1s @ e2s @ [T.MOVE (t, dest)], t)
         end
       end
-        (*(e1s @ e2s, if a then address dest else dest) end*)
     | trans_exp env (A.Deref (e, ref typ)) a = let
         val (es, e') = trans_exp env e false
       in
@@ -200,6 +199,14 @@ struct
       end
     | trans_exp env (A.Marked data) a = trans_exp env (Mark.data data) a
 
+  (* commit : graph -> T.block -> G.node_id list -> G.node_id
+   *
+   * Commits the given block to the graph.
+   * @param g the graph to add to
+   * @param block the block of statements to add as a node
+   * @param preds the predecessors of this node
+   * @return the node id of the node created
+   *)
   fun commit (G.GRAPH g) block preds = let
         val nid = #new_id g ()
         val _ = if List.length (#entries g ()) <> 0 then ()

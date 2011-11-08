@@ -132,6 +132,7 @@ struct
     val _ = Flag.guard O.flag_verbose say ("Initialization... " ^ source)
     val _ = P.time ("Initialization",
                     fn () => InitializationChecker.analyze ast)
+    val _ = P.stopTimer ()
 
     fun pretty key (id, _, _, cfg) = let
           fun pp_node (nid, data) = "label=\"" ^ String.concatWith "\\n"
