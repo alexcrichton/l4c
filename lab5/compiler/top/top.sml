@@ -63,7 +63,10 @@ struct
         help="output DOT file for control flow graph"},
        {short = "", long=["safe"],
         desc=G.NoArg (fn () => Flag.set O.flag_safe),
-        help="safe compilation with memory checks"}
+        help="safe compilation with memory checks"},
+       {short = "", long=["unsafe"],
+        desc=G.NoArg (fn () => Flag.set O.flag_unsafe),
+        help="unsafe compilation with no memory checks"}
       ]
 
   fun stem s = let

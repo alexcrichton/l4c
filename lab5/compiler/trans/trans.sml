@@ -53,7 +53,22 @@ struct
    *)
   fun const n = T.CONST (Word32.fromInt n, T.WORD)
   fun constq n = T.CONST (Word32.fromInt n, T.QUAD)
-  fun safe () = Flag.isset Options.flag_safe
+
+  fun safe () = not (Flag.isset Options.flag_unsafe) andalso
+                    Flag.isset Options.flag_safe
+  fun protect_access (stms, addr) =
+        if not (safe ()) then stms
+        else stms @ [T.GOTO (Label.extfunc "raise_segv",
+                             SOME (T.BINOP (T.EQ, addr, constq 0)))]
+
+  fun protect_arr_access (arr_addr, stms, arr_idx) = let
+        val abrt = Label.extfunc "raise_abrt"
+        val size = T.MEM (T.BINOP (T.SUB, arr_addr, constq 8), T.WORD)
+      in
+        if not (safe ()) then stms
+        else stms @ [T.GOTO (abrt, SOME (T.BINOP (T.LT, arr_idx, const 0))),
+                     T.GOTO (abrt, SOME (T.BINOP (T.LTE, size, arr_idx)))]
+      end
 
   fun address (T.MEM (a, _)) = a
     | address b = b
@@ -173,6 +188,8 @@ struct
         val (e2s, e2') = trans_exp env e2 false
         val offset = T.BINOP(T.MUL, e2', const (typ_size structs typ))
         val dest = T.MEM (T.BINOP (T.ADD, e1', offset), trans_typ typ)
+        val e1s = protect_access (e1s, e1')
+        val e2s = protect_arr_access (e1', e2s, e2')
       in
         if a then (e1s @ e2s, address dest)
         else let val t = T.TEMP ((Temp.new(), ref ~1), trans_typ typ) in
@@ -181,6 +198,7 @@ struct
       end
     | trans_exp env (A.Deref (e, ref typ)) a = let
         val (es, e') = trans_exp env e false
+        val es = protect_access (es, e')
       in
         if a then (es, e')
         else let val t = T.TEMP ((Temp.new(), ref ~1), trans_typ typ) in
@@ -234,8 +252,8 @@ struct
 
         val (e1s, e1'') = trans_exp env e1 true
         val e1' = case unmark e1
-                    of (A.ArrSub (_,_,t) | A.Deref (_,t)) =>
-                       T.MEM (e1'', trans_typ (!t))
+                    of (A.ArrSub (_, _, t) | A.Deref (_, t)) =>
+                         T.MEM (e1'', trans_typ (!t))
                      | (A.Field (_, id, t)) => let
                          val (_, typ) = struct_off env (!t) id
                        in

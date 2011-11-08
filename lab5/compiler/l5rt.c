@@ -12,6 +12,14 @@ void* zeromem(size_t bytes) {
   return mem;
 }
 
+void raise_segv() {
+  raise(SIGSEGV);
+}
+
+void raise_abrt() {
+  raise(SIGABRT);
+}
+
 /* Two arguments for compatibility with calloc when using --safe/--unsafe */
 void* salloc(ssize_t elements, size_t size) {
   return zeromem(elements * size);
