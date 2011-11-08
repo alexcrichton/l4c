@@ -1,0 +1,9 @@
+//test exception 6
+int foobar() {
+  return -1;
+}
+
+int main() {
+  int[] foo = alloc_array(int, foobar());
+  return foo[0];
+}
