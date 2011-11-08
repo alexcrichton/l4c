@@ -1,14 +1,14 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <signal.h>
 #include <string.h>
 
 void* zeromem(size_t bytes) {
-  void *mem = malloc(bytes);
+  void *mem = calloc(bytes, 1);
   if (mem == NULL) {
     raise(SIGSEGV);
   }
-  memset(mem, 0, bytes);
   return mem;
 }
 
@@ -22,10 +22,10 @@ void* salloc_array(ssize_t elements, size_t size) {
     raise(SIGABRT);
   }
   /* 8 extra bytes to shove the size of the array before the array */
-  size_t *mem = zeromem(elements * size + sizeof(size_t));
-  *mem = elements;
+  uint32_t *mem = zeromem(elements * size + 8);
+  *mem = (uint32_t) elements;
   /* Return the pointer to actual data so everything is compatible */
-  return mem + 1;
+  return mem + 2;
 }
 
 void checkeof () {
