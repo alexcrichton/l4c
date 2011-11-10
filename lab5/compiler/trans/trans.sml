@@ -70,9 +70,6 @@ struct
                      T.GOTO (abrt, SOME (T.BINOP (T.LTE, size, arr_idx)))]
       end
 
-  fun address (T.MEM (a, _)) = a
-    | address b = b
-
   fun trans_typ (A.STRUCT _ | A.ARRAY _ | A.PTR _) = T.QUAD
     | trans_typ _ = T.WORD
 
@@ -187,11 +184,12 @@ struct
         val (e1s, e1') = trans_exp env e1 false
         val (e2s, e2') = trans_exp env e2 false
         val offset = T.BINOP(T.MUL, e2', const (typ_size structs typ))
-        val dest = T.MEM (T.BINOP (T.ADD, e1', offset), trans_typ typ)
+        val addr = T.BINOP (T.ADD, e1', offset)
+        val dest = T.MEM (addr, trans_typ typ)
         val e1s = protect_access (e1s, e1')
         val e2s = protect_arr_access (e1', e2s, e2')
       in
-        if a then (e1s @ e2s, address dest)
+        if a then (e1s @ e2s, addr)
         else let val t = T.TEMP ((Temp.new(), ref ~1), trans_typ typ) in
           (e1s @ e2s @ [T.MOVE (t, dest)], t)
         end
@@ -208,9 +206,10 @@ struct
     | trans_exp env (A.Field (e, id, ref typ)) a = let
         val (es, e') = trans_exp env e true
         val (off, size) = struct_off env typ id
-        val dest = T.MEM (T.BINOP (T.ADD, address e', const off), size)
+        val addr = T.BINOP (T.ADD, e', const off)
+        val dest = T.MEM (addr, size)
       in
-        if a then (es, address dest)
+        if a then (es, addr)
         else let val t = T.TEMP ((Temp.new(), ref ~1), size) in
           (es @ [T.MOVE (t, dest)], t)
         end
