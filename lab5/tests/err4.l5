@@ -1,0 +1,13 @@
+//test exception 11
+int inc(int *val) {
+  int ret = *val;
+  *val = *val + 1;
+  return ret;
+}
+
+int main() {
+  int *val = alloc(int);
+  *val = -1;
+  int[] foo = alloc_array(int, inc(val));
+  return 4;
+}
