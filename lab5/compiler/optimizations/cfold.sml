@@ -1,5 +1,5 @@
 (* L5 Compiler
- * Constant folding
+ * Constant folding and propogation
  * Author: Alex Crichton <acrichto@andrew.cmu.edu>
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
@@ -7,6 +7,8 @@ structure CFold :> OPTIMIZATION =
 struct
   structure T = Tree
   structure W32S = Word32Signed
+  structure HT = HashTable
+  structure G = Graph
 
   fun commutative T.ADD = true
     | commutative T.SUB = false
@@ -72,48 +74,72 @@ struct
     | fold_simp (oper, e1, e2, p) = (T.BINOP (oper, e1, e2), p)
 
   (* Handle tree rotations then delegate to fold_simp *)
-  fun fold_binop_1 (oper1, c1 as (T.CONST _),
+  fun fold_binop_1 tbl (oper1, c1 as (T.CONST _),
                     T.BINOP (oper2, c2 as (T.CONST _), e3), p) =
         if oper1 = oper2 andalso associative oper1 then (* rotation! *)
-          fold_exp (T.BINOP (oper1, folde (T.BINOP (oper1, c1, c2)), e3))
+          fold_exp tbl (T.BINOP (oper1, folde tbl (T.BINOP (oper1, c1, c2)), e3))
         else if oper1 = oper2 andalso oper1 = T.SUB then
-          fold_exp (T.BINOP (T.ADD, folde (T.BINOP (T.SUB, c1, c2)), e3))
+          fold_exp tbl (T.BINOP (T.ADD, folde tbl (T.BINOP (T.SUB, c1, c2)), e3))
         else
           fold_simp (oper1, c1, T.BINOP (oper2, c2, e3), p)
-    | fold_binop_1 a = fold_simp a
+    | fold_binop_1 _ a = fold_simp a
 
   (* fold_exp : T.exp -> T.exp * bool
    *
    * Folds an expression. The bool in the return type is true if
    * the expresion can safely be optimized out (it's pure).
    *)
-  and fold_exp (T.MEM (e, t)) = (T.MEM (folde e, t), false)
-    | fold_exp (T.CALL (l, t, P)) = let fun map_params (e, t) = (folde e, t) in
+  and fold_exp tbl (T.TEMP (temp, typ)) =
+        (case HT.find tbl temp
+           of SOME c => (T.CONST c, true)
+            | NONE   => (T.TEMP (temp, typ), true))
+    | fold_exp tbl (T.MEM (e, t)) = (T.MEM (folde tbl e, t), false)
+    | fold_exp tbl (T.CALL (l, t, P)) = let
+        fun map_params (e, t) = (folde tbl e, t)
+      in
         (T.CALL (l, t, map map_params P), false)
       end
-    | fold_exp (T.BINOP (oper, e1, e2)) = let
-        val (e1', p1) = fold_exp e1
-        val (e2', p2) = fold_exp e2
+    | fold_exp tbl (T.BINOP (oper, e1, e2)) = let
+        val (e1', p1) = fold_exp tbl e1
+        val (e2', p2) = fold_exp tbl e2
         val pure = p1 andalso p2
       in
         case (e1', e2')
           of (T.CONST c1, T.CONST c2) => fold_binop_const (oper, c1, c2)
            | (e, T.CONST (c as (w, t))) => (* move constant left if possible *)
-              if commutative oper then fold_binop_1 (oper, T.CONST c, e, pure)
-              else if oper <> T.SUB then fold_binop_1 (oper, e, T.CONST c, pure)
-              else fold_binop_1 (T.ADD, T.CONST (~w, t), e, pure)
-           | (T.CONST c, e) => fold_binop_1 (oper, T.CONST c, e, pure)
+              if commutative oper then fold_binop_1 tbl (oper, T.CONST c, e, pure)
+              else if oper <> T.SUB then fold_binop_1 tbl (oper, e, T.CONST c, pure)
+              else fold_binop_1 tbl (T.ADD, T.CONST (~w, t), e, pure)
+           | (T.CONST c, e) => fold_binop_1 tbl (oper, T.CONST c, e, pure)
            | (e, e') => (T.BINOP (oper, e, e'), p1 andalso p2)
       end
-    | fold_exp i = (i, true)
+    | fold_exp _ i = (i, true)
 
-  and folde e = #1 (fold_exp e)
+  and folde tbl e = #1 (fold_exp tbl e)
 
-  fun folds (T.MOVE (e1, e2)) = T.MOVE (folde e1, folde e2)
-    | folds (T.GOTO (l, SOME e)) = T.GOTO (l, SOME (folde e))
-    | folds (T.RETURN e) = T.RETURN (folde e)
-    | folds s = s
+  fun folds tbl (T.MOVE (e1, e2)) = let
+        val es = (folde tbl e1, folde tbl e2)
+      in
+        case es
+          of (T.TEMP (temp, _), T.CONST c) => HT.insert tbl (temp, c)
+           | _ => ();
+        T.MOVE es
+      end
+    | folds tbl (T.GOTO (l, SOME e)) = T.GOTO (l, SOME (folde tbl e))
+    | folds tbl (T.RETURN e) = T.RETURN (folde tbl e)
+    | folds tbl s = s
 
-  fun optimize cfg = (CFG.map_stms folds cfg; cfg)
+  fun optimize cfg = let
+        fun mapg (_, _, _, G.GRAPH g) = let
+              val order = CFG.postorder (G.GRAPH g)
+              val ht = HT.mkTable (T.tmphash, T.tmpequals)
+                                  (43, Fail "cprop ht error")
+            in
+              app (fn nid => #add_node g (nid, map (folds ht)
+                                          (#node_info g nid))) order
+            end
+      in
+        List.app mapg cfg; cfg
+      end
 
 end

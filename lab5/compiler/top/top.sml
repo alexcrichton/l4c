@@ -153,19 +153,25 @@ struct
 
     (* IR translation/Optimizations *)
     val _ = Flag.guard O.flag_verbose say "Translating..."
-    val cfg' = P.time ("Translating", fn () => Trans.translate ast)
-    val _ = P.time ("SSA", fn () => SSA.ssa cfg')
-    val _ = Flag.guard O.flag_dotcfg (fn () => app (pretty "ssa") cfg') ()
-    val cfg = SimpPhis.optimize cfg'
-    val _ = Flag.guard O.flag_dotcfg (fn () => app (pretty "phis") cfg) ()
+    val cfg'' = P.time ("Translating", fn () => Trans.translate ast)
+
+    val _ = P.time ("SSA", fn () => SSA.ssa cfg'')
+    val _ = Flag.guard O.flag_dotcfg (fn () => app (pretty "ssa") cfg'') ()
+
+    val cfg' = SimpPhis.optimize cfg''
+    val _ = Flag.guard O.flag_dotcfg (fn () => app (pretty "phis") cfg') ()
+
+    (*val cfgs = SimpCFG.optimize cfg''
+    val _ = Flag.guard O.flag_dotcfg (fn () => app (pretty "merge") cfgs) ()*)
+
+    val _ = Flag.guard O.flag_verbose say ("Constant Folding... " ^ source)
+    val cfg = P.time ("Const Folding", fn () => CFold.optimize cfg'')
+
     val ir = P.time ("Flatten", fn () => SSA.dessa cfg)
     val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir)) ()
 (*    val _ = Flag.guard O.flag_verbose say ("Neededness Analysis... " ^ source)
     val ir' = P.time ("Neededness", fn () => Neededness.eliminate ir'')
-    val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir')) ()
-    val _ = Flag.guard O.flag_verbose say ("Constant Folding... " ^ source)
-    val ir = P.time ("Const Folding", fn () => CFold.fold ir')
-    val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir)) ()*)
+    val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir')) ()*)
 
     (* Codegen/Assembly generation*)
     val _ = Flag.guard O.flag_verbose say "Codegen..."

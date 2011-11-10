@@ -18,27 +18,6 @@ struct
   structure HT = HashTable
   structure TM = BinaryMapFn(Temp)
 
-  (* genorder : graph -> (int list * int array)
-   *
-   * Generates the reverse postorder ordering of the nodes of the given graph.
-   * This list is used to iterate over the graph in generating dominance
-   * frontiers.
-   *
-   * @return a pair where the first list is the order of nodes in reverse
-   *         postorder and the second is an array where each index corresponds
-   *         to a node and the value is the position in the reverse postorder
-   *)
-  fun genorder (G.GRAPH g) = let
-        val entry = List.hd (#entries g ())
-        val order = A.array (#capacity g (), ~1)
-        fun remap (node, ~2) = ()
-          | remap (node, number) = A.update (order, number, node)
-        val postorder = GraphDFS.postorder_numbering (G.GRAPH g) entry
-        val _ = A.appi remap postorder
-      in
-        (A.foldl (fn (i, L) => if i <> ~1 then i::L else L) [] order, postorder)
-      end
-
   (* idoms : ('n, 'e, 'g) Graph.graph -> int array
    *
    * Calculates the immediate dominators for every node in the given graph. This
@@ -55,7 +34,7 @@ struct
   fun idoms (G.GRAPH g) = let
         val _ = debug "idoms"
         val entry = List.hd (#entries g ())
-        val (order, postorder) = genorder (G.GRAPH g)
+        val (order, postorder) = CFG.rev_postorder (G.GRAPH g)
         val doms = A.array (#capacity g (), ~1)
         val _ = gverbose (fn () => dump_list Int.toString order)
 
@@ -143,7 +122,7 @@ struct
 
         val _ = gverbose (fn () => dump_arri Int.toString idom)
         val df's = A.array (#capacity g (), S.empty)
-        val (order, _) = genorder (G.GRAPH g)
+        val (order, _) = CFG.rev_postorder (G.GRAPH g)
         val order = rev order
 
         (* Returns true if a isn't the immediate dominator of b *)
