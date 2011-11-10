@@ -3,13 +3,7 @@
  * Author: Alex Crichton <acrichto@andrew.cmu.edu>
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
-
-signature CFOLD =
-sig
-  val fold : Tree.program -> Tree.program
-end
-
-structure CFold :> CFOLD =
+structure CFold :> OPTIMIZATION =
 struct
   structure T = Tree
   structure W32S = Word32Signed
@@ -93,9 +87,7 @@ struct
    * Folds an expression. The bool in the return type is true if
    * the expresion can safely be optimized out (it's pure).
    *)
-  and fold_exp (T.TEMP t) = (T.TEMP t, true)
-    | fold_exp (T.CONST c) = (T.CONST c, true)
-    | fold_exp (T.MEM (e, t)) = (T.MEM (folde e, t), false)
+  and fold_exp (T.MEM (e, t)) = (T.MEM (folde e, t), false)
     | fold_exp (T.CALL (l, t, P)) = let fun map_params (e, t) = (folde e, t) in
         (T.CALL (l, t, map map_params P), false)
       end
@@ -113,6 +105,7 @@ struct
            | (T.CONST c, e) => fold_binop_1 (oper, T.CONST c, e, pure)
            | (e, e') => (T.BINOP (oper, e, e'), p1 andalso p2)
       end
+    | fold_exp i = (i, true)
 
   and folde e = #1 (fold_exp e)
 
@@ -121,7 +114,6 @@ struct
     | folds (T.RETURN e) = T.RETURN (folde e)
     | folds s = s
 
-  fun fold [] = []
-    | fold ((l, t, T, S)::L) = (l, t, T, map folds S)::fold L
+  fun optimize cfg = (CFG.map_stms folds cfg; cfg)
 
 end

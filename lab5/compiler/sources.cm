@@ -11,6 +11,7 @@ Group is
   util/errormsg.sml
   util/safe-io.sml
   util/word32.sml
+  util/cfg.sml
   util/profile.sml
   util/dotfile.sml
   util/debug.sml
