@@ -1,4 +1,4 @@
-#test exception 8
+//test exception 8
 
 struct foo {
        int []a;
