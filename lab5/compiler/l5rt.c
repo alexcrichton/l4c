@@ -16,10 +16,6 @@ void raise_segv() {
   raise(SIGSEGV);
 }
 
-void raise_abrt() {
-  raise(SIGABRT);
-}
-
 /* Two arguments for compatibility with calloc when using --safe/--unsafe */
 void* salloc(ssize_t elements, size_t size) {
   return zeromem(elements * size);
@@ -27,7 +23,7 @@ void* salloc(ssize_t elements, size_t size) {
 
 void* salloc_array(ssize_t elements, size_t size) {
   if (elements < 0) {
-    raise(SIGABRT);
+    raise(SIGSEGV);
   }
   /* 8 extra bytes to shove the size of the array before the array */
   uint32_t *mem = zeromem(elements * size + 8);

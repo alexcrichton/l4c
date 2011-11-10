@@ -62,7 +62,7 @@ struct
                              SOME (T.BINOP (T.EQ, addr, constq 0)))]
 
   fun protect_arr_access (arr_addr, stms, arr_idx) = let
-        val abrt = Label.extfunc "raise_abrt"
+        val abrt = Label.extfunc "raise_segv"
         val size = T.MEM (T.BINOP (T.SUB, arr_addr, constq 8), T.WORD)
       in
         if not (safe ()) then stms
