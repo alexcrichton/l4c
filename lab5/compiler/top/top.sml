@@ -66,7 +66,10 @@ struct
         help="safe compilation with memory checks"},
        {short = "", long=["unsafe"],
         desc=G.NoArg (fn () => Flag.set O.flag_unsafe),
-        help="unsafe compilation with no memory checks"}
+        help="unsafe compilation with no memory checks"},
+       {short = "O", long=["optimize"],
+        desc=G.ReqArg (fn s => Flag.sets (O.flag_opt, s), "0"),
+        help="level of optimizations to perform"}
       ]
 
   fun stem s = let
@@ -153,9 +156,11 @@ struct
         end
 
     (* Performs a list of transforations on the IR *)
+    val optstr = Flag.svalue O.flag_opt
+    val optlevel = valOf (Int.fromString (if optstr = "" then "0" else optstr))
     fun optimize cfg [] = cfg
       | optimize cfg ({active=a, desc=d, ppfile=ppf, level=l, func=f}::L) =
-        if not a then optimize cfg L else let
+        if not a orelse l > optlevel then optimize cfg L else let
           val _ = Flag.guard O.flag_verbose say (d ^ "...")
           val cfg' = P.time (d, fn () => f cfg)
           val _ = Flag.guard O.flag_dotcfg (fn () => app (pretty ppf) cfg')
