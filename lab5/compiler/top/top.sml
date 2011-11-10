@@ -163,7 +163,7 @@ struct
         if not a orelse l > optlevel then optimize cfg L else let
           val _ = Flag.guard O.flag_verbose say (d ^ "...")
           val cfg' = P.time (d, fn () => f cfg)
-          val _ = Flag.guard O.flag_dotcfg (fn () => app (pretty ppf) cfg')
+          val _ = Flag.guard O.flag_dotcfg (fn () => app (pretty ppf) cfg') ()
         in
           optimize cfg' L
         end
@@ -182,7 +182,7 @@ struct
                   level  = 1,
                   func   = SimpPhis.optimize
                 }, {
-                  active = false,
+                  active = true,
                   desc   = "Coalesce CFG",
                   ppfile = "coalesce",
                   level  = 1,

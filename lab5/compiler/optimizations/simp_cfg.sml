@@ -10,7 +10,7 @@ structure G = Graph
 structure A = Array
 
 fun copy_edge_s (G.GRAPH g) nid (_, dest, data) =
-      if nid = dest then () else #add_edge g (nid, dest, data)
+      #add_edge g (nid, dest, data)
 
 fun copy_edge_d (G.GRAPH g) nid (src, _, data) =
       if nid = src then () else #add_edge g (src, nid, data)
@@ -34,11 +34,15 @@ fun merge (G.GRAPH g, visited, nid) =
             else (
               (* 1: Copy all edges out of B to A *)
               app (copy_edge_s (G.GRAPH g) nid) (#out_edges g (hd succ));
-              (* 2: Copy all edges in to B to A *)
+              (* 2: Copy all edges in to A to B *)
               app (copy_edge_d (G.GRAPH g) nid) (#in_edges g (hd succ));
-              (* 3: Append statements in B to A *)
+              (* 3: Append statements in A to B *)
               #add_node g (nid, (#node_info g nid) @ (#node_info g (hd succ)));
-              (* 4: Delete B *)
+              (* 4: If A was the entry to the graph, make B the new entry *)
+              case #entries g ()
+                of [e] => if e <> (hd succ) then () else #set_entries g [nid]
+                 | _   => ();
+              (* 5: Delete A *)
               #remove_node g (hd succ)
             )
           )
