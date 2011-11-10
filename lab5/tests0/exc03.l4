@@ -1,4 +1,4 @@
-#test exception 11
+//test exception 11
 
 int main () {
   int[] A;

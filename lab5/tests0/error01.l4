@@ -1,4 +1,4 @@
-#test error
+//test error
 
 int main () {
   return *(true ? NULL : NULL);
