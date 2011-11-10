@@ -186,12 +186,12 @@ struct
         val offset = T.BINOP(T.MUL, e2', const (typ_size structs typ))
         val addr = T.BINOP (T.ADD, e1', offset)
         val dest = T.MEM (addr, trans_typ typ)
-        val e1s = protect_access (e1s, e1')
-        val e2s = protect_arr_access (e1', e2s, e2')
+        val stms = protect_access (e1s @ e2s, e1')
+        val stms = protect_arr_access (e1', stms, e2')
       in
-        if a then (e1s @ e2s, addr)
+        if a then (stms, addr)
         else let val t = T.TEMP ((Temp.new(), ref ~1), trans_typ typ) in
-          (e1s @ e2s @ [T.MOVE (t, dest)], t)
+          (stms @ [T.MOVE (t, dest)], t)
         end
       end
     | trans_exp env (A.Deref (e, ref typ)) a = let
