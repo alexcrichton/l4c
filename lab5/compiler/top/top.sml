@@ -137,6 +137,7 @@ struct
                     fn () => InitializationChecker.analyze ast)
     val _ = P.stopTimer ()
 
+    (* Pretty prints a control flow graph into a dot file *)
     fun pretty key (id, _, _, cfg) = let
           fun pp_node (nid, data) = "label=\"" ^ String.concatWith "\\n"
                                                   (map Tree.Print.pp_stm data) ^
@@ -151,6 +152,17 @@ struct
                          Label.name id, pp_node, pp_edge, cfg)
         end
 
+    (* Performs a list of transforations on the IR *)
+    fun optimize cfg [] = cfg
+      | optimize cfg ({active=a, desc=d, ppfile=ppf, level=l, func=f}::L) =
+        if not a then optimize cfg L else let
+          val _ = Flag.guard O.flag_verbose say (d ^ "...")
+          val cfg' = P.time (d, fn () => f cfg)
+          val _ = Flag.guard O.flag_dotcfg (fn () => app (pretty ppf) cfg')
+        in
+          optimize cfg' L
+        end
+
     (* IR translation/Optimizations *)
     val _ = Flag.guard O.flag_verbose say "Translating..."
     val cfg = P.time ("Translating", fn () => Trans.translate ast)
@@ -158,20 +170,28 @@ struct
     val _ = P.time ("SSA", fn () => SSA.ssa cfg)
     val _ = Flag.guard O.flag_dotcfg (fn () => app (pretty "ssa") cfg) ()
 
-    (*val cfg' = SimpPhis.optimize cfg''
-    val _ = Flag.guard O.flag_dotcfg (fn () => app (pretty "phis") cfg') ()*)
+    val cfg' = optimize cfg [{
+                  active = true,
+                  desc   = "Prune Phis",
+                  ppfile = "phis",
+                  level  = 1,
+                  func   = SimpPhis.optimize
+                }, {
+                  active = false,
+                  desc   = "Coalesce CFG",
+                  ppfile = "coalesce",
+                  level  = 1,
+                  func   = SimpCFG.optimize
+                }, {
+                  active = false,
+                  desc   = "Constant Folding",
+                  ppfile = "cfold",
+                  level  = 1,
+                  func   = CFold.optimize
+                }]
 
-    (*val cfgs = SimpCFG.optimize cfg''
-    val _ = Flag.guard O.flag_dotcfg (fn () => app (pretty "merge") cfgs) ()*)
-
-    (*val _ = Flag.guard O.flag_verbose say ("Constant Folding... " ^ source)
-    val cfg = P.time ("Const Folding", fn () => CFold.optimize cfg'')*)
-
-    val ir = P.time ("Flatten", fn () => SSA.dessa cfg)
+    val ir = P.time ("Flatten", fn () => SSA.dessa cfg')
     val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir)) ()
-(*    val _ = Flag.guard O.flag_verbose say ("Neededness Analysis... " ^ source)
-    val ir' = P.time ("Neededness", fn () => Neededness.eliminate ir'')
-    val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir')) ()*)
 
     (* Codegen/Assembly generation*)
     val _ = Flag.guard O.flag_verbose say "Codegen..."
