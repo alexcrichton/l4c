@@ -5,6 +5,7 @@ MLTON_TARG = bin/mlton-l5c
 
 # buildid target "redundant" if called from ../Makefile, but who cares?
 
+l4c: l5c
 l5c: parse FORCE
 	echo 'use "compile-l5c.sml";' | ${SML}
 
