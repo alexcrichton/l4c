@@ -93,6 +93,31 @@ struct
     | trans_oper A.RSHIFT    = T.RSH
     | trans_oper _           = raise Fail "Invalid binop translation"
 
+  (* commit : graph -> T.block -> G.node_id list -> G.node_id
+   *
+   * Commits the given block to the graph.
+   * @param g the graph to add to
+   * @param block the block of statements to add as a node
+   * @param preds the predecessors of this node
+   * @return the node id of the node created
+   *)
+  fun commit (G.GRAPH g) (block, preds, nid) =
+        (#add_node g (nid, block);
+         app (fn (pred, edge) => #add_edge g (pred, nid, edge)) preds;
+         nid)
+
+  (* new_id : graph -> node_id
+   *
+   * Returns a new node id for the graph. It does it correctly unlike the
+   * stupid built-in one.
+   *)
+  fun new_id (G.GRAPH g) = let
+        val id = #new_id g ()
+        val _ = #add_node g (id, [])
+      in
+        id
+      end
+
   (* trans_exp : 'a -> A.exp -> T.stm list * T.exp
    *
    * Translates an AST expression into an IR expression.
@@ -104,15 +129,17 @@ struct
    *         commands that need to be executed beforehand, and the expression
    *         contains the result of this operation.
    *)
-  fun trans_exp (_, _, env) (A.Var id) _ = let
+  fun trans_exp ((_, _, env), _, (stms, preds, i)) (A.Var id) _ = let
         val (temp, typ) = Symbol.look' env id
       in
-        ([], T.TEMP ((temp, ref ~1), typ))
+        (stms, preds, T.TEMP ((temp, ref ~1), typ), i)
       end
-    | trans_exp _ (A.Bool b) _ = ([], const (if b then 1 else 0))
-    | trans_exp _ (A.Const w) _ = ([], T.CONST (w, T.WORD))
-    | trans_exp env (A.UnaryOp (A.NEGATIVE, A.Const w)) _ =
-        ([], T.CONST(~w, T.WORD))
+    | trans_exp (_, _, (stms, preds, id)) (A.Bool b) _ =
+        (stms, preds, const (if b then 1 else 0), id)
+    | trans_exp (_, _, (stms, preds, id)) (A.Const w) _ =
+        (stms, preds, T.CONST (w, T.WORD), id)
+    | trans_exp (_, _, (stms, preds, id)) (A.UnaryOp (A.NEGATIVE, A.Const w)) _ =
+        (stms, preds, T.CONST(~w, T.WORD), id)
     | trans_exp env (A.UnaryOp (A.NEGATIVE, e)) a =
         trans_exp env (A.BinaryOp (A.MINUS, A.Const Word32Signed.ZERO, e)) a
     | trans_exp env (A.UnaryOp (A.INVERT, e)) a =
@@ -127,35 +154,37 @@ struct
         trans_exp env (A.Ternary (e1, e2, A.Bool false, ref A.BOOL)) a
     | trans_exp env (A.BinaryOp (A.LOR, e1, e2)) a =
         trans_exp env (A.Ternary (e1, A.Bool true, e2, ref A.BOOL)) a
-    | trans_exp env (A.BinaryOp (oper, e1, e2)) a = let
-        val (e1s, e1') = trans_exp env e1 a
-        val (e2s, e2') = trans_exp env e2 a
-        val (stms, e)  = (e1s @ e2s, T.BINOP (trans_oper oper, e1', e2'))
+    | trans_exp (e, g, s) (A.BinaryOp (oper, e1, e2)) a = let
+        val (stms, preds, e1', id) = trans_exp (e, g, s) e1 a
+        val (stms, preds, e2', id) = trans_exp (e, g, (stms, preds, id)) e2 a
+        val result  = T.BINOP (trans_oper oper, e1', e2')
       in
-        if oper <> A.DIVIDEDBY andalso oper <> A.MODULO then (stms, e)
+        if oper <> A.DIVIDEDBY andalso oper <> A.MODULO then (stms, preds, result, id)
         else
           (* Divides and mods can have side effects. Make sure that they always
              happen by moving the result of the operation into a temp *)
           let val t = T.TEMP((Temp.new(), ref ~1), T.WORD) in
-            (stms @ [T.MOVE (t, e)], t)
+            (stms @ [T.MOVE (t, result)], preds, t, id)
           end
       end
-    | trans_exp env (A.Ternary (e1, e2, e3, ref typ)) a = let
-        val (l1, l2) = (Label.new "ternary_true", Label.new "ternary_end")
-        val t = T.TEMP ((Temp.new(), ref ~1), trans_typ typ)
-        val (e1s, e1') = trans_exp env e1 false
-        val (e2s, e2') = trans_exp env e2 a
-        val (e3s, e3') = trans_exp env e3 a
+    | trans_exp (e, g, s) (A.Ternary (e1, e2, e3, ref typ)) a = let
+        fun tmp t = T.TEMP ((t, ref ~1), trans_typ typ)
+        val t = Temp.new ()
+        val (stms, preds, e1', id) = trans_exp (e, g, s) e1 false
+        val _ = commit g (stms @ [T.COND e1'], preds, id)
+        val (tid, fid) = (new_id g, new_id g)
+        val (stms2, preds2, e2', id2) = trans_exp (e, g, ([], [(id, T.TRUE)], tid)) e2 a
+        val (stms3, preds3, e3', id3) = trans_exp (e, g, ([], [(id, T.FALSE)], fid)) e3 a
+        val _ = commit g (stms2 @ [T.MOVE (tmp t, e2')], preds2, id2)
+        val _ = commit g (stms3 @ [T.MOVE (tmp t, e3')], preds3, id3)
       in
-        (e1s @ [T.GOTO (l1, SOME e1')] @
-         e3s @ [T.MOVE (t, e3'), T.GOTO (l2, NONE), T.LABEL l1] @
-         e2s @ [T.MOVE (t, e2'), T.LABEL l2], t)
+        ([], [(id2, T.ALWAYS), (id3, T.ALWAYS)], tmp t, new_id g)
       end
-    | trans_exp (env as (funs, _, _)) (A.Call (name, EL)) _ = let
-        fun ev (d, (instrs, dests)) = let
-              val (dinstrs, dest) = trans_exp env d false
-            in (dinstrs @ instrs, dest::dests) end
-        val (instrs, args) = foldr ev ([], []) EL
+    | trans_exp ((e as (funs, _, _)), g, state) (A.Call (name, EL)) _ = let
+        fun ev (d, (state, dests)) = let
+              val (stms, preds, result, id) = trans_exp (e, g, state) d false
+            in ((stms, preds, id), dests @ [result]) end
+        val ((stms, preds, id), args) = foldl ev (state, []) EL
         val (isext, rettyp, argtyps) = Symbol.look' funs name
         val label =
           if isext then Label.extfunc (Symbol.name name)
@@ -163,76 +192,63 @@ struct
         val result = T.TEMP ((Temp.new(), ref ~1), rettyp)
         val call = T.CALL (label, rettyp, ListPair.zip (args, argtyps))
       in
-        (instrs @ [T.MOVE (result, call)], result)
+        (stms @ [T.MOVE (result, call)], preds, result, id)
       end
-    | trans_exp _ A.Null _ = ([], constq 0)
-    | trans_exp (env as (_, structs, _)) (A.AllocArray (typ, e)) _ = let
-        val (es, e') = trans_exp env e false
+    | trans_exp (_, _, (stms, preds, id)) A.Null _ = (stms, preds, constq 0, id)
+    | trans_exp ((e as (_, structs, _)), g, state) (A.AllocArray (typ, exp)) _ = let
+        val (stms, pred, e', id) = trans_exp (e, g, state) exp false
         val func = Label.extfunc (if safe () then "salloc_array" else "calloc")
+        val temp = T.TEMP ((Temp.new(), ref ~1), T.QUAD)
+        val call = T.CALL (func, T.QUAD,
+                           [(e', T.QUAD),
+                            (constq (typ_size structs typ), T.QUAD)])
       in
-        (es, T.CALL (func, T.QUAD,
-                     [(e', T.QUAD), (constq (typ_size structs typ), T.QUAD)]))
+        (stms @ [T.MOVE (temp, call)], pred, temp, id)
       end
-    | trans_exp (_, structs, _) (A.Alloc typ) _ = let
+    | trans_exp ((_, structs, _), _, (stms, preds, id)) (A.Alloc typ) _ = let
         val func = Label.extfunc (if safe () then "salloc" else "calloc")
+        val temp = T.TEMP ((Temp.new(), ref ~1), T.QUAD)
+        val call = T.CALL (func, T.QUAD,
+                           [(constq 1, T.QUAD),
+                           (constq (typ_size structs typ), T.QUAD)])
       in
-        ([], T.CALL (func, T.QUAD,
-                     [(constq 1, T.QUAD),
-                      (constq (typ_size structs typ), T.QUAD)]))
+        (stms @ [T.MOVE (temp, call)], preds, temp, id)
       end
-    | trans_exp (env as (_, structs, _)) (A.ArrSub (e1, e2, ref typ)) a = let
-        val (e1s, e1') = trans_exp env e1 false
-        val (e2s, e2') = trans_exp env e2 false
+    | trans_exp ((e as (_, structs, _)), g, state) (A.ArrSub (e1, e2, ref typ)) a = let
+        val (stms, preds, e1', id) = trans_exp (e, g, state) e1 false
+        val (stms, preds, e2', id) = trans_exp (e, g, (stms, preds, id)) e2 false
         val offset = T.BINOP(T.MUL, e2', const (typ_size structs typ))
         val addr = T.BINOP (T.ADD, e1', offset)
         val dest = T.MEM (addr, trans_typ typ)
-        val stms = protect_access (e1s @ e2s, e1')
+        val stms = protect_access (stms, e1')
         val stms = protect_arr_access (e1', stms, e2')
       in
-        if a then (stms, addr)
+        if a then (stms, preds, addr, id)
         else let val t = T.TEMP ((Temp.new(), ref ~1), trans_typ typ) in
-          (stms @ [T.MOVE (t, dest)], t)
+          (stms @ [T.MOVE (t, dest)], preds, t, id)
         end
       end
     | trans_exp env (A.Deref (e, ref typ)) a = let
-        val (es, e') = trans_exp env e false
-        val es = protect_access (es, e')
+        val (stms, preds, e', id) = trans_exp env e false
+        val stms = protect_access (stms, e')
       in
-        if a then (es, e')
+        if a then (stms, preds, e', id)
         else let val t = T.TEMP ((Temp.new(), ref ~1), trans_typ typ) in
-          (es @ [T.MOVE (t, T.MEM(e', trans_typ typ))], t)
+          (stms @ [T.MOVE (t, T.MEM(e', trans_typ typ))], preds, t, id)
         end
       end
-    | trans_exp env (A.Field (e, id, ref typ)) a = let
-        val (es, e') = trans_exp env e true
-        val (off, size) = struct_off env typ id
-        val addr = T.BINOP (T.ADD, e', const off)
+    | trans_exp (env as (e, _, _)) (A.Field (exp, id, ref typ)) a = let
+        val (stms, preds, exp', i) = trans_exp env exp true
+        val (off, size) = struct_off e typ id
+        val addr = T.BINOP (T.ADD, exp', const off)
         val dest = T.MEM (addr, size)
       in
-        if a then (es, addr)
+        if a then (stms, preds, addr, i)
         else let val t = T.TEMP ((Temp.new(), ref ~1), size) in
-          (es @ [T.MOVE (t, dest)], t)
+          (stms @ [T.MOVE (t, dest)], preds, t, i)
         end
       end
     | trans_exp env (A.Marked data) a = trans_exp env (Mark.data data) a
-
-  (* commit : graph -> T.block -> G.node_id list -> G.node_id
-   *
-   * Commits the given block to the graph.
-   * @param g the graph to add to
-   * @param block the block of statements to add as a node
-   * @param preds the predecessors of this node
-   * @return the node id of the node created
-   *)
-  fun commit (G.GRAPH g) block preds = let
-        val nid = #new_id g ()
-        val _ = if List.length (#entries g ()) <> 0 then ()
-                else #set_entries g [nid]
-      in
-        #add_node g (nid, block);
-        app (fn (pred, edge) => #add_edge g (pred, nid, edge)) preds;
-        nid
-      end
 
   (* trans_stm : 'a -> A.stm -> Label.label * Label.label -> T.program
    *
@@ -245,68 +261,71 @@ struct
             break or continue statement.
    * @return a list of statements in the IL.
    *)
-  fun trans_stm (env, _, stms, preds) (A.Assign (e1, oper_opt, e2)) _ = let
+  fun trans_stm (env as (e, g, _)) (A.Assign (e1, oper_opt, e2)) _ = let
         fun unmark (A.Marked data) = unmark (Mark.data data)
           | unmark e = e
 
-        val (e1s, e1'') = trans_exp env e1 true
+        val (stms, preds, e1'', id) = trans_exp env e1 true
         val e1' = case unmark e1
                     of (A.ArrSub (_, _, t) | A.Deref (_, t)) =>
                          T.MEM (e1'', trans_typ (!t))
                      | (A.Field (_, id, t)) => let
-                         val (_, typ) = struct_off env (!t) id
+                         val (_, typ) = struct_off e (!t) id
                        in
                          T.MEM(e1'', typ)
                        end
                      | _ => e1''
-        val (e2s, e2') = trans_exp env e2 false
-        val (e3s, e3') =
+        val (stms', preds', e2', id') = trans_exp (e, g, (stms, preds, id)) e2 false
+        val e3' =
           case oper_opt
-            of SOME oper => (e2s, T.BINOP (trans_oper oper, e1', e2'))
-              | NONE => (e2s, e2')
+            of SOME oper => T.BINOP (trans_oper oper, e1', e2')
+             | NONE => e2'
       in
-        (stms @ e1s @ e3s @ [T.MOVE (e1', e3')], preds)
+        (stms' @ [T.MOVE (e1', e3')], preds', id')
       end
-    | trans_stm (env, g, stms, preds) (A.If(e, s1, s2)) lp = let
-        val (es, e') = trans_exp env e false
-        val id = commit g (stms @ es @ [T.COND e']) preds
-        val (tstms, tpreds) = trans_stm (env, g, [], [(id, T.TRUE)]) s1 lp
-        val (fstms, fpreds) = trans_stm (env, g, [], [(id, T.FALSE)]) s2 lp
-        val tid = commit g tstms tpreds
-        val fid = commit g fstms fpreds
-      in ([], [(tid, T.ALWAYS), (fid, T.ALWAYS)]) end
-    | trans_stm (env, g, stms, preds) (A.While (e, s)) _ = let
-        val pred = commit g stms preds
-        val (es, e') = trans_exp env e false
-        val eid = commit g (es @ [T.COND e']) [(pred, T.ALWAYS)]
+    | trans_stm (env as (e, g, _)) (A.If(exp, s1, s2)) lp = let
+        val (stms, preds, e', id) = trans_exp env exp false
+        val id = commit g (stms @ [T.COND e'], preds, id)
+        val (tid, fid) = (new_id g, new_id g)
+        val tstate = trans_stm (e, g, ([], [(id, T.TRUE)], tid)) s1 lp
+        val fstate = trans_stm (e, g, ([], [(id, T.FALSE)], fid)) s2 lp
+        val tid = commit g tstate
+        val fid = commit g fstate
+      in ([], [(tid, T.ALWAYS), (fid, T.ALWAYS)], new_id g) end
+    | trans_stm (env as (e, g, state)) (A.While (exp, s)) _ = let
+        val pred = commit g state
+        val G.GRAPH graph = g
+        val eid = new_id g
+        val (stms, preds, e', eid') = trans_exp (e, g, ([], [(pred, T.ALWAYS)], eid)) exp false
+        val _ = commit g (stms @ [T.COND e'], preds, eid')
         val blist = ref []
-        val (bstms, bpreds) = trans_stm (env, g, [], [(eid, T.TRUE)]) s
+        val bstate = trans_stm (e, g, ([], [(eid', T.TRUE)], new_id g)) s
                                         (blist, eid)
-        val bid = commit g bstms bpreds
-        val G.GRAPH graph = g
+        val bid = commit g bstate
         val _ = #add_edge graph (bid, eid, T.ALWAYS)
-      in ([], (eid, T.FALSE) :: (!blist)) end
-    | trans_stm (_, g, stms, preds) A.Continue (_, cexp) = let
-        val id = commit g stms preds
+      in ([], (eid', T.FALSE) :: (!blist), new_id g) end
+    | trans_stm (_, g, state) A.Continue (_, cexp) = let
+        val id = commit g state
         val G.GRAPH graph = g
-      in #add_edge graph (id, cexp, T.BRANCH); ([], []) end
-    | trans_stm (_, g, stms, preds) A.Break (blist, _) =
-        (blist := (commit g stms preds, T.BRANCH) :: (!blist); ([], []))
-    | trans_stm (env, g, stms, preds) (A.Return e) _ = let
-        val (einstrs, e') = trans_exp env e false
-        val _ = commit g (stms @ einstrs @ [T.RETURN e']) preds
-      in ([], []) end
-    | trans_stm (env as (f, g, _, _)) (A.Seq (s1, s2)) lp = let
-        val (s', p') = trans_stm env s1 lp
-      in trans_stm (f, g, s', p') s2 lp end
-    | trans_stm ((f, s, e), g, stms, preds) (A.Declare (id, typ, stm)) lp = let
+      in #add_edge graph (id, cexp, T.BRANCH); ([], [], new_id g) end
+    | trans_stm (_, g, state) A.Break (blist, _) =
+        (blist := (commit g state, T.BRANCH) :: (!blist);
+         ([], [], new_id g))
+    | trans_stm (env as (_, g, _)) (A.Return e) _ = let
+        val (stms', preds', e', id) = trans_exp env e false
+        val _ = commit g (stms' @ [T.RETURN e'], preds', id)
+      in ([], [], new_id g) end
+    | trans_stm (env as (f, g, _)) (A.Seq (s1, s2)) lp = let
+        val state = trans_stm env s1 lp
+      in trans_stm (f, g, state) s2 lp end
+    | trans_stm ((f, s, e), g, state) (A.Declare (id, typ, stm)) lp = let
         val e' = Symbol.bind e (id, (Temp.new (), trans_typ typ))
-      in trans_stm ((f, s, e'), g, stms, preds) stm lp end
-    | trans_stm (env, _, stms, preds) (A.Express e) _ = let
+      in trans_stm ((f, s, e'), g, state) stm lp end
+    | trans_stm env (A.Express e) _ = let
         val t = T.TEMP ((Temp.new(), ref ~1), T.QUAD)
-        val (instrs, exp) = trans_exp env e false
-      in (stms @ instrs @ [T.MOVE (t, exp)], preds) end
-    | trans_stm (_, _, stms, preds) A.Nop _ = (stms, preds)
+        val (stms', preds', e', id) = trans_exp env e false
+      in (stms' @ [T.MOVE (t, e')], preds', id) end
+    | trans_stm (_, _, state) A.Nop _ = state
     | trans_stm env (A.Markeds data) lp = trans_stm env (Mark.data data) lp
     | trans_stm _ (A.For _) _ = raise Fail "no for loops!"
 
@@ -322,11 +341,13 @@ struct
               Symbol.bind e (id, (Temp.new (), trans_typ typ))
         val e = foldr bind Symbol.empty args
         val graph_rec = DG.graph (Symbol.name name, (), 10)
-        val _ = trans_stm ((funs, structs, e), graph_rec, [], [])
+        val G.GRAPH g = graph_rec
+        val id = new_id graph_rec
+        val _ = trans_stm ((funs, structs, e), graph_rec, ([], [], id))
                           (A.remove_for body A.Nop)
                           (ref [], ~1)
+        val _ = #set_entries g [id]
         val targs = map (fn (_, id) => Symbol.look' e id) args
-        val G.GRAPH g = graph_rec
         val order = GraphDFS.postorder_numbering (G.GRAPH g)
                                                  (List.hd (#entries g ()))
         val _ = Array.appi (fn (i, v) => if v >= 0 then ()

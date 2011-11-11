@@ -171,12 +171,13 @@ struct
     (* IR translation/Optimizations *)
     val _ = Flag.guard O.flag_verbose say "Translating..."
     val cfg = P.time ("Translating", fn () => Trans.translate ast)
+    val _ = Flag.guard O.flag_dotcfg (fn () => app (pretty "pretty_non-ssa") cfg) ()
 
     val _ = P.time ("SSA", fn () => SSA.ssa cfg)
     val _ = Flag.guard O.flag_dotcfg (fn () => app (pretty "ssa") cfg) ()
 
     val cfg' = optimize cfg [{
-                  active = true,
+                  active = false,
                   desc   = "Prune Phis",
                   ppfile = "phis",
                   level  = 1,
