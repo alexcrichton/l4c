@@ -1,0 +1,15 @@
+//test return 5
+int main() {
+  int a = 1;
+  int b = 5;
+  int c = a + b * a;
+  if (true) {
+    c--;
+  } else {
+    c++;
+  }
+  while (false) {
+    a = b + c + c + b;
+  }
+  return c;
+}
