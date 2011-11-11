@@ -177,13 +177,13 @@ struct
     val _ = Flag.guard O.flag_dotcfg (fn () => app (pretty "ssa") cfg) ()
 
     val cfg' = optimize cfg [{
-                  active = false,
+                  active = true,
                   desc   = "Prune Phis",
                   ppfile = "phis",
                   level  = 1,
                   func   = SimpPhis.optimize
                 }, {
-                  active = false,
+                  active = true,
                   desc   = "Constant Folding",
                   ppfile = "cfold",
                   level  = 1,
