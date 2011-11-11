@@ -380,6 +380,9 @@ struct
         fun getphi (T.MOVE (T.TEMP (t, _), T.PHI _)) = SOME t
           | getphi _ = NONE
 
+        fun isphi (T.MOVE (T.TEMP _, T.PHI _)) = true
+          | isphi _ = false
+
         fun process_phi (phi as (tmp, n)) = let
               fun add_moves id = let
                     val set = A.sub (vmaps, id)
@@ -406,7 +409,7 @@ struct
 
         val phis = List.mapPartial getphi stms
         val _ = app process_phi phis
-        val _ = #add_node g (nid, List.drop (stms, length phis))
+        val _ = #add_node g (nid, List.filter (not o isphi) stms)
       in app modify_cfg (#in_edges g nid) end
 
   (* flatten : graph -> T.stm list
