@@ -29,8 +29,8 @@ sig
     | RETURN of exp
 
   type block = stm list
-  type cfg_func = Label.label * typ * (Temp.temp * typ) list *
-                  (block, edge, unit) Graph.graph
+  type cfgraph = (block, edge, unit) Graph.graph
+  type cfg_func = Label.label * typ * (Temp.temp * typ) list * cfgraph
   type cfg = cfg_func list
 
   type func = Label.label * typ * (Temp.temp * typ) list * stm list
@@ -72,8 +72,8 @@ struct
     | RETURN of exp
 
   type block = stm list
-  type cfg_func = Label.label * typ * (Temp.temp * typ) list *
-                  (block, edge, unit) Graph.graph
+  type cfgraph = (block, edge, unit) Graph.graph
+  type cfg_func = Label.label * typ * (Temp.temp * typ) list * cfgraph
   type cfg = cfg_func list
 
   type func = Label.label * typ * (Temp.temp * typ) list * stm list
