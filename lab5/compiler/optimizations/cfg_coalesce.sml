@@ -3,11 +3,10 @@
  * Author: Alex Crichton <acrichto@andrew.cmu.edu>
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
-structure SimpCFG :> OPTIMIZATION =
+structure CFGCoalesce :> OPTIMIZATION =
 struct
 
 structure G = Graph
-structure A = Array
 
 fun copy_edge_s (G.GRAPH g) nid (_, dest, data) =
       #add_edge g (nid, dest, data)
@@ -15,47 +14,41 @@ fun copy_edge_s (G.GRAPH g) nid (_, dest, data) =
 fun copy_edge_d (G.GRAPH g) nid (src, _, data) =
       if nid = src then () else #add_edge g (src, nid, data)
 
-(* merge : graph * bool array * int -> unit
- * We iterate manually because we're modifying the structure of the graph,
- * so using an iterator from the CFG structure wouldn't work.
+(* merge : graph * int -> unit
  *
  * We can merge blocks A and B if A is the only successor of B and B is the
  * only predecessor of A, or if A is empty.
  *)
-fun merge (G.GRAPH g, visited, nid) =
-      if A.sub (visited, nid) then ()
-      else (
-        A.update (visited, nid, true);
-        let val succ = #succ g nid in
-          if length succ <> 1 then ()
-          else (
-            if not (length (#pred g (hd succ)) = 1 orelse
-                    length (#node_info g nid) = 0) then ()
-            else (
-              (* 1: Copy all edges out of B to A *)
-              app (copy_edge_s (G.GRAPH g) nid) (#out_edges g (hd succ));
-              (* 2: Copy all edges in to A to B *)
-              app (copy_edge_d (G.GRAPH g) nid) (#in_edges g (hd succ));
-              (* 3: Append statements in A to B *)
-              #add_node g (nid, (#node_info g nid) @ (#node_info g (hd succ)));
-              (* 4: If A was the entry to the graph, make B the new entry *)
-              case #entries g ()
-                of [e] => if e <> (hd succ) then () else #set_entries g [nid]
-                 | _   => ();
-              (* 5: Delete A *)
-              #remove_node g (hd succ)
-            )
-          )
-        end;
-        (* Iterate over successors *)
-        app (fn nid' => merge (G.GRAPH g, visited, nid')) (#succ g nid)
-      )
+fun merge (G.GRAPH g, nid) =
+    let val succs = #succ g nid in
+      if length succs <> 1 then ()
+      else let val succ = hd succs in
+        if not (length (#pred g succ) = 1 orelse
+                length (#node_info g nid) = 0 orelse
+                #has_edge g (succ, nid)) then ()
+        else (
+            (* 1: Copy all edges out of B to A *)
+            app (copy_edge_s (G.GRAPH g) nid) (#out_edges g succ);
+            (* 2: Copy all edges in to A to B *)
+            app (copy_edge_d (G.GRAPH g) nid) (#in_edges g succ);
+            (* 3: Append statements in A to B *)
+            #add_node g (nid, (#node_info g nid) @ (#node_info g succ));
+            (* 4: If A was the entry to the graph, make B the new entry *)
+            case #entries g ()
+              of [e] => if e <> succ then () else #set_entries g [nid]
+               | _   => ();
+            (* 5: Delete A *)
+            #remove_node g succ;
+            (* 6: See if we can coalesce on node A again *)
+            merge (G.GRAPH g, nid)
+        )
+      end
+    end
 
-fun optimize_cfg (cfg as (_, _, _, G.GRAPH g)) =
-      (merge (G.GRAPH g, A.array (#capacity g (), false),
-                 List.hd (#entries g ()));
-      cfg)
-
-fun optimize L = map optimize_cfg L
+(*fun optimize L = (CFG.app_block merge L; L)*)
+fun optimize L = (
+      app (fn (_, _, _, g) => merge (g, 0)) L;
+(*      app (fn (_, _, _, g) => merge (g, 2)) L;*)
+    L)
 
 end
