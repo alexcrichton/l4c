@@ -15,13 +15,13 @@ use vars qw($LAB $COMPILER $COMPILER_EXEC $COMPILER_ARGS @LEXTS $GCC $RUNTIME
             $GCC_TIMEOUT $RUN_TIMEOUT $TEST_SUITES_PATH $MAX_VALIDATE_SCORE
             $MIN_TESTS &tests_grade $CMPL_GRADE);
 
-our $LAB             = 5;
+our $LAB             = 4;
 
 my $rt_stem = "l${LAB}rt";
 
 our $COMPILER       = "l${LAB}c";                       # name of compiler to generate
 our $COMPILER_EXEC  = "bin/$COMPILER";                  # compiler executable
-our $COMPILER_ARGS  = "-l $rt_stem.h0";
+our $COMPILER_ARGS  = "-l $rt_stem.h0 --safe";
 our @LEXTS          = reverse map {"l$_"} (1 .. $LAB);  # source filename extensions
 
 our $GCC            = "gcc -m64";       # gcc executable and default flags
@@ -29,7 +29,7 @@ our $RUNTIME        = "$rt_stem.c";   # runtime system for linking against asm f
 
 my $c0_level = 6 - $LAB;
 our $REF_COMPILER = "/afs/cs.cmu.edu/academic/class/15411-f11/bin/cc0";
-our $REF_COMPILER_ARGS = " -C $c0_level -l $rt_stem";
+our $REF_COMPILER_ARGS = " -C $c0_level -l $rt_stem -d";
 
 our $MAKE_TIMEOUT       = 100;  # timeout for making compiler
 our $COMPILER_TIMEOUT   = 5;    # timeout for running compiler
