@@ -43,7 +43,8 @@ Group is
 
   optimizations/optimization.sig
   optimizations/simp_phis.sml
-  optimizations/simp_cfg.sml
+  optimizations/cfg_coalesce.sml
+  optimizations/cfg_prune.sml
   optimizations/cfold.sml
 
   top/top.sml
