@@ -8,9 +8,11 @@ signature CFG =
 sig
   val map_stms : (Tree.stm -> Tree.stm) -> Tree.cfg -> unit
 
-  val rev_postorder : ('n, 'e, 'g) Graph.graph -> (int list * int array)
+  val app_block : (Tree.cfgraph * int -> unit) -> Tree.cfg -> unit
 
-  val postorder : ('n, 'e, 'g) Graph.graph -> int list
+  val rev_postorder : Tree.cfgraph -> (int list * int array)
+
+  val postorder : Tree.cfgraph -> int list
 end
 
 structure CFG :> CFG =
@@ -19,7 +21,7 @@ struct
   structure G = Graph
   structure A = Array
 
-  (* rev_postorder : graph -> (int list * int array)
+  (* genorder : (foldl | foldr) -> graph -> (int list * int array)
    *
    * Generates the reverse postorder ordering of the nodes of the given graph.
    * This list is used to iterate over the graph in generating dominance
@@ -29,27 +31,50 @@ struct
    *         postorder and the second is an array where each index corresponds
    *         to a node and the value is the position in the reverse postorder
    *)
-  fun rev_postorder (G.GRAPH g) = let
-        val entry = List.hd (#entries g ())
+  fun genorder fold (G.GRAPH g) = let
+        val entry = hd (#entries g ())
         val order = A.array (#capacity g (), ~1)
         fun remap (node, ~2) = ()
           | remap (node, number) = A.update (order, number, node)
         val postorder = GraphDFS.postorder_numbering (G.GRAPH g) entry
         val _ = A.appi remap postorder
       in
-        (A.foldl (fn (i, L) => if i <> ~1 then i::L else L) [] order, postorder)
+        (fold (fn (i, L) => if i <> ~1 then i::L else L) [] order, postorder)
       end
 
-  fun postorder g = #1 (rev_postorder g)
+  fun rev_postorder g = genorder A.foldl g
 
-  fun map_stms f cfg = let
+  fun postorder g = #1 (genorder A.foldr g)
+
+  (* map_stms (T.stm -> T.stm) -> T.cfg -> unit
+   *
+   * Applies the given transformation f to every statement in the CFG.
+   * The blocks are traversed in reverse postorder ordering.
+   *)
+  fun map_stms f L = let
         fun mapg (_, _, _, G.GRAPH g) = let
-              val order = postorder (G.GRAPH g)
+              val order = #1 (rev_postorder (G.GRAPH g))
             in
               app (fn nid => #add_node g (nid, map f (#node_info g nid))) order
             end
       in
-        app mapg cfg
+        app mapg L
+      end
+
+  (* app_block : (('n, 'e, 'g) G.graph * int) -> T.cfg -> unit
+   *
+   * Applies the given function to each block in each CFG. The blocks are
+   * traversed in reverse postorder ordering. The function may modify the
+   * graph but it must do so in such a way that the postordering of the
+   * graph is not changed. The only exception to this rule is that the
+   * function may delete nodes from the graph.
+   *)
+  fun app_block f (L : Tree.cfg) = let
+        fun appg (_, _, _, G.GRAPH g) =
+              app (fn nid => if #has_node g nid then f (G.GRAPH g, nid) else ())
+                  (#1 (rev_postorder (G.GRAPH g)))
+      in
+         app appg L
       end
 
 end

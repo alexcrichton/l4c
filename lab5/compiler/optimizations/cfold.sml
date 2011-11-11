@@ -131,7 +131,7 @@ struct
 
   fun optimize cfg = let
         fun mapg (_, _, _, G.GRAPH g) = let
-              val order = CFG.postorder (G.GRAPH g)
+              val order = #1 (CFG.rev_postorder (G.GRAPH g))
               val ht = HT.mkTable (T.tmphash, T.tmpequals)
                                   (43, Fail "cprop ht error")
             in
