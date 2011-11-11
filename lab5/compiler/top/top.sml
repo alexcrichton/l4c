@@ -189,7 +189,7 @@ struct
                   level  = 1,
                   func   = CFold.optimize
                 }, {
-                  active = false,
+                  active = true,
                   desc   = "Prune CFG",
                   ppfile = "prune",
                   level  = 1,
