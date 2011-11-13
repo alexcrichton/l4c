@@ -1,4 +1,4 @@
-//test return 4096
+//test return 1
 int main() {
   bool t = true;
   bool f = false;
