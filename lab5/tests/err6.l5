@@ -1,0 +1,7 @@
+//test exception 11
+int main() {
+  // these two arrays should be allocated near each other
+  bool[] barr1 = alloc_array(bool, 100);
+  bool[] barr2 = alloc_array(bool, 100);
+  return barr1[150]; // probably inside array2 - valid memory outside array 1
+}

@@ -1,0 +1,18 @@
+//test return 8
+bool tru() {
+  return true;
+}
+
+int one() {
+  return 1;
+}
+
+int main() {
+  // bangs can be simplified
+  bool b = !!!!!!!!!!tru();
+  // addition is communtative, so the constants here can be combined
+  int i = 1 + one() + 2 + one() + 3 + one() + 4 + one() + 5 + one() + 6 + one()
+          + 7 + one() + 8 + one() + 9 + one() + 10 + one() + 11 + one() + 12;
+  // false branch should be simplified
+  return b ? i : ~~~(i*1 + 0);
+}
