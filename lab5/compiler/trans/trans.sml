@@ -18,7 +18,11 @@ struct
   structure DG = DirectedGraph(DynArray)
   structure HT = HashTable
 
+  type func_table = (bool * Tree.typ * Tree.typ list) Symbol.table
   type struct_table = ((int * T.typ) Symbol.table * int) Symbol.table
+  type temp_table = (Temp.temp * Tree.typ) Symbol.table
+  type env = func_table * struct_table * temp_table
+  type state = T.stm list * (Graph.node_id * T.edge) list * Graph.node_id
 
   (* typ_size : 'a -> A.typ -> int
    *
@@ -54,22 +58,56 @@ struct
   fun const n = T.CONST (Word32.fromInt n, T.WORD)
   fun constq n = T.CONST (Word32.fromInt n, T.QUAD)
 
+  (* change_state : state * T.stm -> state
+   *
+   * Changes the state given such that the given statement is appended to the
+   * end of the list of statements in the state.
+   *)
+  fun change_state ((stms, preds, id), stm) = (stms @ [stm], preds, id)
+
+  (* safe : unit -> bool
+   *
+   * Returns whether safe compilation should be turned on or not with respect
+   * to memory references
+   *)
   fun safe () = not (Flag.isset Options.flag_unsafe) andalso
                     Flag.isset Options.flag_safe
-  fun protect_access (stms, addr) =
-        if not (safe ()) then stms
-        else stms @ [T.GOTO (Label.extfunc "raise_segv",
-                             SOME (T.BINOP (T.EQ, addr, constq 0)))]
 
-  fun protect_arr_access (arr_addr, stms, arr_idx) = let
+  (* protect_access : state * T.exp -> state
+   *
+   * Protects a memory access at the given address. If memory safety is turned
+   * on, the given state is modified appropriately to include a check.
+   * Otherwise, the state is not modified.
+   *)
+  fun protect_access (state, addr) =
+        if not (safe ()) then state
+        else let val e = T.BINOP (T.EQ, addr, constq 0) in
+          change_state (state, T.GOTO (Label.extfunc "raise_segv", SOME e))
+        end
+
+  (* protect_arr_access : T.exp * state * T.exp -> state
+   *
+   * Performs bounds checking on array indices.
+   *
+   * @param arr_addr the expression for the address of the array
+   * @param state the current state of the program
+   * @param arr_idx the index into the array to check
+   * @return the altered state with bounds checking if safety is turned on
+   *)
+  fun protect_arr_access (arr_addr, state, arr_idx) = let
         val abrt = Label.extfunc "raise_segv"
         val size = T.MEM (T.BINOP (T.SUB, arr_addr, constq 8), T.WORD)
+        val check1 = T.BINOP (T.LT, arr_idx, const 0)
+        val check2 = T.BINOP (T.LTE, size, arr_idx)
       in
-        if not (safe ()) then stms
-        else stms @ [T.GOTO (abrt, SOME (T.BINOP (T.LT, arr_idx, const 0))),
-                     T.GOTO (abrt, SOME (T.BINOP (T.LTE, size, arr_idx)))]
+        if not (safe ()) then state
+        else change_state (change_state (state, T.GOTO (abrt, SOME check1)),
+                           T.GOTO (abrt, SOME check2))
       end
 
+  (* trans_typ : A.typ -> T.typ
+   * Translates types from AST types to Tree types
+   *)
   fun trans_typ (A.STRUCT _ | A.ARRAY _ | A.PTR _) = T.QUAD
     | trans_typ _ = T.WORD
 
@@ -114,32 +152,32 @@ struct
   fun new_id (G.GRAPH g) = let
         val id = #new_id g ()
         val _ = #add_node g (id, [])
-      in
-        id
-      end
+      in id end
 
-  (* trans_exp : 'a -> A.exp -> T.stm list * T.exp
+  (* trans_exp : 'a -> A.exp -> bool -> state * T.exp
    *
    * Translates an AST expression into an IR expression.
    *
    * @param env the environment so far
    * @param exp the expression to convert
+   * @param addr true if an address is desired, or false if an actual expression
+   *             is required
    *
-   * @return A tuple of statements and an IR expression. The statement list is
-   *         commands that need to be executed beforehand, and the expression
-   *         contains the result of this operation.
+   * @return A tuple of state and an IR expression. The state represents the
+   *         the current state of the block in construction upon return, and the
+   *         expression returned is a pure one with no side effects when
+   *         evaluated, and hence can be safely thrown away.
    *)
-  fun trans_exp ((_, _, env), _, (stms, preds, i)) (A.Var id) _ = let
+  fun trans_exp ((_, _, env) : env, _ : T.cfgraph, state : state)
+                (A.Var id) _ = let
         val (temp, typ) = Symbol.look' env id
       in
-        (stms, preds, T.TEMP ((temp, ref ~1), typ), i)
+        (state, T.TEMP ((temp, ref ~1), typ))
       end
-    | trans_exp (_, _, (stms, preds, id)) (A.Bool b) _ =
-        (stms, preds, const (if b then 1 else 0), id)
-    | trans_exp (_, _, (stms, preds, id)) (A.Const w) _ =
-        (stms, preds, T.CONST (w, T.WORD), id)
-    | trans_exp (_, _, (stms, preds, id)) (A.UnaryOp (A.NEGATIVE, A.Const w)) _ =
-        (stms, preds, T.CONST(~w, T.WORD), id)
+    | trans_exp (_, _, s) (A.Bool b) _ = (s, const (if b then 1 else 0))
+    | trans_exp (_, _, s) (A.Const w) _ = (s, T.CONST (w, T.WORD))
+    | trans_exp (_, _, s) (A.UnaryOp (A.NEGATIVE, A.Const w)) _ =
+        (s, T.CONST(~w, T.WORD))
     | trans_exp env (A.UnaryOp (A.NEGATIVE, e)) a =
         trans_exp env (A.BinaryOp (A.MINUS, A.Const Word32Signed.ZERO, e)) a
     | trans_exp env (A.UnaryOp (A.INVERT, e)) a =
@@ -155,36 +193,36 @@ struct
     | trans_exp env (A.BinaryOp (A.LOR, e1, e2)) a =
         trans_exp env (A.Ternary (e1, A.Bool true, e2, ref A.BOOL)) a
     | trans_exp (e, g, s) (A.BinaryOp (oper, e1, e2)) a = let
-        val (stms, preds, e1', id) = trans_exp (e, g, s) e1 a
-        val (stms, preds, e2', id) = trans_exp (e, g, (stms, preds, id)) e2 a
+        val (s', e1')  = trans_exp (e, g, s)  e1 a
+        val (s'', e2') = trans_exp (e, g, s') e2 a
         val result  = T.BINOP (trans_oper oper, e1', e2')
       in
-        if oper <> A.DIVIDEDBY andalso oper <> A.MODULO then (stms, preds, result, id)
+        if oper <> A.DIVIDEDBY andalso oper <> A.MODULO then (s'', result)
         else
           (* Divides and mods can have side effects. Make sure that they always
              happen by moving the result of the operation into a temp *)
           let val t = T.TEMP((Temp.new(), ref ~1), T.WORD) in
-            (stms @ [T.MOVE (t, result)], preds, t, id)
+            (change_state (s'', T.MOVE (t, result)), t)
           end
       end
     | trans_exp (e, g, s) (A.Ternary (e1, e2, e3, ref typ)) a = let
         fun tmp t = T.TEMP ((t, ref ~1), trans_typ typ)
         val t = Temp.new ()
-        val (stms, preds, e1', id) = trans_exp (e, g, s) e1 false
-        val _ = commit g (stms @ [T.COND e1'], preds, id)
+        val (s', e1') = trans_exp (e, g, s) e1 false
+        val id = commit g (change_state (s', T.COND e1'))
         val (tid, fid) = (new_id g, new_id g)
-        val (stms2, preds2, e2', id2) = trans_exp (e, g, ([], [(id, T.TRUE)], tid)) e2 a
-        val (stms3, preds3, e3', id3) = trans_exp (e, g, ([], [(id, T.FALSE)], fid)) e3 a
-        val _ = commit g (stms2 @ [T.MOVE (tmp t, e2')], preds2, id2)
-        val _ = commit g (stms3 @ [T.MOVE (tmp t, e3')], preds3, id3)
+        val (state2, e2') = trans_exp (e, g, ([], [(id, T.TRUE)],  tid)) e2 a
+        val (state3, e3') = trans_exp (e, g, ([], [(id, T.FALSE)], fid)) e3 a
+        val id2 = commit g (change_state (state2, T.MOVE (tmp t, e2')))
+        val id3 = commit g (change_state (state3, T.MOVE (tmp t, e3')))
       in
-        ([], [(id2, T.ALWAYS), (id3, T.ALWAYS)], tmp t, new_id g)
+        (([], [(id2, T.ALWAYS), (id3, T.ALWAYS)], new_id g), tmp t)
       end
     | trans_exp ((e as (funs, _, _)), g, state) (A.Call (name, EL)) _ = let
-        fun ev (d, (state, dests)) = let
-              val (stms, preds, result, id) = trans_exp (e, g, state) d false
-            in ((stms, preds, id), dests @ [result]) end
-        val ((stms, preds, id), args) = foldl ev (state, []) EL
+        fun ev (d, (s, dests)) = let
+              val (s', result) = trans_exp (e, g, s) d false
+            in (s', dests @ [result]) end
+        val (state', args) = foldl ev (state, []) EL
         val (isext, rettyp, argtyps) = Symbol.look' funs name
         val label =
           if isext then Label.extfunc (Symbol.name name)
@@ -192,60 +230,62 @@ struct
         val result = T.TEMP ((Temp.new(), ref ~1), rettyp)
         val call = T.CALL (label, rettyp, ListPair.zip (args, argtyps))
       in
-        (stms @ [T.MOVE (result, call)], preds, result, id)
+        (change_state (state', T.MOVE (result, call)), result)
       end
-    | trans_exp (_, _, (stms, preds, id)) A.Null _ = (stms, preds, constq 0, id)
-    | trans_exp ((e as (_, structs, _)), g, state) (A.AllocArray (typ, exp)) _ = let
-        val (stms, pred, e', id) = trans_exp (e, g, state) exp false
+    | trans_exp (_, _, state) A.Null _ = (state, constq 0)
+    | trans_exp ((e as (_, structs, _)), g, state) (A.AllocArray (typ, exp)) _ =
+      let
+        val (state', e') = trans_exp (e, g, state) exp false
         val func = Label.extfunc (if safe () then "salloc_array" else "calloc")
         val temp = T.TEMP ((Temp.new(), ref ~1), T.QUAD)
         val call = T.CALL (func, T.QUAD,
                            [(e', T.QUAD),
                             (constq (typ_size structs typ), T.QUAD)])
       in
-        (stms @ [T.MOVE (temp, call)], pred, temp, id)
+        (change_state (state', T.MOVE (temp, call)), temp)
       end
-    | trans_exp ((_, structs, _), _, (stms, preds, id)) (A.Alloc typ) _ = let
+    | trans_exp ((_, structs, _), _, state) (A.Alloc typ) _ = let
         val func = Label.extfunc (if safe () then "salloc" else "calloc")
         val temp = T.TEMP ((Temp.new(), ref ~1), T.QUAD)
         val call = T.CALL (func, T.QUAD,
                            [(constq 1, T.QUAD),
                            (constq (typ_size structs typ), T.QUAD)])
       in
-        (stms @ [T.MOVE (temp, call)], preds, temp, id)
+        (change_state (state, T.MOVE (temp, call)), temp)
       end
-    | trans_exp ((e as (_, structs, _)), g, state) (A.ArrSub (e1, e2, ref typ)) a = let
-        val (stms, preds, e1', id) = trans_exp (e, g, state) e1 false
-        val (stms, preds, e2', id) = trans_exp (e, g, (stms, preds, id)) e2 false
-        val offset = T.BINOP(T.MUL, e2', const (typ_size structs typ))
+    | trans_exp (e, g, s) (A.ArrSub (e1, e2, ref typ)) a = let
+        val (s', e1')  = trans_exp (e, g, s) e1 false
+        val (s'', e2') = trans_exp (e, g, s') e2 false
+        val (_, structs, _) = e
+        val offset = T.BINOP (T.MUL, e2', const (typ_size structs typ))
         val addr = T.BINOP (T.ADD, e1', offset)
         val dest = T.MEM (addr, trans_typ typ)
-        val stms = protect_access (stms, e1')
-        val stms = protect_arr_access (e1', stms, e2')
+        val s'' = protect_access (s'', e1')
+        val s'' = protect_arr_access (e1', s'', e2')
       in
-        if a then (stms, preds, addr, id)
+        if a then (s'', addr)
         else let val t = T.TEMP ((Temp.new(), ref ~1), trans_typ typ) in
-          (stms @ [T.MOVE (t, dest)], preds, t, id)
+          (change_state (s'', T.MOVE (t, dest)), t)
         end
       end
     | trans_exp env (A.Deref (e, ref typ)) a = let
-        val (stms, preds, e', id) = trans_exp env e false
-        val stms = protect_access (stms, e')
+        val (s', e') = trans_exp env e false
+        val s' = protect_access (s', e')
       in
-        if a then (stms, preds, e', id)
+        if a then (s', e')
         else let val t = T.TEMP ((Temp.new(), ref ~1), trans_typ typ) in
-          (stms @ [T.MOVE (t, T.MEM(e', trans_typ typ))], preds, t, id)
+          (change_state (s', T.MOVE (t, T.MEM(e', trans_typ typ))), t)
         end
       end
     | trans_exp (env as (e, _, _)) (A.Field (exp, id, ref typ)) a = let
-        val (stms, preds, exp', i) = trans_exp env exp true
+        val (s', exp') = trans_exp env exp true
         val (off, size) = struct_off e typ id
         val addr = T.BINOP (T.ADD, exp', const off)
         val dest = T.MEM (addr, size)
       in
-        if a then (stms, preds, addr, i)
+        if a then (s', addr)
         else let val t = T.TEMP ((Temp.new(), ref ~1), size) in
-          (stms @ [T.MOVE (t, dest)], preds, t, i)
+          (change_state (s', T.MOVE (t, dest)), t)
         end
       end
     | trans_exp env (A.Marked data) a = trans_exp env (Mark.data data) a
@@ -265,7 +305,7 @@ struct
         fun unmark (A.Marked data) = unmark (Mark.data data)
           | unmark e = e
 
-        val (stms, preds, e1'', id) = trans_exp env e1 true
+        val (s', e1'') = trans_exp env e1 true
         val e1' = case unmark e1
                     of (A.ArrSub (_, _, t) | A.Deref (_, t)) =>
                          T.MEM (e1'', trans_typ (!t))
@@ -275,17 +315,17 @@ struct
                          T.MEM(e1'', typ)
                        end
                      | _ => e1''
-        val (stms', preds', e2', id') = trans_exp (e, g, (stms, preds, id)) e2 false
+        val (s'', e2') = trans_exp (e, g, s') e2 false
         val e3' =
           case oper_opt
             of SOME oper => T.BINOP (trans_oper oper, e1', e2')
              | NONE => e2'
       in
-        (stms' @ [T.MOVE (e1', e3')], preds', id')
+        change_state (s'', T.MOVE (e1', e3'))
       end
     | trans_stm (env as (e, g, _)) (A.If(exp, s1, s2)) lp = let
-        val (stms, preds, e', id) = trans_exp env exp false
-        val id = commit g (stms @ [T.COND e'], preds, id)
+        val (state, e') = trans_exp env exp false
+        val id = commit g (change_state (state, T.COND e'))
         val (tid, fid) = (new_id g, new_id g)
         val tstate = trans_stm (e, g, ([], [(id, T.TRUE)], tid)) s1 lp
         val fstate = trans_stm (e, g, ([], [(id, T.FALSE)], fid)) s2 lp
@@ -296,11 +336,12 @@ struct
         val pred = commit g state
         val G.GRAPH graph = g
         val eid = new_id g
-        val (stms, preds, e', eid') = trans_exp (e, g, ([], [(pred, T.ALWAYS)], eid)) exp false
-        val _ = commit g (stms @ [T.COND e'], preds, eid')
+        val (state, e') = trans_exp (e, g, ([], [(pred, T.ALWAYS)], eid))
+                                    exp false
+        val eid' = commit g (change_state (state, T.COND e'))
         val blist = ref []
         val bstate = trans_stm (e, g, ([], [(eid', T.TRUE)], new_id g)) s
-                                        (blist, eid)
+                               (blist, eid)
         val bid = commit g bstate
         val _ = #add_edge graph (bid, eid, T.ALWAYS)
       in ([], (eid', T.FALSE) :: (!blist), new_id g) end
@@ -312,8 +353,8 @@ struct
         (blist := (commit g state, T.BRANCH) :: (!blist);
          ([], [], new_id g))
     | trans_stm (env as (_, g, _)) (A.Return e) _ = let
-        val (stms', preds', e', id) = trans_exp env e false
-        val _ = commit g (stms' @ [T.RETURN e'], preds', id)
+        val (state, e') = trans_exp env e false
+        val _ = commit g (change_state (state, T.RETURN e'))
       in ([], [], new_id g) end
     | trans_stm (env as (f, g, _)) (A.Seq (s1, s2)) lp = let
         val state = trans_stm env s1 lp
@@ -323,8 +364,8 @@ struct
       in trans_stm ((f, s, e'), g, state) stm lp end
     | trans_stm env (A.Express e) _ = let
         val t = T.TEMP ((Temp.new(), ref ~1), T.QUAD)
-        val (stms', preds', e', id) = trans_exp env e false
-      in (stms' @ [T.MOVE (t, e')], preds', id) end
+        val (state, e') = trans_exp env e false
+      in change_state (state, T.MOVE (t, e')) end
     | trans_stm (_, _, state) A.Nop _ = state
     | trans_stm env (A.Markeds data) lp = trans_stm env (Mark.data data) lp
     | trans_stm _ (A.For _) _ = raise Fail "no for loops!"
