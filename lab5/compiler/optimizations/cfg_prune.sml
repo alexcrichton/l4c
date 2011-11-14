@@ -1,5 +1,11 @@
 (* L5 Compiler
+ *
  * Control flow graph simplifier - prunes dead code from the CFG
+ *
+ * Removes all basic blocks which can never be reached as a result of normal
+ * control flow, and also evaluates constant branches to prune one half of the
+ * branch.
+ *
  * Author: Alex Crichton <acrichto@andrew.cmu.edu>
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
