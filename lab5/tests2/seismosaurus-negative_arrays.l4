@@ -1,0 +1,10 @@
+//test exception 11
+/* negative numbers are out of bounds */
+
+int main (){
+	int[] arr = alloc_array(int, 423);
+	int j = -2;
+	
+	/*no, this doesn't get the second to last element... */
+	return arr[j];
+}

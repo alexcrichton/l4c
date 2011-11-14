@@ -1,0 +1,19 @@
+//test exception 11
+
+int main()
+{
+    int [][]app = alloc_array(int [], 10);
+    int i;
+    int j;
+
+    for (i = 0; i < 10; i++)
+    {
+        app[i] = alloc_array(int, 10);
+        for (j = 0; j < 10; j++)
+        {
+            app[i][j+1] = i + j;
+        }
+    }
+
+    return 0;
+}

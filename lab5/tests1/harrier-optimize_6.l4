@@ -1,0 +1,28 @@
+//test return 7722
+
+int myfun(int *z)
+{
+    int *a = alloc(int);
+    *a = 33;
+    (*z)++;
+    return 3**a**z;
+}
+
+int main()
+{
+    int *z = alloc(int);
+    // CSE should not optimize these since the function has side-effects on z
+    int a = myfun(z);
+    int b = myfun(z);
+    int c = myfun(z);
+    int d = myfun(z);
+    int e = myfun(z);
+    int f = myfun(z);
+    int g = myfun(z);
+    int h = myfun(z);
+    int i = myfun(z);
+    int j = myfun(z);
+    int k = myfun(z);
+    int l = myfun(z);
+    return (a + b + c + d + e + f + g + h + i + j + k + l);
+}

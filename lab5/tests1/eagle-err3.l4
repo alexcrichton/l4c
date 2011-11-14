@@ -1,0 +1,13 @@
+//test exception 11
+// Check for 0 on the struct!
+struct bar {
+  int a;
+};
+
+struct bar* makebar() {
+  return NULL;
+}
+
+int main() {
+  return (*makebar()).a;
+}

@@ -1,0 +1,17 @@
+//test return 100
+int main()
+{
+    bool ha = true;
+    int a = 0;
+    while (ha)
+    {
+        int b = 5;
+        b -= a;
+        if (b % 5 == 1)
+        {
+            break;
+        }
+        a++;
+    }
+    return 100;
+}

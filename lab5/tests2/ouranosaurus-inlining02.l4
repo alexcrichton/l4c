@@ -1,0 +1,61 @@
+//test return -2113785612
+
+int a(int i, int j);
+int b(int i, int j, int k);
+int c();
+int d(int i);
+
+// Lots of number crunching in a variety of ways to tests various heuristics 
+// for choosing which functions to inline, among other things.
+
+// Nested function calls for testing with inlining (e.g. main calls a which 
+// calls d which calls c)
+
+int a(int i, int j) {
+    int idx;
+    int accum = 0;
+    for (idx = 0; idx < j; idx++) {
+        accum -= d(i);
+    }
+    return accum;
+}
+
+int b(int i, int j, int k) {
+    return i + j + k;
+}
+
+int c() {
+    return 0;
+}
+
+int d(int i) {
+    // perhaps dead code elimination prior to inlining
+    if (true) {
+        return i + 1 + c();
+    }
+    else {
+        return 2;
+    }
+}
+
+int main() {
+    int i;
+    int j;
+    int k;
+    int accum = 0;
+
+    for (i = 0; i < 500; i++) {
+        accum *= c();
+        accum /= d(i);
+    }
+    // nested for loops might be better to prioritize when inlining
+    for (i = 0; i < 500; i++) {
+        for (j = 0; j < 500; j++) {
+            accum += a(i, j);
+            for (k = 0; k < 5; k++) {
+                accum += b(i, j, k);
+            }
+        }
+    }
+    return accum;
+}

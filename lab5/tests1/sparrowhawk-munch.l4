@@ -1,0 +1,23 @@
+//test return 1016
+//Multiplications and divisions that can be optimized by better 
+//instruction selection
+int main()
+{
+
+	int a = 2;
+	int b = 4;
+	int c = 127;
+	int d = 66;
+	int e = 64;
+
+	int result;
+	int result2;
+
+	result = e / b; //16
+	result *= a;    //32
+	result2 = b * c; //508
+	result2 *= e;    //32512
+	result2 /= result; //1016
+
+	return result2;
+}

@@ -1,0 +1,17 @@
+//test return 1
+// returns 1
+
+int retX(int x)
+{
+  x <<= 2;
+  x >>= 2;
+  x |= x;
+  x &= x;
+  return x;
+}
+
+int main () {
+  int x = 242;
+
+  return (booltoint(x == retX(x)));
+}

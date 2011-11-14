@@ -1,0 +1,15 @@
+//test return 50000
+
+int main()
+{
+    int b = 20;
+    int c = 50;
+    int a;
+    int d;
+
+    a = b * c;
+    b = b * c;
+    d = b * c;
+
+    return d;
+}

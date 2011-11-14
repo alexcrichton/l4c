@@ -1,0 +1,16 @@
+//test exception
+
+struct a {
+	int a;
+	int b;
+	int c;
+};
+
+struct a *lol() {
+	return NULL;
+}
+
+int main() {
+	struct a *p = lol();
+	return p->c;
+}

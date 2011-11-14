@@ -1,0 +1,17 @@
+//test exception 11
+
+/* I really hope the ref compiler behaves as speced here... This is the most
+ * sensical failure mode, I think... */
+
+struct buttsquid {
+	int butt;
+	int squid;
+};
+
+int main()
+{
+	int n = 0;
+	struct buttsquid *foo = NULL;
+	foo->squid = 15410/n;
+	return 1337;
+}

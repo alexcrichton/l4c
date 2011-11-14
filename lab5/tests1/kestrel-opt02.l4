@@ -1,0 +1,32 @@
+//test return 42
+//constant folding/propagation, strength reduction
+
+int f()
+{
+  int a = 2;
+  int b = a + a;
+  int c = a + b;
+  int d = a + b + c;
+  int e = a + b + c + d;
+  int f = a + b + c + d + e;
+  int g = a + b + c + d + e + f;
+  return g;
+}
+
+int main()
+{
+  int K = 500;
+  int n = 42;
+  for(int i = 0; i < K; i++)
+  {
+    for (int j = 0; j < K; j++)
+    {
+      for (int k = 0; k < K; k++)
+      {
+        n += f();
+        n -= f();
+      }
+    }
+  }
+  return n;
+}

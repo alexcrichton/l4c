@@ -1,0 +1,25 @@
+//test exception 11
+
+struct foo
+{
+    int n;
+    bool b;
+    struct foo* s;
+};
+
+int main () {
+    int i;
+    int num_s = 10000;
+    struct foo[] s = alloc_array(struct foo, num_s);
+
+    for(i = num_s - 1; i >= 0; i--)
+    {
+        s[i].n = i;
+        s[i].b = true;
+        s[i].s = NULL;
+        s[i].s->n = -i;
+        s[i].s->b = false;
+    }
+
+    return 0;
+}

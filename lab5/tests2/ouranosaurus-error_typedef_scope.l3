@@ -1,0 +1,12 @@
+//test error
+// typedefs respect scoping rules
+
+int f1(my_int arg1) {
+    return arg1;
+}
+
+int main() {
+    typedef int my_int;
+    my_int a = 0;
+    return f1(a);
+}

@@ -1,0 +1,32 @@
+//test return 100
+//constant folding, propagation, invariant code motion
+
+int main() 
+{
+  int a = 0;
+  int b = 0;
+  int c = 0;
+  int d = 0;
+  int e = 0;
+  int f = 0;
+  int g = 0;
+
+  for ( a = 0; a < 100000; b+=1) {
+
+    a = b*c + g * g;
+    d = b*c + g;
+    e = b*c*d;
+    a = b*c*d + g*g;
+    d = b*c*d + g*g;
+
+    for ( c = 0; c < 100; c+=1) {
+      e+=1;
+      a+=1;
+    }
+    
+    a = b;
+    e = 100;
+  }
+
+  return e;
+}

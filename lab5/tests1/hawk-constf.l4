@@ -1,0 +1,15 @@
+//test return 8
+
+int main() {
+    int x1 = 1;
+    int x2 = 1;
+    int x3 = 2;
+    int x4 = 3;
+    int x5 = 5;
+    int x6 = 8;
+    int x7 = 13;
+    int x8 = 21; //unused
+    int x9 = 28;
+
+    return ((x4*(x5*x6-((x1+x2)*x3+x6))/x3+x1)-x3*(x1+x4+(x9/x3)))+1;
+}

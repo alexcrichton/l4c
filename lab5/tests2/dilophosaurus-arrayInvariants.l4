@@ -1,0 +1,25 @@
+//test return 15876
+
+typedef int Sum;
+
+// loop invariants
+int main () {
+  int SIZE = 42;
+  int[] A = alloc_array(int, SIZE);
+  Sum sum = 0;
+  int i;
+  int a = 7;
+  int b = 6;
+  int c = 0;
+  for (i = 0; i < SIZE; i++) {
+    int j = 10;
+    Sum s = 0;
+    A[i] = j * SIZE; // loop invariant !
+    s += A[i] + 1;
+    sum += s - 1;
+    b * c; // dead code
+    c = a * b; // loop invariant
+    sum -= c;
+  }
+  return sum;
+}

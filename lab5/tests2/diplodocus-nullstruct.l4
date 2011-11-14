@@ -1,0 +1,34 @@
+//test exception
+
+struct a
+{
+    int b;
+    int c;
+    int d;
+    int e;
+    int f;
+};
+
+struct b
+{
+    struct a *g;
+    struct a *h;
+    struct a *i;
+    struct a *j;
+};
+
+struct c
+{
+    struct b k;
+    struct b l;
+    struct b m;
+    struct b n;
+};
+
+int main()
+{
+    struct c *temp = alloc(struct c);
+    int a = temp->k.g->b;
+
+    return a;
+}

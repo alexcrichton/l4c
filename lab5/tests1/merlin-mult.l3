@@ -1,0 +1,16 @@
+//test return 4199958 
+
+int mult(int x, int acc, int remaining)
+{
+  if(remaining==0)
+    return acc;
+  else
+    return mult(x,acc+x,remaining-1);
+}
+
+int main()
+{
+  int x = 42;
+  int y = 99999;
+  return mult(x,0,y);
+}

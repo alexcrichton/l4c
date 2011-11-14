@@ -1,0 +1,15 @@
+//test error
+// 
+
+bool ret_true(int x);
+
+bool ret_true(int x)
+{
+  bool ret_true = true;
+  return ret_true;
+}
+
+int main () {
+  
+  return 1 + ret_true(int x);
+}

@@ -1,0 +1,13 @@
+//test exception 11
+
+int f()
+{
+  return f();
+}
+
+int main()
+{
+  int[] a = alloc_array(int, 0);
+  a[0] = 42;
+  return f();
+}

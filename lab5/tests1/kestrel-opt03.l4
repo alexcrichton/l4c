@@ -1,0 +1,47 @@
+//test return 42
+//dead code elimination, common subexpression elimination
+
+int f1(int a, int b)
+{
+  int c = a + b;
+  int d = a + b + c;
+  int e = a + b + c + d;
+  int f = a + b + c + d + e;
+  int g = a + b + c + d + e + f;
+  int h = a + b + c + d + e + f + g;
+  int i = a + b + c + d + e + f + g + h;
+  int j = a + b + c + d + e + f + g + h + i;
+  int k = a + b + c + d + e + f + g + h + i + j;
+  int l = a + b + c + d + e + f + g + h + i + j + k;
+  int m = a + b + c + d + e + f + g + h + i + j + k + l;
+  int n = a + b + c + d + e + f + g + h + i + j + k + l + m;
+  int o = a + b + c + d + e + f + g + h + i + j + k + l + m + n;
+  int p = a + b + c + d + e + f + g + h + i + j + k + l + m + n + o;
+  int q = a + b + c + d + e + f + g + h + i + j + k + l + m + n + o + p;
+  int r = a + b + c + d + e + f + g + h + i + j + k + l + m + n + o + p + q;
+  return r; 
+}
+
+int f2(int a, int b)
+{
+  int c = 0;
+  for (int n = 0; n < 99999; n++)
+  {
+    c += f1(a, b);
+  }
+  int d = 0;
+  for (int n = 0; n < 10000; n++)
+  {
+    d += f1(a, b);
+  }
+  for (int n = 0; n < 9999; n++)
+  {
+    d -= f1(a, b);
+  }
+  return d;
+}
+
+int main()
+{
+  return (f1(1, 1) >> 11) + 10;
+}

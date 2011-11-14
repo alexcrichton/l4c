@@ -1,0 +1,26 @@
+//test return 38217
+
+struct point
+{
+    int x;
+    int y;
+};
+
+int distSq(struct point* p1, struct point* p2)
+{
+    return (p1->x - p2->x) * (p1->x - p2->x) + (p1->y - p2->y) * (p2->x - p2->y);
+}
+
+int main()
+{
+    struct point* p1 = alloc(struct point);
+    struct point* p2 = alloc(struct point);
+
+    p1->x = 5;
+    p1->y = 9;
+
+    p2->x = 200;
+    p2->y = 201;
+
+    return distSq(p1, p2);
+}

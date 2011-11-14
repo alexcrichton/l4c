@@ -1,0 +1,24 @@
+//test exception 11
+
+struct list {
+    struct list *next;
+    int data;
+};
+
+struct list *insert(struct list *this, int data) {
+    struct list *new = alloc(struct list);
+    new->next = this;
+    new->data = data;
+    return new;
+}
+
+int main() {
+    struct list *block = NULL;
+    block = insert(block, 0); // block->next = NULL
+    block = insert(block, 1); // block->next->next = NULL
+    block = insert(block, 2); // block->next->next->next = NULL
+
+    struct list *hatred = block->next->next->next->next;
+
+    return hatred->data;
+}

@@ -1,0 +1,28 @@
+//test exception 11
+
+int foo(int*[] array, int start, int end)
+{
+    if(start >= end)
+        return -1;
+
+    printint(*array[start]);
+
+    return foo(array, start + 1, end);
+}
+
+int main()
+{
+    int i;
+    int*[] array = alloc_array(int*, 10);
+
+    for(i = 0; i < 9; i++)
+    {
+        array[i] = alloc(int);
+        *array[i] = i;
+    }
+    array[9] = NULL;
+
+    foo(array, 0, 10);
+
+    return 0;
+}

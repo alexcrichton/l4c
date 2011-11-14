@@ -1,0 +1,10 @@
+//test return 397
+int main() { 
+    int[] arr1 = alloc_array(int, 1);
+    int[] arr2 = alloc_array(int, 2);
+    arr1[0] = 395;
+    arr2[0] = 396;
+    arr2[1] = 397;
+    arr1 = arr2;
+    return arr1[1];
+}

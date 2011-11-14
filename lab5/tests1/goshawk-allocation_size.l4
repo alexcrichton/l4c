@@ -1,0 +1,8 @@
+//test exception 11
+
+int main()
+{
+    int size = readint();
+    int[] a = alloc_array(int, size);
+    return size;
+}

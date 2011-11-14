@@ -1,0 +1,92 @@
+//test exception 11
+
+struct node_t {
+    int x;
+    struct node_t *prev;
+    struct node_t *next;
+};
+
+typedef struct node_t node_t;
+typedef node_t *np;
+
+np newnode(int x)
+{
+    np k = alloc(node_t);
+    k->x = x;
+    k->prev = NULL;
+    k->next = NULL;
+
+    return k;
+}
+
+np addnode(np head, np new)
+{
+    new->next = head;
+    new->prev = NULL;
+    head->prev = new;
+
+    return new;
+}
+
+np reverse(np head)
+{
+    np accm = head;
+
+    while (head != NULL)
+    {
+        np next = head->next;
+        accm = addnode(accm, head);
+        head = next;
+    }
+
+    return accm;
+}
+
+np prepend(np head, np new)
+{
+    new->next = head;
+    new->prev = NULL;
+    head->prev = new;
+
+    return new;
+}
+
+np reverse2(np head)
+{
+    np accm = NULL;
+
+    while (head != NULL)
+    {
+        np next = head->next;
+        // prepend doesn't work with accm == NULL
+        accm = prepend(accm, head);
+        head = next;
+    }
+
+    return accm;
+}
+
+int main()
+{
+    np head = newnode(0);
+    np next;
+    int i;
+    int sum = 0;
+
+    for (i = 0; i < 200; i++)
+    {
+        next = newnode(i + 1);
+        head = addnode(head, next);
+    }
+
+    head = reverse(head);
+    head = reverse2(head);
+
+    for (i = 0; i < 100; i++)
+    {
+        sum += head->x;
+        head = head->next;
+    }
+
+    return sum;
+}

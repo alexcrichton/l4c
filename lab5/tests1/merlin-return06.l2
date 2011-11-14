@@ -1,0 +1,35 @@
+//test return 115
+// Nested for and while loops with continues and breaks
+int main() {
+  int x;
+  int i = 10;
+  int j = 10;
+  int acc = 0;
+
+  for(x = 0; x < i; x++) {
+    for(int y = 0; y < j; y++) {
+      if(y > x) {
+        acc++;
+      }
+      else {
+        continue;
+      }
+    }
+    acc++;
+  }
+
+  while(i > 0) {
+    for(int z = 0; z < j; z++) {
+      if(z >= 5) {
+        break;
+      }
+      else {
+        acc++;
+      }
+    }
+    acc++;
+    i--;
+  }
+
+  return acc;
+}

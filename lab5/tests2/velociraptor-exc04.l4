@@ -1,0 +1,9 @@
+//test exception 11
+// Don't dereference null pointers... kthx.
+
+int main() {
+	int* n = alloc(int);
+	*n = 4;
+	n = NULL;
+	return *n;
+}

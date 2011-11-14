@@ -1,0 +1,13 @@
+//test exception
+
+int abs(int x) {
+    return (x < 0 ? -x : x);
+}
+
+int dammit(int x) {
+    return abs(x) + dammit(x-1);
+}
+
+int main() {
+    return dammit(10);
+}

@@ -1,0 +1,13 @@
+//test exception 11
+
+int getIndex() {
+	return 2048;
+}
+
+int main() {
+	int size = 1024;
+	int[] a = alloc_array(int, size);
+
+	return a[getIndex()];
+}
+

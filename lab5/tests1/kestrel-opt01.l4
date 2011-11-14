@@ -1,0 +1,41 @@
+//test return 42
+//strength reduction, loop unrolling
+
+struct s
+{
+  struct s* a;
+  int b;
+};
+
+int f(int n)
+{
+  return n*(1234*n*n*n*n+123*n*n+12);
+}
+
+int main()
+{
+
+  struct s* x = alloc(struct s);
+  x->a = alloc(struct s);
+  x->a->a = alloc(struct s);
+  x->a->a->a = alloc(struct s);
+  x->a->a->a->a = alloc(struct s);
+  x->a->a->a->a->a = alloc(struct s);
+  x->a->a->a->a->a->a = alloc(struct s);
+  x->a->a->a->a->a->a->a = alloc(struct s);
+  x->a->a->a->a->a->a->a->a = alloc(struct s);
+  x->a->a->a->a->a->a->a->a->a = alloc(struct s);
+  x->a->a->a->a->a->a->a->a->a->b = 42;
+
+  for(int n = 0; n < 999999; n++)
+  {
+    int c = 0;
+    for(int i = -5; i <= 5; i++)
+    {
+      c += f(i);
+    }
+    x->a->a->a->a->a->a->a->a->a->b = x->a->a->a->a->a->a->a->a->a->b + c;
+  }
+  
+  return x->a->a->a->a->a->a->a->a->a->b;
+}

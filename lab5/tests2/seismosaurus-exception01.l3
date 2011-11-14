@@ -1,0 +1,8 @@
+//test exception
+
+int getA() {return 1;}
+int getB() {return 0;}
+
+int main() {
+	return getA() / getB();
+}

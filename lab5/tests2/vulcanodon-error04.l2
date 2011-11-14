@@ -1,0 +1,9 @@
+//test error
+// just tests a top level continue error
+
+int main()
+{
+
+	continue;
+	return 5;
+}

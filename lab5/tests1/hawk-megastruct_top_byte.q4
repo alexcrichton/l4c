@@ -1,0 +1,360 @@
+//test exception 11
+
+// an extraordinarily large struct, so that the last address in it is at the
+// very top of the stack when it is NULL
+// only interesting for well-packed structs
+
+
+/*
+-- lua script used to generate structs and dereference included for reference
+
+for i=1,46
+do
+    print ("struct level" .. i)
+    print ("{")
+    print ("\tstruct level" .. (i - 1) .. " entry0;")
+    print ("\tstruct level" .. (i - 1) .. " entry1;")
+    print ("};")
+    print ()
+end
+
+for i=46,1,-1
+do
+    print ("\t\t.entry1 // " .. i)
+end
+
+*/
+
+struct level0
+{
+    int uses_four_bytes;
+};
+
+struct level1
+{
+	struct level0 entry0;
+	struct level0 entry1;
+};
+
+struct level2
+{
+	struct level1 entry0;
+	struct level1 entry1;
+};
+
+struct level3
+{
+	struct level2 entry0;
+	struct level2 entry1;
+};
+
+struct level4
+{
+	struct level3 entry0;
+	struct level3 entry1;
+};
+
+struct level5
+{
+	struct level4 entry0;
+	struct level4 entry1;
+};
+
+struct level6
+{
+	struct level5 entry0;
+	struct level5 entry1;
+};
+
+struct level7
+{
+	struct level6 entry0;
+	struct level6 entry1;
+};
+
+struct level8
+{
+	struct level7 entry0;
+	struct level7 entry1;
+};
+
+struct level9
+{
+	struct level8 entry0;
+	struct level8 entry1;
+};
+
+struct level10
+{
+	struct level9 entry0;
+	struct level9 entry1;
+};
+
+struct level11
+{
+	struct level10 entry0;
+	struct level10 entry1;
+};
+
+struct level12
+{
+	struct level11 entry0;
+	struct level11 entry1;
+};
+
+struct level13
+{
+	struct level12 entry0;
+	struct level12 entry1;
+};
+
+struct level14
+{
+	struct level13 entry0;
+	struct level13 entry1;
+};
+
+struct level15
+{
+	struct level14 entry0;
+	struct level14 entry1;
+};
+
+struct level16
+{
+	struct level15 entry0;
+	struct level15 entry1;
+};
+
+struct level17
+{
+	struct level16 entry0;
+	struct level16 entry1;
+};
+
+struct level18
+{
+	struct level17 entry0;
+	struct level17 entry1;
+};
+
+struct level19
+{
+	struct level18 entry0;
+	struct level18 entry1;
+};
+
+struct level20
+{
+	struct level19 entry0;
+	struct level19 entry1;
+};
+
+struct level21
+{
+	struct level20 entry0;
+	struct level20 entry1;
+};
+
+struct level22
+{
+	struct level21 entry0;
+	struct level21 entry1;
+};
+
+struct level23
+{
+	struct level22 entry0;
+	struct level22 entry1;
+};
+
+struct level24
+{
+	struct level23 entry0;
+	struct level23 entry1;
+};
+
+struct level25
+{
+	struct level24 entry0;
+	struct level24 entry1;
+};
+
+struct level26
+{
+	struct level25 entry0;
+	struct level25 entry1;
+};
+
+struct level27
+{
+	struct level26 entry0;
+	struct level26 entry1;
+};
+
+struct level28
+{
+	struct level27 entry0;
+	struct level27 entry1;
+};
+
+struct level29
+{
+	struct level28 entry0;
+	struct level28 entry1;
+};
+
+struct level30
+{
+	struct level29 entry0;
+	struct level29 entry1;
+};
+
+struct level31
+{
+	struct level30 entry0;
+	struct level30 entry1;
+};
+
+struct level32
+{
+	struct level31 entry0;
+	struct level31 entry1;
+};
+
+struct level33
+{
+	struct level32 entry0;
+	struct level32 entry1;
+};
+
+struct level34
+{
+	struct level33 entry0;
+	struct level33 entry1;
+};
+
+struct level35
+{
+	struct level34 entry0;
+	struct level34 entry1;
+};
+
+struct level36
+{
+	struct level35 entry0;
+	struct level35 entry1;
+};
+
+struct level37
+{
+	struct level36 entry0;
+	struct level36 entry1;
+};
+
+struct level38
+{
+	struct level37 entry0;
+	struct level37 entry1;
+};
+
+struct level39
+{
+	struct level38 entry0;
+	struct level38 entry1;
+};
+
+struct level40
+{
+	struct level39 entry0;
+	struct level39 entry1;
+};
+
+struct level41
+{
+	struct level40 entry0;
+	struct level40 entry1;
+};
+
+struct level42
+{
+	struct level41 entry0;
+	struct level41 entry1;
+};
+
+struct level43
+{
+	struct level42 entry0;
+	struct level42 entry1;
+};
+
+struct level44
+{
+	struct level43 entry0;
+	struct level43 entry1;
+};
+
+struct level45
+{
+	struct level44 entry0;
+	struct level44 entry1;
+};
+
+struct level46
+{
+	struct level45 entry0;
+	struct level45 entry1;
+};
+
+int main() {
+	struct level46 *elephantine = NULL;
+	int x = (*elephantine)
+		.entry1 // 46
+		.entry1 // 45
+		.entry1 // 44
+		.entry1 // 43
+		.entry1 // 42
+		.entry1 // 41
+		.entry1 // 40
+		.entry1 // 39
+		.entry1 // 38
+		.entry1 // 37
+		.entry1 // 36
+		.entry1 // 35
+		.entry1 // 34
+		.entry1 // 33
+		.entry1 // 32
+		.entry1 // 31
+		.entry1 // 30
+		.entry1 // 29
+		.entry1 // 28
+		.entry1 // 27
+		.entry1 // 26
+		.entry1 // 25
+		.entry1 // 24
+		.entry1 // 23
+		.entry1 // 22
+		.entry1 // 21
+		.entry1 // 20
+		.entry1 // 19
+		.entry1 // 18
+		.entry1 // 17
+		.entry1 // 16
+		.entry1 // 15
+		.entry1 // 14
+		.entry1 // 13
+		.entry1 // 12
+		.entry1 // 11
+		.entry1 // 10
+		.entry1 // 9
+		.entry1 // 8
+		.entry1 // 7
+		.entry1 // 6
+		.entry1 // 5
+		.entry1 // 4
+		.entry1 // 3
+		.entry1 // 2
+		.entry1 // 1
+		.uses_four_bytes;
+	return x;
+}

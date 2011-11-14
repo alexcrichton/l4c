@@ -1,0 +1,14 @@
+//test exception 11
+
+struct foo
+{
+    int a;
+    int b;
+};
+
+int main()
+{
+    struct foo *bar = NULL;
+    return bar->b;
+}
+

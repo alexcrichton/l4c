@@ -1,0 +1,15 @@
+//test exception 11
+// Originally 6
+// everone's favorite array indexing error
+
+int main() {
+  int n = 20;
+  int[] a = alloc_array(int, n);
+  int i = 0;
+
+  for (; i <= n; i++) {
+    a[i] = i;
+  }
+
+  return a[10];
+}

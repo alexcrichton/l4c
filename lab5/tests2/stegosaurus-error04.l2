@@ -1,0 +1,22 @@
+//test error
+/* Spurious breaks */
+
+int main () {
+  int a;
+  a = 2;
+  
+  if (false) {
+    for (a = 0; false; a++) {
+      break;
+    }
+    while (true) {
+      for (a = 2; false; a--) {
+        a = 3;
+        continue;
+      }
+      break;
+    }
+    break;
+  }
+  return 2;
+}

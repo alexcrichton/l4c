@@ -1,0 +1,10 @@
+//test exception 11 
+int main()
+{
+  int* p;
+  if(true)
+    p = NULL;
+  else
+    p = NULL;
+  return *p;
+}

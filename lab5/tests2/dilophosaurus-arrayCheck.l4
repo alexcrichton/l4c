@@ -1,0 +1,23 @@
+//test return 0
+
+int partSum(int[] array, int size){
+    int i = 0;
+    int j = 0;
+    for(; i < size; i++)
+        j += array[i];
+    return j;
+}
+
+// array access check
+int main () {
+  int SIZE = 10;
+  int[][] A = alloc_array(int[], SIZE);
+  int sum;
+  int i = 0;
+  for(sum = 0; i < SIZE; i++)
+    A[i] = alloc_array(int, SIZE);
+  for(i = 0; i < SIZE * SIZE; i++){
+    sum += partSum(A[i / SIZE], SIZE);
+  }
+  return sum;
+}

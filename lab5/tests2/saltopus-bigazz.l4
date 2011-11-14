@@ -1,0 +1,144 @@
+//test exception 11
+
+/* This violates the l4 prerelease test rules by having too large of a struct.
+ * However, it's a good test.
+ * I'll try to remember to mention it to asubrama before the deadline...
+ * The idea is to make sure that programs test NULLity if necessary. 
+ * 0x600000 seems to be where .data and .bss get mapped, so we'll try to deref that.
+ */
+
+/* 0x4 bytes */
+struct n1 {
+	int p1;
+};
+
+/* 0x8 bytes */
+struct n2 {
+	struct n1 p1;
+	struct n1 p2;
+};
+
+/* 0x10 bytes */
+struct n3 {
+	struct n2 p1;
+	struct n2 p2;
+};
+
+/* 0x20 bytes */
+struct n4 {
+	struct n3 p1;
+	struct n3 p2;
+};
+
+/* 0x40 bytes */
+struct n5 {
+	struct n4 p1;
+	struct n4 p2;
+};
+
+/* 0x80 bytes */
+struct n6 {
+	struct n5 p1;
+	struct n5 p2;
+};
+
+/* 0x100 bytes */
+struct n7 {
+	struct n6 p1;
+	struct n6 p2;
+};
+
+/* 0x200 bytes */
+struct n8 {
+	struct n7 p1;
+	struct n7 p2;
+};
+
+/* 0x400 bytes */
+struct n9 {
+	struct n8 p1;
+	struct n8 p2;
+};
+
+/* 0x800 bytes */
+struct n10 {
+	struct n9 p1;
+	struct n9 p2;
+};
+
+/* 0x1000 bytes */
+struct n11 {
+	struct n10 p1;
+	struct n10 p2;
+};
+
+/* 0x2000 bytes */
+struct n12 {
+	struct n11 p1;
+	struct n11 p2;
+};
+
+/* 0x4000 bytes */
+struct n13 {
+	struct n12 p1;
+	struct n12 p2;
+};
+
+/* 0x8000 bytes */
+struct n14 {
+	struct n13 p1;
+	struct n13 p2;
+};
+
+/* 0x10000 bytes */
+struct n15 {
+	struct n14 p1;
+	struct n14 p2;
+};
+
+/* 0x20000 bytes */
+struct n16 {
+	struct n15 p1;
+	struct n15 p2;
+};
+
+/* 0x40000 bytes */
+struct n17 {
+	struct n16 p1;
+	struct n16 p2;
+};
+
+/* 0x80000 bytes */
+struct n18 {
+	struct n17 p1;
+	struct n17 p2;
+};
+
+/* 0x100000 bytes */
+struct n19 {
+	struct n18 p1;
+	struct n18 p2;
+};
+
+/* 0x200000 bytes */
+struct n20 {
+	struct n19 p1;
+	struct n19 p2;
+};
+
+/* 0x400000 bytes */
+struct n21 {
+	struct n20 p1;
+	struct n20 p2;
+};
+
+/* 0x800000 bytes */
+struct n22 {
+	struct n21 p1;
+	struct n21 p2;
+};
+
+int main() {
+	struct n22 *p = NULL;
+	return p->p2.p2.p1.p1.p1.p1.p1.p1.p1.p1.p1.p1.p1.p1.p1.p1.p1.p1.p1.p1.p1.p1;
+}

@@ -1,0 +1,8 @@
+//test exception
+
+int main()
+{
+    int *[] a = alloc_array(int *, 5);
+    *(a[3]) = 5;
+    return *(a[2]);
+}

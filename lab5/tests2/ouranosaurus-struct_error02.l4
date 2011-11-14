@@ -1,0 +1,14 @@
+//test exception 11
+
+struct lame_struct {
+    int lame_field01;
+    int lame_field02;
+};
+
+typedef struct lame_struct lame;
+
+int main() {
+    lame *lame_null = NULL;
+    lame_null->lame_field02 = 0;
+    return 0;
+}

@@ -1,0 +1,15 @@
+//test return 1077243
+
+/* the first safe memory test */
+
+int main () {
+    int MAX = 32764;
+
+    int [] load = alloc_array(int, MAX);
+    
+    for (int i=0; i<MAX; i++){
+    	load[i]+=i+0xff000;
+    }
+
+    return load[MAX-1];
+}

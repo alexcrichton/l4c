@@ -1,0 +1,12 @@
+//test exception 11
+/* Check that length data is stored in the right place */
+int main() {
+	int[] a = alloc_array(int, 2);
+	int[] b = alloc_array(int, 10);
+	a[0] = 0x77777777;
+	a[1] = 0x77777777;
+	b[0] = 0x77777777;
+	b[1] = 0x77777777;
+	/* if you suck, one of those scribbled over your length data for b */
+	return b[50];
+}

@@ -1,0 +1,7 @@
+//test exception 11
+struct bidoof { int bidoof; };
+int main() {
+    struct bidoof[] arr = alloc_array(struct bidoof, 0);
+    arr[0].bidoof = 0;
+    return 0;
+}

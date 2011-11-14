@@ -1,0 +1,10 @@
+//test return 50
+
+int main() {
+    int inv = 0;
+
+    for (int i = 0; i < 100; i++)
+        inv = 50;
+
+    return inv;
+}

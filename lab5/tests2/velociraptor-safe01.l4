@@ -1,0 +1,16 @@
+//test return 1836311902
+// okay I ran out of ideas for these things a long time ago
+// how about computing some Leonardo numbers
+
+int main() {
+  int[] a = alloc_array(int, 45);
+  int i = 2;
+
+  a[0] = 0;
+  a[1] = 1;
+
+  for (; i < 45; i++)
+    a[i] = a[i-1] + a[i-2] + 1;
+
+  return a[44];
+}

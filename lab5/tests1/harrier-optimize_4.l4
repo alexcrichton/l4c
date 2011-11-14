@@ -1,0 +1,14 @@
+//test return 330
+
+int main()
+{
+    // CSE should optimize to a single memory load
+    int *ptr = alloc(int);
+    int a = *ptr + 55;
+    int b = *ptr + 55;
+    int c = *ptr + 55;
+    int d = *ptr + 55;
+    int e = *ptr + 55;
+    int f = *ptr + 55;
+    return (a + b + c + d + e + f);
+}

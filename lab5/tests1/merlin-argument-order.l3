@@ -1,0 +1,25 @@
+//test exception 8
+//check that function arguments are evaluated from left to right
+
+int snooze(int i) {
+  while(i > 0) {
+  }
+  return i;
+}
+
+int go_deeper() {
+  int i = 1;
+  return i + go_deeper();
+}
+
+int die() {
+  return 10 / 0;
+}
+
+int inception(int level, int what_not_to_do, int deeper, int no_deeper) {
+  return 0;
+}
+
+int main() {
+  return inception(3,die(),snooze(1),go_deeper());
+}

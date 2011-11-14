@@ -1,0 +1,16 @@
+//test error
+// test function variable shadowing
+
+int f()
+{
+  return 4;
+}
+
+int main()
+{
+  int f = 3;
+
+  f();
+
+  return 0;
+}

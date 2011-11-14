@@ -1,0 +1,16 @@
+//test exception 11
+// array access check
+int main () {
+  int SIZE = 255;
+  int[] A = alloc_array(int, SIZE);
+  int sum;
+  int i;
+  sum = 0;
+  for (i = SIZE - 1; i >= 0; i--) {
+    int j;
+    for(j = i; j < SIZE; j++)
+        A[j]++;
+    sum += (A[j] + A[j+1]) / 2; // A[SIZE-1+1] will be over SIZE !
+  }
+  return sum;
+}

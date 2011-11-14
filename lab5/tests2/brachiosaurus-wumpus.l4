@@ -1,0 +1,1649 @@
+//test return 1902089851
+/** @file wumpus.l5
+ *
+ * @author Zachary McCord (zmccord@andrew.cmu.edu)
+ * @author Ben Blum (bblum@andrew.cmu.edu)
+ *
+ * @brief The implementation of Hunt the Wumpus, with high scores, glorious
+ * color, and help messages.
+ * @brief An L5 implementation of Hunt the Wumpus, with high scores, glonous
+ * colour, and without help messages, with permission from Zack.
+ */
+
+/******************************************************************************
+ * c compat
+ ******************************************************************************/
+
+typedef int [][] intarrayarray;
+typedef int [] intarray;
+typedef int [] roomarray;
+struct score_S;
+typedef struct score_S [] score_Sarray;
+
+int l5_assert(bool x) { if (x) return 0; return 1/0; }
+
+int l5_strlen(intarray a)
+{
+	int i = 0;
+	while (a[i] != 0) i++;
+	return i;
+}
+
+int l5_strncpy(intarray dest, intarray src, int max)
+{
+	int i;
+	for (i = 0; src[i] != 0 && i < max; i++)
+		dest[i] = src[i];
+	if (i < max) {
+		l5_assert(src[i] == 0);
+		dest[i] = 0;
+	}
+	return 0;
+}
+
+int do_nothing(int i) { return 0; }
+
+int l5_usleep(int usecs)
+{
+	int i;
+	for (i = 0; i < 192 * usecs; i++) do_nothing(i);
+	return 0;
+}
+
+/******************************************************************************
+ * console library
+ ******************************************************************************/
+
+struct console_state {
+	int COLS; int LINES; int col; int line; intarrayarray chars; int colour;
+};
+
+int console_init(struct console_state *con, int lines, int cols)
+{
+	int i; int j;
+	con->LINES = lines; con->COLS = cols;
+	con->chars = alloc_array(intarray, lines);
+	for (i = 0; i < con->LINES; i++) {
+		con->chars[i] = alloc_array(int, cols);
+		for (j = 0; j < con->COLS; j++) con->chars[i][j] = 32;
+	}
+	/* "clear the screen" */
+	for (i = 0; i < con->LINES; i++) printchar(10);
+	for (i = 0; i < con->COLS; i++) printchar(32);
+	/* initial position */
+	con->col = con->COLS; con->line = con->LINES;
+	return 0;
+}
+
+int set_term_color(struct console_state *con, int fg) /* ESC[XXm */
+{
+	// The autolab file size ulimit forced me to put this optimization in...
+	if (con->colour != fg) {
+		printchar(27); printchar(91); printint(fg); printchar(109);
+		con->colour = fg;
+	}
+	return 0;
+}
+int get_term_color(struct console_state *con)
+{
+	return con->colour;
+}
+
+int hide_cursor(struct console_state *con) /* ESC[?25l */
+{
+	printchar(27); printchar(91); printchar(63); printint(25);
+	printchar(108); return 0;
+}
+int show_cursor(struct console_state *con) /* ESC[?25h */
+{
+	printchar(27); printchar(91); printchar(63); printint(25);
+	printchar(104); return 0;
+}
+
+int left(int a) /* ESC[XXD */
+{ printchar(27); printchar(91); printint(a); printchar(68); return 0; }
+int up(int a) /* ESC[XXA */
+{ printchar(27); printchar(91); printint(a); printchar(65); return 0; }
+int down(int a) /* ESC[XXB */
+{ printchar(27); printchar(91); printint(a); printchar(66); return 0; }
+int right(int a) /* ESC[XXC */
+{ printchar(27); printchar(91); printint(a); printchar(67); return 0; }
+
+int set_cursor(struct console_state *con, int line, int col)
+{
+	l5_assert(col >= 0 && col < con->COLS && line >= 0 && line < con->LINES);
+	l5_assert(con->col >= 0 && con->col <= con->COLS &&
+	          con->line >= 0 && con->line <= con->LINES);
+
+	if (col > con->col) { right(col - con->col); }
+	else if (col < con->col) { left(con->col - col); }
+
+	if (line > con->line) { down(line - con->line); }
+	else if (line < con->line) { up(con->line - line); }
+
+	con->col = col; con->line = line; return 0;
+}
+
+int get_cursor_line(struct console_state *con) { return con->line; }
+int get_cursor_col(struct console_state *con) { return con->col; }
+
+int console_printchar(struct console_state *con, int c)
+{
+	int cc = (c == 0) ? 32 : c;
+	l5_assert(con->col < con->COLS && con->line < con->LINES); /* check */
+	printchar(cc); /* print */
+	if (c == 10) { /* newline, ugh */
+		con->col = 0; con->line++; l5_assert(con->line < con->LINES-1);
+	} else {
+		con->chars[con->line][con->col] = cc;
+		con->col++;
+		if (con->col == con->COLS) {
+			if (con->line < con->LINES-1) set_cursor(con, con->line + 1, 0);
+			else set_cursor(con, con->line, 0);
+		}
+	}
+	return 0;
+}
+
+int power(int base, int exp)
+{ if (exp == 0) return 1; else return base * power(base, exp - 1); }
+
+int console_printint(struct console_state *con, int n)
+{
+	int exp; int d; int printed = 0; int p;
+	l5_assert(n >= 0); /* don't care for negatives */
+	if (n == 0) {
+		console_printchar(con, 48); return 0;
+	}
+	for (exp = 9; exp >= 0; exp--) {
+		p = power(10, exp);
+		d = n / p; n -= d * p;
+		if (d != 0 || printed == 1) {
+			console_printchar(con, 48 + d);
+			printed = 1;
+		}
+	}
+	return 0;
+}
+
+int console_getchar(struct console_state *con, int line, int col)
+{
+	return con->chars[line][col];
+}
+
+int draw_char(struct console_state *con, int line, int col, int c, int color)
+{
+	int old_color = get_term_color(con);
+	int old_line = con->line; int old_col = con->col;
+	set_cursor(con, line, col); set_term_color(con, color);
+	console_printchar(con, c);
+	set_term_color(con, old_color); set_cursor(con, old_line, old_col);
+	return 0;
+}
+
+int get_char(struct console_state *con, int line, int col)
+{
+	return con->chars[line][col];
+}
+
+int clear_console(struct console_state *con)
+{
+	int i; int j;
+	set_cursor(con, 0, 0);
+	for (i = 0; i < con->LINES; i++) {
+		for (j = 0; j < con->COLS; j++) {
+			con->chars[i][j] = 32;
+			printchar(32);
+		}
+		if (i < con->LINES - 1) printchar(10);
+	}
+	left(con->COLS); con->col = 0; con->line = con->LINES - 1; /* argh */
+	return 0;
+}
+
+int flush_console(struct console_state *con)
+{
+	draw_char(con, 0, 0, 10, get_term_color(con));
+	return 0;
+}
+
+/******************************************************************************
+ * keyboard library (at bottom, due to need the state struct)
+ ******************************************************************************/
+
+struct state;
+int readchar(struct state *state);
+
+/******************************************************************************
+ * MT random number generator (thanks to stegosaurus-122-mersenne.l4)
+ ******************************************************************************/
+
+/*
+ * Slightly modified 15-122 resource code
+ * Original at http://www.cs.cmu.edu/~fp/courses/15122-f10/misc/rand/mersenne.c0
+ */
+
+struct rand {
+	intarray MT;
+	int index;
+};
+
+typedef struct rand* rand_t;
+
+int generateNumbers(rand_t gen) {
+	intarray MT = gen->MT;
+	int i;
+	for (i = 0; i < 624; i++) {
+		int y = (MT[i] & 0x80000000) + (MT[(i+1)%624] & 0x7fffffff);
+		MT[i] = MT[(i+397)%624] ^ ((y>>1) & ~(-1<<31));
+		if ((y & 1) == 1)
+			MT[i] ^= 0x9908b0df;
+	}
+	return 0;
+}
+
+rand_t init_rand(int seed) {
+	rand_t gen = alloc(struct rand);
+	intarray MT = alloc_array(int, 624);
+	int i;
+	gen->MT = MT;
+	gen->index = 0;
+	MT[0] = seed;
+	for (i = 1; i < 624; i++)
+		MT[i] = 0x6c078965 * (MT[i-1] ^ ((MT[i-1]>>30) & ~(-1<<2))) + i;
+	return gen;
+}
+
+int rand(rand_t gen) {
+	if (gen->index == 0) generateNumbers(gen);
+	{
+		intarray MT = gen->MT;
+		int y = MT[gen->index];
+		y ^= (y >> 11) & ~(-1<<21);
+		y ^= (y << 7) & 0x9d2c5680;
+		y ^= (y << 15) & 0xefc60000;
+		y ^= (y >> 18) & ~(-1<<14);
+
+		gen->index = (gen->index + 1) % 624;
+		return y;
+	}
+}
+
+/******************************************************************************
+ * wumpus
+ ******************************************************************************/
+
+/** @brief Structure to describe a single entry in the high score table */
+struct score_S{
+	intarray name_s;
+	int time;
+};
+
+/** @brief State that persists between games. */
+struct persistent_S{
+	rand_t rand;
+	int time;
+	intarray quip_s;
+	score_Sarray scores_a;
+};
+
+/** @brief Type of a room (we just work with bit ops to save space and add
+ * flexibility */
+typedef int room_t;
+
+/** @brief Structure for in-game state
+ * @bug Inefficient use of space */
+struct state {
+	struct console_state *con;
+	struct persistent_S *persistent;
+	int chars_read;
+	// Current phase of the game (at the menu, playing, or game-over)
+	int k_splash_phase; int k_play_phase; int k_end_phase;
+	int phase;
+	// Time the game was started (a lie ---- gets moved up during pauses)
+	int start_time;
+	// Time since the game was started (a lie in the same way, also redundant)
+	int time_since_start;
+	// X position of player on game board
+	int player_x;
+	// Y position of player on game board
+	int player_y;
+	// X direction of player (1 if facing east, -1 if facing west)
+	int x_direction;
+	// Y direction of player (1 if facing south, -1 if facing north)
+	int y_direction;
+	// For traverse_corridors
+	int *player_x_p; int *player_y_p; int *x_direction_p; int *y_direction_p;
+	// nonzero iff we're in a lose condition
+	int is_lost;
+	// nonzero iff we're in a win condition
+	int is_won;
+	// Defaults to true. If true, not omniscient. If false, YOU'RE A CHEATER
+	int fog_of_war;
+	// The game board
+	roomarray board_a;
+	// Constance
+	int CONSOLE_WIDTH_k; int CONSOLE_HEIGHT_k; int CWIDTH_k; int CHEIGHT_k;
+	int QUIP_S_SIZE_k; int TITLE_ROW_k; int QUIP_ROW_k; int MENU_ROW_k;
+	int SCORE_NAME_COL_k; int SCORE_TIME_COL_k; int SCORES_ROW_k;
+	int SCORE_NAME_S_SIZE_k; int SCORES_A_SIZE_k; int MSG_SPACE_HEIGHT_k;
+	int MSG_SPACE_WIDTH_k; int SIDEBAR_COL_k; int TIME_ROW_k;
+	int ROOM_WIDTH_k; int ROOM_HEIGHT_k; int BOARD_BORDER_COLS_k;
+	int BOARD_BORDER_ROWS_k; int BOARD_WIDTH_k; int BOARD_HEIGHT_k;
+	int MIN_ROOMS_k; int MAX_ROOMS_k; int MIN_BATS_k; int MAX_BATS_k;
+	int MIN_PITS_k; int MAX_PITS_k; int HELP_ROW_k; int HELP_COL_k;
+	int B_NWSE_k; int B_ROOM_k; int B_BAT_k; int B_PIT_k; int B_WUMPUS_k;
+	int B_KNOWN_k;
+	// Strings
+	intarray title_s; intarray menu_s; intarray win_s; intarray tellus_s;
+	intarray firstplace_s; intarray toobad_s; intarray yousuck_s;
+	intarray anykey_s; intarray walknorth_s; intarray walksouth_s;
+	intarray walkwest_s; intarray walkeast_s; intarray walkstrange_s;
+	intarray gotgot_s; intarray mushroom_style_s; intarray inertia_s;
+	intarray busted_s; intarray bullseye_s; intarray firing_s;
+	intarray rustling_s; intarray whistling_s; intarray duedate_s;
+	intarray BLANK_s; intarray ROOM1_s; intarray ROOM2_s;
+	intarray NWSE1_s; intarray NWSE2_s; intarray NESW1_s;
+	intarray NESW2_s;
+	// Room ascii
+	intarrayarray blank_img_sa; intarrayarray room_img_sa;
+	intarrayarray nwse_img_sa; intarrayarray nesw_img_sa;
+};
+
+int splash(struct state *state);
+int hunt(struct state *state);
+int winlose(struct state *state);
+
+int init_state_constance(struct state *state)
+{
+	state->CONSOLE_WIDTH_k = 80;
+	state->CONSOLE_HEIGHT_k = 25;
+	state->CWIDTH_k = state->CONSOLE_WIDTH_k;
+	state->CHEIGHT_k = state->CONSOLE_HEIGHT_k;
+	state->QUIP_S_SIZE_k = (state->CONSOLE_WIDTH_k - 4);
+	state->TITLE_ROW_k = 4;
+	state->QUIP_ROW_k = 7;
+	state->MENU_ROW_k = 23;
+	state->SCORE_NAME_COL_k = 19;
+	state->SCORE_TIME_COL_k = 56;
+	state->SCORES_ROW_k = 11;
+	state->SCORE_NAME_S_SIZE_k = 36;
+	state->SCORES_A_SIZE_k = 10;
+	state->MSG_SPACE_HEIGHT_k = 4;
+	state->MSG_SPACE_WIDTH_k = 60;
+	state->SIDEBAR_COL_k = 65;
+	state->TIME_ROW_k = 21;
+	state->ROOM_WIDTH_k = 7;
+	state->ROOM_HEIGHT_k = 4;
+	state->BOARD_BORDER_COLS_k = 2;
+	state->BOARD_BORDER_ROWS_k = 0;
+	state->BOARD_WIDTH_k = (state->CONSOLE_WIDTH_k - (2 * state->BOARD_BORDER_COLS_k)) / (state->ROOM_WIDTH_k);
+	state->BOARD_HEIGHT_k = ((state->CONSOLE_HEIGHT_k - state->MSG_SPACE_HEIGHT_k - (2 * state->BOARD_BORDER_ROWS_k)) / (state->ROOM_HEIGHT_k));
+	state->MIN_ROOMS_k = 25;
+	state->MAX_ROOMS_k = 35;
+	state->MIN_BATS_k = 3;
+	state->MAX_BATS_k = 6;
+	state->MIN_PITS_k = 4;
+	state->MAX_PITS_k = 7;
+	state->HELP_ROW_k = 1;
+	state->HELP_COL_k = 1;
+	state->B_NWSE_k = 2;
+	state->B_ROOM_k = 4;
+	state->B_BAT_k = 8;
+	state->B_PIT_k = 16;
+	state->B_WUMPUS_k = 32;
+	state->B_KNOWN_k = 64;
+	return 0;
+}
+
+int init_state_strings(struct state *state)
+{
+	state->title_s = alloc_array(int, 16);
+	state->title_s[0] = 72; state->title_s[1] = 85; state->title_s[2] = 78; state->title_s[3] = 84; state->title_s[4] = 32; state->title_s[5] = 84; state->title_s[6] = 72; state->title_s[7] = 69; state->title_s[8] = 32; state->title_s[9] = 87; state->title_s[10] = 85; state->title_s[11] = 77; state->title_s[12] = 80; state->title_s[13] = 85; state->title_s[14] = 83; state->title_s[15] = 0;
+	state->menu_s = alloc_array(int, 26);
+	state->menu_s[0] = 63; state->menu_s[1] = 58; state->menu_s[2] = 72; state->menu_s[3] = 101; state->menu_s[4] = 108; state->menu_s[5] = 112; state->menu_s[6] = 32; state->menu_s[7] = 32; state->menu_s[8] = 32; state->menu_s[9] = 32; state->menu_s[10] = 32; state->menu_s[11] = 32; state->menu_s[12] = 32; state->menu_s[13] = 32; state->menu_s[14] = 80; state->menu_s[15] = 58; state->menu_s[16] = 80; state->menu_s[17] = 108; state->menu_s[18] = 97; state->menu_s[19] = 121; state->menu_s[20] = 32; state->menu_s[21] = 103; state->menu_s[22] = 97; state->menu_s[23] = 109; state->menu_s[24] = 101; state->menu_s[25] = 0;
+	state->win_s = alloc_array(int, 17);
+	state->win_s[0] = 32; state->win_s[1] = 89; state->win_s[2] = 32; state->win_s[3] = 79; state->win_s[4] = 32; state->win_s[5] = 85; state->win_s[6] = 32; state->win_s[7] = 32; state->win_s[8] = 32; state->win_s[9] = 32; state->win_s[10] = 87; state->win_s[11] = 32; state->win_s[12] = 73; state->win_s[13] = 32; state->win_s[14] = 78; state->win_s[15] = 32; state->win_s[16] = 0;
+	state->tellus_s = alloc_array(int, 21);
+	state->tellus_s[0] = 84; state->tellus_s[1] = 101; state->tellus_s[2] = 108; state->tellus_s[3] = 108; state->tellus_s[4] = 32; state->tellus_s[5] = 117; state->tellus_s[6] = 115; state->tellus_s[7] = 32; state->tellus_s[8] = 119; state->tellus_s[9] = 104; state->tellus_s[10] = 111; state->tellus_s[11] = 32; state->tellus_s[12] = 121; state->tellus_s[13] = 111; state->tellus_s[14] = 117; state->tellus_s[15] = 32; state->tellus_s[16] = 97; state->tellus_s[17] = 114; state->tellus_s[18] = 101; state->tellus_s[19] = 58; state->tellus_s[20] = 0;
+	state->firstplace_s = alloc_array(int, 33);
+	state->firstplace_s[0] = 70; state->firstplace_s[1] = 105; state->firstplace_s[2] = 114; state->firstplace_s[3] = 115; state->firstplace_s[4] = 116; state->firstplace_s[5] = 32; state->firstplace_s[6] = 112; state->firstplace_s[7] = 108; state->firstplace_s[8] = 97; state->firstplace_s[9] = 99; state->firstplace_s[10] = 101; state->firstplace_s[11] = 33; state->firstplace_s[12] = 32; state->firstplace_s[13] = 69; state->firstplace_s[14] = 110; state->firstplace_s[15] = 116; state->firstplace_s[16] = 101; state->firstplace_s[17] = 114; state->firstplace_s[18] = 32; state->firstplace_s[19] = 121; state->firstplace_s[20] = 111; state->firstplace_s[21] = 117; state->firstplace_s[22] = 114; state->firstplace_s[23] = 32; state->firstplace_s[24] = 109; state->firstplace_s[25] = 101; state->firstplace_s[26] = 115; state->firstplace_s[27] = 115; state->firstplace_s[28] = 97; state->firstplace_s[29] = 103; state->firstplace_s[30] = 101; state->firstplace_s[31] = 58; state->firstplace_s[32] = 0;
+	state->toobad_s = alloc_array(int, 25);
+	state->toobad_s[0] = 83; state->toobad_s[1] = 97; state->toobad_s[2] = 100; state->toobad_s[3] = 108; state->toobad_s[4] = 121; state->toobad_s[5] = 44; state->toobad_s[6] = 32; state->toobad_s[7] = 121; state->toobad_s[8] = 111; state->toobad_s[9] = 117; state->toobad_s[10] = 32; state->toobad_s[11] = 100; state->toobad_s[12] = 105; state->toobad_s[13] = 100; state->toobad_s[14] = 110; state->toobad_s[15] = 39; state->toobad_s[16] = 116; state->toobad_s[17] = 32; state->toobad_s[18] = 112; state->toobad_s[19] = 108; state->toobad_s[20] = 97; state->toobad_s[21] = 99; state->toobad_s[22] = 101; state->toobad_s[23] = 46; state->toobad_s[24] = 0;
+	state->yousuck_s = alloc_array(int, 19);
+	state->yousuck_s[0] = 32; state->yousuck_s[1] = 89; state->yousuck_s[2] = 32; state->yousuck_s[3] = 79; state->yousuck_s[4] = 32; state->yousuck_s[5] = 85; state->yousuck_s[6] = 32; state->yousuck_s[7] = 32; state->yousuck_s[8] = 32; state->yousuck_s[9] = 32; state->yousuck_s[10] = 76; state->yousuck_s[11] = 32; state->yousuck_s[12] = 79; state->yousuck_s[13] = 32; state->yousuck_s[14] = 83; state->yousuck_s[15] = 32; state->yousuck_s[16] = 69; state->yousuck_s[17] = 32; state->yousuck_s[18] = 0;
+	state->anykey_s = alloc_array(int, 28);
+	state->anykey_s[0] = 32; state->anykey_s[1] = 80; state->anykey_s[2] = 114; state->anykey_s[3] = 101; state->anykey_s[4] = 115; state->anykey_s[5] = 115; state->anykey_s[6] = 32; state->anykey_s[7] = 97; state->anykey_s[8] = 110; state->anykey_s[9] = 121; state->anykey_s[10] = 32; state->anykey_s[11] = 107; state->anykey_s[12] = 101; state->anykey_s[13] = 121; state->anykey_s[14] = 32; state->anykey_s[15] = 116; state->anykey_s[16] = 111; state->anykey_s[17] = 32; state->anykey_s[18] = 99; state->anykey_s[19] = 111; state->anykey_s[20] = 110; state->anykey_s[21] = 116; state->anykey_s[22] = 105; state->anykey_s[23] = 110; state->anykey_s[24] = 117; state->anykey_s[25] = 101; state->anykey_s[26] = 32; state->anykey_s[27] = 0;
+	state->walknorth_s = alloc_array(int, 16);
+	state->walknorth_s[0] = 89; state->walknorth_s[1] = 111; state->walknorth_s[2] = 117; state->walknorth_s[3] = 32; state->walknorth_s[4] = 119; state->walknorth_s[5] = 97; state->walknorth_s[6] = 108; state->walknorth_s[7] = 107; state->walknorth_s[8] = 32; state->walknorth_s[9] = 110; state->walknorth_s[10] = 111; state->walknorth_s[11] = 114; state->walknorth_s[12] = 116; state->walknorth_s[13] = 104; state->walknorth_s[14] = 46; state->walknorth_s[15] = 0;
+	state->walksouth_s = alloc_array(int, 16);
+	state->walksouth_s[0] = 89; state->walksouth_s[1] = 111; state->walksouth_s[2] = 117; state->walksouth_s[3] = 32; state->walksouth_s[4] = 119; state->walksouth_s[5] = 97; state->walksouth_s[6] = 108; state->walksouth_s[7] = 107; state->walksouth_s[8] = 32; state->walksouth_s[9] = 115; state->walksouth_s[10] = 111; state->walksouth_s[11] = 117; state->walksouth_s[12] = 116; state->walksouth_s[13] = 104; state->walksouth_s[14] = 46; state->walksouth_s[15] = 0;
+	state->walkwest_s = alloc_array(int, 15);
+	state->walkwest_s[0] = 89; state->walkwest_s[1] = 111; state->walkwest_s[2] = 117; state->walkwest_s[3] = 32; state->walkwest_s[4] = 119; state->walkwest_s[5] = 97; state->walkwest_s[6] = 108; state->walkwest_s[7] = 107; state->walkwest_s[8] = 32; state->walkwest_s[9] = 119; state->walkwest_s[10] = 101; state->walkwest_s[11] = 115; state->walkwest_s[12] = 116; state->walkwest_s[13] = 46; state->walkwest_s[14] = 0;
+	state->walkeast_s = alloc_array(int, 15);
+	state->walkeast_s[0] = 89; state->walkeast_s[1] = 111; state->walkeast_s[2] = 117; state->walkeast_s[3] = 32; state->walkeast_s[4] = 119; state->walkeast_s[5] = 97; state->walkeast_s[6] = 108; state->walkeast_s[7] = 107; state->walkeast_s[8] = 32; state->walkeast_s[9] = 101; state->walkeast_s[10] = 97; state->walkeast_s[11] = 115; state->walkeast_s[12] = 116; state->walkeast_s[13] = 46; state->walkeast_s[14] = 0;
+	state->walkstrange_s = alloc_array(int, 32);
+	state->walkstrange_s[0] = 89; state->walkstrange_s[1] = 111; state->walkstrange_s[2] = 117; state->walkstrange_s[3] = 32; state->walkstrange_s[4] = 119; state->walkstrange_s[5] = 97; state->walkstrange_s[6] = 108; state->walkstrange_s[7] = 107; state->walkstrange_s[8] = 32; state->walkstrange_s[9] = 105; state->walkstrange_s[10] = 110; state->walkstrange_s[11] = 32; state->walkstrange_s[12] = 97; state->walkstrange_s[13] = 32; state->walkstrange_s[14] = 115; state->walkstrange_s[15] = 116; state->walkstrange_s[16] = 114; state->walkstrange_s[17] = 97; state->walkstrange_s[18] = 110; state->walkstrange_s[19] = 103; state->walkstrange_s[20] = 101; state->walkstrange_s[21] = 32; state->walkstrange_s[22] = 100; state->walkstrange_s[23] = 105; state->walkstrange_s[24] = 114; state->walkstrange_s[25] = 101; state->walkstrange_s[26] = 99; state->walkstrange_s[27] = 116; state->walkstrange_s[28] = 105; state->walkstrange_s[29] = 111; state->walkstrange_s[30] = 110; state->walkstrange_s[31] = 0;
+	state->gotgot_s = alloc_array(int, 35);
+	state->gotgot_s[0] = 89; state->gotgot_s[1] = 111; state->gotgot_s[2] = 117; state->gotgot_s[3] = 32; state->gotgot_s[4] = 104; state->gotgot_s[5] = 97; state->gotgot_s[6] = 118; state->gotgot_s[7] = 101; state->gotgot_s[8] = 32; state->gotgot_s[9] = 98; state->gotgot_s[10] = 101; state->gotgot_s[11] = 101; state->gotgot_s[12] = 110; state->gotgot_s[13] = 32; state->gotgot_s[14] = 101; state->gotgot_s[15] = 97; state->gotgot_s[16] = 116; state->gotgot_s[17] = 101; state->gotgot_s[18] = 110; state->gotgot_s[19] = 32; state->gotgot_s[20] = 98; state->gotgot_s[21] = 121; state->gotgot_s[22] = 32; state->gotgot_s[23] = 116; state->gotgot_s[24] = 104; state->gotgot_s[25] = 101; state->gotgot_s[26] = 32; state->gotgot_s[27] = 119; state->gotgot_s[28] = 117; state->gotgot_s[29] = 109; state->gotgot_s[30] = 112; state->gotgot_s[31] = 117; state->gotgot_s[32] = 115; state->gotgot_s[33] = 33; state->gotgot_s[34] = 0;
+	state->mushroom_style_s = alloc_array(int, 28);
+	state->mushroom_style_s[0] = 89; state->mushroom_style_s[1] = 111; state->mushroom_style_s[2] = 117; state->mushroom_style_s[3] = 32; state->mushroom_style_s[4] = 104; state->mushroom_style_s[5] = 97; state->mushroom_style_s[6] = 118; state->mushroom_style_s[7] = 101; state->mushroom_style_s[8] = 32; state->mushroom_style_s[9] = 102; state->mushroom_style_s[10] = 97; state->mushroom_style_s[11] = 108; state->mushroom_style_s[12] = 108; state->mushroom_style_s[13] = 101; state->mushroom_style_s[14] = 110; state->mushroom_style_s[15] = 32; state->mushroom_style_s[16] = 105; state->mushroom_style_s[17] = 110; state->mushroom_style_s[18] = 116; state->mushroom_style_s[19] = 111; state->mushroom_style_s[20] = 32; state->mushroom_style_s[21] = 97; state->mushroom_style_s[22] = 32; state->mushroom_style_s[23] = 112; state->mushroom_style_s[24] = 105; state->mushroom_style_s[25] = 116; state->mushroom_style_s[26] = 33; state->mushroom_style_s[27] = 0;
+	state->inertia_s = alloc_array(int, 52);
+	state->inertia_s[0] = 65; state->inertia_s[1] = 32; state->inertia_s[2] = 98; state->inertia_s[3] = 97; state->inertia_s[4] = 116; state->inertia_s[5] = 32; state->inertia_s[6] = 112; state->inertia_s[7] = 105; state->inertia_s[8] = 99; state->inertia_s[9] = 107; state->inertia_s[10] = 115; state->inertia_s[11] = 32; state->inertia_s[12] = 121; state->inertia_s[13] = 111; state->inertia_s[14] = 117; state->inertia_s[15] = 32; state->inertia_s[16] = 117; state->inertia_s[17] = 112; state->inertia_s[18] = 32; state->inertia_s[19] = 97; state->inertia_s[20] = 110; state->inertia_s[21] = 100; state->inertia_s[22] = 32; state->inertia_s[23] = 109; state->inertia_s[24] = 111; state->inertia_s[25] = 118; state->inertia_s[26] = 101; state->inertia_s[27] = 115; state->inertia_s[28] = 32; state->inertia_s[29] = 121; state->inertia_s[30] = 111; state->inertia_s[31] = 117; state->inertia_s[32] = 32; state->inertia_s[33] = 116; state->inertia_s[34] = 111; state->inertia_s[35] = 32; state->inertia_s[36] = 97; state->inertia_s[37] = 32; state->inertia_s[38] = 110; state->inertia_s[39] = 101; state->inertia_s[40] = 119; state->inertia_s[41] = 32; state->inertia_s[42] = 108; state->inertia_s[43] = 111; state->inertia_s[44] = 99; state->inertia_s[45] = 97; state->inertia_s[46] = 116; state->inertia_s[47] = 105; state->inertia_s[48] = 111; state->inertia_s[49] = 110; state->inertia_s[50] = 46; state->inertia_s[51] = 0;
+	state->busted_s = alloc_array(int, 51);
+	state->busted_s[0] = 89; state->busted_s[1] = 111; state->busted_s[2] = 117; state->busted_s[3] = 32; state->busted_s[4] = 104; state->busted_s[5] = 101; state->busted_s[6] = 97; state->busted_s[7] = 114; state->busted_s[8] = 32; state->busted_s[9] = 121; state->busted_s[10] = 111; state->busted_s[11] = 117; state->busted_s[12] = 114; state->busted_s[13] = 32; state->busted_s[14] = 97; state->busted_s[15] = 114; state->busted_s[16] = 114; state->busted_s[17] = 111; state->busted_s[18] = 119; state->busted_s[19] = 32; state->busted_s[20] = 115; state->busted_s[21] = 104; state->busted_s[22] = 97; state->busted_s[23] = 116; state->busted_s[24] = 116; state->busted_s[25] = 101; state->busted_s[26] = 114; state->busted_s[27] = 32; state->busted_s[28] = 117; state->busted_s[29] = 115; state->busted_s[30] = 101; state->busted_s[31] = 108; state->busted_s[32] = 101; state->busted_s[33] = 115; state->busted_s[34] = 115; state->busted_s[35] = 108; state->busted_s[36] = 121; state->busted_s[37] = 32; state->busted_s[38] = 111; state->busted_s[39] = 110; state->busted_s[40] = 32; state->busted_s[41] = 116; state->busted_s[42] = 104; state->busted_s[43] = 101; state->busted_s[44] = 32; state->busted_s[45] = 114; state->busted_s[46] = 111; state->busted_s[47] = 99; state->busted_s[48] = 107; state->busted_s[49] = 33; state->busted_s[50] = 0;
+	state->bullseye_s = alloc_array(int, 47);
+	state->bullseye_s[0] = 89; state->bullseye_s[1] = 111; state->bullseye_s[2] = 117; state->bullseye_s[3] = 32; state->bullseye_s[4] = 104; state->bullseye_s[5] = 101; state->bullseye_s[6] = 97; state->bullseye_s[7] = 114; state->bullseye_s[8] = 32; state->bullseye_s[9] = 116; state->bullseye_s[10] = 104; state->bullseye_s[11] = 101; state->bullseye_s[12] = 32; state->bullseye_s[13] = 100; state->bullseye_s[14] = 101; state->bullseye_s[15] = 97; state->bullseye_s[16] = 116; state->bullseye_s[17] = 104; state->bullseye_s[18] = 32; state->bullseye_s[19] = 99; state->bullseye_s[20] = 114; state->bullseye_s[21] = 121; state->bullseye_s[22] = 32; state->bullseye_s[23] = 111; state->bullseye_s[24] = 102; state->bullseye_s[25] = 32; state->bullseye_s[26] = 116; state->bullseye_s[27] = 104; state->bullseye_s[28] = 101; state->bullseye_s[29] = 32; state->bullseye_s[30] = 119; state->bullseye_s[31] = 114; state->bullseye_s[32] = 101; state->bullseye_s[33] = 116; state->bullseye_s[34] = 99; state->bullseye_s[35] = 104; state->bullseye_s[36] = 101; state->bullseye_s[37] = 100; state->bullseye_s[38] = 32; state->bullseye_s[39] = 87; state->bullseye_s[40] = 117; state->bullseye_s[41] = 109; state->bullseye_s[42] = 112; state->bullseye_s[43] = 117; state->bullseye_s[44] = 115; state->bullseye_s[45] = 33; state->bullseye_s[46] = 0;
+	state->firing_s = alloc_array(int, 21);
+	state->firing_s[0] = 89; state->firing_s[1] = 111; state->firing_s[2] = 117; state->firing_s[3] = 32; state->firing_s[4] = 102; state->firing_s[5] = 105; state->firing_s[6] = 114; state->firing_s[7] = 101; state->firing_s[8] = 32; state->firing_s[9] = 121; state->firing_s[10] = 111; state->firing_s[11] = 117; state->firing_s[12] = 114; state->firing_s[13] = 32; state->firing_s[14] = 97; state->firing_s[15] = 114; state->firing_s[16] = 114; state->firing_s[17] = 111; state->firing_s[18] = 119; state->firing_s[19] = 33; state->firing_s[20] = 0;
+	state->rustling_s = alloc_array(int, 24);
+	state->rustling_s[0] = 89; state->rustling_s[1] = 111; state->rustling_s[2] = 117; state->rustling_s[3] = 32; state->rustling_s[4] = 104; state->rustling_s[5] = 101; state->rustling_s[6] = 97; state->rustling_s[7] = 114; state->rustling_s[8] = 32; state->rustling_s[9] = 114; state->rustling_s[10] = 117; state->rustling_s[11] = 115; state->rustling_s[12] = 116; state->rustling_s[13] = 108; state->rustling_s[14] = 105; state->rustling_s[15] = 110; state->rustling_s[16] = 103; state->rustling_s[17] = 32; state->rustling_s[18] = 98; state->rustling_s[19] = 97; state->rustling_s[20] = 116; state->rustling_s[21] = 115; state->rustling_s[22] = 46; state->rustling_s[23] = 0;
+	state->whistling_s = alloc_array(int, 47);
+	state->whistling_s[0] = 89; state->whistling_s[1] = 111; state->whistling_s[2] = 117; state->whistling_s[3] = 32; state->whistling_s[4] = 104; state->whistling_s[5] = 101; state->whistling_s[6] = 97; state->whistling_s[7] = 114; state->whistling_s[8] = 32; state->whistling_s[9] = 119; state->whistling_s[10] = 105; state->whistling_s[11] = 110; state->whistling_s[12] = 100; state->whistling_s[13] = 32; state->whistling_s[14] = 119; state->whistling_s[15] = 104; state->whistling_s[16] = 105; state->whistling_s[17] = 115; state->whistling_s[18] = 116; state->whistling_s[19] = 108; state->whistling_s[20] = 105; state->whistling_s[21] = 110; state->whistling_s[22] = 103; state->whistling_s[23] = 32; state->whistling_s[24] = 100; state->whistling_s[25] = 111; state->whistling_s[26] = 119; state->whistling_s[27] = 110; state->whistling_s[28] = 32; state->whistling_s[29] = 97; state->whistling_s[30] = 32; state->whistling_s[31] = 98; state->whistling_s[32] = 111; state->whistling_s[33] = 116; state->whistling_s[34] = 116; state->whistling_s[35] = 111; state->whistling_s[36] = 109; state->whistling_s[37] = 108; state->whistling_s[38] = 101; state->whistling_s[39] = 115; state->whistling_s[40] = 115; state->whistling_s[41] = 32; state->whistling_s[42] = 112; state->whistling_s[43] = 105; state->whistling_s[44] = 116; state->whistling_s[45] = 46; state->whistling_s[46] = 0;
+	state->duedate_s = alloc_array(int, 50);
+	state->duedate_s[0] = 89; state->duedate_s[1] = 111; state->duedate_s[2] = 117; state->duedate_s[3] = 32; state->duedate_s[4] = 115; state->duedate_s[5] = 109; state->duedate_s[6] = 101; state->duedate_s[7] = 108; state->duedate_s[8] = 108; state->duedate_s[9] = 32; state->duedate_s[10] = 100; state->duedate_s[11] = 101; state->duedate_s[12] = 97; state->duedate_s[13] = 116; state->duedate_s[14] = 104; state->duedate_s[15] = 46; state->duedate_s[16] = 32; state->duedate_s[17] = 84; state->duedate_s[18] = 104; state->duedate_s[19] = 101; state->duedate_s[20] = 32; state->duedate_s[21] = 100; state->duedate_s[22] = 117; state->duedate_s[23] = 101; state->duedate_s[24] = 32; state->duedate_s[25] = 100; state->duedate_s[26] = 97; state->duedate_s[27] = 116; state->duedate_s[28] = 101; state->duedate_s[29] = 32; state->duedate_s[30] = 94; state->duedate_s[31] = 87; state->duedate_s[32] = 94; state->duedate_s[33] = 87; state->duedate_s[34] = 87; state->duedate_s[35] = 117; state->duedate_s[36] = 109; state->duedate_s[37] = 112; state->duedate_s[38] = 117; state->duedate_s[39] = 115; state->duedate_s[40] = 32; state->duedate_s[41] = 105; state->duedate_s[42] = 115; state->duedate_s[43] = 32; state->duedate_s[44] = 110; state->duedate_s[45] = 101; state->duedate_s[46] = 97; state->duedate_s[47] = 114; state->duedate_s[48] = 33; state->duedate_s[49] = 0;
+	state->BLANK_s = alloc_array(int, 8);
+	state->BLANK_s[0] = 32; state->BLANK_s[1] = 32; state->BLANK_s[2] = 32; state->BLANK_s[3] = 32; state->BLANK_s[4] = 32; state->BLANK_s[5] = 32; state->BLANK_s[6] = 32; state->BLANK_s[7] = 0;
+	state->ROOM1_s = alloc_array(int, 8);
+	state->ROOM1_s[0] = 32; state->ROOM1_s[1] = 32; state->ROOM1_s[2] = 124; state->ROOM1_s[3] = 32; state->ROOM1_s[4] = 124; state->ROOM1_s[5] = 32; state->ROOM1_s[6] = 32; state->ROOM1_s[7] = 0;
+	state->ROOM2_s = alloc_array(int, 8);
+	state->ROOM2_s[0] = 45; state->ROOM2_s[1] = 45; state->ROOM2_s[2] = 32; state->ROOM2_s[3] = 32; state->ROOM2_s[4] = 32; state->ROOM2_s[5] = 45; state->ROOM2_s[6] = 45; state->ROOM2_s[7] = 0;
+	state->NWSE1_s = alloc_array(int, 8);
+	state->NWSE1_s[0] = 45; state->NWSE1_s[1] = 45; state->NWSE1_s[2] = 92; state->NWSE1_s[3] = 92; state->NWSE1_s[4] = 32; state->NWSE1_s[5] = 39; state->NWSE1_s[6] = 45; state->NWSE1_s[7] = 0;
+	state->NWSE2_s = alloc_array(int, 8);
+	state->NWSE2_s[0] = 45; state->NWSE2_s[1] = 44; state->NWSE2_s[2] = 32; state->NWSE2_s[3] = 92; state->NWSE2_s[4] = 92; state->NWSE2_s[5] = 45; state->NWSE2_s[6] = 45; state->NWSE2_s[7] = 0;
+	state->NESW1_s = alloc_array(int, 8);
+	state->NESW1_s[0] = 45; state->NESW1_s[1] = 39; state->NESW1_s[2] = 32; state->NESW1_s[3] = 47; state->NESW1_s[4] = 47; state->NESW1_s[5] = 45; state->NESW1_s[6] = 45; state->NESW1_s[7] = 0;
+	state->NESW2_s = alloc_array(int, 8);
+	state->NESW2_s[0] = 45; state->NESW2_s[1] = 45; state->NESW2_s[2] = 47; state->NESW2_s[3] = 47; state->NESW2_s[4] = 32; state->NESW2_s[5] = 44; state->NESW2_s[6] = 45; state->NESW2_s[7] = 0;
+	return 0;
+}
+
+int init_state(struct state *state)
+{
+	init_state_constance(state);
+	state->k_splash_phase = 0;
+	state->k_play_phase = 1;
+	state->k_end_phase = 2;
+	init_state_strings(state);
+	/* rooms */
+	state->blank_img_sa = alloc_array(intarray, 4);
+	state->blank_img_sa[0] = state->BLANK_s; state->blank_img_sa[1] = state->BLANK_s;
+	state->blank_img_sa[2] = state->BLANK_s; state->blank_img_sa[3] = state->BLANK_s;
+	state->room_img_sa = alloc_array(intarray, 4);
+	state->room_img_sa[0] = state->ROOM1_s; state->room_img_sa[1] = state->ROOM2_s;
+	state->room_img_sa[2] = state->ROOM2_s; state->room_img_sa[3] = state->ROOM1_s;
+	state->nwse_img_sa = alloc_array(intarray, 4);
+	state->nwse_img_sa[0] = state->ROOM1_s; state->nwse_img_sa[1] = state->NWSE1_s;
+	state->nwse_img_sa[2] = state->NWSE2_s; state->nwse_img_sa[3] = state->ROOM1_s;
+	state->nesw_img_sa = alloc_array(intarray, 4);
+	state->nesw_img_sa[0] = state->ROOM1_s; state->nesw_img_sa[1] = state->NESW1_s;
+	state->nesw_img_sa[2] = state->NESW2_s; state->nesw_img_sa[3] = state->ROOM1_s;
+	state->board_a = alloc_array(room_t, state->BOARD_WIDTH_k * state->BOARD_HEIGHT_k);
+	state->player_x_p = alloc(int); state->player_y_p = alloc(int);
+	state->x_direction_p = alloc(int); state->y_direction_p = alloc(int);
+	return 0;
+}
+
+int clear_state(struct state *state)
+{
+	int i;
+	state->phase = 0;
+	state->start_time = 0;
+	state->time_since_start = 0;
+	state->player_x = 0;
+	state->player_y = 0;
+	state->x_direction = 0;
+	state->y_direction = 0;
+	state->is_lost = 0;
+	state->is_won = 0;
+	state->fog_of_war = 0;
+	for (i = 0; i < state->BOARD_WIDTH_k * state->BOARD_HEIGHT_k; i++) {
+		state->board_a[i] = 0;
+	}
+	return 0;
+}
+
+int init_persist(struct state *state, struct persistent_S *p)
+{
+	int i; int score = 2000;
+	p->rand = NULL;
+	p->time = 0;
+	p->quip_s = alloc_array(int, state->QUIP_S_SIZE_k);
+	/* p->quip_s[0] = 71; p->quip_s[1] = 111; p->quip_s[2] = 111;
+	p->quip_s[3] = 100; p->quip_s[4] = 32; p->quip_s[5] = 104;
+	p->quip_s[6] = 117; p->quip_s[7] = 110; p->quip_s[8] = 116;
+	p->quip_s[9] = 105; p->quip_s[10] = 110; p->quip_s[11] = 103;
+	p->quip_s[12] = 33; p->quip_s[12] = 0; *//* Good hunting! */
+	p->quip_s[0] = 89; p->quip_s[1] = 111; p->quip_s[2] = 117;
+	p->quip_s[3] = 114; p->quip_s[4] = 32; p->quip_s[5] = 116;
+	p->quip_s[6] = 97; p->quip_s[7] = 114; p->quip_s[8] = 103;
+	p->quip_s[9] = 101; p->quip_s[10] = 116; p->quip_s[11] = 32;
+	p->quip_s[12] = 105; p->quip_s[13] = 115; p->quip_s[14] = 32;
+	p->quip_s[15] = 111; p->quip_s[16] = 117; p->quip_s[17] = 114;
+	p->quip_s[18] = 32; p->quip_s[19] = 116; p->quip_s[20] = 97;
+	p->quip_s[21] = 114; p->quip_s[22] = 103; p->quip_s[23] = 101;
+	p->quip_s[24] = 116; p->quip_s[25] = 46; p->quip_s[26] = 0;
+	p->scores_a = alloc_array(struct score_S, state->SCORES_A_SIZE_k);
+	for (i = 0; i < 10; i++) {
+		p->scores_a[i].name_s = alloc_array(int, state->SCORE_NAME_S_SIZE_k);
+		p->scores_a[i].time = score;
+		score += 200;
+	}
+	p->scores_a[0].name_s[0] = 69; p->scores_a[0].name_s[1] = 109; p->scores_a[0].name_s[2] = 97; p->scores_a[0].name_s[3] = 114; p->scores_a[0].name_s[4] = 104; p->scores_a[0].name_s[5] = 97; p->scores_a[0].name_s[6] = 118; p->scores_a[0].name_s[7] = 105; p->scores_a[0].name_s[8] = 108; p->scores_a[0].name_s[9] = 32; p->scores_a[0].name_s[10] = 72; p->scores_a[0].name_s[11] = 101; p->scores_a[0].name_s[12] = 97; p->scores_a[0].name_s[13] = 118; p->scores_a[0].name_s[14] = 121; p->scores_a[0].name_s[15] = 32; p->scores_a[0].name_s[16] = 73; p->scores_a[0].name_s[17] = 110; p->scores_a[0].name_s[18] = 100; p->scores_a[0].name_s[19] = 117; p->scores_a[0].name_s[20] = 115; p->scores_a[0].name_s[21] = 116; p->scores_a[0].name_s[22] = 114; p->scores_a[0].name_s[23] = 105; p->scores_a[0].name_s[24] = 101; p->scores_a[0].name_s[25] = 115; p->scores_a[0].name_s[26] = 0;
+	p->scores_a[1].name_s[0] = 109; p->scores_a[1].name_s[1] = 109; p->scores_a[1].name_s[2] = 97; p->scores_a[1].name_s[3] = 117; p->scores_a[1].name_s[4] = 114; p->scores_a[1].name_s[5] = 101; p->scores_a[1].name_s[6] = 114; p->scores_a[1].name_s[7] = 0;
+	p->scores_a[2].name_s[0] = 67; p->scores_a[2].name_s[1] = 111; p->scores_a[2].name_s[2] = 109; p->scores_a[2].name_s[3] = 112; p->scores_a[2].name_s[4] = 105; p->scores_a[2].name_s[5] = 108; p->scores_a[2].name_s[6] = 101; p->scores_a[2].name_s[7] = 32; p->scores_a[2].name_s[8] = 97; p->scores_a[2].name_s[9] = 119; p->scores_a[2].name_s[10] = 97; p->scores_a[2].name_s[11] = 121; p->scores_a[2].name_s[12] = 32; p->scores_a[2].name_s[13] = 119; p->scores_a[2].name_s[14] = 105; p->scores_a[2].name_s[15] = 116; p->scores_a[2].name_s[16] = 104; p->scores_a[2].name_s[17] = 32; p->scores_a[2].name_s[18] = 109; p->scores_a[2].name_s[19] = 101; p->scores_a[2].name_s[20] = 0;
+	p->scores_a[3].name_s[0] = 69; p->scores_a[3].name_s[1] = 101; p->scores_a[3].name_s[2] = 121; p->scores_a[3].name_s[3] = 111; p->scores_a[3].name_s[4] = 114; p->scores_a[3].name_s[5] = 101; p->scores_a[3].name_s[6] = 0;
+	p->scores_a[4].name_s[0] = 69; p->scores_a[4].name_s[1] = 110; p->scores_a[4].name_s[2] = 103; p->scores_a[4].name_s[3] = 105; p->scores_a[4].name_s[4] = 110; p->scores_a[4].name_s[5] = 101; p->scores_a[4].name_s[6] = 32; p->scores_a[4].name_s[7] = 111; p->scores_a[4].name_s[8] = 102; p->scores_a[4].name_s[9] = 32; p->scores_a[4].name_s[10] = 76; p->scores_a[4].name_s[11] = 105; p->scores_a[4].name_s[12] = 110; p->scores_a[4].name_s[13] = 103; p->scores_a[4].name_s[14] = 117; p->scores_a[4].name_s[15] = 105; p->scores_a[4].name_s[16] = 115; p->scores_a[4].name_s[17] = 116; p->scores_a[4].name_s[18] = 105; p->scores_a[4].name_s[19] = 99; p->scores_a[4].name_s[20] = 32; p->scores_a[4].name_s[21] = 77; p->scores_a[4].name_s[22] = 97; p->scores_a[4].name_s[23] = 115; p->scores_a[4].name_s[24] = 115; p->scores_a[4].name_s[25] = 97; p->scores_a[4].name_s[26] = 99; p->scores_a[4].name_s[27] = 114; p->scores_a[4].name_s[28] = 101; p->scores_a[4].name_s[29] = 0;
+	p->scores_a[5].name_s[0] = 79; p->scores_a[5].name_s[1] = 117; p->scores_a[5].name_s[2] = 114; p->scores_a[5].name_s[3] = 32; p->scores_a[5].name_s[4] = 99; p->scores_a[5].name_s[5] = 117; p->scores_a[5].name_s[6] = 114; p->scores_a[5].name_s[7] = 114; p->scores_a[5].name_s[8] = 101; p->scores_a[5].name_s[9] = 110; p->scores_a[5].name_s[10] = 116; p->scores_a[5].name_s[11] = 32; p->scores_a[5].name_s[12] = 110; p->scores_a[5].name_s[13] = 97; p->scores_a[5].name_s[14] = 109; p->scores_a[5].name_s[15] = 101; p->scores_a[5].name_s[16] = 32; p->scores_a[5].name_s[17] = 105; p->scores_a[5].name_s[18] = 115; p->scores_a[5].name_s[19] = 32; p->scores_a[5].name_s[20] = 111; p->scores_a[5].name_s[21] = 107; p->scores_a[5].name_s[22] = 0;
+	p->scores_a[6].name_s[0] = 80; p->scores_a[6].name_s[1] = 32; p->scores_a[6].name_s[2] = 101; p->scores_a[6].name_s[3] = 113; p->scores_a[6].name_s[4] = 117; p->scores_a[6].name_s[5] = 97; p->scores_a[6].name_s[6] = 108; p->scores_a[6].name_s[7] = 115; p->scores_a[6].name_s[8] = 32; p->scores_a[6].name_s[9] = 78; p->scores_a[6].name_s[10] = 80; p->scores_a[6].name_s[11] = 115; p->scores_a[6].name_s[12] = 110; p->scores_a[6].name_s[13] = 121; p->scores_a[6].name_s[14] = 100; p->scores_a[6].name_s[15] = 101; p->scores_a[6].name_s[16] = 114; p->scores_a[6].name_s[17] = 0;
+	p->scores_a[7].name_s[0] = 77; p->scores_a[7].name_s[1] = 117; p->scores_a[7].name_s[2] = 115; p->scores_a[7].name_s[3] = 116; p->scores_a[7].name_s[4] = 32; p->scores_a[7].name_s[5] = 99; p->scores_a[7].name_s[6] = 111; p->scores_a[7].name_s[7] = 110; p->scores_a[7].name_s[8] = 115; p->scores_a[7].name_s[9] = 116; p->scores_a[7].name_s[10] = 114; p->scores_a[7].name_s[11] = 117; p->scores_a[7].name_s[12] = 99; p->scores_a[7].name_s[13] = 116; p->scores_a[7].name_s[14] = 32; p->scores_a[7].name_s[15] = 97; p->scores_a[7].name_s[16] = 100; p->scores_a[7].name_s[17] = 100; p->scores_a[7].name_s[18] = 105; p->scores_a[7].name_s[19] = 116; p->scores_a[7].name_s[20] = 105; p->scores_a[7].name_s[21] = 111; p->scores_a[7].name_s[22] = 110; p->scores_a[7].name_s[23] = 97; p->scores_a[7].name_s[24] = 108; p->scores_a[7].name_s[25] = 32; p->scores_a[7].name_s[26] = 99; p->scores_a[7].name_s[27] = 111; p->scores_a[7].name_s[28] = 109; p->scores_a[7].name_s[29] = 112; p->scores_a[7].name_s[30] = 121; p->scores_a[7].name_s[31] = 108; p->scores_a[7].name_s[32] = 111; p->scores_a[7].name_s[33] = 110; p->scores_a[7].name_s[34] = 115; p->scores_a[7].name_s[35] = 0;
+	p->scores_a[8].name_s[0] = 83; p->scores_a[8].name_s[1] = 101; p->scores_a[8].name_s[2] = 105; p->scores_a[8].name_s[3] = 115; p->scores_a[8].name_s[4] = 109; p->scores_a[8].name_s[5] = 111; p->scores_a[8].name_s[6] = 115; p->scores_a[8].name_s[7] = 97; p->scores_a[8].name_s[8] = 117; p->scores_a[8].name_s[9] = 114; p->scores_a[8].name_s[10] = 117; p->scores_a[8].name_s[11] = 115; p->scores_a[8].name_s[12] = 0;
+	p->scores_a[9].name_s[0] = 115; p->scores_a[9].name_s[1] = 116; p->scores_a[9].name_s[2] = 121; p->scores_a[9].name_s[3] = 114; p->scores_a[9].name_s[4] = 97; p->scores_a[9].name_s[5] = 99; p->scores_a[9].name_s[6] = 111; p->scores_a[9].name_s[7] = 115; p->scores_a[9].name_s[8] = 97; p->scores_a[9].name_s[9] = 117; p->scores_a[9].name_s[10] = 114; p->scores_a[9].name_s[11] = 117; p->scores_a[9].name_s[12] = 115; p->scores_a[9].name_s[13] = 0;
+
+
+	return 0;
+}
+
+int crc(intarray msg)
+{
+	int i; int hash = 0;
+	for (i = 0; msg[i] != 0; i++) {
+		int noob = msg[i] * (i % 17);
+		hash ^= (noob >> (i % 31)) | (noob << (i % 31));
+	}
+	return hash;
+}
+
+/** @brief Play Hunt the Wumpus
+ * @return Void */
+int main() {
+	struct state *state = alloc(struct state);
+	state->con = alloc(struct console_state);
+	state->persistent = alloc(struct persistent_S);
+	init_state(state);
+	init_persist(state, state->persistent);
+	state->persistent->rand = init_rand(31337);
+	console_init(state->con, 25, 80);
+	set_term_color(state->con, 1);
+	clear_state(state);
+	splash(state);
+	hunt(state);
+	winlose(state);
+	clear_state(state);
+	splash(state);
+	hunt(state);
+	winlose(state);
+	splash(state);
+	set_term_color(state->con, 0);
+	set_cursor(state->con, 24, 0);
+	printchar(10);
+	show_cursor(state->con);
+	return crc(state->persistent->quip_s)
+		+ crc(state->persistent->scores_a[0].name_s);
+}
+
+int update_time(struct state *state);
+
+/** @brief Our timer callback, which will be called from game.c. Has to be
+ * fast so we can't redraw the screen from here. That's done by update_time().
+ * @return Void */
+int wumpus_tick(struct state *state, int ticks) {
+	state->persistent->time = ticks;
+	return 0;
+}
+
+int fill_rect(struct state *state, int c, int color, int row_start, int row_end, int col_start, int col_end);
+int print_at(struct state *state, intarray msg_s, int color, int row, int col);
+int print_scores(struct state *state);
+int print_quip(struct state *state);
+int print_menu(struct state *state);
+int wait_key(struct state *state);
+
+/** @brief (re)draw the splash screen at game start
+ * @return Void
+ * @bug Too many hard-coded colors */
+int redraw_splash(struct state *state) {
+	clear_console(state->con);
+	hide_cursor(state->con);
+	fill_rect(state, 4, 32 /* FGND_GREEN | BGND_BLACK */, 0,           1,       0,          state->CWIDTH_k);
+	fill_rect(state, 4, 32 /* FGND_GREEN | BGND_BLACK */, state->CHEIGHT_k - 1, state->CHEIGHT_k, 0,          state->CWIDTH_k);
+	fill_rect(state, 4, 34 /* FGND_BLUE  | BGND_BLACK */, 0,           state->CHEIGHT_k, 0,          1);
+	fill_rect(state, 4, 34 /* FGND_BLUE  | BGND_BLACK */, 0,           state->CHEIGHT_k, state->CWIDTH_k - 1, state->CWIDTH_k);
+	print_at(state, state->title_s, 37 /* FGND_WHITE | BGND_BLACK */, state->TITLE_ROW_k, (state->CWIDTH_k - l5_strlen(state->title_s)) / 2);
+	print_quip(state);
+	print_menu(state);
+	print_scores(state);
+	return 0;
+}
+
+/** @brief Do everything the splash screen does.
+ * @note As it turns out, that pretty
+ * much boils down to "wait for the player to start the game" (help is handled
+ * inside our input code, see wait_key())
+ * @return Void */
+int splash(struct state *state) {
+	redraw_splash(state);
+	while (wait_key(state) != 112) { continue; } /* p */
+	return 0;
+}
+
+int generate_board(struct state *state);
+int redraw_board(struct state *state);
+int is_game_over(struct state *state);
+int step_game(struct state *state);
+int msg_hazards(struct state *state);
+
+/** @brief Run the game for the "play phase": the time when the player is
+ * hunting the wumpus.
+ * @return Void */
+int hunt(struct state *state) {
+	// Wipe off the splash screen
+	clear_console(state->con);
+	// Create a new board
+	generate_board(state);
+	state->phase = state->k_play_phase;
+	// No cheating ;-)
+	state->fog_of_war = 1;
+	// Give player their starting info
+	redraw_board(state);
+	msg_hazards(state);
+	// Start the clock
+	state->start_time = state->persistent->time;
+	while(is_game_over(state) == 0) {
+		step_game(state);
+	}
+	return 0;
+}
+
+int win(struct state *state);
+int lose(struct state *state);
+
+/** @brief If we won, do "yay we won" user interaction. If we wost, do "aw we
+ * lost" user interaction.
+ * @return Void */
+int winlose(struct state *state) {
+	if (state->is_won != 0) {
+		win(state);
+	} else {
+		lose(state);
+	}
+	return 0;
+}
+
+int time_rank(struct state *state, int time);
+int rank_color(struct state *state, int rank);
+
+/** @brief Update the time, including the counter on screen iff there is one.
+ * @return int */
+int update_time(struct state *state) {
+	int old_row; int old_col; int old_color;
+	// i don't often herp, but when i do, i also derp.
+	wumpus_tick(state, state->persistent->time + 100);
+	// Update state's concept of time
+	state->time_since_start = state->persistent->time - state->start_time;
+	if (state->phase == state->k_play_phase) {
+		old_row = get_cursor_line(state->con);
+		old_col = get_cursor_col(state->con);
+		old_color = get_term_color(state->con);
+		set_cursor(state->con, state->TIME_ROW_k, state->SIDEBAR_COL_k);
+		set_term_color(state->con,
+			       rank_color(state, time_rank(state, state->time_since_start)));
+		console_printint(state->con, state->time_since_start / 100);
+		console_printchar(state->con, 46);
+		console_printint(state->con, state->time_since_start % 100);
+		set_term_color(state->con, old_color);
+		set_cursor(state->con, old_row, old_col);
+	}
+	return 0;
+}
+
+/** @brief Fill a rectangle with a character and color
+ * @param c Character to fill with
+ * @param color Color to fill with
+ * @param row_start First row to fill
+ * @param row_end First row after the end of the fill
+ * @param col_start First col to fill
+ * @param col_end First col after the end of the fill
+ * @return Void */
+int fill_rect(struct state *state, int c, int color,
+	      int row_start, int row_end, int col_start, int col_end) {
+	int row; int col;
+	for (row = row_start; row < row_end; row++) {
+		for (col = col_start; col < col_end; col++) {
+			draw_char(state->con, row, col, c, color);
+		}
+	}
+	return 0;
+}
+
+/** @brief Change a rectangle to be the specified color
+ * @param color Color to change to
+ * @param row_start First row to tint
+ * @param row_end First row after the end of the tint
+ * @param col_start First col to tint
+ * @param col_end First col after the end of the tint
+ * @return Void */
+int tint_rect(struct state *state, int color,
+	      int row_start, int row_end, int col_start, int col_end) {
+	int row; int col;
+	for (row = row_start; row < row_end; row++) {
+		for (col = col_start; col < col_end; col++) {
+			draw_char(state->con, row, col, get_char(state->con, row, col), color);
+		}
+	}
+	return 0;
+}
+
+/** @brief Print a string at a location in a given color. Uses putbytes so
+ * wrapping off the edge of the screen will probably be anti-useful
+ * @param msg_s String to print
+ * @param color Color to print in
+ * @param row Row to start in
+ * @param col Col to start in
+ * @return Void */
+int print_at(struct state *state, intarray msg_s, int color, int row, int col) {
+	int old_row; int old_col;
+	int old_color;
+	int i;
+	l5_assert(!(row < 0 || row >= state->CHEIGHT_k || col < 0 || col >= state->CWIDTH_k));
+	// get_cursor(state, &old_row, &old_col);
+	old_row = get_cursor_line(state->con);
+	old_col = get_cursor_col(state->con);
+	old_color = get_term_color(state->con);
+	set_cursor(state->con, row, col);
+	set_term_color(state->con, color);
+	// console_putbytes(state->con, msg_s, l5_strlen(msg_s));
+	for (i = 0; i < l5_strlen(msg_s); i++) {
+		console_printchar(state->con, msg_s[i]);
+	}
+	set_term_color(state->con, old_color);
+	set_cursor(state->con, old_row, old_col);
+	return 0;
+}
+
+int print_char_at(struct state *state, int msg_c, int color, int row, int col) {
+	int old_row; int old_col;
+	int old_color;
+	int i;
+	l5_assert(!(row < 0 || row >= state->CHEIGHT_k || col < 0 || col >= state->CWIDTH_k));
+	old_row = get_cursor_line(state->con);
+	old_col = get_cursor_col(state->con);
+	old_color = get_term_color(state->con);
+	set_cursor(state->con, row, col);
+	set_term_color(state->con, color);
+	console_printchar(state->con, msg_c);
+	set_term_color(state->con, old_color);
+	set_cursor(state->con, old_row, old_col);
+	return 0;
+}
+
+/** @brief Print the "quip" set by the champion player
+ * @return Void */
+int print_quip(struct state *state) {
+	int color = 31 /* FGND_RED | BGND_BLACK */;
+	int len = l5_strlen(state->persistent->quip_s);
+	int col = (state->CWIDTH_k - len) / 2;
+	intarray name_s;
+	print_at(state, state->persistent->quip_s, color, state->QUIP_ROW_k, col);
+	print_char_at(state, 34, color, state->QUIP_ROW_k, col - 1); /* "\"" */
+	print_char_at(state, 34, color, state->QUIP_ROW_k, col + len); /* "\"" */
+	l5_assert(color == 31); /* pobblesc tripped on this once upon a time */
+	name_s = state->persistent->scores_a[0].name_s;
+	len = l5_strlen(name_s);
+	col = (state->CWIDTH_k - len) / 2 + 2;
+	print_at(state, name_s, color, state->QUIP_ROW_k + 1, col);
+	print_char_at(state, 45, color, state->QUIP_ROW_k + 1, col - 2); /* "-" */
+	return 0;
+}
+
+/** @brief Print the menu text. I was sort of thinking there would be a list or
+ * something when I created this funtion, but I only ever implemented two
+ * choices
+ * @return Void */
+int print_menu(struct state *state) {
+	int color = 37 /* FGND_WHITE | BGND_BLACK */;
+	int len = l5_strlen(state->menu_s);
+	int col = (state->CWIDTH_k - len) / 2;
+	print_at(state, state->menu_s, color, state->MENU_ROW_k, col);
+	return 0;
+}
+
+/** @brief Find the color associated with a given rank on the scoreboard (this is
+ * just for cuteness)
+ * @param rank The rank (0 being champion) in question
+ * @return The color in which to print that leaderboard rank */
+int rank_color(struct state *state, int rank) {
+	return (rank < 1? 37 // FGND_WHITE
+	        : rank < 2? 32 // FGND_BGRN
+	        : rank < 3? 32 // FGND_GREEN
+	        : rank < 5? 34 // FGND_BBLUE
+	        : rank < 7? 34 // FGND_BLUE
+	        : rank < 10? 30 // FGND_DGRAY
+	        : 31); // FGND_RED)
+	        //| BGND_BLACK;
+}
+
+/** @brief Find the rank earned by a given time
+ * @param time The time to check
+ * @return Rank on the leaderboard
+ * @bug Uses linear search, although for 10 entries no one cares */
+int time_rank(struct state *state, int time) {
+	int rank = 0;
+	while (rank < state->SCORES_A_SIZE_k && time > state->persistent->scores_a[rank].time) { rank++; }
+	return rank;
+}
+
+/** @brief Print the high scores chart
+ * @return Void */
+int print_scores(struct state *state) {
+	int i; int old_row; int old_col; int old_color;
+	for (i = 0; i < state->SCORES_A_SIZE_k; i++) {
+		int color = rank_color(state, i);
+		print_at(state, state->persistent->scores_a[i].name_s, color, state->SCORES_ROW_k +i, state->SCORE_NAME_COL_k);
+		old_row = get_cursor_line(state->con);
+		old_col = get_cursor_col(state->con);
+		old_color = get_term_color(state->con);
+		set_cursor(state->con, state->SCORES_ROW_k + i, state->SCORE_TIME_COL_k);
+		set_term_color(state->con, color);
+		console_printint(state->con, state->persistent->scores_a[i].time);
+		set_term_color(state->con, old_color);
+		set_cursor(state->con, old_row, old_col);
+	}
+	return 0;
+}
+
+int find_random_loc_with(struct state *state, room_t posmask, room_t negmask);
+int set_n_random_bits(struct state *state, int n, room_t posmask, room_t setmask);
+int randrange(struct state *state, int min, int max);
+
+/** @brief Generate a new game board. Seeds the random number generator with the
+ * current time before it starts. This is only centisecond accurate...
+ * @return Void */
+int generate_board(struct state *state) {
+	int i; int n_rooms; int n_bats; int n_pits;
+	// Set the board to NESW corridors
+	for (i = 0; i < state->BOARD_HEIGHT_k * state->BOARD_WIDTH_k; i++) {
+		state->board_a[i] = 0;
+	}
+	// Seed the RNG - now done in main
+	// sgenrand(state, state->persistent->time);
+	// Set half to NWSE corridors
+	set_n_random_bits(state, (state->BOARD_HEIGHT_k * state->BOARD_WIDTH_k) / 2, 0, state->B_NWSE_k);
+	// Randomly pick number and location of rooms, bats, pits
+	n_rooms = randrange(state, state->MIN_ROOMS_k, state->MAX_ROOMS_k);
+	n_bats = randrange(state, state->MIN_BATS_k, state->MAX_BATS_k);
+	n_pits = randrange(state, state->MIN_PITS_k, state->MAX_PITS_k);
+	set_n_random_bits(state, n_rooms, 0, state->B_ROOM_k);
+	set_n_random_bits(state, n_bats, state->B_ROOM_k, state->B_BAT_k);
+	set_n_random_bits(state, n_pits, state->B_ROOM_k, state->B_PIT_k);
+	// Randomply place the wumpus in a room without a pit
+	// XXX FIXME HACK This also puts a pit under the wumpus. We special case it
+	// later. This is probably clever code gone wrong --- I'm trying to do more
+	// with set_n_random_bits than is wise.
+	set_n_random_bits(state, 1, state->B_ROOM_k, state->B_WUMPUS_k | state->B_PIT_k);
+	// Put the player in a room without a wumpus
+	find_random_loc_with(state, state->B_ROOM_k, state->B_BAT_k | state->B_PIT_k | state->B_WUMPUS_k);
+	state->player_x = *state->player_x_p;
+	state->player_y = *state->player_y_p;
+	//lprintf("Generated %d by %d board with %d rooms, %d bats, %d pits, 1 wumpus", state->BOARD_WIDTH_k, state->BOARD_HEIGHT_k, n_rooms, n_bats, n_pits);
+	// Mark the player's current room "discovered."
+	state->board_a[state->player_x + state->BOARD_WIDTH_k * state->player_y] |= state->B_KNOWN_k;
+	return 0;
+}
+
+/** @brief Finds you a random location that has at least 1 of the bits specified
+ * in posmask set, and none of the bits in negmask set. Ignores posmask if
+ * posmask == 0.
+ * @param x_p Pointer to location to store out X value
+ * @param x_p Pointer to location to store out Y value
+ * @param posmask Bitmask that specifies the bits at least one of which must be
+ * set in the final location found
+ * @param negmask Bitmask specifies the bits that must not be set in the
+ * location we find.
+ * @return Void
+ * @warning Danger, excessive cleverness */
+int find_random_loc_with(struct state *state, room_t posmask, room_t negmask) {
+	while(1 == 1) {
+		int y = randrange(state, 0, state->BOARD_HEIGHT_k - 1);
+		int x = randrange(state, 0, state->BOARD_WIDTH_k - 1);
+		if ((state->board_a[x + state->BOARD_WIDTH_k * y] & negmask) == 0
+		    && ((state->board_a[x + state->BOARD_WIDTH_k * y] & posmask) != 0
+		        || posmask == 0))
+		{
+			*state->player_x_p = x;
+			*state->player_y_p = y;
+			//lprintf("Found location %d,%d", x, y);
+			return 0;
+		}
+	}
+	return 0;
+}
+
+
+/** @brief Finds you n random locations that has at least 1 of the bits
+ * specified in posmask set, and none of the bits in setmask set. Then it sets
+ * all the bits in setmask for all those locations.
+ * @param posmask Bitmask that specifies the bits at least one of which must be
+ * set in the final location found
+ * @param setmask Bitmask specifies the bits that must not be set in the
+ * location we find, and which we will set.
+ * @return Void
+ * @warning Danger, excessive cleverness
+ * @bug Disingenuously named */
+int set_n_random_bits(struct state *state, int n, room_t posmask, room_t setmask) {
+	int count;
+	for (count = 0; count < n; count++) {
+		int x; int y;
+		find_random_loc_with(state, posmask, setmask);
+		x = *state->player_x_p;
+		y = *state->player_y_p;
+		state->board_a[x + state->BOARD_WIDTH_k * y] |= setmask;
+	}
+	return 0;;
+}
+
+/** @brief Check to see if the game is over
+ * @return nonzero iff game is in a win- or lose-state-> */
+int is_game_over(struct state *state) {
+	if (state->is_won != 0 || state->is_lost != 0) return 1; else return 0;
+}
+
+int walk_forward(struct state *state);
+int msg(struct state *state, intarray msg_s);
+int do_hazards(struct state *state);
+int fire(struct state *state);
+int clear_board(struct state *state);
+
+/** @brief Step the game state by getting some input and then acting on it.
+ * @return int */
+int step_game(struct state *state) {
+	int key = wait_key(state);
+	/* There used to be cases for LEFT/RIGHT/etc here */
+	if (key == 97 || key == 104) { /* a/h */
+		state->x_direction = -1; state->y_direction = 0;
+	} else if (key == 100 || key == 108) { /* d/l */
+		state->x_direction = 1; state->y_direction = 0;
+	} else if (key == 115 || key == 106) { /* s/j */
+		state->x_direction = 0; state->y_direction = 1;
+	} else if (key == 119 || key == 107) { /* w/k */
+		state->x_direction = 0; state->y_direction = -1;
+	} else if (key == 32 || key == 10) {
+		// Change state to move us forward
+		walk_forward(state);
+		// Be affected by hazards
+		do_hazards(state);
+		// Don't warn about hazards if you've fallen in a hole, because you
+		// already know you can take no more
+		if (is_game_over(state) == 0) {
+			msg_hazards(state);
+		}
+	} else if (key == 102) { /* f */
+		fire(state);
+	} else if (key == 99) { /* c */
+		// Toggle cheat mode. This means we need to refresh the board to make
+		// sure we get everything back off the screen when we leave cheat mode
+		clear_board(state);
+		state->fog_of_war = state->fog_of_war == 0 ? 1 : 0;
+		// redraw_board(state);
+	}
+	// default: msg(state, "I don't understand that key.");
+	redraw_board(state);
+	return 0;
+}
+
+/* int help(struct state *state); */
+int redraw(struct state *state);
+
+/** @brief Blocking keyboard read, with magic help function
+ * @warning This is where the help function is hooked in. This is because the
+ * help function wants to work the same in different game phases. Notionally,
+ * what we're saying is that the help function is something that happens to the
+ * game, not something the game invokes.
+ * @return The character we got from the keyboard */
+int wait_key(struct state *state) {
+	int c = -1;
+	while (c < 0) {
+		update_time(state);
+		c = readchar(state);
+		/*
+		if (c == '?') {
+			help(state);
+			c = -1;
+			redraw(state);
+		}
+		*/
+	}
+	// if (c > 0xff) { lprintf("Large char from readchar, truncating"); }
+	return c;
+}
+
+/** @brief Find what's on the other end of a corridor, leaving breadcrumbs as we
+ * walk
+ * @param x_p Pointer to X location to start, in which we will write ending X
+ * location
+ * @param y_p Pointer to Y location to start, in which we will write ending Y
+ * location
+ * @param x_dir_p Pointer to X direction, in which we write ending X direction
+ * @param y_dir_p Pointer to Y direction, in which we write ending Y direction
+ * @param breadcrumb Mask to bitwise-or into each corridor/room we touch on the
+ * way. This is so that walk_forward can mark intermediate corridors
+ * "discovered".
+ * @return Void */
+int traverse_corridors(struct state *state, room_t breadcrumb) {
+	int done_walking = 0;
+	int *x_p = state->player_x_p;
+	int *y_p = state->player_y_p;
+	int *x_dir_p = state->x_direction_p;
+	int *y_dir_p = state->y_direction_p;
+	room_t room;
+	while (done_walking == 0) {
+		// Move
+		*x_p = (*x_p + *x_dir_p + state->BOARD_WIDTH_k) % state->BOARD_WIDTH_k;
+		*y_p = (*y_p + *y_dir_p + state->BOARD_HEIGHT_k) % state->BOARD_HEIGHT_k;
+		// Leave whatever breadcrumb we're asked to
+		state->board_a[*x_p + state->BOARD_WIDTH_k * *y_p] |= breadcrumb;
+		// If it's a room, we're done
+		room = state->board_a[*x_p + *y_p * state->BOARD_WIDTH_k];
+		if ((room & state->B_ROOM_k) != 0) {
+			done_walking = 1;
+		} else {
+			// It's a corridor, change direction
+			int t = *x_dir_p;
+			*x_dir_p = *y_dir_p;
+			*y_dir_p = t;
+			// If it's north-to-east and south-to-west, flip sign
+			if ((room & state->B_NWSE_k) == 0) {
+				*x_dir_p *= -1;
+				*y_dir_p *= -1;
+			}
+		}
+	}
+	return 0;
+}
+
+/** @brief Walk forward, telling the user about it
+ * @param int */
+int walk_forward(struct state *state) {
+	msg(state, state->y_direction < 0? state->walknorth_s
+	    : state->y_direction > 0? state->walksouth_s
+	    : state->x_direction < 0? state->walkwest_s
+	    : state->x_direction > 0? state->walkeast_s
+	    : state->walkstrange_s /* impossible */);
+	*state->player_x_p = state->player_x;
+	*state->player_y_p = state->player_y;
+	*state->x_direction_p = state->x_direction;
+	*state->y_direction_p = state->y_direction;
+	traverse_corridors(state, state->B_KNOWN_k);
+	state->player_x = *state->player_x_p;
+	state->player_y = *state->player_y_p;
+	state->x_direction = *state->x_direction_p;
+	state->y_direction = *state->y_direction_p;
+	return 0;
+}
+
+int blit_img(struct state *state, intarrayarray img_sa, int row, int col);
+int draw_cell(struct state *state, int x, int y);
+int draw_player(struct state *state);
+
+
+/** @brief Redraw the game board
+ * @warning Behavior undefined if not called in play phase
+ * @return int */
+int redraw_board(struct state *state) {
+	int x; int y;
+	l5_assert(state->phase == state->k_play_phase);
+	for (y = 0; y < state->BOARD_HEIGHT_k; y++) {
+		for (x = 0; x < state->BOARD_WIDTH_k; x++) {
+			draw_cell(state, x, y);
+		}
+	}
+	draw_player(state);
+	flush_console(state->con);
+	return 0;
+}
+
+/** @brief Draw a cell of the game board
+ * @param x X location of cell to draw
+ * @param y Y location of cell to draw
+ * @return int */
+int draw_cell(struct state *state, int x, int y) {
+	int old_color = get_term_color(state->con);
+	int color = /* (FGND_WHITE | BGND_BLACK); */ 37;
+	int row = state->BOARD_BORDER_ROWS_k + state->ROOM_HEIGHT_k * y;
+	int col = state->BOARD_BORDER_COLS_k + state->ROOM_WIDTH_k * x;
+	room_t room = state->board_a[x + state->BOARD_WIDTH_k * y];
+	set_term_color(state->con, color);
+	if ((room & state->B_KNOWN_k) != 0 || state->fog_of_war == 0) {
+		blit_img(state, (room & state->B_ROOM_k) != 0 ? state->room_img_sa
+		         : (room & state->B_NWSE_k) != 0 ? state->nwse_img_sa
+		         : state->nesw_img_sa,
+		         row, col);
+	} else {
+		blit_img(state, state->blank_img_sa, row, col);
+	}
+	if ((x == state->player_x && y == state->player_y) || state->fog_of_war == 0) {
+		row += state->ROOM_HEIGHT_k / 2;
+		col += state->ROOM_WIDTH_k / 2;
+		if ((room & state->B_WUMPUS_k) != 0) {
+			print_char_at(state, 87, color, row, col); /* "W" */
+		} else if ((room & state->B_PIT_k) != 0) {
+			print_char_at(state, 80, color, row, col); /* "P" */
+		} else if ((room & state->B_BAT_k) != 0) {
+			print_char_at(state, 66, color, row, col); /* "B" */
+		} else if ((room & state->B_KNOWN_k) != 0 && state->fog_of_war == 0) {
+			print_char_at(state, 43, color, row, col); /* "+" */
+		}
+	}
+	set_term_color(state->con, old_color);
+	return 0;
+}
+
+/** @brief Draw the player on top of the board
+ * @return int */
+int draw_player(struct state *state) {
+	int x_dir = state->x_direction;
+	int y_dir = state->y_direction;
+	int x = state->player_x;
+	int y = state->player_y;
+	int color = 31; // FGND_RED | FGND_BLACK;
+	int row = state->BOARD_BORDER_ROWS_k + state->ROOM_HEIGHT_k * y + (state->ROOM_HEIGHT_k - 1) / 2;
+	int col = state->BOARD_BORDER_COLS_k + state->ROOM_WIDTH_k * x + state->ROOM_WIDTH_k / 2;
+	draw_char(state->con, row, col, 64, color); /* @ */
+	draw_char(state->con, row + y_dir, col + x_dir,
+	          x_dir > 0? 62 : x_dir < 0? 60 /* >/< */
+	              : y_dir > 0? 118 : y_dir < 0? 94 : 88, /* v/^/X */
+	          color);
+	return 0;
+}
+
+/** @brief Display an image stored as a string array with the top left corner at
+ * the given coordinates. Uses the currently set term color.
+ * @param img_sa Image string array to print
+ * @param row The row of the top left corner of the array
+ * @param col The col of the top left corner of the array
+ * @return int */
+int blit_img(struct state *state, intarrayarray img_sa, int row, int col) {
+	int i;
+	for (i = 0; i < 4; i++) {
+		int color = get_term_color(state->con);
+		print_at(state, img_sa[i], color, row + i, col);
+	}
+	return 0;
+}
+
+/** @brief Display a string centered on the screen on the given row
+ * @param msg_s Message to print
+ * @param color Color to print in
+ * @param Row row to print on
+ * @bug I don't use this everywhere I should --- there's some code duplication,
+ * which in an ideal world would be fixed
+ * @return int*/
+int print_centered(struct state *state, intarray msg_s, int color, int row) {
+	print_at(state, msg_s, color, row, (state->CWIDTH_k - l5_strlen(msg_s)) / 2);
+	return 0;
+}
+
+/** @brief Do everything needed for a text box on the screen the user can type
+ * in. Always centered.
+ * @param out_s character array to store user input into
+ * @param size Size of character array (1 greater than size of string that can
+ * be stored therein)
+ * @param color Color of characters echoed back to user
+ * @param row Row on which to show text box
+ * @note The following function is written somewhat obtusely, using the display
+ * memory to store the string while it's being written by the user. This is
+ * a silly thing to do, but it serves to test the console driver.
+ * @return Void */
+int text_prompt(struct state *state, intarray out_s, int size, int color, int row) {
+	// Change color, saving old
+	int old_color = get_term_color(state->con);
+	int start_col = (state->CWIDTH_k - size) / 2;
+	int cur_row; int cur_col;
+	int c = -1;
+	int col;
+	set_term_color(state->con, color);
+
+	// Get ready for input
+	show_cursor(state->con);
+	set_cursor(state->con, row, start_col);
+
+	// Clear input area
+	for (col = start_col; col < start_col + size - 1; col++) {
+		draw_char(state->con, row, col, 32, color); /* space */
+	}
+
+	// Read input
+	while (c != 10) {
+		c = -1;
+		while (c < 0) { c = readchar(state); }
+		// check bounds
+		// get_cursor(state, &cur_row, &cur_col);
+		cur_row = state->con->line;
+		cur_col = state->con->col;
+		if (cur_col >= start_col + size - 1 && c != 8) { /* \b */
+			set_cursor(state->con, cur_row, cur_col - 1);
+		}
+		if (cur_col <= start_col && c == 8) { /* \b */
+			set_cursor(state->con, cur_row, cur_col + 1);
+		} /* \n */
+		if (c != 10) { console_printchar(state->con, c); flush_console(state->con); }
+	}
+
+	// Copy out what we have
+	// get_cursor(state, &cur_row, &cur_col);
+	cur_row = state->con->line;
+	cur_col = state->con->col;
+	for (col = start_col; col < cur_col; col++) {
+		out_s[col - start_col] = get_char(state->con, row, col);
+	}
+	out_s[col - start_col] = 0;
+
+	// Set things as they were
+	set_term_color(state->con, old_color);
+	hide_cursor(state->con);
+	return 0;
+}
+
+/** @brief Do "yay we won" user interaction */
+int win(struct state *state) {
+	int time; int rank; int color;
+	int i;
+	// Mark us end-phase
+	state->phase = state->k_end_phase;
+	// Green up the screen
+	tint_rect(state, 32 /* FGND_GREEN | BGND_BLACK */, 0, state->CONSOLE_HEIGHT_k, 0, state->CONSOLE_WIDTH_k);
+	// Tell the player how much they rock
+	print_centered(state, state->win_s, 34 /* FGND_BBLUE | BGND_BLACK */, state->CHEIGHT_k / 2);
+	// Put them on the scoreboard
+	time = state->time_since_start;
+	/* Find their spot */
+	rank = time_rank(state, time);
+	color = rank_color(state, rank);
+	if (rank < state->SCORES_A_SIZE_k) {
+		/* Move the other suckers down */
+		for (i = state->SCORES_A_SIZE_k - 1; i > rank; i--) {
+			state->persistent->scores_a[i].time =
+				state->persistent->scores_a[i-1].time;
+			l5_strncpy(state->persistent->scores_a[i].name_s,
+				   state->persistent->scores_a[i-1].name_s,
+				   state->SCORE_NAME_S_SIZE_k);
+		}
+		/* Put us in */
+		state->persistent->scores_a[rank].time = time;
+		print_centered(state, state->tellus_s, color, state->CHEIGHT_k / 2 + 2);
+		text_prompt(state, state->persistent->scores_a[rank].name_s, state->SCORE_NAME_S_SIZE_k, color, state->CHEIGHT_k / 2 + 3);
+		if (rank == 0) {
+			print_centered(state, state->firstplace_s, color, state->CHEIGHT_k / 2 + 4);
+			text_prompt(state, state->persistent->quip_s, state->QUIP_S_SIZE_k, color, state->CHEIGHT_k / 2 + 5);
+		}
+	} else {
+		print_centered(state, state->toobad_s, color, state->CHEIGHT_k / 2 + 2);
+		while(readchar(state) < 0) { continue; }
+	}
+	return 0;
+}
+
+/** @brief Do argh-we-lost user interaction */
+int lose(struct state *state) {
+	// Mark us end-phase
+	state->phase = state->k_end_phase;
+	// Grey out the screen
+	tint_rect(state, 30 /* FGND_DGRAY | BGND_BLACK */, 0, state->CONSOLE_HEIGHT_k, 0, state->CONSOLE_WIDTH_k);
+	// Tell the player how much they fail
+	print_at(state, state->yousuck_s, 31 /* FGND_RED | BGND_BLACK */, state->CHEIGHT_k / 2, (state->CWIDTH_k - l5_strlen(state->yousuck_s))/ 2);
+	// Wait for them to do something
+	print_at(state, state->anykey_s, 36 /* actually cyan FGND_LGRAY | BGND_BLACK */, state->CHEIGHT_k / 2 + 2, (state->CWIDTH_k - l5_strlen(state->anykey_s))/ 2);
+	while(readchar(state) < 0) { continue; }
+	return 0;
+}
+
+/** @brief Return a random value (using the Mersenne Twister genrand(struct state *state) function)
+ * that is within the range from min to max INCLUSIVE
+ * @param min Lowest value that can be returned
+ * @param max Highest value that can be returned
+ * @return random value so selected */
+int randrange(struct state *state, int min, int max) {
+	int r = rand(state->persistent->rand);
+	r = (r < 0) ? -r : r;
+	return min + r % (max - min + 1);
+}
+
+/** @brief Scroll the message area that's on the bottom of the screen in the
+ * play phase
+ * @return int */
+int msg_scroll(struct state *state) {
+	int row; int col;
+	// For each row in the message space
+	for (row = state->CHEIGHT_k - 1 - state->MSG_SPACE_HEIGHT_k; row < state->CHEIGHT_k - 1; row++) {
+		// For each char in the row
+		for (col = 0; col < state->MSG_SPACE_WIDTH_k; col++) {
+			// copy
+			draw_char(state->con, row, col, get_char(state->con, row + 1, col), 36 /* FGND_LGRAY | BGND_BLACK */);
+		}
+	}
+	// Wipe the last row
+	for (col = 0; col < state->MSG_SPACE_WIDTH_k; col++) {
+		draw_char(state->con, state->CHEIGHT_k - 1, col, 32, 30 /* FGND_BLACK | BGND_BLACK */);
+	}
+	return 0;
+}
+
+/** @brief Print a message to the message area
+ * @param msg_s Message to print. Behavior undefined if msg_s is longer than
+ * state->MSG_SPACE_WIDTH_k
+ * @return int */
+int msg(struct state *state, intarray msg_s) {
+	msg_scroll(state);
+	l5_assert(l5_strlen(msg_s) <= state->MSG_SPACE_WIDTH_k);
+	print_at(state, msg_s, 37 /* FGND_WHITE | BGND_BLACK */, state->CONSOLE_HEIGHT_k - 1, 0);
+	return 0;
+}
+
+int get_eaten(struct state *state);
+int fall_into_a_hole_and_take_no_more(struct state *state);
+int get_battered(struct state *state);
+
+
+/** @brief Make all the nasty stuff happen to the player, like falling in pits,
+ * being carried off by bats, eaten by wumpusen, etc.
+ * @return int */
+int do_hazards(struct state *state) {
+	room_t room = state->board_a[state->player_x + state->BOARD_WIDTH_k * state->player_y];
+	int keep_going = 1;
+	while (keep_going != 0) {
+		keep_going = 0;
+		if ((room & state->B_WUMPUS_k) != 0) {
+			get_eaten(state);
+		} else if ((room & state->B_PIT_k) != 0) {
+			fall_into_a_hole_and_take_no_more(state);
+		} else if ((room & state->B_BAT_k) != 0) {
+			get_battered(state);
+			keep_going = 1;
+			room = state->board_a[state->player_x + state->BOARD_WIDTH_k * state->player_y];
+		}
+	}
+	return 0;
+}
+
+/** @brief Print help screens
+ * @return int */
+/* int help(struct state *state) {
+	int enter_time = state->persistent->time;
+	blit_img(state, help_1_img_sa, state->HELP_ROW_k, state->HELP_COL_k);
+	while(readchar(state) < 0);
+	blit_img(state, help_2_img_sa, state->HELP_ROW_k, state->HELP_COL_k);
+	while(readchar(state) < 0);
+	blit_img(state, help_blank_img_sa, state->HELP_ROW_k, state->HELP_COL_k);
+	int exit_time = state->persistent->time;
+	state->start_time += (exit_time - enter_time);
+} */
+
+/** @brief Get eaten by the wumpus. */
+int get_eaten(struct state *state) {
+	state->is_lost = 1;
+	//lprintf("Player was eaten by the wumpus at x=%d, y=%d", state->player_x, state->player_y);
+	msg(state, state->gotgot_s);
+	return 0;
+}
+
+/** @brief Fall into a hole
+ * @warning After this function is called you will be able to take no more */
+int fall_into_a_hole_and_take_no_more(struct state *state) {
+	state->is_lost = 1;
+	msg(state, state->mushroom_style_s);
+	return 0;
+}
+
+/** @brief Get carried about by a bat
+ * @return int */
+int get_battered(struct state *state) {
+	int bat_x; int bat_y;
+	// Destroy the bat that hit us
+	state->board_a[state->player_x + state->BOARD_WIDTH_k * state->player_y] &= ~state->B_BAT_k;
+	// Create a new bat in a random room without a bat or wumpus
+	find_random_loc_with(state, state->B_ROOM_k, state->B_BAT_k | state->B_WUMPUS_k);
+	bat_x = *state->player_x_p;
+	bat_y = *state->player_y_p;
+	state->board_a[bat_x + state->BOARD_WIDTH_k * bat_y] |= state->B_BAT_k;
+	// Move the player to a random room
+	find_random_loc_with(state, state->B_ROOM_k, 0);
+	state->player_x = *state->player_x_p;
+	state->player_y = *state->player_y_p;
+	// Mark the new room "explored"
+	state->board_a[state->player_x + state->BOARD_WIDTH_k * state->player_y] |= state->B_KNOWN_k;
+	// Redraw so the player can see
+	// redraw_board(state);
+	// Tell the player what we did to them
+	msg(state, state->inertia_s);
+	return 0;
+}
+
+/** @brief Print messages and set lose bit from firing at and missing the
+ * wumpus * */
+int miss_the_wumpus(struct state *state) {
+	state->is_lost = 1;
+	msg(state, state->busted_s);
+	return 0;
+}
+
+/** @brief Print messages and set win bit from killing Wumpus */
+int kill_the_wumpus(struct state *state) {
+	state->is_won = 1;
+	msg(state, state->bullseye_s);
+	return 0;
+}
+
+/** @brief Redraw the screen in the manner appropriate to the current phase of
+ * the game, whatever that may be */
+int redraw(struct state *state) {
+	if (state->phase == state->k_splash_phase) {
+		redraw_splash(state);
+	} else if (state->phase == state->k_play_phase) {
+		redraw_board(state);
+	}
+	return 0;
+}
+
+/** @brief Fire an arrow, possibly missing and possibly hitting the wumpus */
+int fire(struct state *state) {
+	room_t room;
+	// Find the destination room
+	*state->player_x_p = state->player_x;
+	*state->player_y_p = state->player_y;
+	*state->x_direction_p = state->x_direction;
+	*state->y_direction_p = state->y_direction;
+	traverse_corridors(state, 0);
+	// Tell the player the obvious
+	msg(state, state->firing_s);
+	// Do we hit?
+	room = state->board_a[*state->player_x_p + state->BOARD_WIDTH_k * *state->player_y_p];
+	if ((room & state->B_WUMPUS_k) != 0) {
+		kill_the_wumpus(state);
+	} else {
+		miss_the_wumpus(state);
+	}
+	return 0;
+}
+
+/** @brief Clear the game board area
+ * @warning Behavior only defined during play phase
+ * @bug Should use fill_rect, but doesn't
+ * @return int */
+int clear_board(struct state *state) {
+	int row; int col;
+	// FIXME SHOULD USE FILL_RECT
+	for (row = state->BOARD_BORDER_ROWS_k; row < state->CHEIGHT_k - state->BOARD_BORDER_ROWS_k - state->MSG_SPACE_HEIGHT_k; row++) {
+		for (col = state->BOARD_BORDER_COLS_k; col < state->CWIDTH_k - state->BOARD_BORDER_COLS_k; col++) {
+			/* space */
+			draw_char(state->con, row, col, 32, 30 /* FGND_BLACK | BGND_BLACK */);
+		}
+	}
+	return 0;
+}
+
+/** @brief Find all the hazards at given coordinates
+ * @param distance Distance from player
+ * @param x X coordinate to search
+ * @param y Y coordinate to search
+ * @result Bitwise or'ing of all hazards at that location that apply at this
+ * distance from the player
+ * @bug FIXME hardcoded //s
+ * @warning FIXME HACK Special cases the
+ * wumpus because during board generation the wumpus always winds up on top of a
+ * fake pit. */
+room_t hazards_at_location(struct state *state, int distance, int x, int y) {
+	room_t mask = state->board_a[x + state->BOARD_WIDTH_k * y] & (state->B_BAT_k | state->B_WUMPUS_k | state->B_PIT_k);
+	// XXX HACK If theres a wumpus ignore the pit under it
+	if ((mask & state->B_WUMPUS_k) != 0) { mask &= ~state->B_PIT_k; };
+	// If we're further than one away only the wumpus is detectable
+	if (distance > 1) { mask &= state->B_WUMPUS_k; };
+	return mask;
+}
+
+/** @brief Find the hazards that lie in the given direction from the given
+ * coords, possibly recursing further. This is for finding hazards near the
+ * player.
+ * @param distance Current distance from the player. We don't go deeper than 2
+ * @param x X location to start at
+ * @param y Y location to start at
+ * @param x_dir X direction
+ * @param y_dir Y direction
+ * @bug Hardcoded constants
+ * @note This is recursive but only to a shallow depth (no more than 3) so
+ * that's not so bad */
+room_t hazards_in_direction(struct state *state, int distance, int x, int y, int x_dir, int y_dir) {
+	room_t hazards = 0;
+	// Go down the corridor we're facing
+	*state->player_x_p = x;
+	*state->player_y_p = y;
+	*state->x_direction_p = x_dir;
+	*state->y_direction_p = y_dir;
+	traverse_corridors(state, 0);
+	x = *state->player_x_p;
+	y = *state->player_y_p;
+	x_dir = *state->x_direction_p;
+	y_dir = *state->y_direction_p;
+	distance++;
+	// Check to see if we've gone too far
+	if (distance > 2) { return 0; }
+	// Tot up hazards
+	hazards |= hazards_at_location(state, distance, x, y);
+	hazards |= hazards_in_direction(state, distance, x, y, x_dir, y_dir);
+	hazards |= hazards_in_direction(state, distance, x, y, y_dir, -x_dir);
+	hazards |= hazards_in_direction(state, distance, x, y, -y_dir, x_dir);
+	return hazards;
+}
+
+/** @brief Print info about nearby hazards to message area
+ * @return int */
+int msg_hazards(struct state *state) {
+	room_t hazards = 0;
+	int x = state->player_x;
+	int y = state->player_y;
+	hazards |= hazards_in_direction(state, 0, x, y, 1, 0);
+	hazards |= hazards_in_direction(state, 0, x, y, -1, 0);
+	hazards |= hazards_in_direction(state, 0, x, y, 0, 1);
+	hazards |= hazards_in_direction(state, 0, x, y, 0, -1);
+	if ((hazards & state->B_BAT_k) != 0) {
+		msg(state, state->rustling_s);
+	}
+	if ((hazards & state->B_PIT_k) != 0) {
+		msg(state, state->whistling_s);
+	}
+	if ((hazards & state->B_WUMPUS_k) != 0) {
+		msg(state, state->duedate_s);
+	}
+	return 0;
+}
+
+/******************************************************************************
+ * keyboard library
+ ******************************************************************************/
+
+/* C version
+//include <stdio.h>
+int readchar(struct state *state) { return getc(stdin); }
+// */
+/* L5 version */
+int readchar(struct state *state)
+{
+	int c = state->chars_read;
+	state->chars_read++;
+	if (c < 28 || c == 41)
+		l5_usleep(50000);
+	if (c == 0) return 112;
+	else if (c == 1) return 119;
+	else if (c == 2) return 10;
+	else if (c == 3) return 97;
+	else if (c == 4) return 10;
+	else if (c == 5) return 10;
+	else if (c == 6) return 10;
+	else if (c == 7) return 100;
+	else if (c == 8) return 10; /* wumpus eats x_x */
+	else if (c == 9) return 32;
+	else if (c == 10) return 112;
+	else if (c == 11) return 97;
+	else if (c == 12) return 10;
+	else if (c == 13) return 115;
+	else if (c == 14) return 10;
+	else if (c == 15) return 10;
+	else if (c == 16) return 97;
+	else if (c == 17) return 10;
+	else if (c == 18) return 10;
+	else if (c == 19) return 99; /* cheat ;) */
+	else if (c == 20) return 115;
+	else if (c == 21) return 10;
+	else if (c == 22) return 10;
+	else if (c == 23) return 10;
+	else if (c == 24) return 100;
+	else if (c == 25) return 10;
+	else if (c == 26) return 102;
+	else if (c == 27) return 80;
+	else if (c == 28) return 79;
+	else if (c == 29) return 66;
+	else if (c == 30) return 66;
+	else if (c == 31) return 76;
+	else if (c == 32) return 69;
+	else if (c == 33) return 83;
+	else if (c == 34) return 10;
+	else if (c == 35) return 102;
+	else if (c == 36) return 101;
+	else if (c == 37) return 108;
+	else if (c == 38) return 105;
+	else if (c == 39) return 99;
+	else if (c == 40) return 97;
+	else if (c == 41) return 116;
+	else if (c == 42) return 105;
+	else if (c == 43) return 111;
+	else if (c == 44) return 110;
+	else if (c == 45) return 115;
+	else if (c == 46) return 32;
+	else if (c == 47) return 111;
+	else if (c == 48) return 102;
+	else if (c == 49) return 32;
+	else if (c == 50) return 116;
+	else if (c == 51) return 104;
+	else if (c == 52) return 101;
+	else if (c == 53) return 32;
+	else if (c == 54) return 99;
+	else if (c == 55) return 111;
+	else if (c == 56) return 100;
+	else if (c == 57) return 105;
+	else if (c == 58) return 110;
+	else if (c == 59) return 103;
+	else if (c == 60) return 32;
+	else if (c == 61) return 115;
+	else if (c == 62) return 101;
+	else if (c == 63) return 97;
+	else if (c == 64) return 115;
+	else if (c == 65) return 111;
+	else if (c == 66) return 110;
+	else if (c == 67) return 33;
+	else if (c == 68) return 10;
+	else if (c == 69) return 112;
+	else return -1;
+}
+
+/* vim: ft=c
+ */

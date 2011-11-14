@@ -1,0 +1,12 @@
+//test error
+/* we should be able to nest declarations, but not see them outside of scope */
+int main(){
+    int a=4;
+    
+    while(true){
+      int b=4+4;
+
+      break;
+    }
+    return b;
+}

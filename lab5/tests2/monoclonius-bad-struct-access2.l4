@@ -1,0 +1,15 @@
+//test exception 11
+
+struct s
+{
+    int a;
+    int b;
+};
+
+int main()
+{
+    struct s[] sarr = alloc_array(struct s, 0);
+    /* This is an array out-of-bounds, not a bad pointer access. */
+    return sarr[0].b;
+}
+

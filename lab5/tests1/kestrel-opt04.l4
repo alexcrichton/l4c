@@ -1,0 +1,49 @@
+//test return 42
+//common subexpression elimination
+
+struct s
+{
+  struct s* x1;
+  struct s* x2;
+  struct s* x3;
+  struct s* x4;
+  struct s* x5;
+  struct s* x6;
+  struct s* x7;
+  struct s* x8;
+  struct s* x9;
+  struct s* x10;
+  int n;
+};
+
+int main()
+{
+  struct s* x = alloc(struct s);
+  x->x1 = alloc(struct s);
+  x->x1->x2 = alloc(struct s);
+  x->x1->x2->x3 = alloc(struct s);
+  x->x1->x2->x3->x4 = alloc(struct s);
+  x->x1->x2->x3->x4->x5 = alloc(struct s);
+  x->x1->x2->x3->x4->x5->x6 = alloc(struct s);
+  x->x1->x2->x3->x4->x5->x6->x7 = alloc(struct s);
+  x->x1->x2->x3->x4->x5->x6->x7->x8 = alloc(struct s);
+  x->x1->x2->x3->x4->x5->x6->x7->x8->x9 = alloc(struct s);
+  x->x1->x2->x3->x4->x5->x6->x7->x8->x9->x10 = alloc(struct s);
+  x->x1->x2->x3->x4->x5->x6->x7->x8->x9->x10->n = 42;
+
+  for (int i = -99999; i <= 99999; i++)
+  {
+    x->x1->n = i;
+    x->x1->x2->n = i;
+    x->x1->x2->x3->n = i;
+    x->x1->x2->x3->x4->n = i;
+    x->x1->x2->x3->x4->x5->n = i;
+    x->x1->x2->x3->x4->x5->x6->n = i;
+    x->x1->x2->x3->x4->x5->x6->x7->n = i;
+    x->x1->x2->x3->x4->x5->x6->x7->x8->n = i;
+    x->x1->x2->x3->x4->x5->x6->x7->x8->x9->n = i;
+    x->x1->x2->x3->x4->x5->x6->x7->x8->x9->x10->n = 42;
+  }
+  
+  return x->x1->x2->x3->x4->x5->x6->x7->x8->x9->x10->n;
+}

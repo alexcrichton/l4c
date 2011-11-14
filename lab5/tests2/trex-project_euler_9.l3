@@ -1,0 +1,65 @@
+//test return 31875000
+//solves problem 9 on projecteuler.net using an excessive number of function calls :)
+
+int sum2(int a, int b)
+{
+  return a + b;
+}
+
+int sum3(int a, int b, int c)
+{
+  return a + b + c;
+}
+
+int product3(int a, int b, int c)
+{
+  return a * b * c;
+}
+
+int square(int x)
+{
+  return x * x;
+}
+
+bool is_triplet(int a, int b, int c)
+{
+  return square(c) == sum2(square(a), square(b));
+}
+
+int find_triplet(int target)
+{
+  int a;
+  int b;
+  int c;
+
+  for (c = 1; c <= target; c++)
+  {
+    for (b = 1; b <= target; b++)
+    {  
+      if (square(b) >= square(c) || sum2(c, b) >= target)
+      {
+        break;
+      }
+      for (a = 1; a <= target; a++)
+      {
+        if (sum2(square(a), square(b)) > square(c) || sum3(a, b, c) > target)
+        {
+          break;
+        }
+        if (is_triplet(a, b, c) && sum3(a, b, c) == target)
+        {
+          return product3(a, b, c);
+        }
+      }
+    }
+  } 
+
+  return -1;
+}
+
+int main()
+{
+  return find_triplet(1000);
+}
+
+

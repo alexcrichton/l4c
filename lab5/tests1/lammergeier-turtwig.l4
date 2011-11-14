@@ -1,0 +1,14 @@
+//test exception 11
+
+struct derp {
+    int *herp;
+};
+
+int main() {
+    struct derp *d = alloc(struct derp);
+    int *foo = alloc(int);
+    d->herp = NULL;
+    int *bar = (true ? d->herp : foo);
+    *bar = 1;
+    return 0;
+}

@@ -1,0 +1,30 @@
+//test exception 11
+
+struct s 
+{
+struct s* next;
+struct s* prev;
+};
+typedef struct s st;
+
+int main()
+{
+st* A = alloc(st);
+
+A->next = NULL;
+A->prev = A;
+
+A
+->prev->prev->prev->prev->prev->prev->prev->prev->prev
+->prev->prev->prev->prev->prev->prev->prev->prev->prev
+->prev->prev->prev->prev->prev->prev->prev->prev->prev
+->prev->prev->prev->prev->prev->prev->prev->prev->prev
+->next->prev = A
+->prev->prev->prev->prev->prev->prev->prev->prev->prev
+->prev->prev->prev->prev->prev->prev->prev->prev->prev
+->prev->prev->prev->prev->prev->prev->prev->prev->prev
+->prev->prev->prev->prev->prev->prev->prev->prev->prev;
+
+return 0;
+
+}

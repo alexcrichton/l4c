@@ -1,0 +1,45 @@
+//test return 0
+
+int main()
+{
+    int x;
+    int y;
+    int z;
+    int a;
+    int b;
+    int c;
+    int g;
+    int d;
+
+    x = 4;
+    y = 5;
+
+    if(y > x)
+        z = 6;
+    else
+        z = 4;
+
+    a = x;
+    b = a;
+    while(z != 0)
+    {
+        c = z - 1;
+        g = a * a;
+        a = a * b;
+        
+        if(a < 256)
+        {
+            z = 3;
+            printint(g);
+        }
+        else
+        {
+            z = z - 1;
+        }
+    }
+
+    d = a + z;
+    printint(d);
+
+    return 0;
+}

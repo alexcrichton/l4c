@@ -1,0 +1,38 @@
+//test return 4
+
+// Should become
+// a = 4 # Maybe eliminated by dead code ssa?
+// for loop without a = 10
+// return a
+
+int main() {
+  int a;
+  if (true) {
+    a = 4;
+  } else {
+    a = 5; // dead
+  }
+
+  while (false) {
+    // dead
+    a = 8;
+  }
+
+  for (a = 0; true; a++) {
+    if (a == 4) {
+      break;
+    } else {
+      continue;
+    }
+
+    // dead code
+    a = 10;
+    break;
+  }
+
+  return a;
+
+  // dead code
+  a = 4;
+  return 2;
+}

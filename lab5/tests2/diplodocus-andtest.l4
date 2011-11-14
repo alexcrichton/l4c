@@ -1,0 +1,41 @@
+//test return 997
+
+int two()
+{
+return 2;
+}
+
+int main()
+{
+int x =-1;
+int i;
+int y;
+int z;
+int sum=0;
+
+y = x+x-x+x-x+x-x+x-x+x-x+x-x+x;
+z = (x/x)/x/x/(x/x)/x/x/x/(x)/x/x/(x/x/x/x/x/x/x/x/x/x/x/x/x/x/x);
+x =
+0&(x&x&x&x&x&x&x&x&x&x&x&x&x&x&x&x&x&
+(x&x&x&x&x&x&x&x&x)&x&x&x&x&x&x&x&x&
+x&x&x&x&x&x&x&x&x&x&x&x&x&x&x&x&
+x&x&x&x&x&x&x&x&(x&x)&x&x&x&x&x&x&
+x&x&x&x&x&x&x&x&x);
+
+for(i=0;i<500;i++)
+{
+sum+=(two());
+}
+
+
+return x+y+z+sum;
+
+
+
+
+
+
+
+
+}
+

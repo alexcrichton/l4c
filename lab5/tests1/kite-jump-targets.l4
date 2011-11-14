@@ -1,0 +1,24 @@
+//test return 9333
+//simple test for aligning jump targets
+
+int main()
+{
+  int n = 0;
+  int *z = alloc(int);
+  *z = 1;
+  for(int i=2; i< 100; i++)
+  {
+    n += i;
+    for(int j=1; j<i; j++)
+    {
+      if(i%j == 1)
+        continue;
+      else if(j%i == 1)
+        continue;
+      n++;
+    }
+    if(*z % i == 0)
+      break;    
+  }
+  return n;
+}

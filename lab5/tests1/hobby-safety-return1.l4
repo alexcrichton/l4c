@@ -1,0 +1,22 @@
+//test return 816
+
+int main() {
+    int[] a = alloc_array(int, 20);
+    int[][] b = alloc_array(int[], 20);
+    int sum = 0;
+
+    for (int i = 0; i < 20; i++) {
+        a[i] = 3*i + 5;
+        b[i] = alloc_array(int, 20);
+        for (int j = 0; j < 20; j++)
+            b[i][j] += a[i]/2;
+    }
+
+    for (int i = 0; i < 20; i++) {
+        sum += a[i];
+        if (i >= 13)
+            continue;
+        sum += b[i][i];
+    }
+    return sum;
+}

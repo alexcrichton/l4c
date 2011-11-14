@@ -1,0 +1,18 @@
+//test return 1
+
+int recurse()
+{
+    return recurse();
+}
+
+int main() {
+    int i = 0; 
+    while(i < 10)
+    {
+        if(i > 10)
+            return recurse();
+        i++;
+    }
+
+    return 1;
+}

@@ -1,0 +1,8 @@
+//test error
+
+typedef int A;
+
+int main () {
+  int[] A;
+  return 0;
+}

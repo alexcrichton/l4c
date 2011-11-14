@@ -1,0 +1,33 @@
+//test return 99
+
+int foo1(int a, int b, int c)
+{
+    return a * b / c;
+}
+
+int foo2(int a, int b)
+{
+    return a * a << b;
+}
+
+int main()
+{
+    int a;
+    int b;
+    int c;
+    int d;
+    bool yes = true;
+
+    a = 1;
+    b = 2;
+    c = 3;
+
+    if(yes)
+    {
+        d = !yes ? foo2(a, c) : 99;
+    }
+    else
+        foo1(a, b, c);
+
+    return 99;
+}

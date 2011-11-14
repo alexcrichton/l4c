@@ -1,0 +1,15 @@
+//test exception
+
+struct a
+{
+    int *[] b;
+};
+
+int main()
+{
+    int n = 5;
+    struct a[] a = alloc_array(struct a, n);
+    a[n / 3].b = alloc_array(int *, 2 * n);
+    *(a[n / 3].b[2 * n / 3]) = 5;
+    return 5;
+}

@@ -1,0 +1,20 @@
+//test exception 11
+
+struct list{
+    int head;
+    struct list * tail;
+};
+
+typedef struct list list_t;
+typedef list_t * List;
+
+List newList(int value){
+    List l = alloc(list_t);
+    l->head = value;
+    return l;
+}
+
+int main () {
+  List l = newList(43);
+  return l->tail->head == 0 ? 1 : -1; // dereference NULL Pointer
+}

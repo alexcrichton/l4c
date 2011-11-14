@@ -1,0 +1,36 @@
+//test return 13
+//various code quality things for constant propagation and folding
+
+int main()
+{
+  int x = 4;
+  int y=0;
+  int i;
+  for(i=0; i<100; i++)
+  {
+    if(x > 5)
+      y++;
+    else
+      y+=2;
+    int z = 4; //new declaration, can propagate it
+    for(int j=0; j<5; j++)
+      i++;
+    int n = z+4-4*8/3-(2*15+3*7)/9/2+6*5-10+11; //fold inside loops
+    if(n>0)
+      x--;
+    else
+      x-=2;
+  }
+  int *force_alive = alloc(int);
+  *force_alive = y;
+
+  bool b = i>=100 ? true : false;
+  bool c;
+  if(b && ((5<4) || (-(-(-1))<0)))
+    c=b;
+  else
+  {
+    c = y<53+42+31+20+19 ? true : false;
+  }
+  return c ? 13 : 4;
+}

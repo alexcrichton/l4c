@@ -1,0 +1,27 @@
+//test return 0
+
+// Minimize the deadbeef in your code?
+int main() {
+	int a = 0;
+	int b = 0;
+	if (true) {
+		b = 0xdeadbeef;
+	}
+
+	while (false) {
+		a += 0xdeadbeef;
+	}
+
+	b += (true ? 1 : 0xdeadbeef);
+
+	for (; 0xdeadbeef != 0xdeadbeef; );
+
+	
+	while (true) {
+		if (0xdeadbeef == 0xdeadbeef)
+			break;
+		a += 0xdeadbeef;
+	}
+	return 0;
+}
+

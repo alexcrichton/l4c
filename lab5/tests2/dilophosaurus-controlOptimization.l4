@@ -1,0 +1,21 @@
+//test return 41
+
+// copy propagation
+int main () {
+  int SIZE = 1000;
+  int p = -1;
+  int[] A = alloc_array(int, SIZE); // dead code
+  int x = SIZE   - 100; // => x = 900
+  if(x > 500){
+    int y = x + 100; // => y = 1000
+    int z = y * 10; // => z = 10000
+    int w = z - 3 * SIZE; // => w = 7000
+    int k = 1000;
+    int l = w - 6 * k; // l = 1000
+    int m = l - x;
+    int n = m - 80; // n = 20
+    int o = n * 2; // o = 40
+    return o - p; // 41
+  }else
+    return -1;
+}

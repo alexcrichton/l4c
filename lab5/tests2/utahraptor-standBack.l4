@@ -1,0 +1,8 @@
+//test exception 11
+//Make sure we can't walk backwards
+int main()
+{
+	int* before = alloc(int);
+	int[] science = alloc_array(int, 1);
+	return science[booltoint(false)-1];
+}

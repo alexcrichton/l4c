@@ -1,0 +1,32 @@
+//test exception 11
+// test fail allocation.
+struct BadList;
+typedef struct BadList * BadList;
+
+struct BadList {
+       int val;
+       BadList next;
+};
+
+BadList build(int i) {
+	if (i == 0) return NULL;
+	BadList curr = alloc(struct BadList);
+	curr->val = i;
+	curr->next = build(i-1);
+	return curr;
+}
+
+BadList getNth(BadList curr, int i) {
+	if (i <= 0) return curr;
+	return getNth(curr->next, i-1);
+}
+
+int main () {
+    BadList haha= build ( 20);
+    BadList lonely = getNth(haha, 19);
+    BadList before_end = getNth(haha, 18);
+    before_end->next = NULL;
+    
+    lonely->next = haha;
+    return getNth(lonely, 20)->val;
+}

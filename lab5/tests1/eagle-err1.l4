@@ -1,0 +1,10 @@
+//test exception 11
+// super basic bounds check
+int main() {
+  int sum = 0;
+  int[] arr = alloc_array(int, 5);
+  for (int i = 0; i <= 5; i++) {
+    sum += arr[i];
+  }
+  return sum;
+}

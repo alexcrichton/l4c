@@ -1,0 +1,19 @@
+//test return 18
+// test fn decls
+
+int g(int hurf);
+
+int f(int n)
+{
+  return g(n);
+}
+
+int main()
+{
+  return f(9);
+}
+
+int g(int m)
+{
+  return m * 2;
+}

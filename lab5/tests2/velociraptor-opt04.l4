@@ -1,0 +1,28 @@
+//test return 31
+
+
+int four() {
+	return 4;
+}
+
+int main() {
+	int x = 5;
+	int y;
+	int z;
+
+	x = x + 8; // x is 13
+	x = x - (2 - 4) * 9; // x is 31
+
+	if (x > 28) {
+		y = 4;
+		z = four() + 3;
+		y = four() + 3;
+	}
+	else {
+		z = 5;
+		y = 23 + x;
+	}
+	return x - z + y; // 31 - 7 + 7 = 31
+}
+
+

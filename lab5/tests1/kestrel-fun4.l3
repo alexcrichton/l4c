@@ -1,0 +1,24 @@
+//test return 997 
+// find largest prime number below 1000
+
+bool is_prime(int n)
+{
+  for (int k = 2; k < n/2; k++)
+  {
+    if (n % k == 0)
+      return false;
+  }
+  return true;
+}
+
+int main()
+{
+  int max = 0;
+  for (int k = 2; k < 1000; k++)
+  {
+    if (is_prime(k) && k > max)
+      max = k;
+  }
+  return max;
+}
+

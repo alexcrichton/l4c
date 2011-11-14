@@ -1,0 +1,34 @@
+//test return 162
+
+int function(int[] A, int n) {
+    if (n == 0) {
+        return 0;
+    }
+    A = alloc_array(int, 10);
+    function(A, n - 1);
+    return 0;
+}
+
+int main () {
+  int[] A;
+  int i;
+  int sum = 0;
+  A = alloc_array(int, 10);
+  for (i = 0; i < 10; i++) {
+    A[i] = i;
+  }
+  function(A, 1000);
+  for (i = 0; i < 9; i++) {
+    sum += A[i];
+  }
+  for (i = 1; i < 10; i++) {
+    sum += A[i];
+  }
+  for (i = 0; i < 9; i++) {
+    sum += A[i + 1];
+  }
+  for (i = 1; i < 10; i++) {
+    sum += A[i - 1];
+  }
+  return sum;
+}

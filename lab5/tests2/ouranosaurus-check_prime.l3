@@ -1,0 +1,23 @@
+//test return 0
+
+bool is_prime(int n) {
+    int i;
+    if (n % 2 == 0) {
+        return false;
+    }
+    i = 3;
+    while (i*i < n) {
+        if (n % i == 0) {
+            return false;
+        }
+        i += 2;
+    }
+    return true;
+}
+
+int main() {
+    if (is_prime(31)) {
+        return 0;
+    }
+    return -1;
+}

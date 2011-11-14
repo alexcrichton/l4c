@@ -1,0 +1,41 @@
+//test exception 11
+
+int main()
+{
+	int a;
+	int b;
+	int c;
+	int x;
+	int number_of_vehicles_in_the_field;
+	int probable_rate_of_failure;
+	int average_out_of_court_settlement;
+	int cost_of_a_recall;
+	int[] we_dont_do = alloc_array(int, 1);
+	int[] we_do = alloc_array(int, 1);
+
+
+	number_of_vehicles_in_the_field = 1000;
+	a = number_of_vehicles_in_the_field;
+
+	probable_rate_of_failure = 10;
+	b = probable_rate_of_failure;
+
+	average_out_of_court_settlement = 100;
+	c = average_out_of_court_settlement;
+	
+	x = a * b * c;
+	
+	cost_of_a_recall = 2000000;
+		
+		
+	if (x < cost_of_a_recall)
+		we_dont_do[1] = 1;
+	else
+		we_do[1] = 1;
+
+	return 0;
+}
+		
+
+
+	

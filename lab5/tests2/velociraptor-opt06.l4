@@ -1,0 +1,17 @@
+//test return 10000
+
+int main() {
+	int m = 0;
+	int s = 0;
+	int i = 0;
+	int j;
+
+	for( ; i < 100; i++) {
+		for ( j = 0; j < 100; j++) {
+			s += 1;
+		}
+		m += s;
+		s = 0;
+	}
+	return m;
+}

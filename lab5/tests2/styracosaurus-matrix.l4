@@ -1,0 +1,185 @@
+//test return 0
+
+typedef int float;
+typedef float[][] matrix;
+typedef float[]   vector;
+
+
+//Allocate a 3 by 3 matrix
+matrix * allocate_matrix()
+{
+	matrix * retval;
+	retval = alloc(matrix);
+	*retval = alloc_array(vector, 3);
+	(*retval)[0] = alloc_array(float, 3);
+	(*retval)[1] = alloc_array(float, 3);
+	(*retval)[2] = alloc_array(float, 3);
+
+	return retval;
+}
+
+//Allocate a 100 x 100 image
+matrix * allocate_image()
+{
+	int i;
+	matrix * retval;
+	retval = alloc(matrix);
+	*retval = alloc_array(vector, 100);
+
+	for(i=0; i<100; i++)
+	{
+		(*retval)[i] = alloc_array(float, 100);
+	}
+	return retval;
+}
+
+vector * allocate_vector()
+{
+	vector * retval;
+	retval = alloc(vector);
+	*retval = alloc_array(float, 3);
+
+	return retval;
+}
+
+vector * create_vector(float x, float y)
+{
+	vector * retval = allocate_vector();
+	(*retval)[0] = x;
+	(*retval)[1] = y;
+	(*retval)[2] = tofloat(1);
+
+	return retval;
+}
+
+matrix * m_multiply(matrix m1, matrix m2)
+{
+	matrix * retval = allocate_matrix();
+	int i;
+	int j;
+	int k;
+
+	for(i=0; i<3; i++)
+		for(j=0; j<3; j++)
+			for(k=0; k<3; k++)
+				(*retval)[i][j] = fadd((*retval)[i][j], fmul(m1[i][k], m2[k][j]));
+
+	return retval;
+}
+
+vector * v_multiply(matrix m, vector v)
+{
+	vector * retval = allocate_vector();
+	int i;
+	int j;
+
+	for(i=0; i<3; i++)
+		for(j=0; j<3; j++)
+			(*retval)[i] = fadd((*retval)[i], fmul(m[i][j], v[i]));
+
+	//Normalize homogeneous coords
+	(*retval)[0] = fdiv((*retval)[0], (*retval)[2]);
+	(*retval)[1] = fdiv((*retval)[1], (*retval)[2]);
+	(*retval)[2] = fdiv((*retval)[2], (*retval)[2]);
+
+	return retval;
+}
+
+int transform_image(matrix src, matrix dest, matrix transform)
+{
+	int i;
+	int j;
+	
+	for(i=0; i<100; i++)
+	{
+		for(j=0; j<100; j++)
+		{
+			vector * v = create_vector(tofloat(i-50),tofloat(j-50));
+			vector * v_prime = v_multiply(transform, *v);
+
+			int x = fromfloat((*v_prime)[0]) + 50;
+			int y = fromfloat((*v_prime)[1]) + 50;
+
+			if(x < 100 && y < 100 && x > 0 && y > 0)
+				dest[i][j] = src[x][y];
+			else
+				dest[i][j] = 46;
+		}
+	}
+	return 0;
+}
+
+int printimage(matrix m)
+{
+	int i;
+	int j;
+
+	for(i=0; i<100; i++)
+	{
+		for(j=0; j<100; j++)
+		{
+			printchar(m[i][j]);
+		}
+		printchar(10); //newline
+	}
+
+	return 0;
+}
+
+
+
+
+
+int main()
+{
+	int i;
+	int j;
+	int half = fdiv(tofloat(1), tofloat(2));
+	matrix * m1 = allocate_matrix();
+	matrix * m2 = allocate_matrix();
+	matrix * transform;
+
+	matrix * image     = allocate_image();
+	matrix * new_image = allocate_image();
+
+	//Create an image of a circle
+	for(i=0; i<100; i++)
+	{
+		for(j=0; j<100; j++)
+		{
+			int x = i - 50;
+			int y = j - 50;
+			int dist = x*x + y*y;
+			
+			if(dist < 30*30)
+				(*image)[i][j] = 43;	// dot
+			else
+				(*image)[i][j] = 46;	// plus sign
+		}
+	}
+
+	printimage(*image);
+
+	printchar(10);
+	printchar(10);
+	printchar(10);
+
+	//Identity
+	(*m1)[0][0] = tofloat(1); (*m1)[0][1] = tofloat(0); (*m1)[0][2] = tofloat(0);	// 1   0   0
+	(*m1)[1][0] = tofloat(0); (*m1)[1][1] = tofloat(1); (*m1)[1][2] = tofloat(0);	// 0   1   0
+	(*m1)[2][0] = tofloat(0); (*m1)[2][1] = tofloat(0); (*m1)[2][2] = tofloat(1);	// 0   0   1
+
+	//Stretch by 2 in x
+	(*m2)[0][0] = tofloat(2); (*m2)[0][1] = tofloat(0); (*m2)[0][2] = tofloat(0);   // 1   0   0
+	(*m2)[1][0] = tofloat(0); (*m2)[1][1] = tofloat(1); (*m2)[1][2] = tofloat(0);   // 0   1   0
+	(*m2)[2][0] = tofloat(0); (*m2)[2][1] = tofloat(0); (*m2)[2][2] = tofloat(1);   // 0   0   1
+
+	//Compose transformations
+	transform = m_multiply(*m1, *m2);
+	//Apply transformations
+	transform_image(*image, *new_image, *transform);
+
+	printimage(*new_image);
+
+	return 0;
+}

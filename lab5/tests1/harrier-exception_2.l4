@@ -1,0 +1,19 @@
+//test exception
+
+struct mystruct
+{
+    int *myptr;
+};
+
+int *myptr()
+{
+    struct mystruct *a = alloc(struct mystruct);
+    return a->myptr;
+}
+
+int main()
+{
+    int *myptr = myptr();
+    *myptr = 5;
+    return 3;
+}

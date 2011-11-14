@@ -1,0 +1,14 @@
+//test exception 11
+
+int nope() {
+    return -1;
+}
+
+int main() {
+    int len = 55;
+    int[] arr = alloc_array(int, len);
+
+    arr[nope()] = 6;
+
+    return arr[nope()];
+}

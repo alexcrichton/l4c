@@ -1,0 +1,21 @@
+//test exception 11
+
+int main()
+{
+  int[] a = alloc_array(int, 5);
+  a[0] = 4;
+  a[1] = 1;
+  a[2] = 15;
+  a[3] = 8;
+  a[4] = 5;
+  int[] b = alloc_array(int, 4);
+  b[0] = 0;
+  b[1] = 4;
+  b[2] = 1;
+  b[3] = 3;
+  int[] c = alloc_array(int, 3);
+  c[0] = 3;
+  c[1] = 1;
+  c[2] = 0;
+  return c[a[b[1]]];
+}

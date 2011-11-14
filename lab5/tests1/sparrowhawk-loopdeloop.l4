@@ -1,0 +1,62 @@
+//test return 5
+
+int main(){
+	int x = 10000000;
+	int z = 0;
+	if (x < 10000001){
+		while(x>5){
+			int i = 0;
+			int j = i+1;
+			int k = i+j+1;
+			int l = k+j+i+1;
+			int m = l+k+j+i+1;
+			int n = m+l+k+j+i+1;
+			int o = n+m+l+k+j+i+1;
+			int p = o+n+m+l+k+j+i+1;
+			int q = p+o+n+m+l+k+j+i+1;
+			int r = q+p+o+n+m+l+k+j+i+1;
+			int s = r+q+p+o+n+m+l+k+j+i+1;
+                        int j2 = i+1;
+                        int k2 = i+j+k;
+                        int l2 = k+j+i+l;
+                        int m2 = l+k+j+i+m;
+                        int n2 = m+l+k+j+i+n;
+                        int o2 = n+m+l+k+j+i+o;
+                        int p2 = o+n+m+l+k+j+i+p;
+                        int q2 = p+o+n+m+l+k+j+i+q;
+                        int r2 = q+p+o+n+m+l+k+j+i+r;
+                        int s2 = r+q+p+o+n+m+l+k+j+i+s;
+                        int i3 = 0;
+                        int j3 = i+j2;
+                        int k3 = i+j+k2;
+                        int l3 = k+j+i+l2;
+                        int m3 = l+k+j+i+m2;
+                        int n3 = m+l+k+j+i+n2;
+                        int o3 = n+m+l+k+j+i+o2;
+                        int p3 = o+n+m+l+k+j+i+p2;
+                        int q3 = p+o+n+m+l+k+j+i+q2;
+                        int r3 = q+p+o+n+m+l+k+j+i+r2;
+                        int s3 = r+q+p+o+n+m+l+k+j+i+s2;
+                        int j4 = i+j3;
+                        int k4 = i+j+k3;
+                        int l4 = k+j+i+l3;
+                        int m4 = l+k+j+i+m3;
+                        int n4 = m+l+k+j+i+n3;
+                        int o4 = n+m+l+k+j+i+o3;
+                        int p4 = o+n+m+l+k+j+i+p3;
+                        int q4 = p+o+n+m+l+k+j+i+q3;
+                        int r4 = q+p+o+n+m+l+k+j+i+r3;
+                        int s4 = r+q+p+o+n+m+l+k+j+i+s3;
+			x--;
+			z = s4;
+		}
+	}
+	else{
+		return 5;
+	}
+	if(x==5){
+		return x;
+	}
+	else
+		return z;
+}

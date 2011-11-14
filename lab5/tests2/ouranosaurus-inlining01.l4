@@ -1,0 +1,25 @@
+//test return 0
+
+// One way to optimize nicely this would be to inline, then do constant 
+// propagation to determine that the result is always true and get rid of that 
+// inner if statement.  This runs a little counter to what I'd hypothesize most 
+// people said on the homework about inlining being done as the very last thing.
+
+bool keep_going(int i) {
+    return true;
+}
+
+int main() {
+    int i = 0;
+    int j = 0;
+    for (i = 0; i < 10000; i++) {
+        for (j = 0; j < 10000; j++) {
+            if (!keep_going(i*10000+j)) {
+                break;
+            }
+        }
+    }
+    return (10000 * 10000) - (i*j);
+}
+
+

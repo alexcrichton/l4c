@@ -1,0 +1,19 @@
+//test return 20
+
+typedef int[] IntArray;
+
+// strong reduction
+int main () {
+  int SIZE = 10;
+  IntArray[] tab = alloc_array(IntArray, SIZE);
+  int i = 0;
+  int j;
+  for(; i < SIZE; i++){
+    tab[i] = alloc_array(int, SIZE);
+    for(j = 0; j < SIZE; j++){
+        int l = i * j;
+        tab[i][j] = l;
+    }
+  }
+  return tab[5][4]; // 5 * 4
+}

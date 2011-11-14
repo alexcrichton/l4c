@@ -1,0 +1,16 @@
+//test return 0
+
+struct ars {
+    int [] a;
+};
+
+int main() {
+    int q = 25;
+    int r = 3;
+    int [] a = alloc_array(int, 100);
+
+    for (int i = 0; i < 100; i++)
+        a[i] = q << r + 3 * (q - r);
+
+    return 0;
+}

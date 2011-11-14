@@ -1,0 +1,22 @@
+//test return 0
+//common subexpression elimination tests
+
+int main()
+{
+
+	int a = 1;
+	int b = 2;
+	int c = 3;
+
+	int d = a * b * c;
+	int e = a * b / c;
+	int f = (a * b / c) + (a * b / c) + (a * b / c) + (a * b / c);
+	int g = f + (a * b / c) / d;
+	int h = (a * b / c);
+	int i = e + h + (a * b / c);
+	int j = (a * b / c) * (a * b / c) + h;
+	int k = j / 1;
+	int l = k * k * k * k * k * k;
+
+	return l;
+}

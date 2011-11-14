@@ -1,0 +1,19 @@
+//test return 1296
+int pow(int i, int n);
+
+int pow( int i, int n){
+    if (n == 0)
+       return 1;
+    if (n == 1) 
+       return i;
+    
+    int p = pow(i, n/2);
+    int r = pow(i, n%2);
+    return p * p * r;
+}
+
+int main () {
+    int x = 6;
+    int n = 4;
+    return pow (x, n);
+}

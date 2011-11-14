@@ -1,0 +1,27 @@
+//test return 499500
+// tests getting rid of redundant memory loads
+
+struct node {
+    int d;
+    struct node *s;
+};
+
+int main()
+{
+    struct node *foo = alloc(struct node);
+    struct node *bar = foo;
+    for (int i = 0; i < 42; i++) {
+        bar->s = alloc(struct node);
+        bar = bar->s;
+    }
+
+    foo->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->d
+= 0;
+    for (int i = 0; i < 1000; i++) {
+        foo->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->d
++= i;
+    }
+
+    return
+foo->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->s->d;
+}

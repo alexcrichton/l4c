@@ -1,0 +1,92 @@
+//test return 0
+
+struct convert {
+       int letter;
+       int number;
+};
+
+typedef struct convert convert_t;
+
+int main()
+{
+	convert_t[] alphabet = alloc_array(convert_t, 26);
+	int[] name = alloc_array(int, 11);
+
+	alphabet[0].letter = 97;
+	alphabet[0].number = 1;
+	alphabet[1].letter = 98;
+	alphabet[1].number = 2;
+	alphabet[2].letter = 99;
+	alphabet[2].number = 3;
+	alphabet[3].letter = 100;
+	alphabet[3].number = 4;
+	alphabet[4].letter = 101;
+	alphabet[4].number = 5;
+	alphabet[5].letter = 102;
+	alphabet[5].number = 6;
+	alphabet[6].letter = 103;
+	alphabet[6].number = 7;
+	alphabet[7].letter = 104;
+	alphabet[7].number = 8;
+	alphabet[8].letter = 105;
+	alphabet[8].number = 9;
+	alphabet[9].letter = 106;
+	alphabet[9].number = 10;
+	alphabet[10].letter = 107;
+	alphabet[10].number = 11;
+	alphabet[11].letter = 108;
+	alphabet[11].number = 12;
+	alphabet[12].letter = 109;
+	alphabet[12].number = 13;
+	alphabet[13].letter = 110;
+	alphabet[13].number = 14;
+	alphabet[14].letter = 111;
+	alphabet[14].number = 15;
+	alphabet[15].letter = 112;
+	alphabet[15].number = 16;
+	alphabet[16].letter = 113;
+	alphabet[16].number = 17;
+	alphabet[17].letter = 114;
+	alphabet[17].number = 18;
+	alphabet[18].letter = 115;
+	alphabet[18].number = 19;
+	alphabet[19].letter = 116;
+	alphabet[19].number = 20;
+	alphabet[20].letter = 117;
+	alphabet[20].number = 21;
+	alphabet[21].letter = 118;
+	alphabet[21].number = 22;
+	alphabet[22].letter = 119;
+	alphabet[22].number = 23;
+	alphabet[23].letter = 120;
+	alphabet[23].number = 24;
+	alphabet[24].letter = 121;
+	alphabet[24].number = 25;
+	alphabet[25].letter = 122;
+	alphabet[25].number = 26;
+
+	name[0] = 19;
+	name[1] = 16;
+	name[2] = 1;
+	name[3] = 18;
+	name[4] = 18;
+	name[5] = 15;
+	name[6] = 23;
+	name[7] = 8;
+	name[8] = 1;
+	name[9] = 23;
+	name[10] = 11;
+
+	for (int i = 0; i < 11; i++) {
+		for (int j = 0; j < 26; j++) {
+			if (name[i] == alphabet[j].number) {
+				printchar(alphabet[j].letter);
+				break;
+			}
+		}
+	}
+
+	return 0;
+}
+
+	

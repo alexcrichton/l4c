@@ -1,0 +1,26 @@
+//test return 3176525
+//CSE but not too much
+
+int inc(int*x)
+{
+*x = *x +1;
+return 0;
+}
+
+int main()
+{
+int i;
+int j;
+int k=7;
+int l=21;
+int* x = alloc(int);
+*x = 1;
+
+i =(*x) + 81*81*k*l/k*l*k*k*k*l*l/l*k/l*k/l*k/l*k/l*l*l/l/l*l*k/l*l/l*k*k*k*l*l/l/l;
+inc(x);
+j =(*x) + 81*81*k*l/k*l*k*k*k/l/l/l*k/l*k/l*k/l*k/l*l*l/l/l*l*k/l*l/l*k*k*k*l*l/l/l;
+
+
+return j;
+
+}

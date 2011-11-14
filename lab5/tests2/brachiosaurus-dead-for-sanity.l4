@@ -1,0 +1,501 @@
+//test return 99
+int main() {
+int lol = 0;
+int l0;
+int l1;
+int l2;
+int l3;
+int l4;
+int l5;
+int l6;
+int l7;
+int l8;
+int l9;
+int l10;
+int l11;
+int l12;
+int l13;
+int l14;
+int l15;
+int l16;
+int l17;
+int l18;
+int l19;
+int l20;
+int l21;
+int l22;
+int l23;
+int l24;
+int l25;
+int l26;
+int l27;
+int l28;
+int l29;
+int l30;
+int l31;
+int l32;
+int l33;
+int l34;
+int l35;
+int l36;
+int l37;
+int l38;
+int l39;
+int l40;
+int l41;
+int l42;
+int l43;
+int l44;
+int l45;
+int l46;
+int l47;
+int l48;
+int l49;
+int l50;
+int l51;
+int l52;
+int l53;
+int l54;
+int l55;
+int l56;
+int l57;
+int l58;
+int l59;
+int l60;
+int l61;
+int l62;
+int l63;
+int l64;
+int l65;
+int l66;
+int l67;
+int l68;
+int l69;
+int l70;
+int l71;
+int l72;
+int l73;
+int l74;
+int l75;
+int l76;
+int l77;
+int l78;
+int l79;
+int l80;
+int l81;
+int l82;
+int l83;
+int l84;
+int l85;
+int l86;
+int l87;
+int l88;
+int l89;
+int l90;
+int l91;
+int l92;
+int l93;
+int l94;
+int l95;
+int l96;
+int l97;
+int l98;
+int l99;
+for (l99 = 0; l99 < (2 << 29);l99++){
+lol++;
+for (l98 = 0; l98 < (2 << 29);l98++){
+lol++;
+for (l97 = 0; l97 < (2 << 29);l97++){
+lol++;
+for (l96 = 0; l96 < (2 << 29);l96++){
+lol++;
+for (l95 = 0; l95 < (2 << 29);l95++){
+lol++;
+for (l94 = 0; l94 < (2 << 29);l94++){
+lol++;
+for (l93 = 0; l93 < (2 << 29);l93++){
+lol++;
+for (l92 = 0; l92 < (2 << 29);l92++){
+lol++;
+for (l91 = 0; l91 < (2 << 29);l91++){
+lol++;
+for (l90 = 0; l90 < (2 << 29);l90++){
+lol++;
+for (l89 = 0; l89 < (2 << 29);l89++){
+lol++;
+for (l88 = 0; l88 < (2 << 29);l88++){
+lol++;
+for (l87 = 0; l87 < (2 << 29);l87++){
+lol++;
+for (l86 = 0; l86 < (2 << 29);l86++){
+lol++;
+for (l85 = 0; l85 < (2 << 29);l85++){
+lol++;
+for (l84 = 0; l84 < (2 << 29);l84++){
+lol++;
+for (l83 = 0; l83 < (2 << 29);l83++){
+lol++;
+for (l82 = 0; l82 < (2 << 29);l82++){
+lol++;
+for (l81 = 0; l81 < (2 << 29);l81++){
+lol++;
+for (l80 = 0; l80 < (2 << 29);l80++){
+lol++;
+for (l79 = 0; l79 < (2 << 29);l79++){
+lol++;
+for (l78 = 0; l78 < (2 << 29);l78++){
+lol++;
+for (l77 = 0; l77 < (2 << 29);l77++){
+lol++;
+for (l76 = 0; l76 < (2 << 29);l76++){
+lol++;
+for (l75 = 0; l75 < (2 << 29);l75++){
+lol++;
+for (l74 = 0; l74 < (2 << 29);l74++){
+lol++;
+for (l73 = 0; l73 < (2 << 29);l73++){
+lol++;
+for (l72 = 0; l72 < (2 << 29);l72++){
+lol++;
+for (l71 = 0; l71 < (2 << 29);l71++){
+lol++;
+for (l70 = 0; l70 < (2 << 29);l70++){
+lol++;
+for (l69 = 0; l69 < (2 << 29);l69++){
+lol++;
+for (l68 = 0; l68 < (2 << 29);l68++){
+lol++;
+for (l67 = 0; l67 < (2 << 29);l67++){
+lol++;
+for (l66 = 0; l66 < (2 << 29);l66++){
+lol++;
+for (l65 = 0; l65 < (2 << 29);l65++){
+lol++;
+for (l64 = 0; l64 < (2 << 29);l64++){
+lol++;
+for (l63 = 0; l63 < (2 << 29);l63++){
+lol++;
+for (l62 = 0; l62 < (2 << 29);l62++){
+lol++;
+for (l61 = 0; l61 < (2 << 29);l61++){
+lol++;
+for (l60 = 0; l60 < (2 << 29);l60++){
+lol++;
+for (l59 = 0; l59 < (2 << 29);l59++){
+lol++;
+for (l58 = 0; l58 < (2 << 29);l58++){
+lol++;
+for (l57 = 0; l57 < (2 << 29);l57++){
+lol++;
+for (l56 = 0; l56 < (2 << 29);l56++){
+lol++;
+for (l55 = 0; l55 < (2 << 29);l55++){
+lol++;
+for (l54 = 0; l54 < (2 << 29);l54++){
+lol++;
+for (l53 = 0; l53 < (2 << 29);l53++){
+lol++;
+for (l52 = 0; l52 < (2 << 29);l52++){
+lol++;
+for (l51 = 0; l51 < (2 << 29);l51++){
+lol++;
+for (l50 = 0; l50 < (2 << 29);l50++){
+lol++;
+for (l49 = 0; l49 < (2 << 29);l49++){
+lol++;
+for (l48 = 0; l48 < (2 << 29);l48++){
+lol++;
+for (l47 = 0; l47 < (2 << 29);l47++){
+lol++;
+for (l46 = 0; l46 < (2 << 29);l46++){
+lol++;
+for (l45 = 0; l45 < (2 << 29);l45++){
+lol++;
+for (l44 = 0; l44 < (2 << 29);l44++){
+lol++;
+for (l43 = 0; l43 < (2 << 29);l43++){
+lol++;
+for (l42 = 0; l42 < (2 << 29);l42++){
+lol++;
+for (l41 = 0; l41 < (2 << 29);l41++){
+lol++;
+for (l40 = 0; l40 < (2 << 29);l40++){
+lol++;
+for (l39 = 0; l39 < (2 << 29);l39++){
+lol++;
+for (l38 = 0; l38 < (2 << 29);l38++){
+lol++;
+for (l37 = 0; l37 < (2 << 29);l37++){
+lol++;
+for (l36 = 0; l36 < (2 << 29);l36++){
+lol++;
+for (l35 = 0; l35 < (2 << 29);l35++){
+lol++;
+for (l34 = 0; l34 < (2 << 29);l34++){
+lol++;
+for (l33 = 0; l33 < (2 << 29);l33++){
+lol++;
+for (l32 = 0; l32 < (2 << 29);l32++){
+lol++;
+for (l31 = 0; l31 < (2 << 29);l31++){
+lol++;
+for (l30 = 0; l30 < (2 << 29);l30++){
+lol++;
+for (l29 = 0; l29 < (2 << 29);l29++){
+lol++;
+for (l28 = 0; l28 < (2 << 29);l28++){
+lol++;
+for (l27 = 0; l27 < (2 << 29);l27++){
+lol++;
+for (l26 = 0; l26 < (2 << 29);l26++){
+lol++;
+for (l25 = 0; l25 < (2 << 29);l25++){
+lol++;
+for (l24 = 0; l24 < (2 << 29);l24++){
+lol++;
+for (l23 = 0; l23 < (2 << 29);l23++){
+lol++;
+for (l22 = 0; l22 < (2 << 29);l22++){
+lol++;
+for (l21 = 0; l21 < (2 << 29);l21++){
+lol++;
+for (l20 = 0; l20 < (2 << 29);l20++){
+lol++;
+for (l19 = 0; l19 < (2 << 29);l19++){
+lol++;
+for (l18 = 0; l18 < (2 << 29);l18++){
+lol++;
+for (l17 = 0; l17 < (2 << 29);l17++){
+lol++;
+for (l16 = 0; l16 < (2 << 29);l16++){
+lol++;
+for (l15 = 0; l15 < (2 << 29);l15++){
+lol++;
+for (l14 = 0; l14 < (2 << 29);l14++){
+lol++;
+for (l13 = 0; l13 < (2 << 29);l13++){
+lol++;
+for (l12 = 0; l12 < (2 << 29);l12++){
+lol++;
+for (l11 = 0; l11 < (2 << 29);l11++){
+lol++;
+for (l10 = 0; l10 < (2 << 29);l10++){
+lol++;
+for (l9 = 0; l9 < (2 << 29);l9++){
+lol++;
+for (l8 = 0; l8 < (2 << 29);l8++){
+lol++;
+for (l7 = 0; l7 < (2 << 29);l7++){
+lol++;
+for (l6 = 0; l6 < (2 << 29);l6++){
+lol++;
+for (l5 = 0; l5 < (2 << 29);l5++){
+lol++;
+for (l4 = 0; l4 < (2 << 29);l4++){
+lol++;
+for (l3 = 0; l3 < (2 << 29);l3++){
+lol++;
+for (l2 = 0; l2 < (2 << 29);l2++){
+lol++;
+for (l1 = 0; l1 < (2 << 29);l1++){
+lol++;
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+break;
+}
+return lol;
+}

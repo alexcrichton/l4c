@@ -1,0 +1,13 @@
+//test return 11
+/* we should be able to optimize this safe memory access */
+
+int main(){
+	int i;
+	int almost_size = 11;
+	int[] arr = alloc_array(int, almost_size+1);
+	
+	for(i = 0; i < 144; i++){
+		arr[(i > 11 ? 0 : i)] = i;
+	}
+  return arr[11];
+}

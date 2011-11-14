@@ -1,0 +1,15 @@
+//test exception 11
+
+struct foo
+{
+    int* bar;
+    int baz;
+};
+
+int main()
+{
+	struct foo *f = alloc(struct foo);
+    f->baz = 42;
+    *(f->bar) = 666;
+	return 0;
+}

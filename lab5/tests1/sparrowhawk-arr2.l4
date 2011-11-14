@@ -1,0 +1,11 @@
+//test exception 11
+
+int main(){
+	int[] arr = alloc_array(int, 100);
+	int x = 0;
+	while(x<=100){
+		x++;
+	}
+	return arr[x];
+
+}

@@ -1,0 +1,14 @@
+//test exception
+
+struct a
+{
+    int *[] b;
+};
+
+int main()
+{
+    int n = 5;
+    struct a *a = alloc(struct a);
+    *((*a).b[5]) = 5;
+    return 5;
+}

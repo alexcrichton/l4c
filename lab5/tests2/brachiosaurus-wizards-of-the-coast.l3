@@ -1,0 +1,68 @@
+//test return 992
+/* This test attempts to expose edge cases in argument passing. We assume the
+ * compiler being tested doesn't just precolor temps for the argumence - the
+ * apprentice should catch that case. */
+
+/* Argument registers may get qlobbered when loading into the function's local
+ * variables. Ex. if x is assigned %esi, and "x = edi; y = esi;", a broken
+ * compiler may have y equal x. */
+
+int mtg(int edi)
+{
+	/* Mimicking brachiosaurus-add-big-big-test.l1 */
+	int a = 1;
+	int b = 1;
+	int c = a+b;
+	int d = a+b+c;
+	int e = a+b+c+d;
+	int f = a+b+c+d+e; // 16
+	int g = a+b+c+d+e+f;
+	int h = a+b+c+d+e+f+g;
+	int i = a+b+c+d+e+f+g+h;
+	int j = a+b+c+d+e+f+g+h+i; // 256
+	int k = a+b+c+d+e+f+g+h+i+j;
+	int l = a+b+c+d+e+f+g+h+i+j+k;
+	int m = a+b+c+d+e+f+g+h+i+j+k+l;
+	int n = a+b+c+d+e+f+g+h+i+j+k+l+m; // 4096
+	int o = a+b+c+d+e+f+g+h+i+j+k+l+m+n;
+	int p = a+b+c+d+e+f+g+h+i+j+k+l+m+n+o;
+	int q = a+b+c+d+e+f+g+h+i+j+k+l+m+n+o+p;
+	int r = a+b+c+d+e+f+g+h+i+j+k+l+m+n+o+p+q; // 65536
+	return r >> edi;
+}
+
+/* Attempt multiple permutations of order-of-reading the arguments in case the
+ * compiler being tested allocates temps in reverse or another funny order. */
+
+int dungeons(int edi, int esi, int edx, int ecx, int r8d, int r9d, int s1,
+             int s2, int s3, int s4, int s5, int s6, int s7, int s8, int s9)
+{
+	return edi+esi+edx+ecx+r8d+r9d+s1+s2+s3+s4+s5+s6+s7+s8+s9;
+}
+
+int dragons(int edi, int esi, int edx, int ecx, int r8d, int r9d, int s1,
+            int s2, int s3, int s4, int s5, int s6, int s7, int s8, int s9)
+{
+	return s9+s8+s7+s6+s5+s4+s3+s2+s1+r9d+r8d+ecx+edx+esi+edi;
+}
+
+int axis(int edi, int esi, int edx, int ecx, int r8d, int r9d, int s1,
+         int s2, int s3, int s4, int s5, int s6, int s7, int s8, int s9)
+{
+	return s1+s2+s3+s4+s5+s6+s7+s8+s9+edi+esi+edx+ecx+r8d+r9d;
+}
+
+int allies(int edi, int esi, int edx, int ecx, int r8d, int r9d, int s1,
+           int s2, int s3, int s4, int s5, int s6, int s7, int s8, int s9)
+{
+	return r9d+r8d+ecx+edx+esi+edi+s9+s8+s7+s6+s5+s4+s3+s2+s1;
+}
+
+int main()
+{
+	int a = dungeons(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
+	int b = dragons (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
+	int c = axis    (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
+	int d = allies  (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
+	return mtg(7) + a + b + c + d;
+}

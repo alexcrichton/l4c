@@ -1,0 +1,15 @@
+//test exception 11
+
+int[] foo(int len) {
+    return alloc_array(int, len);
+}
+
+int bar(int[] arr, int i) {
+    return arr[i];
+}
+
+int main() {
+    int[] arr = foo(9);
+
+    return bar(arr, 13);
+}

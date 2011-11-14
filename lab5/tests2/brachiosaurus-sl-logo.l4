@@ -1,0 +1,673 @@
+//test return 6368
+/*========================================
+ *    sl.c:
+ *	Copyright 1993,1998 Toyoda Masashi 
+ *		(toyoda@is.titech.ac.jp)
+ *	Last Modified: 2010/10/27
+ *========================================
+ */
+/* sl version 5.1B : add colours                                             */
+/*                                              by Ben Blum       2010/10/27 */
+/* sl version 5.0B : ported to L5 for 15-411 F10 (LOGO only)                 */
+/*                                              by Ben Blum       2010/10/27 */
+/* sl version 3.03 : add usleep(20000)                                       */
+/*                                              by Toyoda Masashi 1998/ 7/22 */
+/* sl version 3.02 : D51 flies! Change options.                              */
+/*                                              by Toyoda Masashi 1993/ 1/19 */
+/* sl version 3.01 : Wheel turns smoother                                    */
+/*                                              by Toyoda Masashi 1992/12/25 */
+/* sl version 3.00 : Add d(D51) option                                       */
+/*                                              by Toyoda Masashi 1992/12/24 */
+/* sl version 2.02 : Bug fixed.(dust remains in screen)                      */
+/*                                              by Toyoda Masashi 1992/12/17 */
+/* sl version 2.01 : Smoke run and disappear.                                */
+/*                   Change '-a' to accident option.			     */
+/*                                              by Toyoda Masashi 1992/12/16 */
+/* sl version 2.00 : Add a(all),l(long),F(Fly!) options.                     */
+/* 						by Toyoda Masashi 1992/12/15 */
+/* sl version 1.02 : Add turning wheel.                                      */
+/*					        by Toyoda Masashi 1992/12/14 */
+/* sl version 1.01 : Add more complex smoke.                                 */
+/*                                              by Toyoda Masashi 1992/12/14 */
+/* sl version 1.00 : SL runs vomitting out smoke.                            */
+/*						by Toyoda Masashi 1992/12/11 */
+
+/* An old favourite. The included console library, while rather brittle, should
+ * be portable enough to use in other programs. You will note that both versions
+ * of this - sl-d51.l5 and sl-logo.l5 - don't have support for the other file's
+ * train type. Turns out having the hardcoded strings for both trains would push
+ * compilers over the time limit. (P.S.: you can toggle the ACCIDENT/FLY options
+ * in init_state_constance().) */
+
+typedef int [] intarray;
+typedef int [][] intarrayarray;
+typedef int [][][] intarrayarrayarray;
+
+struct smokes { int y; int x; int ptrn; int kind; };
+
+typedef struct smokes [] smokesarray;
+
+struct console_state { int COLS; int LINES; int col; int line; };
+
+
+/******************************************************************************
+ * console library
+ ******************************************************************************/
+
+int console_init(struct console_state *con)
+{
+	int i;
+
+	con->COLS = 80;
+	con->LINES = 35;
+	/* "clear the screen" */
+	for (i = 0; i < con->LINES; i++) printchar(10);
+	for (i = 0; i < con->COLS; i++) printchar(32);
+	/* initial position */
+	con->col = con->COLS;
+	con->line = con->LINES-1;
+	return 0;
+}
+
+int set_colour(int fg)
+{
+	printchar(27); /* ESC */
+	printchar(91); /* [ */
+	/* printint(bg); */
+	/* printchar(59); */ /* ; */
+	printint(fg);
+	printchar(109); /* m */
+	return 0;
+}
+
+int hide_cursor()
+{
+	printchar(27); /* ESC */
+	printchar(91); /* [ */
+	printchar(63); /* ? */
+	printchar(50); /* 2 */
+	printchar(53); /* 5 */
+	printchar(108); /* l */
+	return 0;
+}
+
+int show_cursor()
+{
+	printchar(27); /* ESC */
+	printchar(91); /* [ */
+	printchar(63); /* ? */
+	printchar(50); /* 2 */
+	printchar(53); /* 5 */
+	printchar(104); /* h */
+	return 0;
+}
+
+int left(int a)
+{
+	printchar(27); /* ESC */
+	printchar(91); /* [ */
+	printint(a);
+	printchar(68); /* D */
+	return 0;
+}
+
+int up(int a)
+{
+	printchar(27); /* ESC */
+	printchar(91); /* [ */
+	printint(a);
+	printchar(65); /* A */
+	return 0;
+}
+
+int down(int a)
+{
+	printchar(27); /* ESC */
+	printchar(91); /* [ */
+	printint(a);
+	printchar(66); /* B */
+	return 0;
+}
+
+int right(int a)
+{
+	printchar(27); /* ESC */
+	printchar(91); /* [ */
+	printint(a);
+	printchar(67); /* C */
+	return 0;
+}
+
+/* line, col ordering corresponds with curses's mvaddch */
+int set_cursor_pos(struct console_state *con, int line, int col)
+{
+	/* Having a flying train breaks some of the console driver's asserts;
+	 * making the LINES large enough at least prevents it from being ugly,
+	 * and I didn't care to fix it. "removed needed asserts", as they say.
+	if (col < 0 || col >= con->COLS ||
+	    line < 0 || line >= con->LINES) 1/0;
+	if (con->col < 0 || con->col > con->COLS ||
+	    con->line < 0 || con->line > con->LINES) 1/0;
+	*/
+	if (col > con->col) {
+		right(col - con->col);
+	} else if (col < con->col) {
+		left(con->col - col);
+	}
+
+	if (line > con->line) {
+		down(line - con->line);
+	} else if (line < con->line) {
+		up(con->line - line);
+	}
+
+	con->col = col;
+	con->line = line;
+	return 0;
+}
+
+int console_printchar(struct console_state *con, int c)
+{
+	printchar(c);
+	con->col++;
+	return 0;
+}
+
+int l5_usleep(int usecs)
+{
+	int i;
+	for (i = 0; i < 192 * usecs; i++);
+	return 0;
+}
+
+/******************************************************************************
+ * sl state
+ ******************************************************************************/
+
+struct state {
+	/* Global flags */
+	int ACCIDENT; int LOGO; int FLY;
+	/* Constance */
+	int LOGOHIGHT; int LOGOFUNNEL; int LOGOLENGTH; int LOGOPATTERNS;
+	/* Terminal values */
+	struct console_state *con;
+	int lines_printed;
+	/* For add_sl() */
+	intarrayarrayarray sl;
+	intarrayarray sllens;
+	intarrayarray coal;
+	intarray coallens;
+	intarrayarray car;
+	intarray carlens;
+	/* For add_man() */
+	intarrayarrayarray mans;
+	intarrayarray manslens;
+	/* For add_smoke() */
+	smokesarray S;
+	int sum;
+	intarrayarrayarray Smoke;
+	intarrayarray Smokelens;
+	intarrayarray Eraser;
+	intarray Eraserlens;
+	intarray dy;
+	intarray dx;
+	/* Strings from the header file */
+	intarray arr_DELLN;
+	intarray arr_LCAR1;
+	intarray arr_LCAR2;
+	intarray arr_LCAR3;
+	intarray arr_LCAR4;
+	intarray arr_LCAR5;
+	intarray arr_LCAR6;
+	intarray arr_LCOAL1;
+	intarray arr_LCOAL2;
+	intarray arr_LCOAL3;
+	intarray arr_LCOAL4;
+	intarray arr_LCOAL5;
+	intarray arr_LCOAL6;
+	intarray arr_LOGO1;
+	intarray arr_LOGO2;
+	intarray arr_LOGO3;
+	intarray arr_LOGO4;
+	intarray arr_LWHL11;
+	intarray arr_LWHL12;
+	intarray arr_LWHL21;
+	intarray arr_LWHL22;
+	intarray arr_LWHL31;
+	intarray arr_LWHL32;
+	intarray arr_LWHL41;
+	intarray arr_LWHL42;
+	intarray arr_LWHL51;
+	intarray arr_LWHL52;
+	intarray arr_LWHL61;
+	intarray arr_LWHL62;
+	int arr_DELLN_len;
+	int arr_LCAR1_len;
+	int arr_LCAR2_len;
+	int arr_LCAR3_len;
+	int arr_LCAR4_len;
+	int arr_LCAR5_len;
+	int arr_LCAR6_len;
+	int arr_LCOAL1_len;
+	int arr_LCOAL2_len;
+	int arr_LCOAL3_len;
+	int arr_LCOAL4_len;
+	int arr_LCOAL5_len;
+	int arr_LCOAL6_len;
+	int arr_LOGO1_len;
+	int arr_LOGO2_len;
+	int arr_LOGO3_len;
+	int arr_LOGO4_len;
+	int arr_LWHL11_len;
+	int arr_LWHL12_len;
+	int arr_LWHL21_len;
+	int arr_LWHL22_len;
+	int arr_LWHL31_len;
+	int arr_LWHL32_len;
+	int arr_LWHL41_len;
+	int arr_LWHL42_len;
+	int arr_LWHL51_len;
+	int arr_LWHL52_len;
+	int arr_LWHL61_len;
+	int arr_LWHL62_len;
+};
+
+/* must be called before init_state_strings */
+int init_state_constance(struct state *state)
+{
+	state->LOGOHIGHT = 6;
+	state->LOGOFUNNEL = 4;
+	state->LOGOLENGTH = 84;
+	state->LOGOPATTERNS = 6;
+	state->FLY = 1;
+	state->ACCIDENT = 1;
+	return 0;
+}
+
+/* here be code generated by the joint efforts of sed, bash, cpp, and printf */
+int init_state_strings(struct state *state)
+{
+	state->arr_DELLN = alloc_array(int, 21); state->arr_DELLN_len = 21;
+	state->arr_LCAR1 = alloc_array(int, 21); state->arr_LCAR1_len = 21;
+	state->arr_LCAR1[0] = 95; state->arr_LCAR1[1] = 95; state->arr_LCAR1[2] = 95; state->arr_LCAR1[3] = 95; state->arr_LCAR1[4] = 95; state->arr_LCAR1[5] = 95; state->arr_LCAR1[6] = 95; state->arr_LCAR1[7] = 95; state->arr_LCAR1[8] = 95; state->arr_LCAR1[9] = 95; state->arr_LCAR1[10] = 95; state->arr_LCAR1[11] = 95; state->arr_LCAR1[12] = 95; state->arr_LCAR1[13] = 95; state->arr_LCAR1[14] = 95; state->arr_LCAR1[15] = 95; state->arr_LCAR1[16] = 95; state->arr_LCAR1[17] = 95; state->arr_LCAR1[18] = 95; state->arr_LCAR1[19] = 95; state->arr_LCAR2 = alloc_array(int, 21); state->arr_LCAR2_len = 21;
+	state->arr_LCAR2[0] = 124; state->arr_LCAR2[3] = 95; state->arr_LCAR2[4] = 95; state->arr_LCAR2[5] = 95; state->arr_LCAR2[7] = 95; state->arr_LCAR2[8] = 95; state->arr_LCAR2[9] = 95; state->arr_LCAR2[11] = 95; state->arr_LCAR2[12] = 95; state->arr_LCAR2[13] = 95; state->arr_LCAR2[15] = 95; state->arr_LCAR2[16] = 95; state->arr_LCAR2[17] = 95; state->arr_LCAR2[19] = 124; state->arr_LCAR3 = alloc_array(int, 21); state->arr_LCAR3_len = 21;
+	state->arr_LCAR3[0] = 124; state->arr_LCAR3[3] = 124; state->arr_LCAR3[4] = 95; state->arr_LCAR3[5] = 124; state->arr_LCAR3[7] = 124; state->arr_LCAR3[8] = 95; state->arr_LCAR3[9] = 124; state->arr_LCAR3[11] = 124; state->arr_LCAR3[12] = 95; state->arr_LCAR3[13] = 124; state->arr_LCAR3[15] = 124; state->arr_LCAR3[16] = 95; state->arr_LCAR3[17] = 124; state->arr_LCAR3[19] = 124; state->arr_LCAR4 = alloc_array(int, 21); state->arr_LCAR4_len = 21;
+	state->arr_LCAR4[0] = 124; state->arr_LCAR4[1] = 95; state->arr_LCAR4[2] = 95; state->arr_LCAR4[3] = 95; state->arr_LCAR4[4] = 95; state->arr_LCAR4[5] = 95; state->arr_LCAR4[6] = 95; state->arr_LCAR4[7] = 95; state->arr_LCAR4[8] = 95; state->arr_LCAR4[9] = 95; state->arr_LCAR4[10] = 95; state->arr_LCAR4[11] = 95; state->arr_LCAR4[12] = 95; state->arr_LCAR4[13] = 95; state->arr_LCAR4[14] = 95; state->arr_LCAR4[15] = 95; state->arr_LCAR4[16] = 95; state->arr_LCAR4[17] = 95; state->arr_LCAR4[18] = 95; state->arr_LCAR4[19] = 124; state->arr_LCAR5 = alloc_array(int, 21); state->arr_LCAR5_len = 21;
+	state->arr_LCAR5[0] = 124; state->arr_LCAR5[1] = 95; state->arr_LCAR5[2] = 95; state->arr_LCAR5[3] = 95; state->arr_LCAR5[4] = 95; state->arr_LCAR5[5] = 95; state->arr_LCAR5[6] = 95; state->arr_LCAR5[7] = 95; state->arr_LCAR5[8] = 95; state->arr_LCAR5[9] = 95; state->arr_LCAR5[10] = 95; state->arr_LCAR5[11] = 95; state->arr_LCAR5[12] = 95; state->arr_LCAR5[13] = 95; state->arr_LCAR5[14] = 95; state->arr_LCAR5[15] = 95; state->arr_LCAR5[16] = 95; state->arr_LCAR5[17] = 95; state->arr_LCAR5[18] = 95; state->arr_LCAR5[19] = 124; state->arr_LCAR6 = alloc_array(int, 21); state->arr_LCAR6_len = 21;
+	state->arr_LCAR6[3] = 40; state->arr_LCAR6[4] = 79; state->arr_LCAR6[5] = 41; state->arr_LCAR6[14] = 40; state->arr_LCAR6[15] = 79; state->arr_LCAR6[16] = 41; state->arr_LCOAL1 = alloc_array(int, 21); state->arr_LCOAL1_len = 21;
+	state->arr_LCOAL1[0] = 95; state->arr_LCOAL1[1] = 95; state->arr_LCOAL1[2] = 95; state->arr_LCOAL1[3] = 95; state->arr_LCOAL2 = alloc_array(int, 21); state->arr_LCOAL2_len = 21;
+	state->arr_LCOAL2[0] = 124; state->arr_LCOAL2[4] = 92; state->arr_LCOAL2[5] = 64; state->arr_LCOAL2[6] = 64; state->arr_LCOAL2[7] = 64; state->arr_LCOAL2[8] = 64; state->arr_LCOAL2[9] = 64; state->arr_LCOAL2[10] = 64; state->arr_LCOAL2[11] = 64; state->arr_LCOAL2[12] = 64; state->arr_LCOAL2[13] = 64; state->arr_LCOAL2[14] = 64; state->arr_LCOAL2[15] = 64; state->arr_LCOAL3 = alloc_array(int, 21); state->arr_LCOAL3_len = 21;
+	state->arr_LCOAL3[0] = 124; state->arr_LCOAL3[5] = 92; state->arr_LCOAL3[6] = 64; state->arr_LCOAL3[7] = 64; state->arr_LCOAL3[8] = 64; state->arr_LCOAL3[9] = 64; state->arr_LCOAL3[10] = 64; state->arr_LCOAL3[11] = 64; state->arr_LCOAL3[12] = 64; state->arr_LCOAL3[13] = 64; state->arr_LCOAL3[14] = 64; state->arr_LCOAL3[15] = 64; state->arr_LCOAL3[16] = 64; state->arr_LCOAL3[17] = 64; state->arr_LCOAL3[18] = 64; state->arr_LCOAL3[19] = 95; state->arr_LCOAL4 = alloc_array(int, 21); state->arr_LCOAL4_len = 21;
+	state->arr_LCOAL4[0] = 124; state->arr_LCOAL4[19] = 124; state->arr_LCOAL5 = alloc_array(int, 21); state->arr_LCOAL5_len = 21;
+	state->arr_LCOAL5[0] = 124; state->arr_LCOAL5[1] = 95; state->arr_LCOAL5[2] = 95; state->arr_LCOAL5[3] = 95; state->arr_LCOAL5[4] = 95; state->arr_LCOAL5[5] = 95; state->arr_LCOAL5[6] = 95; state->arr_LCOAL5[7] = 95; state->arr_LCOAL5[8] = 95; state->arr_LCOAL5[9] = 95; state->arr_LCOAL5[10] = 95; state->arr_LCOAL5[11] = 95; state->arr_LCOAL5[12] = 95; state->arr_LCOAL5[13] = 95; state->arr_LCOAL5[14] = 95; state->arr_LCOAL5[15] = 95; state->arr_LCOAL5[16] = 95; state->arr_LCOAL5[17] = 95; state->arr_LCOAL5[18] = 95; state->arr_LCOAL5[19] = 124; state->arr_LCOAL6 = alloc_array(int, 21); state->arr_LCOAL6_len = 21;
+	state->arr_LCOAL6[3] = 40; state->arr_LCOAL6[4] = 79; state->arr_LCOAL6[5] = 41; state->arr_LCOAL6[13] = 40; state->arr_LCOAL6[14] = 79; state->arr_LCOAL6[15] = 41; state->arr_LOGO1 = alloc_array(int, 21); state->arr_LOGO1_len = 21;
+	state->arr_LOGO1[5] = 43; state->arr_LOGO1[6] = 43; state->arr_LOGO1[13] = 43; state->arr_LOGO1[14] = 45; state->arr_LOGO1[15] = 45; state->arr_LOGO1[16] = 45; state->arr_LOGO1[17] = 45; state->arr_LOGO1[18] = 45; state->arr_LOGO1[19] = 45; state->arr_LOGO2 = alloc_array(int, 21); state->arr_LOGO2_len = 21;
+	state->arr_LOGO2[5] = 124; state->arr_LOGO2[6] = 124; state->arr_LOGO2[13] = 124; state->arr_LOGO2[14] = 43; state->arr_LOGO2[15] = 45; state->arr_LOGO2[16] = 43; state->arr_LOGO2[18] = 124; state->arr_LOGO3 = alloc_array(int, 21); state->arr_LOGO3_len = 21;
+	state->arr_LOGO3[3] = 47; state->arr_LOGO3[4] = 45; state->arr_LOGO3[5] = 45; state->arr_LOGO3[6] = 45; state->arr_LOGO3[7] = 45; state->arr_LOGO3[8] = 45; state->arr_LOGO3[9] = 45; state->arr_LOGO3[10] = 45; state->arr_LOGO3[11] = 45; state->arr_LOGO3[12] = 45; state->arr_LOGO3[13] = 124; state->arr_LOGO3[14] = 124; state->arr_LOGO3[16] = 124; state->arr_LOGO3[18] = 124; state->arr_LOGO4 = alloc_array(int, 21); state->arr_LOGO4_len = 21;
+	state->arr_LOGO4[2] = 43; state->arr_LOGO4[4] = 61; state->arr_LOGO4[5] = 61; state->arr_LOGO4[6] = 61; state->arr_LOGO4[7] = 61; state->arr_LOGO4[8] = 61; state->arr_LOGO4[9] = 61; state->arr_LOGO4[10] = 61; state->arr_LOGO4[11] = 61; state->arr_LOGO4[14] = 43; state->arr_LOGO4[15] = 45; state->arr_LOGO4[16] = 43; state->arr_LOGO4[18] = 124; state->arr_LWHL11 = alloc_array(int, 21); state->arr_LWHL11_len = 21;
+	state->arr_LWHL11[1] = 95; state->arr_LWHL11[2] = 124; state->arr_LWHL11[3] = 45; state->arr_LWHL11[4] = 45; state->arr_LWHL11[5] = 79; state->arr_LWHL11[6] = 61; state->arr_LWHL11[7] = 61; state->arr_LWHL11[8] = 61; state->arr_LWHL11[9] = 61; state->arr_LWHL11[10] = 61; state->arr_LWHL11[11] = 61; state->arr_LWHL11[12] = 61; state->arr_LWHL11[13] = 61; state->arr_LWHL11[14] = 79; state->arr_LWHL11[15] = 126; state->arr_LWHL11[16] = 92; state->arr_LWHL11[17] = 45; state->arr_LWHL11[18] = 43; state->arr_LWHL12 = alloc_array(int, 21); state->arr_LWHL12_len = 21;
+	state->arr_LWHL12[0] = 47; state->arr_LWHL12[1] = 47; state->arr_LWHL12[2] = 47; state->arr_LWHL12[3] = 47; state->arr_LWHL12[5] = 92; state->arr_LWHL12[6] = 95; state->arr_LWHL12[7] = 47; state->arr_LWHL12[14] = 92; state->arr_LWHL12[15] = 95; state->arr_LWHL12[16] = 47; state->arr_LWHL21 = alloc_array(int, 21); state->arr_LWHL21_len = 21;
+	state->arr_LWHL21[1] = 95; state->arr_LWHL21[2] = 124; state->arr_LWHL21[3] = 45; state->arr_LWHL21[4] = 45; state->arr_LWHL21[5] = 47; state->arr_LWHL21[6] = 79; state->arr_LWHL21[7] = 61; state->arr_LWHL21[8] = 61; state->arr_LWHL21[9] = 61; state->arr_LWHL21[10] = 61; state->arr_LWHL21[11] = 61; state->arr_LWHL21[12] = 61; state->arr_LWHL21[13] = 61; state->arr_LWHL21[14] = 61; state->arr_LWHL21[15] = 79; state->arr_LWHL21[16] = 92; state->arr_LWHL21[17] = 45; state->arr_LWHL21[18] = 43; state->arr_LWHL22 = alloc_array(int, 21); state->arr_LWHL22_len = 21;
+	state->arr_LWHL22[0] = 47; state->arr_LWHL22[1] = 47; state->arr_LWHL22[2] = 47; state->arr_LWHL22[3] = 47; state->arr_LWHL22[5] = 92; state->arr_LWHL22[6] = 95; state->arr_LWHL22[7] = 47; state->arr_LWHL22[14] = 92; state->arr_LWHL22[15] = 95; state->arr_LWHL22[16] = 47; state->arr_LWHL31 = alloc_array(int, 21); state->arr_LWHL31_len = 21;
+	state->arr_LWHL31[1] = 95; state->arr_LWHL31[2] = 124; state->arr_LWHL31[3] = 45; state->arr_LWHL31[4] = 45; state->arr_LWHL31[5] = 47; state->arr_LWHL31[6] = 126; state->arr_LWHL31[7] = 79; state->arr_LWHL31[8] = 61; state->arr_LWHL31[9] = 61; state->arr_LWHL31[10] = 61; state->arr_LWHL31[11] = 61; state->arr_LWHL31[12] = 61; state->arr_LWHL31[13] = 61; state->arr_LWHL31[14] = 61; state->arr_LWHL31[15] = 61; state->arr_LWHL31[16] = 79; state->arr_LWHL31[17] = 45; state->arr_LWHL31[18] = 43; state->arr_LWHL32 = alloc_array(int, 21); state->arr_LWHL32_len = 21;
+	state->arr_LWHL32[0] = 47; state->arr_LWHL32[1] = 47; state->arr_LWHL32[2] = 47; state->arr_LWHL32[3] = 47; state->arr_LWHL32[5] = 92; state->arr_LWHL32[6] = 95; state->arr_LWHL32[7] = 47; state->arr_LWHL32[14] = 92; state->arr_LWHL32[15] = 95; state->arr_LWHL32[16] = 47; state->arr_LWHL41 = alloc_array(int, 21); state->arr_LWHL41_len = 21;
+	state->arr_LWHL41[1] = 95; state->arr_LWHL41[2] = 124; state->arr_LWHL41[3] = 45; state->arr_LWHL41[4] = 45; state->arr_LWHL41[5] = 47; state->arr_LWHL41[6] = 126; state->arr_LWHL41[7] = 92; state->arr_LWHL41[8] = 45; state->arr_LWHL41[9] = 45; state->arr_LWHL41[10] = 45; state->arr_LWHL41[11] = 45; state->arr_LWHL41[12] = 45; state->arr_LWHL41[13] = 45; state->arr_LWHL41[14] = 47; state->arr_LWHL41[15] = 126; state->arr_LWHL41[16] = 92; state->arr_LWHL41[17] = 45; state->arr_LWHL41[18] = 43; state->arr_LWHL42 = alloc_array(int, 21); state->arr_LWHL42_len = 21;
+	state->arr_LWHL42[0] = 47; state->arr_LWHL42[1] = 47; state->arr_LWHL42[2] = 47; state->arr_LWHL42[3] = 47; state->arr_LWHL42[5] = 92; state->arr_LWHL42[6] = 95; state->arr_LWHL42[7] = 79; state->arr_LWHL42[8] = 61; state->arr_LWHL42[9] = 61; state->arr_LWHL42[10] = 61; state->arr_LWHL42[11] = 61; state->arr_LWHL42[12] = 61; state->arr_LWHL42[13] = 61; state->arr_LWHL42[14] = 61; state->arr_LWHL42[15] = 61; state->arr_LWHL42[16] = 79; state->arr_LWHL51 = alloc_array(int, 21); state->arr_LWHL51_len = 21;
+	state->arr_LWHL51[1] = 95; state->arr_LWHL51[2] = 124; state->arr_LWHL51[3] = 45; state->arr_LWHL51[4] = 45; state->arr_LWHL51[5] = 47; state->arr_LWHL51[6] = 126; state->arr_LWHL51[7] = 92; state->arr_LWHL51[8] = 45; state->arr_LWHL51[9] = 45; state->arr_LWHL51[10] = 45; state->arr_LWHL51[11] = 45; state->arr_LWHL51[12] = 45; state->arr_LWHL51[13] = 45; state->arr_LWHL51[14] = 47; state->arr_LWHL51[15] = 126; state->arr_LWHL51[16] = 92; state->arr_LWHL51[17] = 45; state->arr_LWHL51[18] = 43; state->arr_LWHL52 = alloc_array(int, 21); state->arr_LWHL52_len = 21;
+	state->arr_LWHL52[0] = 47; state->arr_LWHL52[1] = 47; state->arr_LWHL52[2] = 47; state->arr_LWHL52[3] = 47; state->arr_LWHL52[5] = 92; state->arr_LWHL52[6] = 79; state->arr_LWHL52[7] = 61; state->arr_LWHL52[8] = 61; state->arr_LWHL52[9] = 61; state->arr_LWHL52[10] = 61; state->arr_LWHL52[11] = 61; state->arr_LWHL52[12] = 61; state->arr_LWHL52[13] = 61; state->arr_LWHL52[14] = 61; state->arr_LWHL52[15] = 79; state->arr_LWHL52[16] = 47; state->arr_LWHL61 = alloc_array(int, 21); state->arr_LWHL61_len = 21;
+	state->arr_LWHL61[1] = 95; state->arr_LWHL61[2] = 124; state->arr_LWHL61[3] = 45; state->arr_LWHL61[4] = 45; state->arr_LWHL61[5] = 47; state->arr_LWHL61[6] = 126; state->arr_LWHL61[7] = 92; state->arr_LWHL61[8] = 45; state->arr_LWHL61[9] = 45; state->arr_LWHL61[10] = 45; state->arr_LWHL61[11] = 45; state->arr_LWHL61[12] = 45; state->arr_LWHL61[13] = 45; state->arr_LWHL61[14] = 47; state->arr_LWHL61[15] = 126; state->arr_LWHL61[16] = 92; state->arr_LWHL61[17] = 45; state->arr_LWHL61[18] = 43; state->arr_LWHL62 = alloc_array(int, 21); state->arr_LWHL62_len = 21;
+	state->arr_LWHL62[0] = 47; state->arr_LWHL62[1] = 47; state->arr_LWHL62[2] = 47; state->arr_LWHL62[3] = 47; state->arr_LWHL62[5] = 79; state->arr_LWHL62[6] = 61; state->arr_LWHL62[7] = 61; state->arr_LWHL62[8] = 61; state->arr_LWHL62[9] = 61; state->arr_LWHL62[10] = 61; state->arr_LWHL62[11] = 61; state->arr_LWHL62[12] = 61; state->arr_LWHL62[13] = 61; state->arr_LWHL62[14] = 79; state->arr_LWHL62[15] = 95; state->arr_LWHL62[16] = 47; 
+	return 0;
+}
+
+/* this code was merely generated by cpp and printf. */
+int init_smoke(struct state *state)
+{
+	state->Smoke = alloc_array(intarrayarray, 2);
+	state->Smokelens = alloc_array(intarray, 2);
+	state->Smoke[0] = alloc_array(intarray, 16);
+	state->Smokelens[0] = alloc_array(int, 16);
+	state->Smoke[0][0] = alloc_array(int, 5);
+	state->Smokelens[0][0] = 5; state->Smoke[0][0][0] = 40; state->Smoke[0][0][1] = 32; state->Smoke[0][0][2] = 32; state->Smoke[0][0][3] = 32; state->Smoke[0][0][4] = 41; 
+	state->Smoke[0][1] = alloc_array(int, 6);
+	state->Smokelens[0][1] = 6; state->Smoke[0][1][0] = 40; state->Smoke[0][1][1] = 32; state->Smoke[0][1][2] = 32; state->Smoke[0][1][3] = 32; state->Smoke[0][1][4] = 32; state->Smoke[0][1][5] = 41; 
+	state->Smoke[0][2] = alloc_array(int, 6);
+	state->Smokelens[0][2] = 6; state->Smoke[0][2][0] = 40; state->Smoke[0][2][1] = 32; state->Smoke[0][2][2] = 32; state->Smoke[0][2][3] = 32; state->Smoke[0][2][4] = 32; state->Smoke[0][2][5] = 41; 
+	state->Smoke[0][3] = alloc_array(int, 5);
+	state->Smokelens[0][3] = 5; state->Smoke[0][3][0] = 40; state->Smoke[0][3][1] = 32; state->Smoke[0][3][2] = 32; state->Smoke[0][3][3] = 32; state->Smoke[0][3][4] = 41; 
+	state->Smoke[0][4] = alloc_array(int, 4);
+	state->Smokelens[0][4] = 4; state->Smoke[0][4][0] = 40; state->Smoke[0][4][1] = 32; state->Smoke[0][4][2] = 32; state->Smoke[0][4][3] = 41; 
+	state->Smoke[0][5] = alloc_array(int, 4);
+	state->Smokelens[0][5] = 4; state->Smoke[0][5][0] = 40; state->Smoke[0][5][1] = 32; state->Smoke[0][5][2] = 32; state->Smoke[0][5][3] = 41; 
+	state->Smoke[0][6] = alloc_array(int, 3);
+	state->Smokelens[0][6] = 3; state->Smoke[0][6][0] = 40; state->Smoke[0][6][1] = 32; state->Smoke[0][6][2] = 41; 
+	state->Smoke[0][7] = alloc_array(int, 3);
+	state->Smokelens[0][7] = 3; state->Smoke[0][7][0] = 40; state->Smoke[0][7][1] = 32; state->Smoke[0][7][2] = 41; 
+	state->Smoke[0][8] = alloc_array(int, 2);
+	state->Smokelens[0][8] = 2; state->Smoke[0][8][0] = 40; state->Smoke[0][8][1] = 41; 
+	state->Smoke[0][9] = alloc_array(int, 2);
+	state->Smokelens[0][9] = 2; state->Smoke[0][9][0] = 40; state->Smoke[0][9][1] = 41; 
+	state->Smoke[0][10] = alloc_array(int, 1);
+	state->Smokelens[0][10] = 1; state->Smoke[0][10][0] = 79; 
+	state->Smoke[0][11] = alloc_array(int, 1);
+	state->Smokelens[0][11] = 1; state->Smoke[0][11][0] = 79; 
+	state->Smoke[0][12] = alloc_array(int, 1);
+	state->Smokelens[0][12] = 1; state->Smoke[0][12][0] = 79; 
+	state->Smoke[0][13] = alloc_array(int, 1);
+	state->Smokelens[0][13] = 1; state->Smoke[0][13][0] = 79; 
+	state->Smoke[0][14] = alloc_array(int, 1);
+	state->Smokelens[0][14] = 1; state->Smoke[0][14][0] = 79; 
+	state->Smoke[0][15] = alloc_array(int, 1);
+	state->Smokelens[0][15] = 1; state->Smoke[0][15][0] = 32; 
+	state->Smoke[1] = alloc_array(intarray, 16);
+	state->Smokelens[1] = alloc_array(int, 16);
+	state->Smoke[1][0] = alloc_array(int, 5);
+	state->Smokelens[1][0] = 5; state->Smoke[1][0][0] = 40; state->Smoke[1][0][1] = 64; state->Smoke[1][0][2] = 64; state->Smoke[1][0][3] = 64; state->Smoke[1][0][4] = 41; 
+	state->Smoke[1][1] = alloc_array(int, 6);
+	state->Smokelens[1][1] = 6; state->Smoke[1][1][0] = 40; state->Smoke[1][1][1] = 64; state->Smoke[1][1][2] = 64; state->Smoke[1][1][3] = 64; state->Smoke[1][1][4] = 64; state->Smoke[1][1][5] = 41; 
+	state->Smoke[1][2] = alloc_array(int, 6);
+	state->Smokelens[1][2] = 6; state->Smoke[1][2][0] = 40; state->Smoke[1][2][1] = 64; state->Smoke[1][2][2] = 64; state->Smoke[1][2][3] = 64; state->Smoke[1][2][4] = 64; state->Smoke[1][2][5] = 41; 
+	state->Smoke[1][3] = alloc_array(int, 5);
+	state->Smokelens[1][3] = 5; state->Smoke[1][3][0] = 40; state->Smoke[1][3][1] = 64; state->Smoke[1][3][2] = 64; state->Smoke[1][3][3] = 64; state->Smoke[1][3][4] = 41; 
+	state->Smoke[1][4] = alloc_array(int, 4);
+	state->Smokelens[1][4] = 4; state->Smoke[1][4][0] = 40; state->Smoke[1][4][1] = 64; state->Smoke[1][4][2] = 64; state->Smoke[1][4][3] = 41; 
+	state->Smoke[1][5] = alloc_array(int, 4);
+	state->Smokelens[1][5] = 4; state->Smoke[1][5][0] = 40; state->Smoke[1][5][1] = 64; state->Smoke[1][5][2] = 64; state->Smoke[1][5][3] = 41; 
+	state->Smoke[1][6] = alloc_array(int, 3);
+	state->Smokelens[1][6] = 3; state->Smoke[1][6][0] = 40; state->Smoke[1][6][1] = 64; state->Smoke[1][6][2] = 41; 
+	state->Smoke[1][7] = alloc_array(int, 3);
+	state->Smokelens[1][7] = 3; state->Smoke[1][7][0] = 40; state->Smoke[1][7][1] = 64; state->Smoke[1][7][2] = 41; 
+	state->Smoke[1][8] = alloc_array(int, 2);
+	state->Smokelens[1][8] = 2; state->Smoke[1][8][0] = 64; state->Smoke[1][8][1] = 64; 
+	state->Smoke[1][9] = alloc_array(int, 2);
+	state->Smokelens[1][9] = 2; state->Smoke[1][9][0] = 64; state->Smoke[1][9][1] = 64; 
+	state->Smoke[1][10] = alloc_array(int, 1);
+	state->Smokelens[1][10] = 1; state->Smoke[1][10][0] = 64; 
+	state->Smoke[1][11] = alloc_array(int, 1);
+	state->Smokelens[1][11] = 1; state->Smoke[1][11][0] = 64; 
+	state->Smoke[1][12] = alloc_array(int, 1);
+	state->Smokelens[1][12] = 1; state->Smoke[1][12][0] = 64; 
+	state->Smoke[1][13] = alloc_array(int, 1);
+	state->Smokelens[1][13] = 1; state->Smoke[1][13][0] = 64; 
+	state->Smoke[1][14] = alloc_array(int, 1);
+	state->Smokelens[1][14] = 1; state->Smoke[1][14][0] = 64; 
+	state->Smoke[1][15] = alloc_array(int, 1);
+	state->Smokelens[1][15] = 1; state->Smoke[1][15][0] = 32; 
+	state->Eraser = alloc_array(intarray, 16);
+	state->Eraserlens = alloc_array(int, 16);
+	state->Eraser[0] = alloc_array(int, 5);
+	state->Eraserlens[0] = 5; state->Eraser[0][0] = 32; state->Eraser[0][1] = 32; state->Eraser[0][2] = 32; state->Eraser[0][3] = 32; state->Eraser[0][4] = 32; 
+	state->Eraser[1] = alloc_array(int, 6);
+	state->Eraserlens[1] = 6; state->Eraser[1][0] = 32; state->Eraser[1][1] = 32; state->Eraser[1][2] = 32; state->Eraser[1][3] = 32; state->Eraser[1][4] = 32; state->Eraser[1][5] = 32; 
+	state->Eraser[2] = alloc_array(int, 6);
+	state->Eraserlens[2] = 6; state->Eraser[2][0] = 32; state->Eraser[2][1] = 32; state->Eraser[2][2] = 32; state->Eraser[2][3] = 32; state->Eraser[2][4] = 32; state->Eraser[2][5] = 32; 
+	state->Eraser[3] = alloc_array(int, 5);
+	state->Eraserlens[3] = 5; state->Eraser[3][0] = 32; state->Eraser[3][1] = 32; state->Eraser[3][2] = 32; state->Eraser[3][3] = 32; state->Eraser[3][4] = 32; 
+	state->Eraser[4] = alloc_array(int, 4);
+	state->Eraserlens[4] = 4; state->Eraser[4][0] = 32; state->Eraser[4][1] = 32; state->Eraser[4][2] = 32; state->Eraser[4][3] = 32; 
+	state->Eraser[5] = alloc_array(int, 4);
+	state->Eraserlens[5] = 4; state->Eraser[5][0] = 32; state->Eraser[5][1] = 32; state->Eraser[5][2] = 32; state->Eraser[5][3] = 32; 
+	state->Eraser[6] = alloc_array(int, 3);
+	state->Eraserlens[6] = 3; state->Eraser[6][0] = 32; state->Eraser[6][1] = 32; state->Eraser[6][2] = 32; 
+	state->Eraser[7] = alloc_array(int, 3);
+	state->Eraserlens[7] = 3; state->Eraser[7][0] = 32; state->Eraser[7][1] = 32; state->Eraser[7][2] = 32; 
+	state->Eraser[8] = alloc_array(int, 2);
+	state->Eraserlens[8] = 2; state->Eraser[8][0] = 32; state->Eraser[8][1] = 32; 
+	state->Eraser[9] = alloc_array(int, 2);
+	state->Eraserlens[9] = 2; state->Eraser[9][0] = 32; state->Eraser[9][1] = 32; 
+	state->Eraser[10] = alloc_array(int, 1);
+	state->Eraserlens[10] = 1; state->Eraser[10][0] = 32; 
+	state->Eraser[11] = alloc_array(int, 1);
+	state->Eraserlens[11] = 1; state->Eraser[11][0] = 32; 
+	state->Eraser[12] = alloc_array(int, 1);
+	state->Eraserlens[12] = 1; state->Eraser[12][0] = 32; 
+	state->Eraser[13] = alloc_array(int, 1);
+	state->Eraserlens[13] = 1; state->Eraser[13][0] = 32; 
+	state->Eraser[14] = alloc_array(int, 1);
+	state->Eraserlens[14] = 1; state->Eraser[14][0] = 32; 
+	state->Eraser[15] = alloc_array(int, 1);
+	state->Eraserlens[15] = 1; state->Eraser[15][0] = 32; 
+	return 0;
+}
+
+int init_state(struct state *state)
+{
+	int i;
+	
+	state->con = alloc(struct console_state);
+	console_init(state->con);
+	init_state_constance(state);
+	init_state_strings(state);
+	init_smoke(state);
+
+	state->sl = alloc_array(intarrayarray, state->LOGOPATTERNS);
+	state->sllens = alloc_array(intarray, state->LOGOPATTERNS);
+	for (i = 0; i < state->LOGOPATTERNS; i++) {
+		state->sl[i] = alloc_array(intarray, state->LOGOHIGHT + 1);
+		state->sllens[i] = alloc_array(int, state->LOGOHIGHT + 1);
+	}
+	i = 0;
+	state->sl[i][0] = state->arr_LOGO1; state->sl[i][1] = state->arr_LOGO2; state->sl[i][2] = state->arr_LOGO3; state->sl[i][3] = state->arr_LOGO4; state->sl[i][6] = state->arr_DELLN;
+	state->sllens[i][0] = state->arr_LOGO1_len; state->sllens[i][1] = state->arr_LOGO2_len; state->sllens[i][2] = state->arr_LOGO3_len; state->sllens[i][3] = state->arr_LOGO4_len; state->sllens[i][6] = state->arr_DELLN_len;
+	state->sl[i][4] = state->arr_LWHL11; state->sl[i][5] = state->arr_LWHL12;
+	state->sllens[i][4] = state->arr_LWHL11_len; state->sllens[i][5] = state->arr_LWHL12_len;
+	i = 1;
+	state->sl[i][0] = state->arr_LOGO1; state->sl[i][1] = state->arr_LOGO2; state->sl[i][2] = state->arr_LOGO3; state->sl[i][3] = state->arr_LOGO4; state->sl[i][6] = state->arr_DELLN;
+	state->sllens[i][0] = state->arr_LOGO1_len; state->sllens[i][1] = state->arr_LOGO2_len; state->sllens[i][2] = state->arr_LOGO3_len; state->sllens[i][3] = state->arr_LOGO4_len; state->sllens[i][6] = state->arr_DELLN_len;
+	state->sl[i][4] = state->arr_LWHL21; state->sl[i][5] = state->arr_LWHL22;
+	state->sllens[i][4] = state->arr_LWHL21_len; state->sllens[i][5] = state->arr_LWHL22_len;
+	i = 2;
+	state->sl[i][0] = state->arr_LOGO1; state->sl[i][1] = state->arr_LOGO2; state->sl[i][2] = state->arr_LOGO3; state->sl[i][3] = state->arr_LOGO4; state->sl[i][6] = state->arr_DELLN;
+	state->sllens[i][0] = state->arr_LOGO1_len; state->sllens[i][1] = state->arr_LOGO2_len; state->sllens[i][2] = state->arr_LOGO3_len; state->sllens[i][3] = state->arr_LOGO4_len; state->sllens[i][6] = state->arr_DELLN_len;
+	state->sl[i][4] = state->arr_LWHL31; state->sl[i][5] = state->arr_LWHL32;
+	state->sllens[i][4] = state->arr_LWHL31_len; state->sllens[i][5] = state->arr_LWHL32_len;
+	i = 3;
+	state->sl[i][0] = state->arr_LOGO1; state->sl[i][1] = state->arr_LOGO2; state->sl[i][2] = state->arr_LOGO3; state->sl[i][3] = state->arr_LOGO4; state->sl[i][6] = state->arr_DELLN;
+	state->sllens[i][0] = state->arr_LOGO1_len; state->sllens[i][1] = state->arr_LOGO2_len; state->sllens[i][2] = state->arr_LOGO3_len; state->sllens[i][3] = state->arr_LOGO4_len; state->sllens[i][6] = state->arr_DELLN_len;
+	state->sl[i][4] = state->arr_LWHL41; state->sl[i][5] = state->arr_LWHL42;
+	state->sllens[i][4] = state->arr_LWHL41_len; state->sllens[i][5] = state->arr_LWHL42_len;
+	i = 4;
+	state->sl[i][0] = state->arr_LOGO1; state->sl[i][1] = state->arr_LOGO2; state->sl[i][2] = state->arr_LOGO3; state->sl[i][3] = state->arr_LOGO4; state->sl[i][6] = state->arr_DELLN;
+	state->sllens[i][0] = state->arr_LOGO1_len; state->sllens[i][1] = state->arr_LOGO2_len; state->sllens[i][2] = state->arr_LOGO3_len; state->sllens[i][3] = state->arr_LOGO4_len; state->sllens[i][6] = state->arr_DELLN_len;
+	state->sl[i][4] = state->arr_LWHL51; state->sl[i][5] = state->arr_LWHL52;
+	state->sllens[i][4] = state->arr_LWHL51_len; state->sllens[i][5] = state->arr_LWHL52_len;
+	i = 5;
+	state->sl[i][0] = state->arr_LOGO1; state->sl[i][1] = state->arr_LOGO2; state->sl[i][2] = state->arr_LOGO3; state->sl[i][3] = state->arr_LOGO4; state->sl[i][6] = state->arr_DELLN;
+	state->sllens[i][0] = state->arr_LOGO1_len; state->sllens[i][1] = state->arr_LOGO2_len; state->sllens[i][2] = state->arr_LOGO3_len; state->sllens[i][3] = state->arr_LOGO4_len; state->sllens[i][6] = state->arr_DELLN_len;
+	state->sl[i][4] = state->arr_LWHL61; state->sl[i][5] = state->arr_LWHL62;
+	state->sllens[i][4] = state->arr_LWHL61_len; state->sllens[i][5] = state->arr_LWHL62_len;
+
+	state->coal = alloc_array(intarray, state->LOGOHIGHT + 1);
+	state->coallens = alloc_array(int, state->LOGOHIGHT + 1);
+	state->coal[0] = state->arr_LCOAL1;
+	state->coal[1] = state->arr_LCOAL2;
+	state->coal[2] = state->arr_LCOAL3;
+	state->coal[3] = state->arr_LCOAL4;
+	state->coal[4] = state->arr_LCOAL5;
+	state->coal[5] = state->arr_LCOAL6;
+	state->coal[6] = state->arr_DELLN;
+	state->coallens[0] = state->arr_LCOAL1_len;
+	state->coallens[1] = state->arr_LCOAL2_len;
+	state->coallens[2] = state->arr_LCOAL3_len;
+	state->coallens[3] = state->arr_LCOAL4_len;
+	state->coallens[4] = state->arr_LCOAL5_len;
+	state->coallens[5] = state->arr_LCOAL6_len;
+	state->coallens[6] = state->arr_DELLN_len;
+	state->car = alloc_array(intarray, state->LOGOHIGHT + 1);
+	state->carlens = alloc_array(int, state->LOGOHIGHT + 1);
+	state->car[0] = state->arr_LCAR1;
+	state->car[1] = state->arr_LCAR2;
+	state->car[2] = state->arr_LCAR3;
+	state->car[3] = state->arr_LCAR4;
+	state->car[4] = state->arr_LCAR5;
+	state->car[5] = state->arr_LCAR6;
+	state->car[6] = state->arr_DELLN;
+	state->carlens[0] = state->arr_LCAR1_len;
+	state->carlens[1] = state->arr_LCAR2_len;
+	state->carlens[2] = state->arr_LCAR3_len;
+	state->carlens[3] = state->arr_LCAR4_len;
+	state->carlens[4] = state->arr_LCAR5_len;
+	state->carlens[5] = state->arr_LCAR6_len;
+	state->carlens[6] = state->arr_DELLN_len;
+
+	state->mans = alloc_array(intarrayarray, 2);
+	state->manslens = alloc_array(intarray, 2);
+	state->mans[0] = alloc_array(intarray, 2);
+	state->manslens[0] = alloc_array(int, 2);
+	state->mans[0][0] = alloc_array(int, 0);
+	state->manslens[0][0] = 0; 
+	state->mans[0][1] = alloc_array(int, 3);
+	state->manslens[0][1] = 3; state->mans[0][1][0] = 40; state->mans[0][1][1] = 79; state->mans[0][1][2] = 41; 
+	state->mans[1] = alloc_array(intarray, 2);
+	state->manslens[1] = alloc_array(int, 2);
+	state->mans[1][0] = alloc_array(int, 5);
+	state->manslens[1][0] = 5; state->mans[1][0][0] = 72; state->mans[1][0][1] = 101; state->mans[1][0][2] = 108; state->mans[1][0][3] = 112; state->mans[1][0][4] = 33; 
+	state->mans[1][1] = alloc_array(int, 3);
+	state->manslens[1][1] = 3; state->mans[1][1][0] = 92; state->mans[1][1][1] = 79; state->mans[1][1][2] = 47; 
+
+	state->S = alloc_array(struct smokes, 1000);
+	state->dy = alloc_array(int, 16);
+	state->dy[0] = 2; state->dy[1] = 1; state->dy[2] = 1; state->dy[3] = 1; state->dy[4] = 0; state->dy[5] = 0; state->dy[6] = 0; state->dy[7] = 0; state->dy[8] = 0; state->dy[9] = 0; state->dy[10] = 0; state->dy[11] =  0; state->dy[12] = 0; state->dy[13] = 0; state->dy[14] = 0; state->dy[15] = 0;
+	state->dx = alloc_array(int, 16);
+	state->dx[0] = -2; state->dx[1] = -1; state->dx[2] = 0; state->dx[3] = 1; state->dx[4] = 1; state->dx[5] = 1; state->dx[6] = 1; state->dx[7] = 1; state->dx[8] = 2; state->dx[9] = 2; state->dx[10] = 2; state->dx[11] =  2; state->dx[12] = 2; state->dx[13] = 3; state->dx[14] = 3; state->dx[15] = 3;
+	return 0;
+}
+
+/******************************************************************************
+ * sl functions
+ ******************************************************************************/
+
+int l5_mvaddstr(struct state *state, int y, int x, intarray str, int len)
+{
+	int i = 0;
+	if (len < 0) 1/0;
+	while (x < 0) {
+		if (i == len)
+			return (-1); /* str[i] == 0 */
+		i++;
+		x++;
+	}
+	while (i < len && x < state->con->COLS) {
+		/* if (mvaddch(y, x, str[i]) == (-1)) // curses version
+			return (-1); */
+		/* L5 version ;) */
+		set_cursor_pos(state->con, y, x);
+		console_printchar(state->con, (str[i] == 0 ? 32 : str[i]));
+		i++;
+		x++;
+	}
+	state->lines_printed++;
+	return 0;
+}
+
+int add_sl(struct state *state, int x);
+int add_man(struct state *state, int y, int x);
+int add_smoke(struct state *state, int y, int x);
+
+int main()
+{
+	int x;
+	int i;
+
+	struct state *state = alloc(struct state);
+	init_state(state);
+	hide_cursor();
+
+	/* initscr();
+	noecho();
+	leaveok(stdscr, TRUE);
+	scrollok(stdscr, FALSE); */
+
+	for (x = state->con->COLS - 1; 1 == 1; x--) {
+		if (add_sl(state, x) == (-1)) break;
+		/* refresh(); */
+		l5_usleep(20000);
+	}
+	/* mvcur(0, state->con->COLS - 1, state->con->LINES - 1, 0);
+	endwin(); */
+	set_cursor_pos(state->con, 0, 0);
+	show_cursor();
+	return state->lines_printed;
+}
+
+
+int add_sl(struct state *state, int x)
+{
+	int i;
+	int y;
+	int py1 = 0;
+	int py2 = 0;
+	int py3 = 0;
+	
+	if (x < - state->LOGOLENGTH)  return (-1);
+	y = state->con->LINES / 2 - 3;
+
+	if (state->FLY == 1) {
+		y = (x / 6) + state->con->LINES - (state->con->COLS / 6) - state->LOGOHIGHT;
+		py1 = 2;  py2 = 4;  py3 = 6;
+	}
+	for (i = 0; i <= state->LOGOHIGHT; i++) {
+		set_colour(1); /* bold */
+		set_colour(33); /* yellow */
+		l5_mvaddstr(state, y + i, x, state->sl[(state->LOGOLENGTH + x) / 3 % state->LOGOPATTERNS][i],
+			    state->sllens[(state->LOGOLENGTH + x) / 3 % state->LOGOPATTERNS][i]);
+		set_colour(32); /* green */
+		l5_mvaddstr(state, y + i + py1, x + 21, state->coal[i], state->coallens[i]);
+		set_colour(34); /* blue */
+		l5_mvaddstr(state, y + i  + py2, x + 42, state->car[i], state->carlens[i]);
+		l5_mvaddstr(state, y + i + py3, x + 63, state->car[i], state->carlens[i]);
+		set_colour(0);
+	}
+	if (state->ACCIDENT == 1) {
+		add_man(state, y + 1, x + 14);
+		add_man(state, y + 1 + py2, x + 45);  add_man(state, y + 1 + py2, x + 53);
+		add_man(state, y + 1 + py3, x + 66);  add_man(state, y + 1 + py3, x + 74);
+	}
+	add_smoke(state, y - 1, x + state->LOGOFUNNEL);
+	return 0;
+}
+
+
+
+int add_man(struct state *state, int y, int x)
+{
+	int i;
+	set_colour(1); /* bold */
+	set_colour(31); /* red */
+	for (i = 0; i < 2; i++) {
+		l5_mvaddstr(state, y + i, x, state->mans[(state->LOGOLENGTH + x) / 12 % 2][i],
+			    state->manslens[(state->LOGOLENGTH + x) / 12 % 2][i]);
+	}
+	set_colour(0);
+	return 0;
+}
+
+
+int add_smoke(struct state *state, int y, int x)
+{
+	int i;
+
+	set_colour(1); /* bold */
+	if (x % 4 == 0) {
+		for (i = 0; i < state->sum; i++) {
+			l5_mvaddstr(state, state->S[i].y, state->S[i].x, state->Eraser[state->S[i].ptrn],
+				    state->Eraserlens[state->S[i].ptrn]);
+			state->S[i].y    -= state->dy[state->S[i].ptrn];
+			state->S[i].x    += state->dx[state->S[i].ptrn];
+			/* 16 == SMOKEPTNS */
+			state->S[i].ptrn += (state->S[i].ptrn < 16 - 1) ? 1 : 0;
+			l5_mvaddstr(state, state->S[i].y, state->S[i].x,
+				    state->Smoke[state->S[i].kind][state->S[i].ptrn],
+				    state->Smokelens[state->S[i].kind][state->S[i].ptrn]);
+		}
+		l5_mvaddstr(state, y, x, state->Smoke[state->sum % 2][0], state->Smokelens[state->sum % 2][0]);
+		state->S[state->sum].y = y;    state->S[state->sum].x = x;
+		state->S[state->sum].ptrn = 0; state->S[state->sum].kind = state->sum % 2;
+		state->sum ++;
+	}
+	set_colour(0);
+	return 0;
+}
+
+/* vim: ft=c
+ */

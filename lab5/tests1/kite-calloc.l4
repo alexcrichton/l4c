@@ -1,0 +1,16 @@
+//test return 1
+//test for mangling of calloc
+
+int[] calloc(int len, int size)
+{ 
+  return alloc_array(int,size);
+}
+
+
+int main()
+{
+  int size_t = 4;
+  int[] heap = calloc(1,4);
+  heap[0] = 1;
+  return heap[0];
+}

@@ -1,0 +1,19 @@
+//test return 0
+//Constant folding/propagation
+
+int main()
+{
+	int x = 10;
+	int y = 10;
+	int z = 10;
+	int a;
+	int b;
+	int c;
+
+	a = x + x + x + x + x * x + z / y * y + x + x + z;
+	b = a * a * a / (y + x + x * x);
+	c = b - (a * a * a / (y + x + x * x));
+
+	return c;
+	
+}

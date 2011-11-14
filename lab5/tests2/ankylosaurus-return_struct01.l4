@@ -1,0 +1,33 @@
+//test return 10
+
+struct test
+{
+    int a;
+    int b;
+    struct test * next;
+};
+
+int main()
+{
+    struct test * test1 = alloc(struct test);
+    struct test * curr;
+    int x = 0;
+
+    test1->next = alloc(struct test);
+    test1->next->next = alloc(struct test);
+    test1->next->next->next = alloc(struct test);
+
+    test1->a = 1;
+    test1->next->a = 2;
+    test1->next->next->a = 3;
+    test1->next->next->next->a = 4;
+
+    curr = test1;
+    while(curr != NULL)
+    {
+        x += curr->a;
+        curr = curr->next;
+    }
+
+    return x;
+}

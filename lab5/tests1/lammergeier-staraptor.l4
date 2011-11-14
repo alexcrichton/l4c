@@ -1,0 +1,7 @@
+//test return 17
+int main() {
+    int[] arr;
+    arr = alloc_array(int, 1);
+    arr[0] = 17;
+    return arr[0];
+}

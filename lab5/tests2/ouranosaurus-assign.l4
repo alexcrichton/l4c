@@ -1,0 +1,14 @@
+//test exception 11
+
+// (from wikipedia)
+int assign(int *dest, int src) 
+{
+  *dest = src;
+  return *dest;
+}
+
+int main() {
+    int *p = NULL;
+    int x = 5;
+    return assign(p, x);
+}

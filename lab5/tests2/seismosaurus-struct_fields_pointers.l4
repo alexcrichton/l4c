@@ -1,0 +1,19 @@
+//test exception 11
+
+/* alloc == calloc, so pointers are null by default, uh-oh */
+struct bar {
+	int a;
+	int b;
+	int c;
+};
+
+struct foo {
+	int count;
+	struct bar * b;
+};
+
+int main(){
+	struct foo* f = alloc(struct foo);
+	/* uh-oh, f->b is null */
+	return f->b->c;
+}

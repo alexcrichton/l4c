@@ -1,0 +1,14 @@
+//test exception 11
+    
+
+int main () {
+    int* p;
+
+    p = alloc(int);
+    *p = 8;
+    printint(*p);
+    p = NULL;
+    printint(*p);
+
+    return 0;
+}

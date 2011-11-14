@@ -1,0 +1,10 @@
+//test exception 11
+
+int* mystery() {
+  return NULL;
+}
+
+int main() {
+  int* x = mystery();
+  return *x;
+}

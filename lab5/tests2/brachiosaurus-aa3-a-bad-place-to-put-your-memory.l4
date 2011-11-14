@@ -1,0 +1,17 @@
+//test exception 11
+
+int [][] aa(int size)
+{
+	return alloc_array(int [], size);
+}
+
+int [][] get_array()
+{
+	return aa(1 << 30 >> 30);
+}
+
+int main()
+{
+	int [][] a = get_array();
+	return a[0][0];
+}

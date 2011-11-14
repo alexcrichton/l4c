@@ -1,0 +1,7 @@
+//test exception 11
+int main(){
+	int[] a = alloc_array(int, 35);
+	int[]* b = alloc(int[]); /* b != NULL, *b will be 'NULL' */
+
+	return (true ? *b : a)[2];
+}

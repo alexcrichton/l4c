@@ -1,0 +1,86 @@
+//test exception 11
+//Attempt to return a struct member from a NULL pointer
+
+//Has size 10*4
+struct s1
+{
+	int p1;
+	int p2;
+	int p3;
+	int p4;
+	int p5;
+	int p6;
+	int p7;
+	int p8;
+	int p9;
+	int p10;
+};
+
+//Has size 10*10*4
+struct s2
+{
+	struct s1 p1;
+	struct s1 p2;
+	struct s1 p3;
+	struct s1 p4;
+	struct s1 p5;
+	struct s1 p6;
+	struct s1 p7;
+	struct s1 p8;
+	struct s1 p9;
+	struct s1 p10;
+};
+
+//Has size 10*10*10*4
+struct s3 
+{
+	struct s2 p1;
+	struct s2 p2;
+	struct s2 p3;
+	struct s2 p4;
+	struct s2 p5;
+	struct s2 p6;
+	struct s2 p7;
+	struct s2 p8;
+	struct s2 p9;
+	struct s2 p10;
+};
+
+//Has size 10*10*10*10*4
+struct s4
+{
+	struct s3 p1;
+	struct s3 p2;
+	struct s3 p3;
+	struct s3 p4;
+	struct s3 p5;
+	struct s3 p6;
+	struct s3 p7;
+	struct s3 p8;
+	struct s3 p9;
+	struct s3 p10;
+};
+
+//Has size 10*10*10*10*10*4
+//Have we cleared protected pages yet?
+struct s5
+{
+	struct s4 p1;
+	struct s4 p2;
+	struct s4 p3;
+	struct s4 p4;
+	struct s4 p5;
+	struct s4 p6;
+	struct s4 p7;
+	struct s4 p8;
+	struct s4 p9;
+	struct s4 p10;
+};
+
+int main()
+{
+	struct s5 * s5;
+	s5 = NULL;
+
+	return s5->p10.p10.p10.p10.p10;
+}

@@ -1,0 +1,19 @@
+//test exception 8
+
+int selfdestruct(int a, int b)
+{
+    return (a / b);
+}
+
+int main()
+{
+    int a32 = 32;
+    int a33 = 33;
+    bool mybool = (a33 == a32 + 1);
+    
+    // should optimize to always true
+    if (mybool)
+        selfdestruct(99, 0);
+    
+    return 2;
+}

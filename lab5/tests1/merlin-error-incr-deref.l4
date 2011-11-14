@@ -1,0 +1,13 @@
+//test error
+struct s { int x; struct s* p;};
+
+typedef struct s* s_t;
+
+int main()
+{
+  s_t foo = alloc(struct s);
+  s->p = alloc(struct s);
+  s->p->x = 15411;
+  *s->p->x++;
+  return *s->p->x++;
+}

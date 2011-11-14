@@ -1,0 +1,22 @@
+//test exception 11
+//null struct
+
+struct s
+{
+  bool[] b;
+};
+
+int main()
+{
+  struct s *s = alloc(struct s);
+  s->b = alloc_array(bool,4);
+  s->b[0] = true;
+  bool p = s->b[0];
+  s->b[1] = false;
+  bool q = s->b[1];
+  s->b[2] = true;
+  bool r = s->b[2];
+  s = NULL;
+  s->b[3] = q || p && r;
+  return s->b[3] ? 1 : 0;
+}

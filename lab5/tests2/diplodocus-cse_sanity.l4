@@ -1,0 +1,22 @@
+//test return 7
+
+int inc(int*x)
+{
+*x = *x+1;
+return *x;
+}
+
+int check(int a, int b, int c, int d, int e, int f, int g)
+{
+return g;
+}
+
+int main()
+{
+
+int i=0;
+int *x = alloc(int);
+*x = 1;
+
+return check(1+inc(x), 1+inc(x), 1+inc(x), 1+(*x), inc(x), inc(x), 1+(*x));
+}

@@ -1,0 +1,26 @@
+//test return 2
+//dead code elimination sanity check
+
+int fun(int num)
+{
+  return 4;
+}
+
+
+int main()
+{
+  int x = 1;
+  int y = 12;
+  fun(x);
+  int z = x==1 ? 2 : 1;
+  x % z;
+
+  bool b = true;
+  if(b)
+    x++;
+  else
+    x = 15;
+
+  return x;
+  return x+1;
+}

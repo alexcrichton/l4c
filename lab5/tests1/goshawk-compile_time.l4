@@ -1,0 +1,15 @@
+//test return 42
+// checks to make sure compiler does not do any compile-time memory
+// safety checking
+
+int main()
+{
+    int[] a = alloc_array(int, 1);
+    a[0] = 1;
+    if (a[0] < 0) {
+        a[1] = 1337;
+        for (int i = 2; true; i++)
+            a[i] = 1337;
+    }
+    return 42;
+}

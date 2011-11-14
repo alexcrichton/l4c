@@ -1,0 +1,22 @@
+//test return 42
+
+struct test
+{
+    int a;
+    int b;
+    struct test * next;
+};
+
+int main()
+{
+    struct test * [] arr = alloc_array(struct test *, 50);
+
+    arr[25] = alloc(struct test);
+    arr[25]->next = alloc(struct test);
+    arr[25]->next->next = alloc(struct test);
+    arr[25]->next->next->a = 42;
+
+    arr[0] = arr[25]->next->next;
+
+    return arr[0]->a;
+}

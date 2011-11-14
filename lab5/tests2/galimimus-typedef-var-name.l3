@@ -1,0 +1,10 @@
+//test error
+
+// Using type alias as variable name
+
+typedef int foo;
+
+int main() {
+  int foo = 0;
+  return 0;
+}

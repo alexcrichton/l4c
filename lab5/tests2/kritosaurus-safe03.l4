@@ -1,0 +1,63 @@
+//test exception 8
+
+struct bounded_array {
+    int size;
+    int []payload;
+};
+
+typedef struct bounded_array ba;
+
+bool init_arr(ba *arr, int size)
+{
+    if (size < 0)
+        return false;
+    arr->size = size;
+    arr->payload = alloc_array(int, size);
+    return true;
+}
+
+bool set_elem(ba *arr, int idx, int val)
+{
+    int as = arr->size;
+    if (idx < 0 || idx >= as)
+    {
+        1/0;
+        return false;
+    }
+    arr->payload[idx] = val;
+    return true;
+}
+
+int get_elem(ba *arr, int idx)
+{
+    int as = arr->size;
+    if (idx < 0 || idx >= as)
+    {
+        1/0;
+    }
+    return arr->payload[idx];
+}
+
+int get_size(ba *arr)
+{
+    return arr->size;
+}
+
+int main()
+{
+    int size = 10;
+    ba *arr = alloc(ba);
+    int i;
+    int sum = 0;
+    bool success;
+
+    // initialize arr
+    success = init_arr(arr, 100);
+    for (i = 0; i < get_size(arr) * 2; i++)
+    {
+        success = set_elem(arr, i, i);
+        sum += get_elem(arr, i);
+    }
+
+    return sum;
+}

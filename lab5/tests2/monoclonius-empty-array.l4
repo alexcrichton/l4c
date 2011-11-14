@@ -1,0 +1,8 @@
+//test return 20
+
+int main()
+{
+    int[] arr = alloc_array(int, 0);
+    return 20;
+}
+

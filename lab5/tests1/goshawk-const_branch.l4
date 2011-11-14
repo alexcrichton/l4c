@@ -1,0 +1,71 @@
+//test return 171
+//Calculate the number of Sundays on the first of the month in the 20th century
+//Contains at least one constant conditional branch that can be optimized away
+
+int main()
+{
+    int year = 1900;
+    int first = 1;
+    int total = 0;
+    first = (first + 31) % 7;       /* January */
+    if (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0))
+        first = (first + 29) % 7;
+    else
+        first = (first + 28) % 7;   /*February */
+    first = (first + 31) % 7;       /* March */
+    first = (first + 30) % 7;       /* April */
+    first = (first + 31) % 7;       /* May */
+    first = (first + 30) % 7;       /* June */
+    first = (first + 31) % 7;       /* July */
+    first = (first + 31) % 7;       /* August */
+    first = (first + 30) % 7;       /* September */
+    first = (first + 31) % 7;       /* October */
+    first = (first + 30) % 7;       /* November */
+    first = (first + 31) % 7;       /* December */
+    year++;
+
+    while (year < 2001) {
+        first = (first + 31) % 7;       /* January */
+        if (first == 0)
+            total++;
+        if (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0))
+            first = (first + 29) % 7;
+        else
+            first = (first + 28) % 7;   /*February */
+        if (first == 0)
+            total++;
+        first = (first + 31) % 7;       /* March */
+        if (first == 0)
+            total++;
+        first = (first + 30) % 7;       /* April */
+        if (first == 0)
+            total++;
+        first = (first + 31) % 7;       /* May */
+        if (first == 0)
+            total++;
+        first = (first + 30) % 7;       /* June */
+        if (first == 0)
+            total++;
+        first = (first + 31) % 7;       /* July */
+        if (first == 0) 
+            total++;
+        first = (first + 31) % 7;       /* August */
+        if (first == 0)
+            total++;
+        first = (first + 30) % 7;       /* September */
+        if (first == 0)
+            total++;
+        first = (first + 31) % 7;       /* October */
+        if (first == 0)
+            total++;
+        first = (first + 30) % 7;       /* November */
+        if (first == 0)
+            total++;
+        first = (first + 31) % 7;       /* December */
+        if (first == 0)
+            total++;
+        year++;
+    }
+
+    return total;
+}

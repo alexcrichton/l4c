@@ -1,0 +1,13 @@
+//test exception 11
+int main() {
+	int[] f = alloc_array(int, 255);
+	/* benefits compilers which hoist the array check outside the loop */
+
+	int i;
+	for(i = 0; i < 256; i++) {
+		int[] g = alloc_array(int, i+1);
+		f[i] = i;
+		g[i] = f[i];
+	}
+	return f[0];
+}

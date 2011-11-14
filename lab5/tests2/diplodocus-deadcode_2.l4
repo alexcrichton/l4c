@@ -1,0 +1,29 @@
+//test exception 11
+int main()
+{
+
+int i;
+int j;
+int k;
+int sum =1;
+int* n = NULL;
+
+for(i=0;i<100;i++)
+   { for(j=0;j<100;j++)
+    {   
+        
+        for(k=1;k<19990000;k++)
+        {
+        sum/=k;
+        }
+
+        *n; 
+    }
+    }
+
+return 0;
+}
+
+
+
+

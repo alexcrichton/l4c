@@ -1,0 +1,22 @@
+//test exception 11
+
+struct blarg {
+    struct blarg [] anyus;
+    int anoos;
+};
+
+int main() {
+    struct blarg [] a = alloc_array(struct blarg, 100);
+    
+    for(int i = 0; i < 100; i++)
+    {
+        a[i].anoos = i;
+    }
+
+    for(int i = 0; i < 100; i++)
+    {
+        a[i].anyus = alloc_array(struct blarg, 98 - i);
+    }
+
+    return 0;
+}

@@ -1,0 +1,58 @@
+//test return 56
+
+/* This does a bunch of reads from pointers into an array. The goal is that
+ * things will get CSEd to reduce dereferencing. */
+
+struct buttsquid {
+	int emarhavil;
+	int heavy;
+	int industries;
+};
+
+struct lol {
+	int lol;
+	struct buttsquid buttsquid;
+};
+
+int main()
+{
+	int iters = 1;
+	int count = 20;
+	int size = 200;
+	int i;
+	int j;
+	struct lol [][]lulz = alloc_array(struct lol[], count);
+	
+	for (i = 0; i < count; i++) {
+		lulz[i] = alloc_array(struct lol, size);
+	}
+
+	while (iters > 0) {
+		iters--;
+
+		for (i = 0; i < size; i++) {
+			lulz[0][i].buttsquid.industries = i*7-9*iters;
+			lulz[1][i].buttsquid.industries = i*7-9*iters;
+			lulz[2][i].buttsquid.industries = i*7-9*iters;
+			lulz[3][i].buttsquid.industries = i*7-9*iters;
+			lulz[4][i].buttsquid.industries = i*7-9*iters;
+			lulz[5][i].buttsquid.industries = i*7-9*iters;
+			lulz[6][i].buttsquid.industries = i*7-9*iters;
+			lulz[7][i].buttsquid.industries = i*7-9*iters;
+			lulz[8][i].buttsquid.industries = i*7-9*iters;
+			lulz[9][i].buttsquid.industries = i*7-9*iters;
+			lulz[10][i].buttsquid.industries = i*7-9*iters;
+			lulz[11][i].buttsquid.industries = i*7-9*iters;
+			lulz[12][i].buttsquid.industries = i*7-9*iters;
+			lulz[13][i].buttsquid.industries = i*7-9*iters;
+			lulz[14][i].buttsquid.industries = i*7-9*iters;
+			lulz[15][i].buttsquid.industries = i*7-9*iters;
+			lulz[16][i].buttsquid.industries = i*7-9*iters;
+			lulz[17][i].buttsquid.industries = i*7-9*iters;
+			lulz[18][i].buttsquid.industries = i*7-9*iters;
+			lulz[19][i].buttsquid.industries = i*7-9*iters;
+		}
+	}
+
+	return lulz[8][8].buttsquid.industries;
+}

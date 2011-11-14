@@ -1,0 +1,25 @@
+//test return 40320
+
+int b1() { return 1; }
+int b2() { return b1() + 1; }
+int b4() { return b2() + b2(); }
+int b8() { return b1() + b1() + b2() + b2() + 2; }
+
+int a() { return b8() + b2(); }
+int b() { return b8() + b1(); }
+int c() { return b8(); }
+int d() { return b4() + b2() + b1(); }
+int e() { return b4() + b2(); }
+int f() { return b4() + b1(); }
+int g() { return b4(); }
+int h() { return b2() + b1(); }
+int i() { return b2(); }
+int j() { return b1(); }
+
+int main() {
+	int ret = a() * b() * c() * d() * e() * f() * g() * h() * i() * j();
+	ret /= e();
+	ret /= f();
+	ret /= h();
+	return ret;
+}

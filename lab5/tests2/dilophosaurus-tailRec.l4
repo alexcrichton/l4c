@@ -1,0 +1,20 @@
+//test return 5913
+
+// tail recursive function
+int fact(int n, int acc){
+    if(n > 0) return fact(n - 1, acc * n);
+    else return acc;
+}
+
+// would better be inlined !
+int factorial(int n){ return fact(n, 1); }
+
+// possible inlining and use of optimized tail-recursion function
+int main () {
+  int N = 7;
+  int s = 0;
+  int i;
+  for(i = 1; i <= N; i++)
+    s += factorial(i);
+  return s;
+}

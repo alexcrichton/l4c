@@ -1,0 +1,12 @@
+//test return 0
+
+int main()
+{
+	int i;
+	int sum = 0;
+	int [] a;
+	for (i = 0; i < 1<<28; i++) {
+		sum += i;
+	}
+	return 0;
+}

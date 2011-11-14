@@ -1,0 +1,10 @@
+//test exception 11
+
+int div(int a){
+	return a/0;
+}
+
+int main(){
+	int*[] arr = alloc_array(int *, 100);
+	return div(*arr[0]);
+}

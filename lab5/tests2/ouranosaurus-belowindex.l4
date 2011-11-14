@@ -1,0 +1,14 @@
+//test exception 11
+// (from wikipedia)
+int assign(int[] dest, int index, int src) 
+{
+  dest[index] = src;
+  return dest[index];
+}
+
+int main() 
+{
+    int[] arr = alloc_array(int, 10);
+    int x = 5;
+    return assign(arr,-1,x);
+}

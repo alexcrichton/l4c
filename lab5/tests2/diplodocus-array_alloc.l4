@@ -1,0 +1,15 @@
+//test exception 11
+//should segfault due to y being NULL
+
+int main()
+{
+int* y = NULL;
+int[] x = alloc_array(int,*y);
+x[1] = 1;
+
+
+return 0;
+
+
+}
+

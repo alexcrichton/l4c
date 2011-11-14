@@ -1,0 +1,12 @@
+//test return 1
+// Test optimising the loop away, but we must assign 1 to i
+
+int main()
+{
+    int i;
+
+    for(i = 1; i < 1; i++)
+        i = 100;
+
+    return i;
+}

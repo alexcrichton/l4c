@@ -1,0 +1,13 @@
+//test return 0
+int denuller(int** foo)
+{
+	*foo = alloc(int);
+	return 0;
+}
+int main()
+{
+	int **foo = alloc(int*);
+	*foo = NULL;
+	denuller(foo);
+	return **foo;
+}

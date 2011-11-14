@@ -1,0 +1,15 @@
+//test error
+int f(int x)
+{
+	return x+1;
+}
+
+int g(int f)
+{
+	return f(f) + 1;
+}
+
+int main()
+{
+	return g(10);
+}

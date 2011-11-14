@@ -1,0 +1,16 @@
+//test return -1610612735
+
+int exp(int base, int pow){
+    if(pow == 0){
+        return 1;
+    }
+    if(pow % 2 == 1){
+        return base*exp(base*base, pow/2);
+    }else{
+        return exp(base*base, pow/2);
+    }
+}
+
+int main(){
+    return exp(3, 134217728);
+}

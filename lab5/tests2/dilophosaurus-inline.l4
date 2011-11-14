@@ -1,0 +1,15 @@
+//test return 41
+
+// easily inlinable functions
+int add(int a, int b){ return a + b; }
+int times(int a, int b){ return a * b; }
+int minus(int a, int b){ return a - b; }
+
+// possible inlining
+int main () {
+  int one = 1;
+  int two = 2;
+  int ten = 10;
+  // with constant propagation and inlining, the result is a constant !
+  return add(times(times(two, two), ten), add(times(one, two), minus(one, two)));
+}

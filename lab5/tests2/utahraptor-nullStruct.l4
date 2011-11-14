@@ -1,0 +1,11 @@
+//test exception 11
+//This is trivial. If an L4 compiler does not pass this, something is on fire.
+struct lies
+{
+	int lies;
+};
+int main()
+{
+	struct lies* lies = NULL;
+	return lies->lies;
+}

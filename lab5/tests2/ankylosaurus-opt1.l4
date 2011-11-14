@@ -1,0 +1,38 @@
+//test return 7321
+// Test const propagation / CSE
+
+int main()
+{
+    int x;
+    int y;
+    int a1;
+    int a2;
+    int a3;
+    int a4;
+    int a5;
+    int a6;
+    int a7;
+    int a8;
+    int a9;
+    int a10;
+
+    x = 20;
+    y = 40;
+
+    a1 = x * y;
+    a2 = x * y;
+    a3 = x * y;
+    a4 = x * y;
+    a5 = x * y;
+    a6 = x * y;
+    a7 = x * y;
+    a8 = x * y;
+    a9 = x * y;
+
+    x = 11;
+    y = 11;
+
+    a10 = x * y;
+
+    return a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + a10;
+}

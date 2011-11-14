@@ -1,0 +1,8 @@
+//test exception 11
+
+int main () {
+	int [] arr = alloc_array (int, 1024);
+	arr[-2] = 1025; // per C alignment
+	arr[1024] = -1;
+	return arr[1024];
+}

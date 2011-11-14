@@ -1,0 +1,50 @@
+//test return 21124
+
+//Determines how many letters would be needed to write all the numbers in words
+//from 1 to 1000
+
+//Entire program can be constant propagated and constant folded away
+
+
+int main()
+{
+    int one = 3;
+    int two = 3;
+    int three = 5;
+    int four = 4;
+    int five = 4;
+    int six = 3;
+    int seven = 5;
+    int eight = 5;
+    int nine = 4;
+    int ten = 3;
+    int eleven = 6;
+    int twelve = 6;
+    int thirteen = 8;
+    int fourteen = 8;
+    int fifteen = 7;
+    int sixteen = 7;
+    int seventeen = 9;
+    int eighteen = 8;
+    int nineteen = 8;
+    int twenty = 6;
+    int thirty = 6;
+    int forty = 5;
+    int fifty = 5;
+    int sixty = 5;
+    int seventy = 7;
+    int eighty = 6;
+    int ninety = 6;
+    int hundred = 7;
+    int thousand = 8;
+    int and = 3;
+
+    int sum = ((one+two+three+four+five+six+seven+eight+nine)*(9*10+100)) +
+                ((ten+eleven+twelve+thirteen+fourteen+fifteen+sixteen +
+                    seventeen+eighteen+nineteen)*10) +
+                ((twenty+thirty+forty+fifty+sixty+seventy+eighty +
+                    ninety)*10*10) +
+                (hundred*9*100) + (and*(900-9)) + one + thousand;
+
+    return sum;
+}

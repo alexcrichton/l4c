@@ -1,0 +1,17 @@
+//test exception 11
+//take account of overflows when doing bounds checking
+
+int main()
+{
+int maxint = 2147483647;
+int[] x = alloc_array(int,maxint+5);
+int i;
+
+for(i=maxint;i<maxint+5;i++)
+{
+x[i]=0;
+}
+
+return 0;
+
+}

@@ -1,0 +1,12 @@
+//test error
+typedef int z;
+int f(int x, bool y, int z)
+{
+	z zz = 0;
+	return zz;
+}
+
+z main()
+{
+	return 0;
+}

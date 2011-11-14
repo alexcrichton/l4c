@@ -1,0 +1,11 @@
+//test error
+
+int main () {
+  int x = 42;
+  int i = 42;
+  while(i > 0){
+    x += 5;
+    i -= 5;
+  }
+  return *(x > 0 ? NULL : NULL);
+}

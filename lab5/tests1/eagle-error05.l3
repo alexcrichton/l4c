@@ -1,0 +1,8 @@
+//test error
+int foo(int a, bool b) {
+  return a;
+}
+
+int main() {
+  return foo(3);
+}

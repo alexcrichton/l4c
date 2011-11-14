@@ -1,0 +1,110 @@
+//test exception 11
+//"conveniently" access a vaild address
+
+struct s1 {
+    int a;
+    int b;
+    int c;
+    int d;
+};
+
+struct s2 {
+    struct s1 a;
+    struct s1 b;
+};
+
+struct s3 {
+    struct s2 a;
+    struct s2 b;
+};
+
+struct s4 {
+    struct s3 a;
+    struct s3 b;
+};
+
+struct s5 {
+    struct s4 a;
+    struct s4 b;
+};
+
+struct s6 {
+    struct s5 a;
+    struct s5 b;
+};
+
+struct s7 {
+    struct s6 a;
+    struct s6 b;
+};
+
+struct s8 {
+    struct s7 a;
+    struct s7 b;
+};
+
+struct s9 {
+    struct s8 a;
+    struct s8 b;
+};
+
+struct s10 {
+    struct s9 a;
+    struct s9 b;
+};
+
+struct s11 {
+    struct s10 a;
+    struct s10 b;
+};
+
+struct s12 {
+    struct s11 a;
+    struct s11 b;
+};
+
+struct s13 {
+    struct s12 a;
+    struct s12 b;
+};
+
+struct s14 {
+    struct s13 a;
+    struct s13 b;
+};
+
+struct s15 {
+    struct s14 a;
+    struct s14 b;
+};
+
+struct s16 {
+    struct s15 a;
+    struct s15 b;
+};
+
+struct s17 {
+    struct s16 a;
+    struct s16 b;
+};
+
+struct s18 {
+    struct s17 a;
+    struct s17 b;
+};
+
+struct s19 {
+    struct s18 a;
+    struct s18 b;
+};
+
+struct s20 {
+    struct s19 a;
+    struct s19 b;
+};
+
+int main()
+{
+    struct s20 *s = NULL;
+    return s->b.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a;
+}

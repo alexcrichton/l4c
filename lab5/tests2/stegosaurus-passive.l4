@@ -1,0 +1,11 @@
+//test exception 11
+/* Don't optimize too aggressively */
+/* (or at least, still do bounds checking) */
+int main() {
+	int i;
+	int[] a = alloc_array(int, 1024);
+	for (i=0;i<=1024;i++) {
+		a[i] = a[i];
+	}
+	return 0;
+}

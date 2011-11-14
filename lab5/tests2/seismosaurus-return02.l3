@@ -1,0 +1,38 @@
+//test return 12345
+// Test mutual recursion.
+
+int foo(int i);
+int bar(int i);
+
+int return_val() {
+    return 12345;
+}
+
+int foo(int i) {
+	int j;
+	int k;
+	int l;
+
+	j = (i == 0 ? return_val() : bar(i - 1));
+	k = 123;
+	l = 3420;
+	k = k + l;
+	return j;
+}
+
+int bar(int i) {
+	int j;
+	int k;
+	int l;
+
+	j = (i == 0 ? return_val() : bar(i - 1));
+	k = 123;
+	l = 3420;
+	k = k + l;
+	return j;
+}
+
+int main() {
+	return foo(1000);
+}
+

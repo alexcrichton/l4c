@@ -1,0 +1,72 @@
+//test return 10
+
+struct node_t {
+    int x;
+    struct node_t *next;
+};
+
+typedef struct node_t node_t;
+typedef node_t *np;
+
+np adv(np p)
+{
+    if (p == NULL)
+        return p;
+    return p->next;
+}
+
+// whether np has a cycle
+// uses two racing pointers to find cycle
+bool hascycle(np head)
+{
+    np red;     // advances by 2
+    np blue;    // advances by 1
+
+    red = adv(adv(head));
+    blue = adv(head);
+
+    while (red != NULL && blue != NULL && red != blue)
+    {
+        red = adv(adv(red));
+        blue = adv(blue);
+    }
+
+    if (red == NULL)
+        return false;
+    return true;
+}
+
+np newnode(int x)
+{
+    np new = alloc(node_t);
+    new->x = x;
+    new->next = NULL;
+
+    return new;
+}
+
+np prepend(np head, np next)
+{
+    next->next = head;
+
+    return next;
+}
+
+int main()
+{
+    np head = newnode(10);
+    np curr = head;
+    np mid = NULL;
+    int i;
+
+    for (i = 0; i < 10; i++)
+    {
+        np next = newnode(i);
+        head = prepend(head, next);
+        if (i == 5)
+            mid = head;
+    }
+    curr->next = mid;
+
+    return hascycle(head) ? 10 : 1;
+}

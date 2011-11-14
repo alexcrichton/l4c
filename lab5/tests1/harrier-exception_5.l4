@@ -1,0 +1,14 @@
+//test exception 8
+
+int myidx()
+{
+    int[] a = alloc_array(int, 5);
+    return a[4];
+}
+
+int main()
+{
+    int *[] a = alloc_array(int *, 1);
+    *(a[5 % myidx()]) = 5;
+    return 2;
+}

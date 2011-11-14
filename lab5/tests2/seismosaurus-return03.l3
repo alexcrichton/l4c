@@ -1,0 +1,8 @@
+//test return 1010101
+// Test shadowing of function names with locals and 
+// main no longer being a keyword. 
+
+int main() {
+	int main = 1010101;
+	return main;
+}

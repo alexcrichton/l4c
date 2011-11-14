@@ -1,0 +1,13 @@
+//test exception 11
+
+struct a{
+	int[] arr;
+};
+
+int main(){
+	struct a * ptr = alloc(struct a);
+	ptr->arr = alloc_array(int, 5);
+	ptr->arr[0] = -1;
+	int[] arr = alloc_array(int, ptr->arr[0]);
+	return ptr->arr[0];
+}

@@ -1,0 +1,31 @@
+//test return 20
+
+int main()
+{
+    int a;
+    int b;
+    int c;
+    int d;
+    int e;
+    int f;
+    int g;
+    int h;
+    int i;
+
+    a = 1;
+    b = a;
+    c = a;
+    d = a;
+    e = a;
+    f = a;
+    g = a;
+    h = a;
+    i = a;
+
+    b = a + 8;
+    d *= 3;
+    f = f;
+    h = c + e;
+
+    return a + b + c + d + e + f + g + h + i;
+}

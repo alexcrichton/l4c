@@ -1,0 +1,51 @@
+//test return 134209536
+
+/* The idea here is to provide an easy test to use to demonstrate the advantages
+ * of hoisting bounds checks outside of a loop. It does a lot of really simple
+ * copies and sets. It should be easy to apply the optimization. */
+
+int copy(int[] dest, int[] src, int length)
+{
+	int i;
+	for (i = 0; i < length; i++) {
+		dest[i] = src[i];
+	}
+	return 0;
+}
+
+int set(int[] dest, int val, int length)
+{
+	int i;
+	for (i = 0; i < length; i++) {
+		dest[i] = length;
+	}
+	return 0;
+}
+
+int main()
+{
+	int size = 1 << 14;
+	int count = 1000;
+	int i;
+	int sum = 0;
+	int []a = alloc_array(int, size);
+	int []b = alloc_array(int, size);
+
+
+	for (i = 0; i < size; i++) {
+		a[i] = i;
+	}
+	
+	for (i = 0; i < count; i++) {
+		set(b, 0, size);
+		copy(b, a, size);
+		set(a, 0, size);
+		copy(a, b, size);
+	}
+
+	for (i = 0; i < size; i++) {
+		sum += a[i];
+	}
+
+	return sum;
+}

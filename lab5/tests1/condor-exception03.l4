@@ -1,0 +1,6 @@
+//test exception 11
+
+int main () {
+    int * * badInt = alloc(int *);
+    return **badInt;
+}

@@ -1,0 +1,50 @@
+//test return 22
+//tests for common subexpressions and constant folding
+//for cse: array and struct accesses only need to be computed once.
+//for constant folding: offsets should be precomputed if possible.
+
+struct s
+{
+  int a;
+  int b;
+  int c;
+  int d;
+  int e;
+};
+
+
+int[] scramble(int[] array, int len)
+{
+  int tmp = array[len-1];
+  for(int i=1; i<len; i++)
+    array[i] = array[i-i];
+  array[0] = tmp;
+  return array;
+}
+
+int[] add_const(int[] array, int const, int len)
+{
+  for(int i=0; i<len; i++)
+    array[i] = array[i] + const;
+  return array;
+}
+
+int main()
+{
+  struct s *s = alloc(struct s);
+  s->a = 4;
+  s->b = 3;
+  s->c = 2;
+  s->a = s->a + s->b + s->c;
+  s->b = s->b + s->c;
+  s->c = s->b + s->c;
+  s->d = s->a + s->b + s->c;
+  s->e = s->a + s->b + s->c;
+  int[] arr = alloc_array(int, 10);
+  for(int i=0; i<10; i++)
+    arr[i] = 1+i;
+  add_const(arr,s->e,10);
+  arr[1]=(scramble(arr,10))[1];
+  arr[5]=arr[s->b]-arr[4];
+  return arr[1];
+}

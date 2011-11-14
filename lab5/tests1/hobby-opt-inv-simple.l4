@@ -1,0 +1,9 @@
+//test return 6
+
+//stupid, but make sure inverse operations are folded
+int main() {
+    int x = (-(-(-(-(-(-(-(-(-(-(-(-(-(-(-(-(-(-(-(-(-4))))))))))))))))))))); // -4
+    int y = (-(-(-(-(-(-(-(-(-(-(-(-(-(-(-(-(-(-(-(-2)))))))))))))))))))); // 2
+
+    return y - x;
+}

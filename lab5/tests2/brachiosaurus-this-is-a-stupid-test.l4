@@ -1,0 +1,10 @@
+//test exception 11
+
+int main(){
+    int * a;
+    int * b;
+    a = NULL;
+    b = a;
+    *a = 2;
+    return 0;
+}

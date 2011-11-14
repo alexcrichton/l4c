@@ -1,0 +1,28 @@
+//test return 2
+
+int selfdestruct(int a99)
+{
+    int *mem = NULL;
+    return *mem;
+}
+
+int main()
+{
+    int a32 = 32;
+    int a33 = 33;
+    
+    // should optimize to false, removing the entire if-block
+    if (a33 + a32 == 3)
+    {
+                          while (true)
+                  while (true) while (true)
+              while (true) while (true) while (true)
+        while (true) while (true) while (true) while (true)
+              while (true) while (true) while (true)
+                  while (true) while (true)
+                          while (true)
+                               {}
+    }
+    
+    return 2;
+}

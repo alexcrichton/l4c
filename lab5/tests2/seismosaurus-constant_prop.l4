@@ -1,0 +1,31 @@
+//test return 777
+
+int getNum() {
+	return 12345;
+}
+
+int hazArg(int a) {
+	return a;
+}
+
+int main() {
+	int a = getNum();
+	int b = a + 3;
+	int c;
+	
+	// Basic CSE;
+	c = a + 3;
+
+	// In Arg List
+	hazArg(a+3);
+
+	//In if
+	// Also Dead Code...
+	if (a+3 != b) {
+		return 12;
+	}
+
+	// Conditional
+	return (a+3 == b ? 777 : 321);
+}
+

@@ -1,0 +1,17 @@
+//test error
+// make sure we can't redefine a function from the header file
+
+bool inttobool(int x);
+
+int main()
+{
+    return booltoint (inttobool (5));
+}
+
+bool inttobool(int x)
+{
+    if (x == 0)
+        return false;
+    else
+        return true;
+}

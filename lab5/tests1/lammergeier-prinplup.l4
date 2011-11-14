@@ -1,0 +1,16 @@
+//test return 12345
+//was that /really/ necessary?
+
+int main() {
+    int arg = 1736573;
+    int blarg = 25839273;
+    int frotz = 2192234;
+    for (int i = 0; i < 80000000; i++) {
+        arg *= blarg;
+        blarg /= frotz;
+        frotz += i;
+        if (frotz == 10000000)
+            break;
+    }
+    return 12345;
+}

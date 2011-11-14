@@ -1,0 +1,26 @@
+//test exception 11
+
+struct foo
+{
+    int n;
+    bool[] b_array;
+    bool b;
+};
+
+int main () {
+    int i = 0;
+    struct foo* s;
+
+    s = alloc(struct foo);
+    s->n = 3;
+    s->b = false;
+    s->b_array = alloc_array(bool, 32);
+
+    while(i <= 32)
+    {
+        s->b_array[i] = (i % 2 == 0 ? true : false);
+        i--;
+    }
+
+    return 0;
+}

@@ -1,0 +1,20 @@
+//test return 7
+// This can be done with three registers, but they have to be eax, esi, and
+// ecx.
+// The stuff at the end can be optimized a fair bit, too.
+
+int shiftVal(int x) {
+  return x << 4;
+}
+
+int main() {
+  int x = 7;
+  int y = 8;
+  int z = shiftVal(x);
+
+  x = z >> 10;
+  y = z >> 1;
+  z = y >> 1;
+  y = z >> 2;
+  return y >> x;
+}

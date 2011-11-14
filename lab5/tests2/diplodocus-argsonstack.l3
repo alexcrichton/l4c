@@ -1,0 +1,18 @@
+//test return 10
+//tests stack arguments and typedefs
+typedef bool booool;
+typedef int innnt;
+
+int bigargs (innnt a, bool b, int c, booool d, int e, bool f, int g, int h, 
+int i, int j, int k, booool l, int m, innnt n, int o, innnt p)
+{
+if(b && d && f && l)
+return a+c+e+g+h+i+j+k+m+p;
+else
+return -1;
+}
+
+int main()
+{
+return bigargs(1,true,1,true,1,true,1,1,1,1,1,true,1,9999,-914,1);
+}

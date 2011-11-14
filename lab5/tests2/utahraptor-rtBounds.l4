@@ -1,0 +1,7 @@
+//test return 0
+//Array size not known at compile time, does not fail
+int main()
+{
+	int[] x = alloc_array(int, booltoint(true));
+	return x[0];
+}

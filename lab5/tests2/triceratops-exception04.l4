@@ -1,0 +1,24 @@
+//test exception 11
+
+int function(int[] A, int n) {
+    if (n == 0) {
+        return 0;
+    }
+    A = alloc_array(int, 10);
+    function(A, n - 1);
+    return 0;
+}
+
+int main () {
+  int[] A;
+  int i;
+  A = alloc_array(int, 10);
+  for (i = 0; i < 10; i++) {
+    A[i] = i;
+  }
+  function(A, 1000);
+  for (i = 0; i < 10; i++) {
+    A[1 + i] = 0;
+  }
+  return 0;
+}

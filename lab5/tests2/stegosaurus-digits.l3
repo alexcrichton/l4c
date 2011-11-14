@@ -1,0 +1,17 @@
+//test return 55000000
+
+/* Calculates a not-particularly-interesting number */
+
+int f(int x) {
+	if (x == 0) return 0;
+	return (x%10) + f(x/10);
+}
+
+int main() {
+	int n;
+	int s = 0;
+	for (n = 0; n < 2000000; n++) {
+		s += f(n);
+	}
+	return s;
+}

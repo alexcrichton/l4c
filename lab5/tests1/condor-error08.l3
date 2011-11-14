@@ -1,0 +1,9 @@
+//test error
+
+int badtype(int i, int i){
+    return i;
+}
+
+int main(){
+    return 10;
+}

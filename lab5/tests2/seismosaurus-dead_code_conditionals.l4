@@ -1,0 +1,12 @@
+//test return 40
+/* We should be smart about dead code when it comes to ?: and other conditionals*/
+
+int main(){
+	/* this should just become eax <- 40, return */
+	int i = 42;
+	if(i > 0){
+		return (false ? -40 : 40);
+	}else{
+		return 1000;
+	}
+}

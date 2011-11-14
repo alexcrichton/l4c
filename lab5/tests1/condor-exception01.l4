@@ -1,0 +1,12 @@
+//test exception 11
+
+/* the first safe memory test */
+
+struct tommy {
+       int x;
+};
+
+int main () {
+    struct tommy * tommy = NULL;
+    return tommy->x;
+}

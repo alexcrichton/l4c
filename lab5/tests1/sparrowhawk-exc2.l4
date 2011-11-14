@@ -1,0 +1,20 @@
+//test exception 11
+
+struct node{
+	int val;
+	struct node * next;
+};
+
+int main(){
+	struct node *ptr = alloc(struct node);
+	ptr->next = alloc(struct node);
+	ptr->next->val = -1;
+	ptr->next->next = alloc(struct node);
+	ptr->next->next->val = 0;
+	ptr->next->next->next = NULL;
+	struct node * temp = ptr;
+	while(temp!=NULL){
+	 temp = temp->next;
+	}
+	return temp->val;
+}

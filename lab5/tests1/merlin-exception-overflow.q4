@@ -1,0 +1,10 @@
+//test exception 11
+int main()
+{
+  int[] a = alloc_array(int,1);
+  int x = 1;
+  x <<= 31;
+  if(x < 0)
+    a[x] = 0;
+  return 0;
+}

@@ -1,0 +1,10 @@
+//test error
+// tests parameters with the same name
+
+int min(int x, int x) {
+  return x < x ? x : x;
+}
+
+int main() {
+  return min(3,4);
+}

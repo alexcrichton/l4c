@@ -1,0 +1,23 @@
+//test exception
+// if TCO is implemented, this should timeout, otherwise it should stack overflow
+
+int f1();
+int f2();
+int f3();
+
+int f1() {
+    return f2();
+}
+
+int f2() {
+    return f3();
+}
+
+int f3() {
+    return f1();
+}
+
+int main() {
+    f1();
+    return 0;
+}

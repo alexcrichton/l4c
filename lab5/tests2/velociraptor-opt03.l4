@@ -1,0 +1,15 @@
+//test return 3933
+// I really like evaluating 3x + 2y apparently.  (CSE test.)
+
+int main() {
+  int x = 3;
+  int y = 7;
+  int z = 3*x + 2*y;
+  int a = 8 + 3*x + 2*y;
+  int b = 5 + 3*x + 2*y;
+  int c = 4 * (3*x + 2*y);
+  int d = (3*x + 2*y)/5;
+  int e = 3*x + 2*y - 7;
+
+  return (a+b+c+d+e) * z;
+}

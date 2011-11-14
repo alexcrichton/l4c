@@ -1,0 +1,40 @@
+//test return 42
+//good test of constant folding + propagation
+
+int f()
+{
+  int x1 = 1;
+  int x2 = 2;
+  int x3 = 3;
+  int x4 = 4;
+  int x5 = 5;
+  int x6 = 6;
+  int x7 = 7;
+  int x8 = 8;
+  int x9 = 9;
+  int x10 = 10;
+  int x11 = x1+x10;
+  int x12 = x2+x3+x7;
+  int x13 = x4+x5+x1+x1+x1+x1;
+  int x25;
+  if (x8+x9+x10+x11+x12+x13 == x1+x2+x3+x4+x5+x6+x7+x8)
+  {
+    x25 = x6+x7;
+  }
+  else
+  {
+    x25 = x12+x13;
+  }
+  int x26 = x13 == x25 ? x9 : x13+x7+x5+x1;
+  return x26+x25+x11-x10-x5-x2-x3;
+}
+
+int main()
+{
+  int n = 0;
+  for(int i = 0; i < 9999999; i++)
+  {
+    n = f();
+  }
+  return n;
+}

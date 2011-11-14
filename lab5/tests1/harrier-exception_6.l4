@@ -1,0 +1,16 @@
+//test exception
+
+int *[] intptrs(int nptrs)
+{
+    int *[][] result = alloc_array(int *[], nptrs);
+    for (int i = 0; i < nptrs; i++)
+        result[i] = alloc_array(int *, nptrs);
+    return result[nptrs - 7];
+}
+
+int main()
+{
+    int *[] a = intptrs(25);
+    *(a[3]) = 5;
+    return *(a[2]);
+}

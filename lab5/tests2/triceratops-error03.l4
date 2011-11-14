@@ -1,0 +1,10 @@
+//test error
+
+int main () {
+  int[] A;
+  int i;
+  A = alloc_array(int, 10);
+  i = 0;
+  A[i++];
+  return 0;
+}

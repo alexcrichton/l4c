@@ -1,0 +1,9 @@
+//test exception 11
+
+int main()
+{
+    int *intptr = NULL;
+    *intptr;
+    return 0;
+}
+

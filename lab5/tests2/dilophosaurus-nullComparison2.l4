@@ -1,0 +1,20 @@
+//test return 43
+
+struct list{
+    int head;
+    struct list * tail;
+};
+
+typedef struct list list_t;
+typedef list_t * List;
+
+List newList(int value){
+    List l = alloc(list_t);
+    l->head = value;
+    return l;
+}
+
+int main () {
+  List l = newList(43);
+  return l->tail == NULL ? l->head : -1; // no access, we can compare it !
+}

@@ -1,0 +1,18 @@
+//test return 23
+
+int main() {
+    int *a = NULL;
+    int *b = NULL;
+    int *c = NULL;
+
+    a = alloc(int);
+    b = a;
+    *b = 5;
+    a = alloc(int);
+    c = a;
+    *c = 13;
+    a = alloc(int);
+    *a = 4;
+    a = b;
+    return *a + *b + *c;
+}

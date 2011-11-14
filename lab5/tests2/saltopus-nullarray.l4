@@ -1,0 +1,12 @@
+//test exception 11
+
+/* getting a NULL array pointer is remarkably involved... */
+/* Also, argh. By spec, this should fail with SIGSEGV but the ref compiler
+ * has it fail with SIGABRT. */
+
+int main()
+{
+	int [][]silly_array = alloc_array(int[], 10);
+	int []null_array = silly_array[0];
+	return null_array[0];
+}

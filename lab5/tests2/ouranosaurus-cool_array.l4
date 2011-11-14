@@ -1,0 +1,12 @@
+//test return 5050
+
+int main() {
+    int i;
+    int[]* cool = alloc(int[]);
+    (*cool) = alloc_array(int, 101);
+    (*cool)[0] = 0;
+    for (i = 1; i < 101; i++) {
+        (*cool)[i] = i + (*cool)[i-1];
+    }
+    return (*cool)[100];
+}

@@ -1,0 +1,14 @@
+//test exception 11
+
+typedef int int_t;
+
+int_t increase(int i){
+    return (100 * i + 42) << 12;
+}
+int main () {
+    int_t x = 42 * increase(0) + increase(1);
+    int[] s;
+    x = increase(x); // too much !
+    s = alloc_array (int_t, x); // x will be negative !
+    return s[0] + x;
+}

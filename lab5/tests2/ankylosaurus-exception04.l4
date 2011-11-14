@@ -1,0 +1,11 @@
+//test exception 11
+// Sanity check. Alloc array with negative n
+
+int main()
+{
+    int [] arr = alloc_array(int, -100);
+
+    arr[0] = 1;
+
+    return 0;
+}

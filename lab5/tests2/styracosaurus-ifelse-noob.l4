@@ -1,0 +1,22 @@
+//test return -889275714
+
+int main()
+{
+    bool herpderp;
+    int argblarg = 15411;
+    herpderp = true;
+
+    if (argblarg % 2 == 0)
+    {
+        argblarg = 666;
+        herpderp = false;
+    }
+    else if (argblarg % 2 == 1)
+    {
+        argblarg = 42;
+        herpderp = true;
+    }
+
+    argblarg = 0xDEADBEEF;
+    return 0xCAFEBABE;
+}

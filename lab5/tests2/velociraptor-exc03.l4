@@ -1,0 +1,11 @@
+//test exception 11
+// Originally 6
+// Array bounds error- you can't alloc negative sizes!
+
+int main() {
+	int n = -1;
+	int[] nums = alloc_array(int, n);
+	nums[0] = 3;
+	nums[0] = nums[0] + 1;
+	return nums[0];
+}

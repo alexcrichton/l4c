@@ -1,0 +1,9 @@
+//test exception 11
+//quite possibly exception 8 in unsafe mode.
+//but in safe mode, order of operations should cause 11 first.
+
+int main()
+{
+  bool[] beep = alloc_array(bool,10);
+  return beep[10] ? 10/0 : 1/0;
+}

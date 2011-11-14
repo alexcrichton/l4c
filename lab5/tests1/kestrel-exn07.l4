@@ -1,0 +1,12 @@
+//test exception 11
+
+int factorial(int n)
+{
+  return n == 0 ? 1 : n * factorial(n-1);
+}
+
+int main()
+{
+  int[] a = alloc_array(int, factorial(6));
+  return a[factorial(7)];
+}

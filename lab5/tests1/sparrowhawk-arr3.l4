@@ -1,0 +1,13 @@
+//test return 0
+
+int main(){
+	int [] arr = alloc_array(int, 10000000);
+	int [] arr2 = alloc_array(int, 10000000);
+	int i = 1;
+	arr[0] = 0;
+	for(i; i<10000000; i++){
+		arr2[i] = arr[i-1];
+		arr[i] = arr[i-1];
+	}
+	return arr[9999999];
+}

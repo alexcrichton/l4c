@@ -1,0 +1,20 @@
+//test exception 11
+//WHO FAILS FIRST
+
+struct s 
+{
+struct s* point;
+};
+typedef struct s st;
+
+int main()
+{
+st[] A = alloc_array(st,1);
+int i;
+
+A[0].point = NULL;
+A[0].point->point = A[1].point;
+
+return 0;
+
+}

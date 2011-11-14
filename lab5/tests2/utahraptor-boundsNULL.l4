@@ -1,0 +1,12 @@
+//test exception 11
+//Check that we trigger a bounds exception rather than a null pointer
+//exception for null arrays
+struct array
+{
+	int[] array;
+};
+int main()
+{
+	struct array* array = alloc(struct array);
+	return array->array[0];
+}

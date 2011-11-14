@@ -1,0 +1,14 @@
+//test error
+// Using an undeclared type
+
+typedef bool boolean;
+typedef int integer;
+
+int main()
+{
+    boolean a = true;
+    integer b = 1;
+    unknowntype c = 1;
+
+    return b;
+}

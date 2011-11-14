@@ -1,0 +1,13 @@
+//test return 15411
+// checks that you got the "critical split" right if you did SSA and copy propagation
+
+int main() {
+  int a = 100;
+  int b = 0;
+  for(int i = 0; i < 100; i++) {
+    b = a;
+    a--;
+  }
+  int ret = 15411 / b; // Div by 0 if you messed up... see the lecture slides
+  return ret;
+}

@@ -1,0 +1,22 @@
+//test return 12034337
+// Tests constant folding/propagation using the Karatsuba algorithm
+
+int main()
+{
+    int ans = 0;
+    for (int i = 0; i < 10000; i++) {
+        int a = 9001;
+        int b = 1337;
+
+        int ah = a / (10*10);
+        int al = a % (10*10);
+        int bh = b / (10*10);
+        int bl = b % (10*10);
+
+        int c2 = ah * bh;
+        int c0 = al * bl;
+        int c1 = (ah + al) * (bh + bl) - c2 - c0;
+        ans = c2 * (10*10*10*10) + c1 * (10*10) + c0;
+    }
+    return ans;
+}

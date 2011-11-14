@@ -1,0 +1,8 @@
+//test return 0
+//Handing null pointers around is OK
+int main()
+{
+	int* foo = NULL;
+	int* bar = foo;
+	return 0;
+}

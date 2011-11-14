@@ -1,0 +1,25 @@
+//test return 75
+
+int main()
+{
+    int a;
+    int b;
+    int c;
+    int d;
+
+    a = 9;
+    b = 22;
+
+    c = a;
+    d = b;
+    c = d;
+    d = c;
+    c = d;
+    d = c;
+    c = d;
+
+    a = a;
+    b = b;
+
+    return a + b + c + d;
+}

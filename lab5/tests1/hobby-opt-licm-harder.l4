@@ -1,0 +1,24 @@
+//test return 5
+
+int foo() {
+    return 1 + 2 + 3 + 4 + 5;
+}
+
+bool roulette(int *i) {
+    *i = *i - 1;
+    return true;
+}
+
+int main() {
+    int inv1 = 5 + 3;
+    int inv2 = foo();
+    int *p = alloc(int);
+    *p = 2;
+    int counter = 5;
+    while (roulette(p)) {
+        counter = inv1 + inv2;
+        break;
+    }
+
+    return 5 / *p;
+}

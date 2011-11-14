@@ -1,0 +1,8 @@
+//test return 0
+
+int main()
+{
+    int []arr = alloc_array(int,1);
+    return arr[arr[arr[arr[arr[arr[0]]]]]];
+}
+

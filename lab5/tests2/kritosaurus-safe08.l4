@@ -1,0 +1,46 @@
+//test exception 11
+
+struct big1 {
+    int x1;
+};
+
+struct big2 {
+    struct big1 x1;
+    struct big1 x2;
+};
+
+struct big4 {
+    struct big2 x1;
+    struct big2 x2;
+};
+
+struct big8 {
+    struct big4 x1;
+    struct big4 x2;
+};
+
+struct big16 {
+    struct big8 x1;
+    struct big8 x2;
+};
+
+struct big32 {
+    struct big16 x1;
+    struct big16 x2;
+};
+
+struct big64 {
+    struct big32 x1;
+    struct big32 x2;
+};
+
+int main()
+{
+    struct big64 *s = alloc(struct big64);
+    struct big64 *t = NULL;
+
+    t = s;
+    s = NULL;
+
+    return t->x1.x1.x1.x1.x1.x1.x1 + s->x2.x2.x2.x2.x2.x2.x1;
+}

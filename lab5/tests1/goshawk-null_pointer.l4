@@ -1,0 +1,13 @@
+//test exception 11
+
+int main()
+{
+    int all = readint();
+    int *p;
+    if (all != 0)
+        p = alloc(int);
+    else
+        p = NULL;
+
+    return *p;
+}

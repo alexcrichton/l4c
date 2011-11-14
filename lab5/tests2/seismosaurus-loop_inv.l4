@@ -1,0 +1,17 @@
+//test return 32
+
+int main() {
+	int imconstant = 8;
+	int a = 0;
+	int i;
+
+	for (i = 0; i < 1000; i++) {
+		// loop_inv - hoist out. If you're really good then you can
+		// kill the dead loop.
+		a = imconstant * 4;
+	}
+
+	return a;
+
+}
+

@@ -1,0 +1,13 @@
+//test return 11
+
+int main()
+{
+    int pi = 22 / 7; // eh, close enough
+    int ang1;
+    int ang2;
+
+    ang1 = pi * 3 / 4 + 2 * pi;
+    ang2 = pi ^ pi - pi;
+
+    return ang1 + ang2;
+}

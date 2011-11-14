@@ -1,0 +1,13 @@
+//test exception 11
+// Sanity check for array out of bounds access
+
+int main()
+{
+    int [] arr = alloc_array(int, 100);
+    int i;
+
+    for(i = 0; i < 101; i++)
+        arr[i] = i;
+
+    return arr[0];
+}

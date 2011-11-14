@@ -1,0 +1,678 @@
+//test return 4637
+/*========================================
+ *    sl.c:
+ *	Copyright 1993,1998 Toyoda Masashi 
+ *		(toyoda@is.titech.ac.jp)
+ *	Last Modified: 2010/10/27
+ *========================================
+ */
+/* sl version 5.1A : add colours                                             */
+/*                                              by Ben Blum       2010/10/27 */
+/* sl version 5.0A : ported to L5 for 15-411 F10 (D51 only)                  */
+/*                                              by Ben Blum       2010/10/27 */
+/* sl version 3.03 : add usleep(20000)                                       */
+/*                                              by Toyoda Masashi 1998/ 7/22 */
+/* sl version 3.02 : D51 flies! Change options.                              */
+/*                                              by Toyoda Masashi 1993/ 1/19 */
+/* sl version 3.01 : Wheel turns smoother                                    */
+/*                                              by Toyoda Masashi 1992/12/25 */
+/* sl version 3.00 : Add d(D51) option                                       */
+/*                                              by Toyoda Masashi 1992/12/24 */
+/* sl version 2.02 : Bug fixed.(dust remains in screen)                      */
+/*                                              by Toyoda Masashi 1992/12/17 */
+/* sl version 2.01 : Smoke run and disappear.                                */
+/*                   Change '-a' to accident option.			     */
+/*                                              by Toyoda Masashi 1992/12/16 */
+/* sl version 2.00 : Add a(all),l(long),F(Fly!) options.                     */
+/* 						by Toyoda Masashi 1992/12/15 */
+/* sl version 1.02 : Add turning wheel.                                      */
+/*					        by Toyoda Masashi 1992/12/14 */
+/* sl version 1.01 : Add more complex smoke.                                 */
+/*                                              by Toyoda Masashi 1992/12/14 */
+/* sl version 1.00 : SL runs vomitting out smoke.                            */
+/*						by Toyoda Masashi 1992/12/11 */
+
+/* An old favourite. The included console library, while rather brittle, should
+ * be portable enough to use in other programs. You will note that both versions
+ * of this - sl-d51.l5 and sl-logo.l5 - don't have support for the other file's
+ * train type. Turns out having the hardcoded strings for both trains would push
+ * compilers over the time limit. (P.S.: you can toggle the ACCIDENT/FLY options
+ * in init_state_constance().) */
+
+typedef int [] intarray;
+typedef int [][] intarrayarray;
+typedef int [][][] intarrayarrayarray;
+
+struct smokes { int y; int x; int ptrn; int kind; };
+
+typedef struct smokes [] smokesarray;
+
+struct console_state { int COLS; int LINES; int col; int line; };
+
+
+/******************************************************************************
+ * console library
+ ******************************************************************************/
+
+int console_init(struct console_state *con)
+{
+	int i;
+
+	con->COLS = 80;
+	con->LINES = 22;
+	/* "clear the screen" */
+	for (i = 0; i < con->LINES; i++) printchar(10);
+	for (i = 0; i < con->COLS; i++) printchar(32);
+	/* initial position */
+	con->col = con->COLS;
+	con->line = con->LINES;
+	return 0;
+}
+
+int set_colour(int fg)
+{
+	printchar(27); /* ESC */
+	printchar(91); /* [ */
+	/* printint(bg); */
+	/* printchar(59); */ /* ; */
+	printint(fg);
+	printchar(109); /* m */
+	return 0;
+}
+
+int hide_cursor()
+{
+	printchar(27); /* ESC */
+	printchar(91); /* [ */
+	printchar(63); /* ? */
+	printchar(50); /* 2 */
+	printchar(53); /* 5 */
+	printchar(108); /* l */
+	return 0;
+}
+
+int show_cursor()
+{
+	printchar(27); /* ESC */
+	printchar(91); /* [ */
+	printchar(63); /* ? */
+	printchar(50); /* 2 */
+	printchar(53); /* 5 */
+	printchar(104); /* h */
+	return 0;
+}
+
+int left(int a)
+{
+	printchar(27); /* ESC */
+	printchar(91); /* [ */
+	printint(a);
+	printchar(68); /* D */
+	return 0;
+}
+
+int up(int a)
+{
+	printchar(27); /* ESC */
+	printchar(91); /* [ */
+	printint(a);
+	printchar(65); /* A */
+	return 0;
+}
+
+int down(int a)
+{
+	printchar(27); /* ESC */
+	printchar(91); /* [ */
+	printint(a);
+	printchar(66); /* B */
+	return 0;
+}
+
+int right(int a)
+{
+	printchar(27); /* ESC */
+	printchar(91); /* [ */
+	printint(a);
+	printchar(67); /* C */
+	return 0;
+}
+
+/* line, col ordering corresponds with curses's mvaddch */
+int set_cursor_pos(struct console_state *con, int line, int col)
+{
+	if (col < 0 || col >= con->COLS ||
+	    line < 0 || line >= con->LINES) 1/0;
+	if (con->col < 0 || con->col > con->COLS ||
+	    con->line < 0 || con->line > con->LINES) 1/0;
+
+	if (col > con->col) {
+		right(col - con->col);
+	} else if (col < con->col) {
+		left(con->col - col);
+	}
+
+	if (line > con->line) {
+		down(line - con->line);
+	} else if (line < con->line) {
+		up(con->line - line);
+	}
+
+	con->col = col;
+	con->line = line;
+	return 0;
+}
+
+int console_printchar(struct console_state *con, int c)
+{
+	printchar(c);
+	con->col++;
+	return 0;
+}
+
+int l5_usleep(int usecs)
+{
+	int i;
+	for (i = 0; i < 192 * usecs; i++);
+	return 0;
+}
+
+/******************************************************************************
+ * sl state
+ ******************************************************************************/
+
+struct state {
+	/* Global flags */
+	int ACCIDENT; int LOGO; int FLY;
+	/* Constance */
+	int D51HIGHT; int D51FUNNEL; int D51LENGTH; int D51PATTERNS;
+	int LOGOLENGTH;
+	/* Terminal values */
+	struct console_state *con;
+	int lines_printed;
+	/* For add_D51() */
+	intarrayarrayarray d51;
+	intarrayarray d51lens;
+	intarrayarray d51coal;
+	intarray d51coallens;
+	/* For add_man() */
+	intarrayarrayarray mans;
+	intarrayarray manslens;
+	/* For add_smoke() */
+	smokesarray S;
+	int sum;
+	intarrayarrayarray Smoke;
+	intarrayarray Smokelens;
+	intarrayarray Eraser;
+	intarray Eraserlens;
+	intarray dy;
+	intarray dx;
+	/* Strings from the header file */
+	intarray arr_COAL01;
+	intarray arr_COAL02;
+	intarray arr_COAL03;
+	intarray arr_COAL04;
+	intarray arr_COAL05;
+	intarray arr_COAL06;
+	intarray arr_COAL07;
+	intarray arr_COAL08;
+	intarray arr_COAL09;
+	intarray arr_COAL10;
+	intarray arr_COALDEL;
+	intarray arr_D51DEL;
+	intarray arr_D51STR1;
+	intarray arr_D51STR2;
+	intarray arr_D51STR3;
+	intarray arr_D51STR4;
+	intarray arr_D51STR5;
+	intarray arr_D51STR6;
+	intarray arr_D51STR7;
+	intarray arr_D51WHL11;
+	intarray arr_D51WHL12;
+	intarray arr_D51WHL13;
+	intarray arr_D51WHL21;
+	intarray arr_D51WHL22;
+	intarray arr_D51WHL23;
+	intarray arr_D51WHL31;
+	intarray arr_D51WHL32;
+	intarray arr_D51WHL33;
+	intarray arr_D51WHL41;
+	intarray arr_D51WHL42;
+	intarray arr_D51WHL43;
+	intarray arr_D51WHL51;
+	intarray arr_D51WHL52;
+	intarray arr_D51WHL53;
+	intarray arr_D51WHL61;
+	intarray arr_D51WHL62;
+	intarray arr_D51WHL63;
+	int arr_COAL01_len;
+	int arr_COAL02_len;
+	int arr_COAL03_len;
+	int arr_COAL04_len;
+	int arr_COAL05_len;
+	int arr_COAL06_len;
+	int arr_COAL07_len;
+	int arr_COAL08_len;
+	int arr_COAL09_len;
+	int arr_COAL10_len;
+	int arr_COALDEL_len;
+	int arr_D51DEL_len;
+	int arr_D51STR1_len;
+	int arr_D51STR2_len;
+	int arr_D51STR3_len;
+	int arr_D51STR4_len;
+	int arr_D51STR5_len;
+	int arr_D51STR6_len;
+	int arr_D51STR7_len;
+	int arr_D51WHL11_len;
+	int arr_D51WHL12_len;
+	int arr_D51WHL13_len;
+	int arr_D51WHL21_len;
+	int arr_D51WHL22_len;
+	int arr_D51WHL23_len;
+	int arr_D51WHL31_len;
+	int arr_D51WHL32_len;
+	int arr_D51WHL33_len;
+	int arr_D51WHL41_len;
+	int arr_D51WHL42_len;
+	int arr_D51WHL43_len;
+	int arr_D51WHL51_len;
+	int arr_D51WHL52_len;
+	int arr_D51WHL53_len;
+	int arr_D51WHL61_len;
+	int arr_D51WHL62_len;
+	int arr_D51WHL63_len;
+};
+
+/* must be called before init_state_strings */
+int init_state_constance(struct state *state)
+{
+	state->D51HIGHT = 10;
+	state->D51FUNNEL = 7;
+	state->D51LENGTH = 83;
+	state->D51PATTERNS = 6;
+	state->LOGOLENGTH = 84;
+	return 0;
+}
+
+/* here be code generated by the joint efforts of sed, bash, cpp, and printf */
+int init_state_strings(struct state *state)
+{
+	state->arr_COAL01 = alloc_array(int, 30); state->arr_COAL01_len = 30;
+	state->arr_COAL02 = alloc_array(int, 30); state->arr_COAL02_len = 30;
+	state->arr_COAL03 = alloc_array(int, 30); state->arr_COAL03_len = 30;
+	state->arr_COAL03[4] = 95; state->arr_COAL03[5] = 95; state->arr_COAL03[6] = 95; state->arr_COAL03[7] = 95; state->arr_COAL03[8] = 95; state->arr_COAL03[9] = 95; state->arr_COAL03[10] = 95; state->arr_COAL03[11] = 95; state->arr_COAL03[12] = 95; state->arr_COAL03[13] = 95; state->arr_COAL03[14] = 95; state->arr_COAL03[15] = 95; state->arr_COAL03[16] = 95; state->arr_COAL03[17] = 95; state->arr_COAL03[18] = 95; state->arr_COAL03[19] = 95; state->arr_COAL03[20] = 95; state->arr_COAL04 = alloc_array(int, 30); state->arr_COAL04_len = 30;
+	state->arr_COAL04[3] = 95; state->arr_COAL04[4] = 124; state->arr_COAL04[21] = 92; state->arr_COAL04[22] = 95; state->arr_COAL04[23] = 95; state->arr_COAL04[24] = 95; state->arr_COAL04[25] = 95; state->arr_COAL04[26] = 95; state->arr_COAL04[27] = 65; state->arr_COAL05 = alloc_array(int, 30); state->arr_COAL05_len = 30;
+	state->arr_COAL05[1] = 61; state->arr_COAL05[2] = 124; state->arr_COAL05[27] = 124; state->arr_COAL06 = alloc_array(int, 30); state->arr_COAL06_len = 30;
+	state->arr_COAL06[1] = 45; state->arr_COAL06[2] = 124; state->arr_COAL06[27] = 124; state->arr_COAL07 = alloc_array(int, 30); state->arr_COAL07_len = 30;
+	state->arr_COAL07[0] = 95; state->arr_COAL07[1] = 95; state->arr_COAL07[2] = 124; state->arr_COAL07[3] = 95; state->arr_COAL07[4] = 95; state->arr_COAL07[5] = 95; state->arr_COAL07[6] = 95; state->arr_COAL07[7] = 95; state->arr_COAL07[8] = 95; state->arr_COAL07[9] = 95; state->arr_COAL07[10] = 95; state->arr_COAL07[11] = 95; state->arr_COAL07[12] = 95; state->arr_COAL07[13] = 95; state->arr_COAL07[14] = 95; state->arr_COAL07[15] = 95; state->arr_COAL07[16] = 95; state->arr_COAL07[17] = 95; state->arr_COAL07[18] = 95; state->arr_COAL07[19] = 95; state->arr_COAL07[20] = 95; state->arr_COAL07[21] = 95; state->arr_COAL07[22] = 95; state->arr_COAL07[23] = 95; state->arr_COAL07[24] = 95; state->arr_COAL07[25] = 95; state->arr_COAL07[26] = 95; state->arr_COAL07[27] = 124; state->arr_COAL07[28] = 95; state->arr_COAL08 = alloc_array(int, 30); state->arr_COAL08_len = 30;
+	state->arr_COAL08[0] = 124; state->arr_COAL08[1] = 95; state->arr_COAL08[2] = 95; state->arr_COAL08[3] = 95; state->arr_COAL08[4] = 95; state->arr_COAL08[5] = 95; state->arr_COAL08[6] = 95; state->arr_COAL08[7] = 95; state->arr_COAL08[8] = 95; state->arr_COAL08[9] = 95; state->arr_COAL08[10] = 95; state->arr_COAL08[11] = 95; state->arr_COAL08[12] = 95; state->arr_COAL08[13] = 95; state->arr_COAL08[14] = 95; state->arr_COAL08[15] = 95; state->arr_COAL08[16] = 95; state->arr_COAL08[17] = 95; state->arr_COAL08[18] = 95; state->arr_COAL08[19] = 95; state->arr_COAL08[20] = 95; state->arr_COAL08[21] = 95; state->arr_COAL08[22] = 95; state->arr_COAL08[23] = 95; state->arr_COAL08[24] = 95; state->arr_COAL08[25] = 95; state->arr_COAL08[26] = 95; state->arr_COAL08[27] = 124; state->arr_COAL08[28] = 95; state->arr_COAL09 = alloc_array(int, 30); state->arr_COAL09_len = 30;
+	state->arr_COAL09[3] = 124; state->arr_COAL09[4] = 95; state->arr_COAL09[5] = 68; state->arr_COAL09[6] = 95; state->arr_COAL09[7] = 95; state->arr_COAL09[8] = 68; state->arr_COAL09[9] = 95; state->arr_COAL09[10] = 95; state->arr_COAL09[11] = 68; state->arr_COAL09[12] = 95; state->arr_COAL09[13] = 124; state->arr_COAL09[16] = 124; state->arr_COAL09[17] = 95; state->arr_COAL09[18] = 68; state->arr_COAL09[19] = 95; state->arr_COAL09[20] = 95; state->arr_COAL09[21] = 68; state->arr_COAL09[22] = 95; state->arr_COAL09[23] = 95; state->arr_COAL09[24] = 68; state->arr_COAL09[25] = 95; state->arr_COAL09[26] = 124; state->arr_COAL10 = alloc_array(int, 30); state->arr_COAL10_len = 30;
+	state->arr_COAL10[4] = 92; state->arr_COAL10[5] = 95; state->arr_COAL10[6] = 47; state->arr_COAL10[10] = 92; state->arr_COAL10[11] = 95; state->arr_COAL10[12] = 47; state->arr_COAL10[17] = 92; state->arr_COAL10[18] = 95; state->arr_COAL10[19] = 47; state->arr_COAL10[23] = 92; state->arr_COAL10[24] = 95; state->arr_COAL10[25] = 47; state->arr_COALDEL = alloc_array(int, 30); state->arr_COALDEL_len = 30;
+	state->arr_D51DEL = alloc_array(int, 54); state->arr_D51DEL_len = 54;
+	state->arr_D51STR1 = alloc_array(int, 54); state->arr_D51STR1_len = 54;
+	state->arr_D51STR1[6] = 61; state->arr_D51STR1[7] = 61; state->arr_D51STR1[8] = 61; state->arr_D51STR1[9] = 61; state->arr_D51STR1[18] = 95; state->arr_D51STR1[19] = 95; state->arr_D51STR1[20] = 95; state->arr_D51STR1[21] = 95; state->arr_D51STR1[22] = 95; state->arr_D51STR1[23] = 95; state->arr_D51STR1[24] = 95; state->arr_D51STR1[25] = 95; state->arr_D51STR1[42] = 95; state->arr_D51STR1[43] = 95; state->arr_D51STR1[44] = 95; state->arr_D51STR1[45] = 95; state->arr_D51STR1[46] = 95; state->arr_D51STR1[47] = 95; state->arr_D51STR1[48] = 95; state->arr_D51STR1[49] = 95; state->arr_D51STR1[50] = 95; state->arr_D51STR1[51] = 95; state->arr_D51STR1[52] = 95; state->arr_D51STR2 = alloc_array(int, 54); state->arr_D51STR2_len = 54;
+	state->arr_D51STR2[2] = 95; state->arr_D51STR2[3] = 68; state->arr_D51STR2[5] = 95; state->arr_D51STR2[6] = 124; state->arr_D51STR2[9] = 124; state->arr_D51STR2[10] = 95; state->arr_D51STR2[11] = 95; state->arr_D51STR2[12] = 95; state->arr_D51STR2[13] = 95; state->arr_D51STR2[14] = 95; state->arr_D51STR2[15] = 95; state->arr_D51STR2[16] = 95; state->arr_D51STR2[17] = 47; state->arr_D51STR2[26] = 92; state->arr_D51STR2[27] = 95; state->arr_D51STR2[28] = 95; state->arr_D51STR2[29] = 73; state->arr_D51STR2[30] = 95; state->arr_D51STR2[31] = 73; state->arr_D51STR2[32] = 95; state->arr_D51STR2[33] = 95; state->arr_D51STR2[34] = 95; state->arr_D51STR2[35] = 95; state->arr_D51STR2[36] = 95; state->arr_D51STR2[37] = 61; state->arr_D51STR2[38] = 61; state->arr_D51STR2[39] = 61; state->arr_D51STR2[40] = 95; state->arr_D51STR2[41] = 95; state->arr_D51STR2[42] = 124; state->arr_D51STR2[43] = 95; state->arr_D51STR2[44] = 95; state->arr_D51STR2[45] = 95; state->arr_D51STR2[46] = 95; state->arr_D51STR2[47] = 95; state->arr_D51STR2[48] = 95; state->arr_D51STR2[49] = 95; state->arr_D51STR2[50] = 95; state->arr_D51STR2[51] = 95; state->arr_D51STR2[52] = 124; state->arr_D51STR3 = alloc_array(int, 54); state->arr_D51STR3_len = 54;
+	state->arr_D51STR3[3] = 124; state->arr_D51STR3[4] = 40; state->arr_D51STR3[5] = 95; state->arr_D51STR3[6] = 41; state->arr_D51STR3[7] = 45; state->arr_D51STR3[8] = 45; state->arr_D51STR3[9] = 45; state->arr_D51STR3[12] = 124; state->arr_D51STR3[16] = 72; state->arr_D51STR3[17] = 92; state->arr_D51STR3[18] = 95; state->arr_D51STR3[19] = 95; state->arr_D51STR3[20] = 95; state->arr_D51STR3[21] = 95; state->arr_D51STR3[22] = 95; state->arr_D51STR3[23] = 95; state->arr_D51STR3[24] = 95; state->arr_D51STR3[25] = 95; state->arr_D51STR3[26] = 47; state->arr_D51STR3[28] = 124; state->arr_D51STR3[32] = 124; state->arr_D51STR3[41] = 61; state->arr_D51STR3[42] = 124; state->arr_D51STR3[43] = 95; state->arr_D51STR3[44] = 95; state->arr_D51STR3[45] = 95; state->arr_D51STR3[47] = 95; state->arr_D51STR3[48] = 95; state->arr_D51STR3[49] = 95; state->arr_D51STR3[50] = 124; state->arr_D51STR4 = alloc_array(int, 54); state->arr_D51STR4_len = 54;
+	state->arr_D51STR4[3] = 47; state->arr_D51STR4[9] = 124; state->arr_D51STR4[12] = 124; state->arr_D51STR4[16] = 72; state->arr_D51STR4[19] = 124; state->arr_D51STR4[22] = 124; state->arr_D51STR4[28] = 124; state->arr_D51STR4[32] = 124; state->arr_D51STR4[42] = 124; state->arr_D51STR4[43] = 124; state->arr_D51STR4[44] = 95; state->arr_D51STR4[45] = 124; state->arr_D51STR4[47] = 124; state->arr_D51STR4[48] = 95; state->arr_D51STR4[49] = 124; state->arr_D51STR4[50] = 124; state->arr_D51STR5 = alloc_array(int, 54); state->arr_D51STR5_len = 54;
+	state->arr_D51STR5[2] = 124; state->arr_D51STR5[9] = 124; state->arr_D51STR5[12] = 124; state->arr_D51STR5[16] = 72; state->arr_D51STR5[19] = 124; state->arr_D51STR5[20] = 95; state->arr_D51STR5[21] = 95; state->arr_D51STR5[22] = 45; state->arr_D51STR5[23] = 45; state->arr_D51STR5[24] = 45; state->arr_D51STR5[25] = 45; state->arr_D51STR5[26] = 45; state->arr_D51STR5[27] = 45; state->arr_D51STR5[28] = 45; state->arr_D51STR5[29] = 45; state->arr_D51STR5[30] = 45; state->arr_D51STR5[31] = 45; state->arr_D51STR5[32] = 45; state->arr_D51STR5[33] = 45; state->arr_D51STR5[34] = 45; state->arr_D51STR5[35] = 45; state->arr_D51STR5[36] = 45; state->arr_D51STR5[37] = 45; state->arr_D51STR5[38] = 45; state->arr_D51STR5[39] = 45; state->arr_D51STR5[40] = 45; state->arr_D51STR5[41] = 45; state->arr_D51STR5[42] = 124; state->arr_D51STR5[44] = 91; state->arr_D51STR5[45] = 95; state->arr_D51STR5[46] = 95; state->arr_D51STR5[47] = 95; state->arr_D51STR5[48] = 93; state->arr_D51STR5[50] = 124; state->arr_D51STR6 = alloc_array(int, 54); state->arr_D51STR6_len = 54;
+	state->arr_D51STR6[2] = 124; state->arr_D51STR6[4] = 95; state->arr_D51STR6[5] = 95; state->arr_D51STR6[6] = 95; state->arr_D51STR6[7] = 95; state->arr_D51STR6[8] = 95; state->arr_D51STR6[9] = 95; state->arr_D51STR6[10] = 95; state->arr_D51STR6[11] = 95; state->arr_D51STR6[12] = 124; state->arr_D51STR6[13] = 95; state->arr_D51STR6[14] = 95; state->arr_D51STR6[15] = 95; state->arr_D51STR6[16] = 72; state->arr_D51STR6[17] = 95; state->arr_D51STR6[18] = 95; state->arr_D51STR6[19] = 47; state->arr_D51STR6[20] = 95; state->arr_D51STR6[21] = 95; state->arr_D51STR6[22] = 124; state->arr_D51STR6[23] = 95; state->arr_D51STR6[24] = 95; state->arr_D51STR6[25] = 95; state->arr_D51STR6[26] = 95; state->arr_D51STR6[27] = 95; state->arr_D51STR6[28] = 47; state->arr_D51STR6[29] = 91; state->arr_D51STR6[30] = 93; state->arr_D51STR6[31] = 91; state->arr_D51STR6[32] = 93; state->arr_D51STR6[33] = 126; state->arr_D51STR6[34] = 92; state->arr_D51STR6[35] = 95; state->arr_D51STR6[36] = 95; state->arr_D51STR6[37] = 95; state->arr_D51STR6[38] = 95; state->arr_D51STR6[39] = 95; state->arr_D51STR6[40] = 95; state->arr_D51STR6[41] = 95; state->arr_D51STR6[42] = 124; state->arr_D51STR6[50] = 124; state->arr_D51STR7 = alloc_array(int, 54); state->arr_D51STR7_len = 54;
+	state->arr_D51STR7[2] = 124; state->arr_D51STR7[3] = 47; state->arr_D51STR7[5] = 124; state->arr_D51STR7[9] = 124; state->arr_D51STR7[10] = 45; state->arr_D51STR7[11] = 45; state->arr_D51STR7[12] = 45; state->arr_D51STR7[13] = 45; state->arr_D51STR7[14] = 45; state->arr_D51STR7[15] = 45; state->arr_D51STR7[16] = 45; state->arr_D51STR7[17] = 45; state->arr_D51STR7[18] = 45; state->arr_D51STR7[19] = 45; state->arr_D51STR7[20] = 45; state->arr_D51STR7[21] = 73; state->arr_D51STR7[22] = 95; state->arr_D51STR7[23] = 95; state->arr_D51STR7[24] = 95; state->arr_D51STR7[25] = 95; state->arr_D51STR7[26] = 95; state->arr_D51STR7[27] = 73; state->arr_D51STR7[29] = 91; state->arr_D51STR7[30] = 93; state->arr_D51STR7[31] = 91; state->arr_D51STR7[32] = 93; state->arr_D51STR7[34] = 91; state->arr_D51STR7[35] = 93; state->arr_D51STR7[38] = 68; state->arr_D51STR7[42] = 124; state->arr_D51STR7[43] = 61; state->arr_D51STR7[44] = 61; state->arr_D51STR7[45] = 61; state->arr_D51STR7[46] = 61; state->arr_D51STR7[47] = 61; state->arr_D51STR7[48] = 61; state->arr_D51STR7[49] = 61; state->arr_D51STR7[50] = 124; state->arr_D51STR7[51] = 95; state->arr_D51STR7[52] = 95; state->arr_D51WHL11 = alloc_array(int, 54); state->arr_D51WHL11_len = 54;
+	state->arr_D51WHL11[0] = 95; state->arr_D51WHL11[1] = 95; state->arr_D51WHL11[2] = 47; state->arr_D51WHL11[4] = 61; state->arr_D51WHL11[5] = 124; state->arr_D51WHL11[7] = 111; state->arr_D51WHL11[9] = 124; state->arr_D51WHL11[10] = 61; state->arr_D51WHL11[11] = 45; state->arr_D51WHL11[12] = 126; state->arr_D51WHL11[13] = 126; state->arr_D51WHL11[14] = 92; state->arr_D51WHL11[17] = 47; state->arr_D51WHL11[18] = 126; state->arr_D51WHL11[19] = 126; state->arr_D51WHL11[20] = 92; state->arr_D51WHL11[23] = 47; state->arr_D51WHL11[24] = 126; state->arr_D51WHL11[25] = 126; state->arr_D51WHL11[26] = 92; state->arr_D51WHL11[29] = 47; state->arr_D51WHL11[30] = 126; state->arr_D51WHL11[31] = 126; state->arr_D51WHL11[32] = 92; state->arr_D51WHL11[34] = 95; state->arr_D51WHL11[35] = 95; state->arr_D51WHL11[36] = 95; state->arr_D51WHL11[37] = 95; state->arr_D51WHL11[38] = 89; state->arr_D51WHL11[39] = 95; state->arr_D51WHL11[40] = 95; state->arr_D51WHL11[41] = 95; state->arr_D51WHL11[42] = 95; state->arr_D51WHL11[43] = 95; state->arr_D51WHL11[44] = 95; state->arr_D51WHL11[45] = 95; state->arr_D51WHL11[46] = 95; state->arr_D51WHL11[47] = 95; state->arr_D51WHL11[48] = 95; state->arr_D51WHL11[49] = 95; state->arr_D51WHL11[50] = 124; state->arr_D51WHL11[51] = 95; state->arr_D51WHL11[52] = 95; state->arr_D51WHL12 = alloc_array(int, 54); state->arr_D51WHL12_len = 54;
+	state->arr_D51WHL12[1] = 124; state->arr_D51WHL12[2] = 47; state->arr_D51WHL12[3] = 45; state->arr_D51WHL12[4] = 61; state->arr_D51WHL12[5] = 124; state->arr_D51WHL12[6] = 95; state->arr_D51WHL12[7] = 95; state->arr_D51WHL12[8] = 95; state->arr_D51WHL12[9] = 124; state->arr_D51WHL12[10] = 61; state->arr_D51WHL12[15] = 124; state->arr_D51WHL12[16] = 124; state->arr_D51WHL12[21] = 124; state->arr_D51WHL12[22] = 124; state->arr_D51WHL12[27] = 124; state->arr_D51WHL12[28] = 124; state->arr_D51WHL12[33] = 124; state->arr_D51WHL12[34] = 95; state->arr_D51WHL12[35] = 95; state->arr_D51WHL12[36] = 95; state->arr_D51WHL12[37] = 95; state->arr_D51WHL12[38] = 95; state->arr_D51WHL12[39] = 47; state->arr_D51WHL12[40] = 126; state->arr_D51WHL12[41] = 92; state->arr_D51WHL12[42] = 95; state->arr_D51WHL12[43] = 95; state->arr_D51WHL12[44] = 95; state->arr_D51WHL12[45] = 47; state->arr_D51WHL13 = alloc_array(int, 54); state->arr_D51WHL13_len = 54;
+	state->arr_D51WHL13[2] = 92; state->arr_D51WHL13[3] = 95; state->arr_D51WHL13[4] = 47; state->arr_D51WHL13[11] = 92; state->arr_D51WHL13[12] = 79; state->arr_D51WHL13[13] = 61; state->arr_D51WHL13[14] = 61; state->arr_D51WHL13[15] = 61; state->arr_D51WHL13[16] = 61; state->arr_D51WHL13[17] = 61; state->arr_D51WHL13[18] = 79; state->arr_D51WHL13[19] = 61; state->arr_D51WHL13[20] = 61; state->arr_D51WHL13[21] = 61; state->arr_D51WHL13[22] = 61; state->arr_D51WHL13[23] = 61; state->arr_D51WHL13[24] = 79; state->arr_D51WHL13[25] = 61; state->arr_D51WHL13[26] = 61; state->arr_D51WHL13[27] = 61; state->arr_D51WHL13[28] = 61; state->arr_D51WHL13[29] = 61; state->arr_D51WHL13[30] = 79; state->arr_D51WHL13[31] = 95; state->arr_D51WHL13[32] = 47; state->arr_D51WHL13[39] = 92; state->arr_D51WHL13[40] = 95; state->arr_D51WHL13[41] = 47; state->arr_D51WHL21 = alloc_array(int, 54); state->arr_D51WHL21_len = 54;
+	state->arr_D51WHL21[0] = 95; state->arr_D51WHL21[1] = 95; state->arr_D51WHL21[2] = 47; state->arr_D51WHL21[4] = 61; state->arr_D51WHL21[5] = 124; state->arr_D51WHL21[7] = 111; state->arr_D51WHL21[9] = 124; state->arr_D51WHL21[10] = 61; state->arr_D51WHL21[11] = 45; state->arr_D51WHL21[12] = 126; state->arr_D51WHL21[13] = 126; state->arr_D51WHL21[14] = 92; state->arr_D51WHL21[17] = 47; state->arr_D51WHL21[18] = 126; state->arr_D51WHL21[19] = 126; state->arr_D51WHL21[20] = 92; state->arr_D51WHL21[23] = 47; state->arr_D51WHL21[24] = 126; state->arr_D51WHL21[25] = 126; state->arr_D51WHL21[26] = 92; state->arr_D51WHL21[29] = 47; state->arr_D51WHL21[30] = 126; state->arr_D51WHL21[31] = 126; state->arr_D51WHL21[32] = 92; state->arr_D51WHL21[34] = 95; state->arr_D51WHL21[35] = 95; state->arr_D51WHL21[36] = 95; state->arr_D51WHL21[37] = 95; state->arr_D51WHL21[38] = 89; state->arr_D51WHL21[39] = 95; state->arr_D51WHL21[40] = 95; state->arr_D51WHL21[41] = 95; state->arr_D51WHL21[42] = 95; state->arr_D51WHL21[43] = 95; state->arr_D51WHL21[44] = 95; state->arr_D51WHL21[45] = 95; state->arr_D51WHL21[46] = 95; state->arr_D51WHL21[47] = 95; state->arr_D51WHL21[48] = 95; state->arr_D51WHL21[49] = 95; state->arr_D51WHL21[50] = 124; state->arr_D51WHL21[51] = 95; state->arr_D51WHL21[52] = 95; state->arr_D51WHL22 = alloc_array(int, 54); state->arr_D51WHL22_len = 54;
+	state->arr_D51WHL22[1] = 124; state->arr_D51WHL22[2] = 47; state->arr_D51WHL22[3] = 45; state->arr_D51WHL22[4] = 61; state->arr_D51WHL22[5] = 124; state->arr_D51WHL22[6] = 95; state->arr_D51WHL22[7] = 95; state->arr_D51WHL22[8] = 95; state->arr_D51WHL22[9] = 124; state->arr_D51WHL22[10] = 61; state->arr_D51WHL22[11] = 79; state->arr_D51WHL22[12] = 61; state->arr_D51WHL22[13] = 61; state->arr_D51WHL22[14] = 61; state->arr_D51WHL22[15] = 61; state->arr_D51WHL22[16] = 61; state->arr_D51WHL22[17] = 79; state->arr_D51WHL22[18] = 61; state->arr_D51WHL22[19] = 61; state->arr_D51WHL22[20] = 61; state->arr_D51WHL22[21] = 61; state->arr_D51WHL22[22] = 61; state->arr_D51WHL22[23] = 79; state->arr_D51WHL22[24] = 61; state->arr_D51WHL22[25] = 61; state->arr_D51WHL22[26] = 61; state->arr_D51WHL22[27] = 61; state->arr_D51WHL22[28] = 61; state->arr_D51WHL22[29] = 79; state->arr_D51WHL22[33] = 124; state->arr_D51WHL22[34] = 95; state->arr_D51WHL22[35] = 95; state->arr_D51WHL22[36] = 95; state->arr_D51WHL22[37] = 95; state->arr_D51WHL22[38] = 95; state->arr_D51WHL22[39] = 47; state->arr_D51WHL22[40] = 126; state->arr_D51WHL22[41] = 92; state->arr_D51WHL22[42] = 95; state->arr_D51WHL22[43] = 95; state->arr_D51WHL22[44] = 95; state->arr_D51WHL22[45] = 47; state->arr_D51WHL23 = alloc_array(int, 54); state->arr_D51WHL23_len = 54;
+	state->arr_D51WHL23[2] = 92; state->arr_D51WHL23[3] = 95; state->arr_D51WHL23[4] = 47; state->arr_D51WHL23[11] = 92; state->arr_D51WHL23[12] = 95; state->arr_D51WHL23[13] = 95; state->arr_D51WHL23[14] = 47; state->arr_D51WHL23[17] = 92; state->arr_D51WHL23[18] = 95; state->arr_D51WHL23[19] = 95; state->arr_D51WHL23[20] = 47; state->arr_D51WHL23[23] = 92; state->arr_D51WHL23[24] = 95; state->arr_D51WHL23[25] = 95; state->arr_D51WHL23[26] = 47; state->arr_D51WHL23[29] = 92; state->arr_D51WHL23[30] = 95; state->arr_D51WHL23[31] = 95; state->arr_D51WHL23[32] = 47; state->arr_D51WHL23[39] = 92; state->arr_D51WHL23[40] = 95; state->arr_D51WHL23[41] = 47; state->arr_D51WHL31 = alloc_array(int, 54); state->arr_D51WHL31_len = 54;
+	state->arr_D51WHL31[0] = 95; state->arr_D51WHL31[1] = 95; state->arr_D51WHL31[2] = 47; state->arr_D51WHL31[4] = 61; state->arr_D51WHL31[5] = 124; state->arr_D51WHL31[7] = 111; state->arr_D51WHL31[9] = 124; state->arr_D51WHL31[10] = 61; state->arr_D51WHL31[11] = 45; state->arr_D51WHL31[12] = 79; state->arr_D51WHL31[13] = 61; state->arr_D51WHL31[14] = 61; state->arr_D51WHL31[15] = 61; state->arr_D51WHL31[16] = 61; state->arr_D51WHL31[17] = 61; state->arr_D51WHL31[18] = 79; state->arr_D51WHL31[19] = 61; state->arr_D51WHL31[20] = 61; state->arr_D51WHL31[21] = 61; state->arr_D51WHL31[22] = 61; state->arr_D51WHL31[23] = 61; state->arr_D51WHL31[24] = 79; state->arr_D51WHL31[25] = 61; state->arr_D51WHL31[26] = 61; state->arr_D51WHL31[27] = 61; state->arr_D51WHL31[28] = 61; state->arr_D51WHL31[29] = 61; state->arr_D51WHL31[30] = 79; state->arr_D51WHL31[32] = 92; state->arr_D51WHL31[34] = 95; state->arr_D51WHL31[35] = 95; state->arr_D51WHL31[36] = 95; state->arr_D51WHL31[37] = 95; state->arr_D51WHL31[38] = 89; state->arr_D51WHL31[39] = 95; state->arr_D51WHL31[40] = 95; state->arr_D51WHL31[41] = 95; state->arr_D51WHL31[42] = 95; state->arr_D51WHL31[43] = 95; state->arr_D51WHL31[44] = 95; state->arr_D51WHL31[45] = 95; state->arr_D51WHL31[46] = 95; state->arr_D51WHL31[47] = 95; state->arr_D51WHL31[48] = 95; state->arr_D51WHL31[49] = 95; state->arr_D51WHL31[50] = 124; state->arr_D51WHL31[51] = 95; state->arr_D51WHL31[52] = 95; state->arr_D51WHL32 = alloc_array(int, 54); state->arr_D51WHL32_len = 54;
+	state->arr_D51WHL32[1] = 124; state->arr_D51WHL32[2] = 47; state->arr_D51WHL32[3] = 45; state->arr_D51WHL32[4] = 61; state->arr_D51WHL32[5] = 124; state->arr_D51WHL32[6] = 95; state->arr_D51WHL32[7] = 95; state->arr_D51WHL32[8] = 95; state->arr_D51WHL32[9] = 124; state->arr_D51WHL32[10] = 61; state->arr_D51WHL32[15] = 124; state->arr_D51WHL32[16] = 124; state->arr_D51WHL32[21] = 124; state->arr_D51WHL32[22] = 124; state->arr_D51WHL32[27] = 124; state->arr_D51WHL32[28] = 124; state->arr_D51WHL32[33] = 124; state->arr_D51WHL32[34] = 95; state->arr_D51WHL32[35] = 95; state->arr_D51WHL32[36] = 95; state->arr_D51WHL32[37] = 95; state->arr_D51WHL32[38] = 95; state->arr_D51WHL32[39] = 47; state->arr_D51WHL32[40] = 126; state->arr_D51WHL32[41] = 92; state->arr_D51WHL32[42] = 95; state->arr_D51WHL32[43] = 95; state->arr_D51WHL32[44] = 95; state->arr_D51WHL32[45] = 47; state->arr_D51WHL33 = alloc_array(int, 54); state->arr_D51WHL33_len = 54;
+	state->arr_D51WHL33[2] = 92; state->arr_D51WHL33[3] = 95; state->arr_D51WHL33[4] = 47; state->arr_D51WHL33[11] = 92; state->arr_D51WHL33[12] = 95; state->arr_D51WHL33[13] = 95; state->arr_D51WHL33[14] = 47; state->arr_D51WHL33[17] = 92; state->arr_D51WHL33[18] = 95; state->arr_D51WHL33[19] = 95; state->arr_D51WHL33[20] = 47; state->arr_D51WHL33[23] = 92; state->arr_D51WHL33[24] = 95; state->arr_D51WHL33[25] = 95; state->arr_D51WHL33[26] = 47; state->arr_D51WHL33[29] = 92; state->arr_D51WHL33[30] = 95; state->arr_D51WHL33[31] = 95; state->arr_D51WHL33[32] = 47; state->arr_D51WHL33[39] = 92; state->arr_D51WHL33[40] = 95; state->arr_D51WHL33[41] = 47; state->arr_D51WHL41 = alloc_array(int, 54); state->arr_D51WHL41_len = 54;
+	state->arr_D51WHL41[0] = 95; state->arr_D51WHL41[1] = 95; state->arr_D51WHL41[2] = 47; state->arr_D51WHL41[4] = 61; state->arr_D51WHL41[5] = 124; state->arr_D51WHL41[7] = 111; state->arr_D51WHL41[9] = 124; state->arr_D51WHL41[10] = 61; state->arr_D51WHL41[11] = 45; state->arr_D51WHL41[12] = 126; state->arr_D51WHL41[13] = 79; state->arr_D51WHL41[14] = 61; state->arr_D51WHL41[15] = 61; state->arr_D51WHL41[16] = 61; state->arr_D51WHL41[17] = 61; state->arr_D51WHL41[18] = 61; state->arr_D51WHL41[19] = 79; state->arr_D51WHL41[20] = 61; state->arr_D51WHL41[21] = 61; state->arr_D51WHL41[22] = 61; state->arr_D51WHL41[23] = 61; state->arr_D51WHL41[24] = 61; state->arr_D51WHL41[25] = 79; state->arr_D51WHL41[26] = 61; state->arr_D51WHL41[27] = 61; state->arr_D51WHL41[28] = 61; state->arr_D51WHL41[29] = 61; state->arr_D51WHL41[30] = 61; state->arr_D51WHL41[31] = 79; state->arr_D51WHL41[32] = 92; state->arr_D51WHL41[34] = 95; state->arr_D51WHL41[35] = 95; state->arr_D51WHL41[36] = 95; state->arr_D51WHL41[37] = 95; state->arr_D51WHL41[38] = 89; state->arr_D51WHL41[39] = 95; state->arr_D51WHL41[40] = 95; state->arr_D51WHL41[41] = 95; state->arr_D51WHL41[42] = 95; state->arr_D51WHL41[43] = 95; state->arr_D51WHL41[44] = 95; state->arr_D51WHL41[45] = 95; state->arr_D51WHL41[46] = 95; state->arr_D51WHL41[47] = 95; state->arr_D51WHL41[48] = 95; state->arr_D51WHL41[49] = 95; state->arr_D51WHL41[50] = 124; state->arr_D51WHL41[51] = 95; state->arr_D51WHL41[52] = 95; state->arr_D51WHL42 = alloc_array(int, 54); state->arr_D51WHL42_len = 54;
+	state->arr_D51WHL42[1] = 124; state->arr_D51WHL42[2] = 47; state->arr_D51WHL42[3] = 45; state->arr_D51WHL42[4] = 61; state->arr_D51WHL42[5] = 124; state->arr_D51WHL42[6] = 95; state->arr_D51WHL42[7] = 95; state->arr_D51WHL42[8] = 95; state->arr_D51WHL42[9] = 124; state->arr_D51WHL42[10] = 61; state->arr_D51WHL42[15] = 124; state->arr_D51WHL42[16] = 124; state->arr_D51WHL42[21] = 124; state->arr_D51WHL42[22] = 124; state->arr_D51WHL42[27] = 124; state->arr_D51WHL42[28] = 124; state->arr_D51WHL42[33] = 124; state->arr_D51WHL42[34] = 95; state->arr_D51WHL42[35] = 95; state->arr_D51WHL42[36] = 95; state->arr_D51WHL42[37] = 95; state->arr_D51WHL42[38] = 95; state->arr_D51WHL42[39] = 47; state->arr_D51WHL42[40] = 126; state->arr_D51WHL42[41] = 92; state->arr_D51WHL42[42] = 95; state->arr_D51WHL42[43] = 95; state->arr_D51WHL42[44] = 95; state->arr_D51WHL42[45] = 47; state->arr_D51WHL43 = alloc_array(int, 54); state->arr_D51WHL43_len = 54;
+	state->arr_D51WHL43[2] = 92; state->arr_D51WHL43[3] = 95; state->arr_D51WHL43[4] = 47; state->arr_D51WHL43[11] = 92; state->arr_D51WHL43[12] = 95; state->arr_D51WHL43[13] = 95; state->arr_D51WHL43[14] = 47; state->arr_D51WHL43[17] = 92; state->arr_D51WHL43[18] = 95; state->arr_D51WHL43[19] = 95; state->arr_D51WHL43[20] = 47; state->arr_D51WHL43[23] = 92; state->arr_D51WHL43[24] = 95; state->arr_D51WHL43[25] = 95; state->arr_D51WHL43[26] = 47; state->arr_D51WHL43[29] = 92; state->arr_D51WHL43[30] = 95; state->arr_D51WHL43[31] = 95; state->arr_D51WHL43[32] = 47; state->arr_D51WHL43[39] = 92; state->arr_D51WHL43[40] = 95; state->arr_D51WHL43[41] = 47; state->arr_D51WHL51 = alloc_array(int, 54); state->arr_D51WHL51_len = 54;
+	state->arr_D51WHL51[0] = 95; state->arr_D51WHL51[1] = 95; state->arr_D51WHL51[2] = 47; state->arr_D51WHL51[4] = 61; state->arr_D51WHL51[5] = 124; state->arr_D51WHL51[7] = 111; state->arr_D51WHL51[9] = 124; state->arr_D51WHL51[10] = 61; state->arr_D51WHL51[11] = 45; state->arr_D51WHL51[12] = 126; state->arr_D51WHL51[13] = 126; state->arr_D51WHL51[14] = 92; state->arr_D51WHL51[17] = 47; state->arr_D51WHL51[18] = 126; state->arr_D51WHL51[19] = 126; state->arr_D51WHL51[20] = 92; state->arr_D51WHL51[23] = 47; state->arr_D51WHL51[24] = 126; state->arr_D51WHL51[25] = 126; state->arr_D51WHL51[26] = 92; state->arr_D51WHL51[29] = 47; state->arr_D51WHL51[30] = 126; state->arr_D51WHL51[31] = 126; state->arr_D51WHL51[32] = 92; state->arr_D51WHL51[34] = 95; state->arr_D51WHL51[35] = 95; state->arr_D51WHL51[36] = 95; state->arr_D51WHL51[37] = 95; state->arr_D51WHL51[38] = 89; state->arr_D51WHL51[39] = 95; state->arr_D51WHL51[40] = 95; state->arr_D51WHL51[41] = 95; state->arr_D51WHL51[42] = 95; state->arr_D51WHL51[43] = 95; state->arr_D51WHL51[44] = 95; state->arr_D51WHL51[45] = 95; state->arr_D51WHL51[46] = 95; state->arr_D51WHL51[47] = 95; state->arr_D51WHL51[48] = 95; state->arr_D51WHL51[49] = 95; state->arr_D51WHL51[50] = 124; state->arr_D51WHL51[51] = 95; state->arr_D51WHL51[52] = 95; state->arr_D51WHL52 = alloc_array(int, 54); state->arr_D51WHL52_len = 54;
+	state->arr_D51WHL52[1] = 124; state->arr_D51WHL52[2] = 47; state->arr_D51WHL52[3] = 45; state->arr_D51WHL52[4] = 61; state->arr_D51WHL52[5] = 124; state->arr_D51WHL52[6] = 95; state->arr_D51WHL52[7] = 95; state->arr_D51WHL52[8] = 95; state->arr_D51WHL52[9] = 124; state->arr_D51WHL52[10] = 61; state->arr_D51WHL52[14] = 79; state->arr_D51WHL52[15] = 61; state->arr_D51WHL52[16] = 61; state->arr_D51WHL52[17] = 61; state->arr_D51WHL52[18] = 61; state->arr_D51WHL52[19] = 61; state->arr_D51WHL52[20] = 79; state->arr_D51WHL52[21] = 61; state->arr_D51WHL52[22] = 61; state->arr_D51WHL52[23] = 61; state->arr_D51WHL52[24] = 61; state->arr_D51WHL52[25] = 61; state->arr_D51WHL52[26] = 79; state->arr_D51WHL52[27] = 61; state->arr_D51WHL52[28] = 61; state->arr_D51WHL52[29] = 61; state->arr_D51WHL52[30] = 61; state->arr_D51WHL52[31] = 61; state->arr_D51WHL52[32] = 79; state->arr_D51WHL52[33] = 124; state->arr_D51WHL52[34] = 95; state->arr_D51WHL52[35] = 95; state->arr_D51WHL52[36] = 95; state->arr_D51WHL52[37] = 95; state->arr_D51WHL52[38] = 95; state->arr_D51WHL52[39] = 47; state->arr_D51WHL52[40] = 126; state->arr_D51WHL52[41] = 92; state->arr_D51WHL52[42] = 95; state->arr_D51WHL52[43] = 95; state->arr_D51WHL52[44] = 95; state->arr_D51WHL52[45] = 47; state->arr_D51WHL53 = alloc_array(int, 54); state->arr_D51WHL53_len = 54;
+	state->arr_D51WHL53[2] = 92; state->arr_D51WHL53[3] = 95; state->arr_D51WHL53[4] = 47; state->arr_D51WHL53[11] = 92; state->arr_D51WHL53[12] = 95; state->arr_D51WHL53[13] = 95; state->arr_D51WHL53[14] = 47; state->arr_D51WHL53[17] = 92; state->arr_D51WHL53[18] = 95; state->arr_D51WHL53[19] = 95; state->arr_D51WHL53[20] = 47; state->arr_D51WHL53[23] = 92; state->arr_D51WHL53[24] = 95; state->arr_D51WHL53[25] = 95; state->arr_D51WHL53[26] = 47; state->arr_D51WHL53[29] = 92; state->arr_D51WHL53[30] = 95; state->arr_D51WHL53[31] = 95; state->arr_D51WHL53[32] = 47; state->arr_D51WHL53[39] = 92; state->arr_D51WHL53[40] = 95; state->arr_D51WHL53[41] = 47; state->arr_D51WHL61 = alloc_array(int, 54); state->arr_D51WHL61_len = 54;
+	state->arr_D51WHL61[0] = 95; state->arr_D51WHL61[1] = 95; state->arr_D51WHL61[2] = 47; state->arr_D51WHL61[4] = 61; state->arr_D51WHL61[5] = 124; state->arr_D51WHL61[7] = 111; state->arr_D51WHL61[9] = 124; state->arr_D51WHL61[10] = 61; state->arr_D51WHL61[11] = 45; state->arr_D51WHL61[12] = 126; state->arr_D51WHL61[13] = 126; state->arr_D51WHL61[14] = 92; state->arr_D51WHL61[17] = 47; state->arr_D51WHL61[18] = 126; state->arr_D51WHL61[19] = 126; state->arr_D51WHL61[20] = 92; state->arr_D51WHL61[23] = 47; state->arr_D51WHL61[24] = 126; state->arr_D51WHL61[25] = 126; state->arr_D51WHL61[26] = 92; state->arr_D51WHL61[29] = 47; state->arr_D51WHL61[30] = 126; state->arr_D51WHL61[31] = 126; state->arr_D51WHL61[32] = 92; state->arr_D51WHL61[34] = 95; state->arr_D51WHL61[35] = 95; state->arr_D51WHL61[36] = 95; state->arr_D51WHL61[37] = 95; state->arr_D51WHL61[38] = 89; state->arr_D51WHL61[39] = 95; state->arr_D51WHL61[40] = 95; state->arr_D51WHL61[41] = 95; state->arr_D51WHL61[42] = 95; state->arr_D51WHL61[43] = 95; state->arr_D51WHL61[44] = 95; state->arr_D51WHL61[45] = 95; state->arr_D51WHL61[46] = 95; state->arr_D51WHL61[47] = 95; state->arr_D51WHL61[48] = 95; state->arr_D51WHL61[49] = 95; state->arr_D51WHL61[50] = 124; state->arr_D51WHL61[51] = 95; state->arr_D51WHL61[52] = 95; state->arr_D51WHL62 = alloc_array(int, 54); state->arr_D51WHL62_len = 54;
+	state->arr_D51WHL62[1] = 124; state->arr_D51WHL62[2] = 47; state->arr_D51WHL62[3] = 45; state->arr_D51WHL62[4] = 61; state->arr_D51WHL62[5] = 124; state->arr_D51WHL62[6] = 95; state->arr_D51WHL62[7] = 95; state->arr_D51WHL62[8] = 95; state->arr_D51WHL62[9] = 124; state->arr_D51WHL62[10] = 61; state->arr_D51WHL62[15] = 124; state->arr_D51WHL62[16] = 124; state->arr_D51WHL62[21] = 124; state->arr_D51WHL62[22] = 124; state->arr_D51WHL62[27] = 124; state->arr_D51WHL62[28] = 124; state->arr_D51WHL62[33] = 124; state->arr_D51WHL62[34] = 95; state->arr_D51WHL62[35] = 95; state->arr_D51WHL62[36] = 95; state->arr_D51WHL62[37] = 95; state->arr_D51WHL62[38] = 95; state->arr_D51WHL62[39] = 47; state->arr_D51WHL62[40] = 126; state->arr_D51WHL62[41] = 92; state->arr_D51WHL62[42] = 95; state->arr_D51WHL62[43] = 95; state->arr_D51WHL62[44] = 95; state->arr_D51WHL62[45] = 47; state->arr_D51WHL63 = alloc_array(int, 54); state->arr_D51WHL63_len = 54;
+	state->arr_D51WHL63[2] = 92; state->arr_D51WHL63[3] = 95; state->arr_D51WHL63[4] = 47; state->arr_D51WHL63[11] = 92; state->arr_D51WHL63[12] = 95; state->arr_D51WHL63[13] = 79; state->arr_D51WHL63[14] = 61; state->arr_D51WHL63[15] = 61; state->arr_D51WHL63[16] = 61; state->arr_D51WHL63[17] = 61; state->arr_D51WHL63[18] = 61; state->arr_D51WHL63[19] = 79; state->arr_D51WHL63[20] = 61; state->arr_D51WHL63[21] = 61; state->arr_D51WHL63[22] = 61; state->arr_D51WHL63[23] = 61; state->arr_D51WHL63[24] = 61; state->arr_D51WHL63[25] = 79; state->arr_D51WHL63[26] = 61; state->arr_D51WHL63[27] = 61; state->arr_D51WHL63[28] = 61; state->arr_D51WHL63[29] = 61; state->arr_D51WHL63[30] = 61; state->arr_D51WHL63[31] = 79; state->arr_D51WHL63[32] = 47; state->arr_D51WHL63[39] = 92; state->arr_D51WHL63[40] = 95; state->arr_D51WHL63[41] = 47;
+	return 0;
+}
+
+/* this code was merely generated by cpp and printf. */
+int init_smoke(struct state *state)
+{
+	state->Smoke = alloc_array(intarrayarray, 2);
+	state->Smokelens = alloc_array(intarray, 2);
+	state->Smoke[0] = alloc_array(intarray, 16);
+	state->Smokelens[0] = alloc_array(int, 16);
+	state->Smoke[0][0] = alloc_array(int, 5);
+	state->Smokelens[0][0] = 5; state->Smoke[0][0][0] = 40; state->Smoke[0][0][1] = 32; state->Smoke[0][0][2] = 32; state->Smoke[0][0][3] = 32; state->Smoke[0][0][4] = 41; 
+	state->Smoke[0][1] = alloc_array(int, 6);
+	state->Smokelens[0][1] = 6; state->Smoke[0][1][0] = 40; state->Smoke[0][1][1] = 32; state->Smoke[0][1][2] = 32; state->Smoke[0][1][3] = 32; state->Smoke[0][1][4] = 32; state->Smoke[0][1][5] = 41; 
+	state->Smoke[0][2] = alloc_array(int, 6);
+	state->Smokelens[0][2] = 6; state->Smoke[0][2][0] = 40; state->Smoke[0][2][1] = 32; state->Smoke[0][2][2] = 32; state->Smoke[0][2][3] = 32; state->Smoke[0][2][4] = 32; state->Smoke[0][2][5] = 41; 
+	state->Smoke[0][3] = alloc_array(int, 5);
+	state->Smokelens[0][3] = 5; state->Smoke[0][3][0] = 40; state->Smoke[0][3][1] = 32; state->Smoke[0][3][2] = 32; state->Smoke[0][3][3] = 32; state->Smoke[0][3][4] = 41; 
+	state->Smoke[0][4] = alloc_array(int, 4);
+	state->Smokelens[0][4] = 4; state->Smoke[0][4][0] = 40; state->Smoke[0][4][1] = 32; state->Smoke[0][4][2] = 32; state->Smoke[0][4][3] = 41; 
+	state->Smoke[0][5] = alloc_array(int, 4);
+	state->Smokelens[0][5] = 4; state->Smoke[0][5][0] = 40; state->Smoke[0][5][1] = 32; state->Smoke[0][5][2] = 32; state->Smoke[0][5][3] = 41; 
+	state->Smoke[0][6] = alloc_array(int, 3);
+	state->Smokelens[0][6] = 3; state->Smoke[0][6][0] = 40; state->Smoke[0][6][1] = 32; state->Smoke[0][6][2] = 41; 
+	state->Smoke[0][7] = alloc_array(int, 3);
+	state->Smokelens[0][7] = 3; state->Smoke[0][7][0] = 40; state->Smoke[0][7][1] = 32; state->Smoke[0][7][2] = 41; 
+	state->Smoke[0][8] = alloc_array(int, 2);
+	state->Smokelens[0][8] = 2; state->Smoke[0][8][0] = 40; state->Smoke[0][8][1] = 41; 
+	state->Smoke[0][9] = alloc_array(int, 2);
+	state->Smokelens[0][9] = 2; state->Smoke[0][9][0] = 40; state->Smoke[0][9][1] = 41; 
+	state->Smoke[0][10] = alloc_array(int, 1);
+	state->Smokelens[0][10] = 1; state->Smoke[0][10][0] = 79; 
+	state->Smoke[0][11] = alloc_array(int, 1);
+	state->Smokelens[0][11] = 1; state->Smoke[0][11][0] = 79; 
+	state->Smoke[0][12] = alloc_array(int, 1);
+	state->Smokelens[0][12] = 1; state->Smoke[0][12][0] = 79; 
+	state->Smoke[0][13] = alloc_array(int, 1);
+	state->Smokelens[0][13] = 1; state->Smoke[0][13][0] = 79; 
+	state->Smoke[0][14] = alloc_array(int, 1);
+	state->Smokelens[0][14] = 1; state->Smoke[0][14][0] = 79; 
+	state->Smoke[0][15] = alloc_array(int, 1);
+	state->Smokelens[0][15] = 1; state->Smoke[0][15][0] = 32; 
+	state->Smoke[1] = alloc_array(intarray, 16);
+	state->Smokelens[1] = alloc_array(int, 16);
+	state->Smoke[1][0] = alloc_array(int, 5);
+	state->Smokelens[1][0] = 5; state->Smoke[1][0][0] = 40; state->Smoke[1][0][1] = 64; state->Smoke[1][0][2] = 64; state->Smoke[1][0][3] = 64; state->Smoke[1][0][4] = 41; 
+	state->Smoke[1][1] = alloc_array(int, 6);
+	state->Smokelens[1][1] = 6; state->Smoke[1][1][0] = 40; state->Smoke[1][1][1] = 64; state->Smoke[1][1][2] = 64; state->Smoke[1][1][3] = 64; state->Smoke[1][1][4] = 64; state->Smoke[1][1][5] = 41; 
+	state->Smoke[1][2] = alloc_array(int, 6);
+	state->Smokelens[1][2] = 6; state->Smoke[1][2][0] = 40; state->Smoke[1][2][1] = 64; state->Smoke[1][2][2] = 64; state->Smoke[1][2][3] = 64; state->Smoke[1][2][4] = 64; state->Smoke[1][2][5] = 41; 
+	state->Smoke[1][3] = alloc_array(int, 5);
+	state->Smokelens[1][3] = 5; state->Smoke[1][3][0] = 40; state->Smoke[1][3][1] = 64; state->Smoke[1][3][2] = 64; state->Smoke[1][3][3] = 64; state->Smoke[1][3][4] = 41; 
+	state->Smoke[1][4] = alloc_array(int, 4);
+	state->Smokelens[1][4] = 4; state->Smoke[1][4][0] = 40; state->Smoke[1][4][1] = 64; state->Smoke[1][4][2] = 64; state->Smoke[1][4][3] = 41; 
+	state->Smoke[1][5] = alloc_array(int, 4);
+	state->Smokelens[1][5] = 4; state->Smoke[1][5][0] = 40; state->Smoke[1][5][1] = 64; state->Smoke[1][5][2] = 64; state->Smoke[1][5][3] = 41; 
+	state->Smoke[1][6] = alloc_array(int, 3);
+	state->Smokelens[1][6] = 3; state->Smoke[1][6][0] = 40; state->Smoke[1][6][1] = 64; state->Smoke[1][6][2] = 41; 
+	state->Smoke[1][7] = alloc_array(int, 3);
+	state->Smokelens[1][7] = 3; state->Smoke[1][7][0] = 40; state->Smoke[1][7][1] = 64; state->Smoke[1][7][2] = 41; 
+	state->Smoke[1][8] = alloc_array(int, 2);
+	state->Smokelens[1][8] = 2; state->Smoke[1][8][0] = 64; state->Smoke[1][8][1] = 64; 
+	state->Smoke[1][9] = alloc_array(int, 2);
+	state->Smokelens[1][9] = 2; state->Smoke[1][9][0] = 64; state->Smoke[1][9][1] = 64; 
+	state->Smoke[1][10] = alloc_array(int, 1);
+	state->Smokelens[1][10] = 1; state->Smoke[1][10][0] = 64; 
+	state->Smoke[1][11] = alloc_array(int, 1);
+	state->Smokelens[1][11] = 1; state->Smoke[1][11][0] = 64; 
+	state->Smoke[1][12] = alloc_array(int, 1);
+	state->Smokelens[1][12] = 1; state->Smoke[1][12][0] = 64; 
+	state->Smoke[1][13] = alloc_array(int, 1);
+	state->Smokelens[1][13] = 1; state->Smoke[1][13][0] = 64; 
+	state->Smoke[1][14] = alloc_array(int, 1);
+	state->Smokelens[1][14] = 1; state->Smoke[1][14][0] = 64; 
+	state->Smoke[1][15] = alloc_array(int, 1);
+	state->Smokelens[1][15] = 1; state->Smoke[1][15][0] = 32; 
+	state->Eraser = alloc_array(intarray, 16);
+	state->Eraserlens = alloc_array(int, 16);
+	state->Eraser[0] = alloc_array(int, 5);
+	state->Eraserlens[0] = 5; state->Eraser[0][0] = 32; state->Eraser[0][1] = 32; state->Eraser[0][2] = 32; state->Eraser[0][3] = 32; state->Eraser[0][4] = 32; 
+	state->Eraser[1] = alloc_array(int, 6);
+	state->Eraserlens[1] = 6; state->Eraser[1][0] = 32; state->Eraser[1][1] = 32; state->Eraser[1][2] = 32; state->Eraser[1][3] = 32; state->Eraser[1][4] = 32; state->Eraser[1][5] = 32; 
+	state->Eraser[2] = alloc_array(int, 6);
+	state->Eraserlens[2] = 6; state->Eraser[2][0] = 32; state->Eraser[2][1] = 32; state->Eraser[2][2] = 32; state->Eraser[2][3] = 32; state->Eraser[2][4] = 32; state->Eraser[2][5] = 32; 
+	state->Eraser[3] = alloc_array(int, 5);
+	state->Eraserlens[3] = 5; state->Eraser[3][0] = 32; state->Eraser[3][1] = 32; state->Eraser[3][2] = 32; state->Eraser[3][3] = 32; state->Eraser[3][4] = 32; 
+	state->Eraser[4] = alloc_array(int, 4);
+	state->Eraserlens[4] = 4; state->Eraser[4][0] = 32; state->Eraser[4][1] = 32; state->Eraser[4][2] = 32; state->Eraser[4][3] = 32; 
+	state->Eraser[5] = alloc_array(int, 4);
+	state->Eraserlens[5] = 4; state->Eraser[5][0] = 32; state->Eraser[5][1] = 32; state->Eraser[5][2] = 32; state->Eraser[5][3] = 32; 
+	state->Eraser[6] = alloc_array(int, 3);
+	state->Eraserlens[6] = 3; state->Eraser[6][0] = 32; state->Eraser[6][1] = 32; state->Eraser[6][2] = 32; 
+	state->Eraser[7] = alloc_array(int, 3);
+	state->Eraserlens[7] = 3; state->Eraser[7][0] = 32; state->Eraser[7][1] = 32; state->Eraser[7][2] = 32; 
+	state->Eraser[8] = alloc_array(int, 2);
+	state->Eraserlens[8] = 2; state->Eraser[8][0] = 32; state->Eraser[8][1] = 32; 
+	state->Eraser[9] = alloc_array(int, 2);
+	state->Eraserlens[9] = 2; state->Eraser[9][0] = 32; state->Eraser[9][1] = 32; 
+	state->Eraser[10] = alloc_array(int, 1);
+	state->Eraserlens[10] = 1; state->Eraser[10][0] = 32; 
+	state->Eraser[11] = alloc_array(int, 1);
+	state->Eraserlens[11] = 1; state->Eraser[11][0] = 32; 
+	state->Eraser[12] = alloc_array(int, 1);
+	state->Eraserlens[12] = 1; state->Eraser[12][0] = 32; 
+	state->Eraser[13] = alloc_array(int, 1);
+	state->Eraserlens[13] = 1; state->Eraser[13][0] = 32; 
+	state->Eraser[14] = alloc_array(int, 1);
+	state->Eraserlens[14] = 1; state->Eraser[14][0] = 32; 
+	state->Eraser[15] = alloc_array(int, 1);
+	state->Eraserlens[15] = 1; state->Eraser[15][0] = 32; 
+	return 0;
+}
+
+int init_state(struct state *state)
+{
+	int i;
+	
+	state->con = alloc(struct console_state);
+	console_init(state->con);
+	init_state_constance(state);
+	init_state_strings(state);
+	init_smoke(state);
+
+
+	state->d51 = alloc_array(intarrayarray, state->D51PATTERNS);
+	state->d51lens = alloc_array(intarray, state->D51PATTERNS);
+	for (i = 0; i < state->D51PATTERNS; i++) {
+		state->d51[i] = alloc_array(intarray, state->D51HIGHT + 1);
+		state->d51lens[i] = alloc_array(int, state->D51HIGHT + 1);
+	}
+	i = 0;
+	state->d51[i][0] = state->arr_D51STR1; state->d51[i][1] = state->arr_D51STR2; state->d51[i][2] = state->arr_D51STR3; state->d51[i][3] = state->arr_D51STR4; state->d51[i][4] = state->arr_D51STR5; state->d51[i][5] = state->arr_D51STR6; state->d51[i][6] = state->arr_D51STR7; state->d51[i][10] = state->arr_D51DEL;
+	state->d51lens[i][0] = state->arr_D51STR1_len; state->d51lens[i][1] = state->arr_D51STR2_len; state->d51lens[i][2] = state->arr_D51STR3_len; state->d51lens[i][3] = state->arr_D51STR4_len; state->d51lens[i][4] = state->arr_D51STR5_len; state->d51lens[i][5] = state->arr_D51STR6_len; state->d51lens[i][6] = state->arr_D51STR7_len; state->d51lens[i][10] = state->arr_D51DEL_len;
+	state->d51[i][7] = state->arr_D51WHL11; state->d51[i][8] = state->arr_D51WHL12; state->d51[i][9] = state->arr_D51WHL13;
+	state->d51lens[i][7] = state->arr_D51WHL11_len; state->d51lens[i][8] = state->arr_D51WHL12_len; state->d51lens[i][9] = state->arr_D51WHL13_len;
+	i = 1;
+	state->d51[i][0] = state->arr_D51STR1; state->d51[i][1] = state->arr_D51STR2; state->d51[i][2] = state->arr_D51STR3; state->d51[i][3] = state->arr_D51STR4; state->d51[i][4] = state->arr_D51STR5; state->d51[i][5] = state->arr_D51STR6; state->d51[i][6] = state->arr_D51STR7; state->d51[i][10] = state->arr_D51DEL;
+	state->d51lens[i][0] = state->arr_D51STR1_len; state->d51lens[i][1] = state->arr_D51STR2_len; state->d51lens[i][2] = state->arr_D51STR3_len; state->d51lens[i][3] = state->arr_D51STR4_len; state->d51lens[i][4] = state->arr_D51STR5_len; state->d51lens[i][5] = state->arr_D51STR6_len; state->d51lens[i][6] = state->arr_D51STR7_len; state->d51lens[i][10] = state->arr_D51DEL_len;
+	state->d51[i][7] = state->arr_D51WHL21; state->d51[i][8] = state->arr_D51WHL22; state->d51[i][9] = state->arr_D51WHL23;
+	state->d51lens[i][7] = state->arr_D51WHL21_len; state->d51lens[i][8] = state->arr_D51WHL22_len; state->d51lens[i][9] = state->arr_D51WHL23_len;
+	i = 2;
+	state->d51[i][0] = state->arr_D51STR1; state->d51[i][1] = state->arr_D51STR2; state->d51[i][2] = state->arr_D51STR3; state->d51[i][3] = state->arr_D51STR4; state->d51[i][4] = state->arr_D51STR5; state->d51[i][5] = state->arr_D51STR6; state->d51[i][6] = state->arr_D51STR7; state->d51[i][10] = state->arr_D51DEL;
+	state->d51lens[i][0] = state->arr_D51STR1_len; state->d51lens[i][1] = state->arr_D51STR2_len; state->d51lens[i][2] = state->arr_D51STR3_len; state->d51lens[i][3] = state->arr_D51STR4_len; state->d51lens[i][4] = state->arr_D51STR5_len; state->d51lens[i][5] = state->arr_D51STR6_len; state->d51lens[i][6] = state->arr_D51STR7_len; state->d51lens[i][10] = state->arr_D51DEL_len;
+	state->d51[i][7] = state->arr_D51WHL31; state->d51[i][8] = state->arr_D51WHL32; state->d51[i][9] = state->arr_D51WHL33;
+	state->d51lens[i][7] = state->arr_D51WHL31_len; state->d51lens[i][8] = state->arr_D51WHL32_len; state->d51lens[i][9] = state->arr_D51WHL33_len;
+	i = 3;
+	state->d51[i][0] = state->arr_D51STR1; state->d51[i][1] = state->arr_D51STR2; state->d51[i][2] = state->arr_D51STR3; state->d51[i][3] = state->arr_D51STR4; state->d51[i][4] = state->arr_D51STR5; state->d51[i][5] = state->arr_D51STR6; state->d51[i][6] = state->arr_D51STR7; state->d51[i][10] = state->arr_D51DEL;
+	state->d51lens[i][0] = state->arr_D51STR1_len; state->d51lens[i][1] = state->arr_D51STR2_len; state->d51lens[i][2] = state->arr_D51STR3_len; state->d51lens[i][3] = state->arr_D51STR4_len; state->d51lens[i][4] = state->arr_D51STR5_len; state->d51lens[i][5] = state->arr_D51STR6_len; state->d51lens[i][6] = state->arr_D51STR7_len; state->d51lens[i][10] = state->arr_D51DEL_len;
+	state->d51[i][7] = state->arr_D51WHL41; state->d51[i][8] = state->arr_D51WHL42; state->d51[i][9] = state->arr_D51WHL43;
+	state->d51lens[i][7] = state->arr_D51WHL41_len; state->d51lens[i][8] = state->arr_D51WHL42_len; state->d51lens[i][9] = state->arr_D51WHL43_len;
+	i = 4;
+	state->d51[i][0] = state->arr_D51STR1; state->d51[i][1] = state->arr_D51STR2; state->d51[i][2] = state->arr_D51STR3; state->d51[i][3] = state->arr_D51STR4; state->d51[i][4] = state->arr_D51STR5; state->d51[i][5] = state->arr_D51STR6; state->d51[i][6] = state->arr_D51STR7; state->d51[i][10] = state->arr_D51DEL;
+	state->d51lens[i][0] = state->arr_D51STR1_len; state->d51lens[i][1] = state->arr_D51STR2_len; state->d51lens[i][2] = state->arr_D51STR3_len; state->d51lens[i][3] = state->arr_D51STR4_len; state->d51lens[i][4] = state->arr_D51STR5_len; state->d51lens[i][5] = state->arr_D51STR6_len; state->d51lens[i][6] = state->arr_D51STR7_len; state->d51lens[i][10] = state->arr_D51DEL_len;
+	state->d51[i][7] = state->arr_D51WHL51; state->d51[i][8] = state->arr_D51WHL52; state->d51[i][9] = state->arr_D51WHL53;
+	state->d51lens[i][7] = state->arr_D51WHL51_len; state->d51lens[i][8] = state->arr_D51WHL52_len; state->d51lens[i][9] = state->arr_D51WHL53_len;
+	i = 5;
+	state->d51[i][0] = state->arr_D51STR1; state->d51[i][1] = state->arr_D51STR2; state->d51[i][2] = state->arr_D51STR3; state->d51[i][3] = state->arr_D51STR4; state->d51[i][4] = state->arr_D51STR5; state->d51[i][5] = state->arr_D51STR6; state->d51[i][6] = state->arr_D51STR7; state->d51[i][10] = state->arr_D51DEL;
+	state->d51lens[i][0] = state->arr_D51STR1_len; state->d51lens[i][1] = state->arr_D51STR2_len; state->d51lens[i][2] = state->arr_D51STR3_len; state->d51lens[i][3] = state->arr_D51STR4_len; state->d51lens[i][4] = state->arr_D51STR5_len; state->d51lens[i][5] = state->arr_D51STR6_len; state->d51lens[i][6] = state->arr_D51STR7_len; state->d51lens[i][10] = state->arr_D51DEL_len;
+	state->d51[i][7] = state->arr_D51WHL61; state->d51[i][8] = state->arr_D51WHL62; state->d51[i][9] = state->arr_D51WHL63;
+	state->d51lens[i][7] = state->arr_D51WHL61_len; state->d51lens[i][8] = state->arr_D51WHL62_len; state->d51lens[i][9] = state->arr_D51WHL63_len;
+
+	state->d51coal = alloc_array(intarray, state->D51HIGHT + 1);
+	state->d51coallens = alloc_array(int, state->D51HIGHT + 1);
+	state->d51coal[0] = state->arr_COAL01;
+	state->d51coal[1] = state->arr_COAL02;
+	state->d51coal[2] = state->arr_COAL03;
+	state->d51coal[3] = state->arr_COAL04;
+	state->d51coal[4] = state->arr_COAL05;
+	state->d51coal[5] = state->arr_COAL06;
+	state->d51coal[6] = state->arr_COAL07;
+	state->d51coal[7] = state->arr_COAL08;
+	state->d51coal[8] = state->arr_COAL09;
+	state->d51coal[9] = state->arr_COAL10;
+	state->d51coal[10] = state->arr_COALDEL;
+	state->d51coallens[0] = state->arr_COAL01_len;
+	state->d51coallens[1] = state->arr_COAL02_len;
+	state->d51coallens[2] = state->arr_COAL03_len;
+	state->d51coallens[3] = state->arr_COAL04_len;
+	state->d51coallens[4] = state->arr_COAL05_len;
+	state->d51coallens[5] = state->arr_COAL06_len;
+	state->d51coallens[6] = state->arr_COAL07_len;
+	state->d51coallens[7] = state->arr_COAL08_len;
+	state->d51coallens[8] = state->arr_COAL09_len;
+	state->d51coallens[9] = state->arr_COAL10_len;
+	state->d51coallens[10] = state->arr_COALDEL_len;
+
+	state->mans = alloc_array(intarrayarray, 2);
+	state->manslens = alloc_array(intarray, 2);
+	state->mans[0] = alloc_array(intarray, 2);
+	state->manslens[0] = alloc_array(int, 2);
+	state->mans[0][0] = alloc_array(int, 0);
+	state->manslens[0][0] = 0; 
+	state->mans[0][1] = alloc_array(int, 3);
+	state->manslens[0][1] = 3; state->mans[0][1][0] = 40; state->mans[0][1][1] = 79; state->mans[0][1][2] = 41; 
+	state->mans[1] = alloc_array(intarray, 2);
+	state->manslens[1] = alloc_array(int, 2);
+	state->mans[1][0] = alloc_array(int, 5);
+	state->manslens[1][0] = 5; state->mans[1][0][0] = 72; state->mans[1][0][1] = 101; state->mans[1][0][2] = 108; state->mans[1][0][3] = 112; state->mans[1][0][4] = 33; 
+	state->mans[1][1] = alloc_array(int, 3);
+	state->manslens[1][1] = 3; state->mans[1][1][0] = 92; state->mans[1][1][1] = 79; state->mans[1][1][2] = 47; 
+
+	state->S = alloc_array(struct smokes, 1000);
+	state->dy = alloc_array(int, 16);
+	state->dy[0] = 2; state->dy[1] = 1; state->dy[2] = 1; state->dy[3] = 1; state->dy[4] = 0; state->dy[5] = 0; state->dy[6] = 0; state->dy[7] = 0; state->dy[8] = 0; state->dy[9] = 0; state->dy[10] = 0; state->dy[11] =  0; state->dy[12] = 0; state->dy[13] = 0; state->dy[14] = 0; state->dy[15] = 0;
+	state->dx = alloc_array(int, 16);
+	state->dx[0] = -2; state->dx[1] = -1; state->dx[2] = 0; state->dx[3] = 1; state->dx[4] = 1; state->dx[5] = 1; state->dx[6] = 1; state->dx[7] = 1; state->dx[8] = 2; state->dx[9] = 2; state->dx[10] = 2; state->dx[11] =  2; state->dx[12] = 2; state->dx[13] = 3; state->dx[14] = 3; state->dx[15] = 3;
+	return 0;
+}
+
+/******************************************************************************
+ * sl functions
+ ******************************************************************************/
+
+int l5_mvaddstr(struct state *state, int y, int x, intarray str, int len)
+{
+	int i = 0;
+	if (len < 0) 1/0;
+	while (x < 0) {
+		if (i == len)
+			return (-1); /* str[i] == 0 */
+		i++;
+		x++;
+	}
+	while (i < len && x < state->con->COLS) {
+		/* if (mvaddch(y, x, str[i]) == (-1)) // curses version
+			return (-1); */
+		/* L5 version ;) */
+		set_cursor_pos(state->con, y, x);
+		console_printchar(state->con, (str[i] == 0 ? 32 : str[i]));
+		i++;
+		x++;
+	}
+	state->lines_printed++;
+	return 0;
+}
+
+int add_D51(struct state *state, int x);
+int add_man(struct state *state, int y, int x);
+int add_smoke(struct state *state, int y, int x);
+
+int main()
+{
+	int x;
+	int i;
+
+	struct state *state = alloc(struct state);
+	init_state(state);
+	hide_cursor();
+
+	/* initscr();
+	noecho();
+	leaveok(stdscr, TRUE);
+	scrollok(stdscr, FALSE); */
+
+	for (x = state->con->COLS - 1; 1 == 1; x--) {
+		if (add_D51(state, x) == (-1)) break;
+		/* refresh(); */
+		l5_usleep(20000);
+	}
+	/* mvcur(0, state->con->COLS - 1, state->con->LINES - 1, 0);
+	endwin(); */
+	set_cursor_pos(state->con, 0, 0);
+	show_cursor();
+	return state->lines_printed;
+}
+
+
+int add_D51(struct state *state, int x)
+{
+	int y;
+	int i;
+	int dy = 0;
+
+	if (x < - state->D51LENGTH)  return (-1);
+	y = state->con->LINES / 2 - 5;
+
+	if (state->FLY == 1) {
+		y = (x / 7) + state->con->LINES - (state->con->COLS / 7) - state->D51HIGHT;
+		dy = 1;
+	}
+	for (i = 0; i <= state->D51HIGHT; i++) {
+		set_colour(1); /* bold */
+		set_colour(36); /* cyan */
+		l5_mvaddstr(state, y + i, x, state->d51[(state->D51LENGTH + x) % state->D51PATTERNS][i],
+			    state->d51lens[(state->D51LENGTH + x) % state->D51PATTERNS][i]);
+		set_colour(35); /* magenta */
+		l5_mvaddstr(state, y + i + dy, x + 53, state->d51coal[i], state->d51coallens[i]);
+		set_colour(0);
+	}
+	if (state->ACCIDENT == 1) {
+		add_man(state, y + 2, x + 43);
+		add_man(state, y + 2, x + 47);
+	}
+	add_smoke(state, y - 1, x + state->D51FUNNEL);
+	return 0;
+}
+
+
+int add_man(struct state *state, int y, int x)
+{
+	int i;
+	set_colour(1); /* bold */
+	set_colour(31); /* red */
+	for (i = 0; i < 2; i++) {
+		l5_mvaddstr(state, y + i, x, state->mans[(state->LOGOLENGTH + x) / 12 % 2][i],
+			    state->manslens[(state->LOGOLENGTH + x) / 12 % 2][i]);
+	}
+	set_colour(0);
+	return 0;
+}
+
+
+int add_smoke(struct state *state, int y, int x)
+{
+	int i;
+
+	set_colour(1); /* bold */
+	if (x % 4 == 0) {
+		for (i = 0; i < state->sum; i++) {
+			l5_mvaddstr(state, state->S[i].y, state->S[i].x, state->Eraser[state->S[i].ptrn],
+				    state->Eraserlens[state->S[i].ptrn]);
+			state->S[i].y    -= state->dy[state->S[i].ptrn];
+			state->S[i].x    += state->dx[state->S[i].ptrn];
+			/* 16 == SMOKEPTNS */
+			state->S[i].ptrn += (state->S[i].ptrn < 16 - 1) ? 1 : 0;
+			l5_mvaddstr(state, state->S[i].y, state->S[i].x,
+				    state->Smoke[state->S[i].kind][state->S[i].ptrn],
+				    state->Smokelens[state->S[i].kind][state->S[i].ptrn]);
+		}
+		l5_mvaddstr(state, y, x, state->Smoke[state->sum % 2][0], state->Smokelens[state->sum % 2][0]);
+		state->S[state->sum].y = y;    state->S[state->sum].x = x;
+		state->S[state->sum].ptrn = 0; state->S[state->sum].kind = state->sum % 2;
+		state->sum ++;
+	}
+	set_colour(0);
+	return 0;
+}
+
+/* vim: ft=c
+ */

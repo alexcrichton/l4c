@@ -1,0 +1,51 @@
+//test return 555
+//constant propagation should fix this
+// or even if you don't constant propagate
+//you are ok as long as you didn't
+//put your callee saves into the registers
+
+
+int bigfun(int a, int b, int c, int d, int e, int f, int g, int i, int h, int k, int p, int ff)
+{
+return ff;
+}
+
+int main()
+{
+
+int a1=10;
+int a2=110;
+int a3 =10;
+int a4 =11011;
+int a5 =1110;
+int z =110;
+int c =101;
+int x=555;
+int y=666;
+int temp=1;
+
+
+
+bigfun(0,1,2,3,4,5,6,7,8,9,10,11);
+
+//x, y and temp had better not be spilled onto the stack
+for(a1=0;a1<200000000;a1++)
+{
+temp = x;
+x = y;
+y = temp;
+}
+
+x+y+a1+a2+a3+a4+a5+z+c;
+
+return x;
+
+
+
+}
+
+
+
+
+
+

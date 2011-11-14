@@ -1,0 +1,16 @@
+//test error
+//tests function b with an argument b
+
+int b(int b, bool x)
+{
+if(x)
+return b(0,false);
+else
+return b;
+}
+
+int main()
+{
+return b(3,true);
+
+}

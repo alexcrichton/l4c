@@ -1,0 +1,23 @@
+//test exception 11
+
+struct list{
+    int head;
+    struct list * tail;
+};
+
+struct list* newList(int value){
+    struct list * l = alloc(struct list);
+    l->head = value;
+    return l;
+}
+
+struct list* cons(int value, struct list* tail){
+    struct list* l = newList(value);
+    l->tail = tail;
+    return l;
+}
+
+int main () {
+  struct list* l = cons(1, cons(2, newList(3)));
+  return l->tail->tail->tail->head; // last tail is NULL
+}

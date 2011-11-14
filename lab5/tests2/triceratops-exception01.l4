@@ -1,0 +1,12 @@
+//test exception
+
+int main () {
+  int[] A;
+  int i;
+  A = alloc_array(int, 10);
+  for (i = 0; i < 1000; i++) {
+    A = alloc_array(int, 10);
+  }
+  A[i];
+  return 1000;
+}

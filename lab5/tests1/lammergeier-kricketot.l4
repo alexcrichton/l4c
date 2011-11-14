@@ -1,0 +1,11 @@
+//test exception 11
+
+struct exstruct {
+    int a;
+};
+
+int main() {
+    struct exstruct *p = NULL;
+    p->a = 1;
+    return 1;
+}

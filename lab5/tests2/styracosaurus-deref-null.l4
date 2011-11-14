@@ -1,0 +1,9 @@
+//test exception 11
+
+int main()
+{
+	int* A;
+	A = NULL;
+    *A = 12345;
+	return 0;
+}

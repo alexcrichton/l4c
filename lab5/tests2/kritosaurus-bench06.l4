@@ -1,0 +1,23 @@
+//test return 267914296
+
+int main()
+{
+    int size = 40;
+    int [] ap = alloc_array(int, size);
+    int [] bp = alloc_array(int, size);
+    int [] cp = alloc_array(int, size);
+    int i;
+
+    ap[0] = 2;
+    bp[0] = 1;
+    cp[0] = 1;
+    // loop unrolling
+    for (i = 1; i < size; i++)
+    {
+        bp[i] = ap[i-1];
+        cp[i] = bp[i-1];
+        ap[i] = bp[i] + cp[i];
+    }
+
+    return ap[size - 1];
+}

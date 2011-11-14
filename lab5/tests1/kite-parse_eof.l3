@@ -1,0 +1,75 @@
+//test exception 11
+//Like parse, but input ends abruptly
+
+//assumes lparen has already been read
+int term() {
+
+  int first = readchar();
+
+  int l = 0;
+  
+  if(first == 48) {
+    int x = readchar();
+    if(x != 120)
+      1/0;
+    l = readhex();
+  } else if(first == 40) { //lparen
+    l = term();
+  } else {
+    1/0;
+  }
+
+  int op = readchar();
+  int r = 0;
+
+  first = readchar();
+  if(first == 48) {
+    int x = readchar();
+    if(x != 120)
+      1/0;
+    r = readhex();
+  } else if(first == 40) { //lparen
+    r = term();
+  } else {
+    1/0;
+  }
+
+  int res = 0;
+  if(op == 43) {
+    res = l + r;
+  } else if(op == 45) {
+    res = l-r;
+  } else if(op == 42) {
+    res = l * r;
+  } else if(op ==  47) {
+    res = l / r;
+  } else {
+    1/0;
+    return 0; //never gets here
+  }
+
+  int last = readchar();
+  if(last != 41) { //rparen
+    1/0;
+  }
+
+  return res;
+}
+
+
+int main() {
+  int T = readint();
+  //readchar();
+  for(int i = 0; i < T; i++) {
+
+    int lparen = readchar();
+
+    if(lparen != 40)
+      1/0;
+    
+    printint(term());
+    printchar(10);
+    readchar();
+  }
+  return 0;
+}

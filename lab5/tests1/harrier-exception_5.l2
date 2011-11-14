@@ -1,0 +1,9 @@
+//test exception 8
+
+int main()
+{
+    int i;
+    for (i = 5; (i / (i - 2)) != 543; i--)
+        continue;
+    return 4;
+}

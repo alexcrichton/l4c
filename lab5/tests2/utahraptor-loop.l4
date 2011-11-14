@@ -1,0 +1,12 @@
+//test return 134217727
+//Optimization test. Benefits from:
+//* Loop unrolling
+//* Instruction selection (incrementing j with incr instead of add)
+//* If unrolling has been performed, add coalescing
+int main()
+{
+	int i;
+	int j = booltoint(false);
+	for(i = 0; i < 0x7FFFFFF; i++){j++;}
+	return j;
+}

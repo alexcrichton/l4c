@@ -1,0 +1,15 @@
+//test exception 11
+
+struct s
+{
+    int a;
+    int b;
+};
+
+int main()
+{
+    struct s *[]sarr = alloc_array(struct s *, 1);
+    /* This is an almost-NULL pointer access. */
+    return sarr[0]->b;
+}
+

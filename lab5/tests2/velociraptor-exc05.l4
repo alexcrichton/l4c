@@ -1,0 +1,13 @@
+//test exception 11
+// testing for struct dereferences
+
+struct s {
+  int i;
+  int* p;
+};
+
+int main() {
+  struct s* s = alloc(struct s);
+
+  return *s->p;
+}

@@ -1,0 +1,14 @@
+//test error
+//function f's definition doesn't match its declaration
+
+int f(int b);
+
+int f(bool b)
+{
+  return b ? 0 : 1;
+}
+
+int main()
+{
+  return f(true);
+}

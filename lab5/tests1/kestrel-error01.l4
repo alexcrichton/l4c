@@ -1,0 +1,7 @@
+//test error
+
+int main()
+{
+  (NULL == NULL ? NULL : NULL) == (NULL == NULL ? NULL : NULL) ? (NULL == NULL ? NULL : NULL) : (NULL == NULL ? NULL : true);
+  return 42;
+}

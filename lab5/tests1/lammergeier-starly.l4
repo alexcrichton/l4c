@@ -1,0 +1,39 @@
+//test exception 11
+struct big0 { int left; int right; };
+struct big1 { struct big0 left; struct big0 right; };
+struct big2 { struct big1 left; struct big1 right; };
+struct big3 { struct big2 left; struct big2 right; };
+struct big4 { struct big3 left; struct big3 right; };
+struct big5 { struct big4 left; struct big4 right; };
+struct big6 { struct big5 left; struct big5 right; };
+struct big7 { struct big6 left; struct big6 right; };
+struct big8 { struct big7 left; struct big7 right; };
+struct big9 { struct big8 left; struct big8 right; };
+struct big10 { struct big9 left; struct big9 right; };
+struct big11 { struct big10 left; struct big10 right; };
+struct big12 { struct big11 left; struct big11 right; };
+struct big13 { struct big12 left; struct big12 right; };
+struct big14 { struct big13 left; struct big13 right; };
+struct big15 { struct big14 left; struct big14 right; };
+struct big16 { struct big15 left; struct big15 right; };
+struct big17 { struct big16 left; struct big16 right; };
+struct big18 { struct big17 left; struct big17 right; };
+struct big19 { struct big18 left; struct big18 right; };
+struct big20 { struct big19 left; struct big19 right; };
+struct big21 { struct big20 left; struct big20 right; };
+struct big22 { struct big21 left; struct big21 right; };
+struct big23 { struct big22 left; struct big22 right; };
+struct big24 { struct big23 left; struct big23 right; };
+struct big25 { struct big24 left; struct big24 right; };
+struct big26 { struct big25 left; struct big25 right; };
+struct big27 { struct big26 left; struct big26 right; };
+struct big28 { struct big27 left; struct big27 right; };
+struct big29 { struct big28 left; struct big28 right; };
+struct big30 { struct big29 left; struct big29 right; };
+struct big31 { struct big30 left; struct big30 right; };
+struct big32 { struct big31 left; struct big31 right; };
+int main() {
+    struct big32 *enormous = alloc(struct big32);
+    enormous->left.left.left.left.left.left.left.left.left.left.left.left.left.left.left.left.left.left.left.left.left.left.left.left.left.left.left.left.left.left.left.left.left;
+    return 0x1337D00D;
+}

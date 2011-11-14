@@ -1,0 +1,19 @@
+//test return 8
+//use another function so it can't be const folded
+
+int foo(int a, int b) {
+    int x1 = (a+2*b) - 3;
+    int x2 = (a+2*b) + 3*x1;
+    int x3 = x2 - 8*(a+2*b);
+    int x4 = (a+2*b)/5;
+    int x5 = b + (a+2*b);
+    int x6 = (a+2*b) - x1*x4;
+    int x7 = (a+2*b) * (a+2*b);
+    int x8 = 2*a + (a+2*b);
+
+    return x1+x2+x3+x4+x5+x6+x7-x8;
+}
+
+int main() {
+    return foo(3, 1);
+}

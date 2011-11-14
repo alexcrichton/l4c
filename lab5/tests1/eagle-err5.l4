@@ -1,0 +1,18 @@
+//test exception 11
+// You only evaluate conditions once, right?
+int uhoh(int *bar) {
+  if (*bar == 0) {
+    return 1/0;
+  } {
+    int a = *bar;
+    *bar = 0;
+    return a;
+  }
+}
+
+int main() {
+  int *ptr = alloc(int);
+  *ptr = 4;
+  int[] foo = alloc_array(int, 3);
+  return foo[uhoh(ptr)];
+}

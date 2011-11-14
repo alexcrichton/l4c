@@ -1,0 +1,19 @@
+//test exception 11
+// Dereferencing a null reference to a struct
+
+struct test
+{
+    int c;
+    int d;
+    int e;
+    bool f;
+};
+
+int main()
+{
+    struct test * [] arr = alloc_array(struct test *, 100);
+
+    arr[0]->c = 100;
+
+    return arr[0]->c;
+}

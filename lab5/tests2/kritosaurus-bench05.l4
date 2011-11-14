@@ -1,0 +1,98 @@
+//test return 10
+
+bool qsort1(int []arr, int beg, int end);
+
+bool qsort(int[] arr, int size)
+{
+    return qsort1(arr, 0, size);
+}
+
+bool swap(int[] arr, int x, int y)
+{
+    int t = arr[x];
+    arr[x] = arr[y];
+    arr[y] = t;
+
+    return true;
+}
+
+bool qsort1(int[] arr, int beg, int end)
+{
+    if (end > beg + 1)
+    {
+        int piv = arr[beg];
+        int l = beg + 1;
+        int r = end;
+        while (l < r)
+        {
+            if (arr[l] <= piv)
+                l += 1;
+            else
+            {
+                r -= 1;
+                swap(arr, l, r);
+            }
+        }
+        l -= 1;
+        swap(arr, l, beg);
+        qsort1(arr, beg, l);
+        qsort1(arr, r, end);
+        return true;
+    }
+    return true;
+}
+
+struct rand_t {
+    int seed;
+};
+
+typedef struct rand_t rand_t;
+
+int getnext(rand_t *rp)
+{
+    int res = rp->seed * 37 / 43 * 11 + rp->seed / 97 * 67;
+    rp->seed = (res << 4) + 11;
+    return res;
+}
+
+int rand(rand_t *rp, int max)
+{
+	int next = getnext(rp);
+
+	next %= max;
+	if (next < 0)
+		next += max;
+	return next;
+}
+
+bool permute(int[] arr, int size)
+{
+    rand_t *rp = alloc(rand_t);
+    int i;
+    rp->seed = 59438321;
+
+    for (i = 0; i < size; i++)
+    {
+        swap(arr, i, rand(rp, size - i) + i);
+    }
+    return true;
+}
+
+int main()
+{
+    int size = 10000;
+    int[] arr = alloc_array(int, size);
+    int i;
+    rand_t *rp = alloc(rand_t);
+    rp->seed = 12648430 + 11; //0xc0ffee
+
+    for (i = 0; i < size; i++)
+    {
+        arr[i] = getnext(rp);
+    }
+
+    permute(arr, size);
+    qsort(arr, size);
+
+    return 10;
+}

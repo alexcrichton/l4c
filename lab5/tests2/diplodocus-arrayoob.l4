@@ -1,0 +1,11 @@
+//test exception 11
+
+int main()
+{
+    int [] a = alloc_array(int,1);
+    int y = a[0];
+    int x;
+    a[0] = 2;
+    x = a[a[0]/a[0]];
+    return x;
+}

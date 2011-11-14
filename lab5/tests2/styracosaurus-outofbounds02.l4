@@ -1,0 +1,20 @@
+//test exception 11
+
+int main()
+{
+	int[] A;
+	A = alloc_array(int, 50);
+
+	for(A[0]=1; true; A[0]++)
+	{
+		A[A[0]]++;
+		A[0] %= A[A[0]];
+
+        printint(A[0]);
+		printchar(32);
+        printint(A[A[0]]);
+        printchar(10);
+	}
+
+	return 0;
+}

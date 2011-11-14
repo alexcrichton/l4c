@@ -1,0 +1,11 @@
+//test return 1
+//Basically tests library calls.
+
+int main()
+{
+    int fifteen = tofloat(15);
+    if (fromfloat(fifteen) == 15)
+        return 1;
+    else
+        return 0;
+}

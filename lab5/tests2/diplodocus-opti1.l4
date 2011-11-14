@@ -1,0 +1,30 @@
+//test return 5
+// cfold?
+
+int main()
+{
+    int a = 5;
+    int b = 3;
+    int c;
+    int d;
+    bool aa;
+
+    if (b < a)
+    {
+        c = a > b ? a+b : b-a;
+    }
+    else    // this branch does not occur
+    {
+        c = b + a;
+    }
+
+    d = c + b;
+
+    aa = d == a;
+
+    if (aa)
+        return a;
+    else
+        return 5;
+
+}

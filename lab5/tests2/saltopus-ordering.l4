@@ -1,0 +1,12 @@
+//test exception 8
+
+/* I really hope the ref compiler behaves as speced here... This is the most
+ * sensical failure mode, I think... */
+
+int main()
+{
+	int n = 0;
+	int *foo = NULL;
+	*foo = 15410/n;
+	return 1337;
+}

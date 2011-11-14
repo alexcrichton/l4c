@@ -1,0 +1,64 @@
+//test exception 11
+
+struct b64  {
+	int* val001;
+	int* val002;
+	int* val003;
+	int* val004;
+	int* val005;
+	int* val006;
+	int* val007;
+	int* val008;
+};
+struct kb1{
+	struct b64 val001;
+	struct b64 val002;
+	struct b64 val003;
+	struct b64 val004;
+	struct b64 val005;
+	struct b64 val006;
+	struct b64 val007;
+	struct b64 val008;
+	struct b64 val009;
+	struct b64 val010;
+	struct b64 val011;
+	struct b64 val012;
+	struct b64 val013;
+	struct b64 val014;
+	struct b64 val015;
+	struct b64 val016;
+};
+struct kb64 {
+	struct kb1 val001;
+	struct kb1 val002;
+	struct kb1 val003;
+	struct kb1 val004;
+	struct kb1 val005;
+	struct kb1 val006;
+	struct kb1 val007;
+	struct kb1 val008;
+};
+struct mb1 {
+	struct kb64 val001;
+	struct kb64 val002;
+	struct kb64 val003;
+	struct kb64 val004;
+	struct kb64 val005;
+	struct kb64 val006;
+	struct kb64 val007;
+	struct kb64 val008;
+	struct kb64 val009;
+	struct kb64 val010;
+	struct kb64 val011;
+	struct kb64 val012;
+	struct kb64 val013;
+	struct kb64 val014;
+	struct kb64 val015;
+	struct kb64 val016;
+};
+
+int main() {
+	struct mb1 * big_struct = NULL;
+	return *big_struct->val016.val008.val016.val008;
+
+}

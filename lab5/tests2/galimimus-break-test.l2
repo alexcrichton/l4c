@@ -1,0 +1,5 @@
+//test error
+int main() {
+  break; // Must be in a loop
+  return 0;
+}

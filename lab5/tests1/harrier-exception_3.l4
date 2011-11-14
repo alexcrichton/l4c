@@ -1,0 +1,13 @@
+//test exception
+
+int myindex()
+{
+    return -255 % 4;
+}
+
+int main()
+{
+    int[] ary = alloc_array(int, 5);
+    ary[myindex()] = 5;
+    return ary[myindex()];
+}

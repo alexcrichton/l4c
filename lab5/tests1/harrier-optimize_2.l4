@@ -1,0 +1,19 @@
+//test exception 8
+
+int selfdestruct(int a99)
+{
+    int *mem = NULL;
+    return *mem;
+}
+
+int main()
+{
+    int a32 = 32;
+    int a33 = 33;
+    
+    // should optimize to XXX / 0
+    if ((a33 / (a32 - 32)) == 3)
+        selfdestruct(99);
+    
+    return 2;
+}

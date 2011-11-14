@@ -1,0 +1,24 @@
+//test exception 08
+//tests breaks
+
+int main()
+{
+	int sum = 0;
+
+	int i;
+
+	for(i=0; i<5; i++)
+	{
+		int j = 0;
+		while(j<5)
+		{
+			j++;
+			break;
+			return 0;
+		}
+		break;
+		sum += 5;
+	}
+
+	return 10/sum;
+}

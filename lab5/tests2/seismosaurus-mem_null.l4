@@ -1,0 +1,11 @@
+//test exception 11
+
+struct s {
+	int * ptr;
+};
+
+int main() {
+	struct s * a = alloc(struct s);
+	return *(a->ptr);
+
+}

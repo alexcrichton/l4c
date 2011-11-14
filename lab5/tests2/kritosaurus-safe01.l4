@@ -1,0 +1,17 @@
+//test exception 11
+
+int main()
+{
+    int size = 10;
+    int [] arr = alloc_array(int, size);
+    int i;
+    int sum = 0;
+
+    // off-by-one
+    for (i = 0; i <= size; i++)
+    {
+        sum += arr[i];
+    }
+
+    return 0;
+}

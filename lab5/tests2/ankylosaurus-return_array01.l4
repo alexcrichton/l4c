@@ -1,0 +1,15 @@
+//test return 1099
+// Test that arrays can be accessed within bounds
+
+int main()
+{
+    int [] arr = alloc_array(int, 100);
+    int i;
+
+    for(i = 1000; i < 1100; i++)
+    {
+        arr[i % 1000] = i;
+    }
+
+    return arr[i - 1001];
+}

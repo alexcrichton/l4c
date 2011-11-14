@@ -1,0 +1,15 @@
+//test exception 11
+
+int main() {
+    int tmax = 2147483647; // 2^31 - 1
+
+    int[] i    = alloc_array(int, tmax);
+    int[] want = alloc_array(int, tmax);
+    int[] to   = alloc_array(int, tmax);
+    int[] run  = alloc_array(int, tmax);
+    int[] out  = alloc_array(int, tmax);
+    int[] of   = alloc_array(int, tmax);
+    int[] mem  = alloc_array(int, tmax);
+
+    return i[0] + want[0] + to[0] + run[0] + out[0] + of[0] + mem[0];
+}

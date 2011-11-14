@@ -1,0 +1,11 @@
+//test exception 11
+
+int val(int[] arr, int * i){
+	return arr[*i];
+}
+
+int main(){
+	int[] a = alloc_array(int, 35);
+	int* index = NULL;
+	return val(a, index);
+}

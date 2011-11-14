@@ -1,0 +1,7 @@
+//test exception 11
+//Array size not known at compile time, fails
+int main()
+{
+	int[] x = alloc_array(int, booltoint(false));
+	return x[0];
+}
