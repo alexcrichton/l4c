@@ -76,8 +76,8 @@ struct
   fun lsh_ (w1, w2) = Word32.<< (w1, mask w2)
   fun rsh_ (w1, w2) = Word32.~>> (w1, mask w2)
 
-  fun eq_ (w1, w2) = (w1 = w2)
-  fun neq_ (w1, w2) = (w1 <> w2)
+  fun eq_ ws = (Word32.compare ws = EQUAL)
+  fun neq_ ws = (Word32.compare ws <> EQUAL)
 
   fun lt_ (w1, w2) = let
         val (w1', w1neg) = abs w1
