@@ -441,8 +441,7 @@ struct
                  | ([(_, tid, T.TRUE), (_, fid, T.FALSE)] |
                     [(_, fid, T.FALSE), (_, tid, T.TRUE)]) => let
                       val (e, L') = extract_cond L
-                      val e' = T.BINOP (T.XOR,
-                                        T.CONST (Word32.fromInt 1, T.WORD), e)
+                      val e' = T.negate e
                       val L'' = L' @ [T.GOTO (label fid, SOME e')]
                     in
                       L'' @ dfs tid @ dfs fid
@@ -457,8 +456,7 @@ struct
                  | ([(_, tid, T.TRUE), (_, fid, T.FBRANCH)] |
                     [(_, fid, T.FBRANCH), (_, tid, T.TRUE)]) => let
                       val (e, L') = extract_cond L
-                      val e' = T.BINOP (T.XOR,
-                                        T.CONST (Word32.fromInt 1, T.WORD), e)
+                      val e' = T.negate e
                       val L'' = L' @ [T.GOTO (label fid, SOME e')]
                     in
                       skipped := fid::(!skipped); L'' @ dfs tid
