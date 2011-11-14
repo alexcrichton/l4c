@@ -1,8 +1,0 @@
-//test exception 8
-int main ()
-{
-	int i = -1;
-	i = i << 31;
-	i = i / -1;
-	return i;
-}

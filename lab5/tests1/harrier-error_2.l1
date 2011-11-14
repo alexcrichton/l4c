@@ -1,8 +1,0 @@
-//test error
-
-int main()
-{
-    int meowmix1;
-    meowmix1 = meowmix2;
-    return 57;
-}
