@@ -212,7 +212,7 @@ int flush_console(struct console_state *con)
  ******************************************************************************/
 
 struct state;
-int readchar(struct state *state);
+int read_char(struct state *state);
 
 /******************************************************************************
  * MT random number generator (thanks to stegosaurus-122-mersenne.l4)
@@ -940,7 +940,7 @@ int set_n_random_bits(struct state *state, int n, room_t posmask, room_t setmask
 		y = *state->player_y_p;
 		state->board_a[x + state->BOARD_WIDTH_k * y] |= setmask;
 	}
-	return 0;;
+	return 0;
 }
 
 /** @brief Check to see if the game is over
@@ -1005,7 +1005,7 @@ int wait_key(struct state *state) {
 	int c = -1;
 	while (c < 0) {
 		update_time(state);
-		c = readchar(state);
+		c = read_char(state);
 		/*
 		if (c == '?') {
 			help(state);
@@ -1014,7 +1014,7 @@ int wait_key(struct state *state) {
 		}
 		*/
 	}
-	// if (c > 0xff) { lprintf("Large char from readchar, truncating"); }
+	// if (c > 0xff) { lprintf("Large char from read_char, truncating"); }
 	return c;
 }
 
@@ -1216,7 +1216,7 @@ int text_prompt(struct state *state, intarray out_s, int size, int color, int ro
 	// Read input
 	while (c != 10) {
 		c = -1;
-		while (c < 0) { c = readchar(state); }
+		while (c < 0) { c = read_char(state); }
 		// check bounds
 		// get_cursor(state, &cur_row, &cur_col);
 		cur_row = state->con->line;
@@ -1279,7 +1279,7 @@ int win(struct state *state) {
 		}
 	} else {
 		print_centered(state, state->toobad_s, color, state->CHEIGHT_k / 2 + 2);
-		while(readchar(state) < 0) { continue; }
+		while(read_char(state) < 0) { continue; }
 	}
 	return 0;
 }
@@ -1294,7 +1294,7 @@ int lose(struct state *state) {
 	print_at(state, state->yousuck_s, 31 /* FGND_RED | BGND_BLACK */, state->CHEIGHT_k / 2, (state->CWIDTH_k - l5_strlen(state->yousuck_s))/ 2);
 	// Wait for them to do something
 	print_at(state, state->anykey_s, 36 /* actually cyan FGND_LGRAY | BGND_BLACK */, state->CHEIGHT_k / 2 + 2, (state->CWIDTH_k - l5_strlen(state->anykey_s))/ 2);
-	while(readchar(state) < 0) { continue; }
+	while(read_char(state) < 0) { continue; }
 	return 0;
 }
 
@@ -1371,9 +1371,9 @@ int do_hazards(struct state *state) {
 /* int help(struct state *state) {
 	int enter_time = state->persistent->time;
 	blit_img(state, help_1_img_sa, state->HELP_ROW_k, state->HELP_COL_k);
-	while(readchar(state) < 0);
+	while(read_char(state) < 0);
 	blit_img(state, help_2_img_sa, state->HELP_ROW_k, state->HELP_COL_k);
-	while(readchar(state) < 0);
+	while(read_char(state) < 0);
 	blit_img(state, help_blank_img_sa, state->HELP_ROW_k, state->HELP_COL_k);
 	int exit_time = state->persistent->time;
 	state->start_time += (exit_time - enter_time);
@@ -1495,9 +1495,9 @@ int clear_board(struct state *state) {
 room_t hazards_at_location(struct state *state, int distance, int x, int y) {
 	room_t mask = state->board_a[x + state->BOARD_WIDTH_k * y] & (state->B_BAT_k | state->B_WUMPUS_k | state->B_PIT_k);
 	// XXX HACK If theres a wumpus ignore the pit under it
-	if ((mask & state->B_WUMPUS_k) != 0) { mask &= ~state->B_PIT_k; };
+	if ((mask & state->B_WUMPUS_k) != 0) { mask &= ~state->B_PIT_k; }
 	// If we're further than one away only the wumpus is detectable
-	if (distance > 1) { mask &= state->B_WUMPUS_k; };
+	if (distance > 1) { mask &= state->B_WUMPUS_k; }
 	return mask;
 }
 
@@ -1563,10 +1563,10 @@ int msg_hazards(struct state *state) {
 
 /* C version
 //include <stdio.h>
-int readchar(struct state *state) { return getc(stdin); }
+int read_char(struct state *state) { return getc(stdin); }
 // */
 /* L5 version */
-int readchar(struct state *state)
+int read_char(struct state *state)
 {
 	int c = state->chars_read;
 	state->chars_read++;

@@ -14,7 +14,7 @@ int main() {
 
 	b += (true ? 1 : 0xdeadbeef);
 
-	for (; 0xdeadbeef != 0xdeadbeef; );
+	for (; 0xdeadbeef != 0xdeadbeef; ) {}
 
 	
 	while (true) {

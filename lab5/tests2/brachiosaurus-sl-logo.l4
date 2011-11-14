@@ -176,7 +176,7 @@ int console_printchar(struct console_state *con, int c)
 int l5_usleep(int usecs)
 {
 	int i;
-	for (i = 0; i < 192 * usecs; i++);
+	for (i = 0; i < 192 * usecs; i++) {}
 	return 0;
 }
 
