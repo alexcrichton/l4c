@@ -11,7 +11,10 @@ end
 
 structure Neededness :> NEEDEDNESS =
 struct
-  structure TS = BinarySetFn(Temp)
+  structure TS =  BinarySetFn(struct
+                    type ord_key = Tree.tmp
+                    val compare = Tree.tmpcompare
+                  end)
   structure LS = IntBinarySet
   structure T = Tree
   structure HT = HashTable
@@ -47,6 +50,7 @@ struct
       in
         foldr merge ([], [], true) L
       end
+    | rulegen_exp (T.PHI _) = raise Fail "No phis in neededness"
 
   fun rulegen _ (l, T.MOVE (T.TEMP (t, _), e)) =
       let val (U, N, s) = rulegen_exp e in
@@ -58,9 +62,10 @@ struct
       in
         (U1 @ U2, NONE, [l + 1], U1 @ U2, true)
       end
-    | rulegen f (l, T.GOTO (l', NONE)) = ([], NONE, [f l'], [], false)
+    | rulegen f (l, T.GOTO (l', NONE)) = ([], NONE, if Label.isext l' then []
+                                                    else [f l'], [], false)
     | rulegen f (l, T.GOTO (l', SOME e)) = let val (U, _, s) = rulegen_exp e in
-        (U, NONE, [f l', l + 1], U, s)
+        (U, NONE, if Label.isext l' then [l + 1] else [f l', l + 1], U, s)
       end
     | rulegen f (l, T.RETURN e) = let val (U, _, s) = rulegen_exp e in
         (U, NONE, [], U, s)
@@ -87,7 +92,7 @@ struct
         val needed = lookup_needed succ lbl_fn TS.empty
         (* filter out the temp we define in this statement *)
         val needed' = case def of NONE => needed | SOME t' =>
-                        TS.filter (fn t => not (Temp.equals (t,t'))) needed
+                        TS.filter (fn t => not (Tree.tmpequals (t,t'))) needed
         val set' = TS.union (!set, needed')
       in
         if TS.numItems set' = TS.numItems (!set) then false

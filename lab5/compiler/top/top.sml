@@ -205,9 +205,13 @@ struct
     val ir = P.time ("Flatten", fn () => SSA.dessa cfg')
     val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir)) ()
 
+    val ir' = P.time ("Neededness", fn () => Neededness.eliminate ir)
+    val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir')) ()
+
+
     (* Codegen/Assembly generation*)
     val _ = Flag.guard O.flag_verbose say "Codegen..."
-    val assem = P.time ("Codegen   ", fn () => Codegen.codegen ir)
+    val assem = P.time ("Codegen   ", fn () => Codegen.codegen ir')
     val _ = Flag.guard O.flag_assem
         (fn () => List.app (TextIO.print o Assem.format) assem) ()
 

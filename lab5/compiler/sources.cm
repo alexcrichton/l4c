@@ -46,6 +46,7 @@ Group is
   optimizations/cfg_coalesce.sml
   optimizations/cfg_prune.sml
   optimizations/cfold.sml
+  optimizations/neededness.sml
 
   top/top.sml
   top/options.sml
