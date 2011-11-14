@@ -1,7 +1,0 @@
-//test error
-int main() 
-{
-	int else;
-	else = 5;
-	return else;
-}

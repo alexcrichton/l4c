@@ -1,8 +1,0 @@
-//test error
-// reserved keyword: return
-
-int main()
-{
-    int return;
-    return return;
-}

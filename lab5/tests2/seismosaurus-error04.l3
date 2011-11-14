@@ -1,9 +1,0 @@
-//test error
-/* probably shouldn't be able to typedef over types */
-
-/* this line should be the error so I won't test declaring things */
-typedef bool int;
-
-int main(){
-    return 42;
-}

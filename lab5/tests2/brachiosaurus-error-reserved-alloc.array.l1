@@ -1,8 +1,0 @@
-//test error
-// reserved keyword: alloc.array
-
-int main()
-{
-    int alloc.array;
-    return alloc.array;
-}

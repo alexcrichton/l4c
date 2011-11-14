@@ -1,8 +1,0 @@
-//test error
-typedef int bool;
-int main()
-{
-	int b = 3;
-	bool c = 4;
-	return c;
-}

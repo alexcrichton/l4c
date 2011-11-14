@@ -1,9 +1,0 @@
-//test error
-
-int printf(int a);
-
-int main()
-{
-	printf(0x400620);
-	return 0;
-}
