@@ -22,7 +22,7 @@ sig
   datatype operation = ADD | SUB | MUL | DIV | MOD | CMP
                      | AND | OR  | XOR | LSH | RSH
 
-  datatype condition = LT | LTE | EQ | NEQ
+  datatype condition = LT | LTE | GT | GTE | EQ | NEQ
 
   datatype instr =
      BINOP of operation * operand * operand
@@ -69,7 +69,7 @@ struct
   datatype operation = ADD | SUB | MUL | DIV | MOD | CMP
                      | AND | OR  | XOR | LSH | RSH
 
-  datatype condition = LT | LTE | EQ | NEQ
+  datatype condition = LT | LTE | GT | GTE | EQ | NEQ
 
   datatype instr =
      BINOP of operation * operand * operand
@@ -221,6 +221,8 @@ struct
    *)
   fun format_condition (SOME LT)  = "jl"
     | format_condition (SOME LTE) = "jle"
+    | format_condition (SOME GT)  = "jg"
+    | format_condition (SOME GTE) = "jge"
     | format_condition (SOME EQ)  = "jz"
     | format_condition (SOME NEQ) = "jnz"
     | format_condition NONE = "jmp"
@@ -330,6 +332,7 @@ struct
       end
     | instr_expand (MOVFLAG (d, cond)) = let
         val instr = case cond of LT => "setl" | LTE => "setle"
+                               | GT => "setg" | GTE => "setge"
                                | EQ => "sete" | NEQ => "setne"
       in
         case d of REG (STACK _, size) =>

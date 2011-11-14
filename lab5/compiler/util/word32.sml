@@ -37,6 +37,8 @@ sig
   val rsh_ : Word32.word * Word32.word -> Word32.word
   val lt_  : Word32.word * Word32.word -> bool
   val lte_ : Word32.word * Word32.word -> bool
+  val gt_  : Word32.word * Word32.word -> bool
+  val gte_ : Word32.word * Word32.word -> bool
   val eq_  : Word32.word * Word32.word -> bool
   val neq_ : Word32.word * Word32.word -> bool
 end
@@ -88,6 +90,10 @@ struct
       end
   
   fun lte_ (w1, w2) = lt_ (w1, w2) orelse (w1 = w2)
+
+  fun gt_ ws = not (lte_ ws)
+
+  fun gte_ ws = not (lt_ ws)
 
   fun mul_ (w1, w2) = let
         val (w1', w1neg) = abs w1

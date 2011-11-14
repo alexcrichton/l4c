@@ -8,8 +8,8 @@ signature TREE =
 sig
   type ident = Symbol.symbol
 
-  datatype binop = ADD | SUB | MUL | DIV | MOD | LT | LTE | EQ | NEQ
-                 | AND | OR  | XOR | LSH | RSH
+  datatype binop = ADD | SUB | MUL | DIV | MOD | LT | LTE | GT | GTE
+                 | EQ | NEQ | AND | OR  | XOR | LSH | RSH
   datatype typ = WORD | QUAD
   datatype edge = ALWAYS | TRUE | FALSE | BRANCH
   type tmp = Temp.temp * int ref
@@ -35,6 +35,8 @@ sig
 
   type func = Label.label * typ * (Temp.temp * typ) list * stm list
   type program = func list
+
+  val negate : exp -> exp
 
   val tmphash : tmp -> word
   val tmpcompare : tmp * tmp -> order
@@ -51,8 +53,8 @@ structure Tree :> TREE =
 struct
   type ident = Symbol.symbol
 
-  datatype binop = ADD | SUB | MUL | DIV | MOD | LT | LTE | EQ | NEQ
-                 | AND | OR  | XOR | LSH | RSH
+  datatype binop = ADD | SUB | MUL | DIV | MOD | LT | LTE | GT | GTE
+                 | EQ | NEQ | AND | OR  | XOR | LSH | RSH
   datatype typ = WORD | QUAD
   datatype edge = ALWAYS | TRUE | FALSE | BRANCH
   type tmp = Temp.temp * int ref
@@ -78,6 +80,20 @@ struct
 
   type func = Label.label * typ * (Temp.temp * typ) list * stm list
   type program = func list
+
+  val zero = Word32.fromInt 0
+  val one  = Word32.fromInt 1
+  fun negate (BINOP (LT, e1, e2)) = BINOP (GTE, e1, e2)
+    | negate (BINOP (LTE, e1, e2)) = BINOP (GT, e1, e2)
+    | negate (BINOP (GT, e1, e2)) = BINOP (LTE, e1, e2)
+    | negate (BINOP (GTE, e1, e2)) = BINOP (LT, e1, e2)
+    | negate (BINOP (EQ, e1, e2)) = BINOP (NEQ, e1, e2)
+    | negate (BINOP (NEQ, e1, e2)) = BINOP (EQ, e1, e2)
+    | negate (BINOP (XOR, _, e2)) = e2
+    | negate (BINOP _) = raise Fail "Invalid binop in negate"
+    | negate (CONST (c, typ)) = if Word32.compare (c, zero) = EQUAL
+                                then CONST (one, WORD) else CONST (zero, WORD)
+    | negate e = BINOP (XOR, CONST (one, WORD), e)
 
   fun tmphash (t, ref n) = Word.fromInt (17 * n) + Temp.hash t
   fun tmpcompare ((t1, ref n1), (t2, ref n2)) = let
@@ -103,6 +119,8 @@ struct
       | pp_binop MOD = "%"
       | pp_binop LT  = "<"
       | pp_binop LTE = "<="
+      | pp_binop GT  = ">"
+      | pp_binop GTE = ">="
       | pp_binop EQ  = "=="
       | pp_binop NEQ = "!="
       | pp_binop AND = "&"

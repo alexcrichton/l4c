@@ -17,6 +17,8 @@ struct
     | commutative T.MOD = false
     | commutative T.LT  = false
     | commutative T.LTE = false
+    | commutative T.GT  = false
+    | commutative T.GTE = false
     | commutative T.EQ  = true
     | commutative T.NEQ = true
     | commutative T.AND = true
@@ -49,6 +51,8 @@ struct
             | T.XOR => (T.CONST  (W32S.xor_ (w1, w2), t), true)
             | T.LT  => conv_bool (W32S.lt_  (w1, w2))
             | T.LTE => conv_bool (W32S.lte_ (w1, w2))
+            | T.GT  => conv_bool (W32S.gt_  (w1, w2))
+            | T.GTE => conv_bool (W32S.gte_ (w1, w2))
             | T.EQ  => conv_bool (W32S.eq_  (w1, w2))
             | T.NEQ => conv_bool (W32S.neq_ (w1, w2))
             | T.LSH => (T.CONST  (W32S.lsh_  (w1, w2), t), true)

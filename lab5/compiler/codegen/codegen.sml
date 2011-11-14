@@ -37,7 +37,7 @@ struct
             AS.TEMP (_, t) | AS.IMM(_, t)) = t
 
   (* Returns true if the operator evaluates to a bool *)
-  fun eval_bool (T.LT | T.LTE | T.EQ | T.NEQ) = true
+  fun eval_bool (T.LT | T.LTE | T.GT | T.GTE | T.EQ | T.NEQ) = true
     | eval_bool _  = false
 
   fun munch_temp ts (t, typ) = let
@@ -183,6 +183,8 @@ struct
         t1instrs @ t2instrs @ (case binop
            of T.LT  => instrs @ [AS.MOVFLAG (d, AS.LT)]
             | T.LTE => instrs @ [AS.MOVFLAG (d, AS.LTE)]
+            | T.GT  => instrs @ [AS.MOVFLAG (d, AS.GT)]
+            | T.GTE => instrs @ [AS.MOVFLAG (d, AS.GTE)]
             | T.EQ  => instrs @ [AS.MOVFLAG (d, AS.EQ)]
             | T.NEQ => instrs @ [AS.MOVFLAG (d, AS.NEQ)]
             | _     => instrs @ (if size d <> size t1 then [AS.MOV (d, d')] else []))
@@ -212,6 +214,7 @@ struct
         val (t2, t2instrs) = munch_half ts AS.CMP e2
         val _ = if size t1 <> size t2 then raise Fail "diff size!" else ()
         val cond = case oper of T.LT => AS.LT | T.LTE => AS.LTE
+                              | T.GT => AS.GT | T.GTE => AS.GTE
                               | T.EQ => AS.EQ | T.NEQ => AS.NEQ
                               | T.XOR => AS.NEQ
                               | _ => raise Fail "wut?"
