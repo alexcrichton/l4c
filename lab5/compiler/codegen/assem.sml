@@ -335,7 +335,7 @@ struct
                                | GT => "setg" | GTE => "setge"
                                | EQ => "sete" | NEQ => "setne"
       in
-        case d of REG (STACK _, size) =>
+        case d of (REG (STACK _, size) | MEM (_, size)) =>
               [ASM (instr ^ " " ^ format_operand8 (swapl size)),
                MOVFLAG (swapl size, cond), MOV (d, swapl size)]
            | _ => [ASM (instr ^ " " ^ format_operand8 d), MOVFLAG (d, cond)]
