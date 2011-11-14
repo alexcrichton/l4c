@@ -1,11 +1,6 @@
 ../tests1/hawk-ret1.l4
 ../tests1/hobby-safety-limit.l4
 ../tests1/lammergeier-starly.l4
-../tests2/brachiosaurus-lawful-neutral-test.l4
-../tests2/brachiosaurus-ls.l4
-../tests2/brachiosaurus-sl-d51.l4
-../tests2/brachiosaurus-sl-logo.l4
 ../tests2/brachiosaurus-wumpus.l4
 ../tests2/galimimus-left-right-eval1.l4
 ../tests2/saltopus-ordering.l4
-../tests2/seismosaurus-deadbeef.l4
