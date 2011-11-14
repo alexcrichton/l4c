@@ -193,7 +193,6 @@ stmt       : simp SEMI                  (marks (simp, (simpleft, simpright)))
            | control                    (marks (control, (controlleft,
                                                           controlright)))
            | block                      (marks (block, (blockleft, blockright)))
-           | SEMI                       (A.Nop)
 
 simp       : simpnodef    (simpnodef)
            | decl         (decl)
