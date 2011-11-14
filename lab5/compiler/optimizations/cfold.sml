@@ -59,6 +59,7 @@ struct
                 else case oper
                        of T.DIV => (T.CONST (W32S.div_ (w1, w2), t), true)
                         | T.MOD => (T.CONST (W32S.mod_ (w1, w2), t), true)
+                        | _ => raise Fail "smlnj is broken"
       end
 
   (* Fold a binop where one of its parameters is constant *)
@@ -126,6 +127,7 @@ struct
         T.MOVE es
       end
     | folds tbl (T.GOTO (l, SOME e)) = T.GOTO (l, SOME (folde tbl e))
+    | folds tbl (T.COND e) = T.COND (folde tbl e)
     | folds tbl (T.RETURN e) = T.RETURN (folde tbl e)
     | folds tbl s = s
 
