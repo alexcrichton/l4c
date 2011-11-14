@@ -389,10 +389,6 @@ struct
                           (ref [], ~1)
         val _ = #set_entries g [id]
         val targs = map (fn (_, id) => Symbol.look' e id) args
-        val order = GraphDFS.postorder_numbering (G.GRAPH g)
-                                                 (List.hd (#entries g ()))
-        val _ = Array.appi (fn (i, v) => if v >= 0 then ()
-                                         else #remove_node g i) order
       in
         SOME (Label.intfunc (Symbol.name name), trans_typ typ, targs, graph_rec)
       end
