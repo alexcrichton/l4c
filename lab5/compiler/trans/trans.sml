@@ -323,7 +323,7 @@ struct
       in
         change_state (s'', T.MOVE (e1', e3'))
       end
-    | trans_stm (env as (e, g, _)) (A.If(exp, s1, s2)) lp = let
+    | trans_stm (env as (e, g, _)) (A.If (exp, s1, s2)) lp = let
         val (state, e') = trans_exp env exp false
         val id = commit g (change_state (state, T.COND e'))
         val (tid, fid) = (new_id g, new_id g)
@@ -331,7 +331,7 @@ struct
         val fstate = trans_stm (e, g, ([], [(id, T.FALSE)], fid)) s2 lp
         val tid = commit g tstate
         val fid = commit g fstate
-      in ([], [(tid, T.ALWAYS), (fid, T.ALWAYS)], new_id g) end
+      in ([], [(tid, T.BRANCH), (fid, T.ALWAYS)], new_id g) end
     | trans_stm (env as (e, g, state)) (A.While (exp, s)) _ = let
         val pred = commit g state
         val G.GRAPH graph = g

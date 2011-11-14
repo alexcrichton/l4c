@@ -401,10 +401,12 @@ struct
               val L = HT.lookup pred_stms id
               val _ = G.remove_edge (G.GRAPH g) (id, nid)
               val new_id = #new_id g ()
+              val (e1, e2) = if typ = T.BRANCH then (T.ALWAYS, typ)
+                             else (typ, T.ALWAYS)
             in
               #add_node g (new_id, L);
-              #add_edge g (id, new_id, typ);
-              #add_edge g (new_id, nid, T.ALWAYS)
+              #add_edge g (id, new_id, e1);
+              #add_edge g (new_id, nid, e2)
             end handle Subscript => ()
 
         val phis = List.mapPartial getphi stms
