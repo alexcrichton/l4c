@@ -1,5 +1,9 @@
 (* L5 Compiler
- * Phi function simplifier - removes any phi functions with a single node
+ *
+ * Phi function simplifier - removes any phi functions which are just a function
+ * of a single temp. The phi function is completely removed and all instances
+ * of the result of the phi function are also deleted.
+ *
  * Author: Alex Crichton <acrichto@andrew.cmu.edu>
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
