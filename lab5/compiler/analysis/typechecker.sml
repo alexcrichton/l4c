@@ -152,7 +152,12 @@ struct
                       Symbol.name id ^ "'"); raise ErrorMsg.Error)
           | SOME t => t)
     | tc_exp (env' as (funs, _, env)) (A.Call (id, args)) ext =
-      (case Symbol.look funs id
+      (case Symbol.look env id
+         of SOME _ => (ErrorMsg.error ext ("'" ^ Symbol.name id ^ "' is not" ^
+                                           " a function!");
+                       raise ErrorMsg.Error)
+          | NONE   => ();
+      case Symbol.look funs id
          of NONE => (ErrorMsg.error ext ("undeclared function `" ^
                       Symbol.name id ^ "'"); raise ErrorMsg.Error)
           | SOME (t, types) => let
