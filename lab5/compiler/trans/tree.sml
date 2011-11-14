@@ -11,7 +11,7 @@ sig
   datatype binop = ADD | SUB | MUL | DIV | MOD | LT | LTE | GT | GTE
                  | EQ | NEQ | AND | OR  | XOR | LSH | RSH
   datatype typ = WORD | QUAD
-  datatype edge = ALWAYS | TRUE | FALSE | BRANCH
+  datatype edge = ALWAYS | TRUE | FALSE | BRANCH | TBRANCH | FBRANCH
   type tmp = Temp.temp * int ref
 
   datatype exp =
@@ -56,7 +56,7 @@ struct
   datatype binop = ADD | SUB | MUL | DIV | MOD | LT | LTE | GT | GTE
                  | EQ | NEQ | AND | OR  | XOR | LSH | RSH
   datatype typ = WORD | QUAD
-  datatype edge = ALWAYS | TRUE | FALSE | BRANCH
+  datatype edge = ALWAYS | TRUE | FALSE | BRANCH | TBRANCH | FBRANCH
   type tmp = Temp.temp * int ref
 
   datatype exp =

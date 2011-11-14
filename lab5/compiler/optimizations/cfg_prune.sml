@@ -19,6 +19,8 @@ struct
   fun remove (G.GRAPH g, nid, stms, branch) = let
         fun map_edge_typ T.TRUE  = true
           | map_edge_typ T.FALSE = false
+          | map_edge_typ T.TBRANCH = true
+          | map_edge_typ T.FBRANCH = false
           | map_edge_typ _ = raise Fail "Invalid edge type"
 
         fun modify_edge (src, dst, typ) =

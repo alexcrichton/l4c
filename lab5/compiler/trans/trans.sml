@@ -290,6 +290,45 @@ struct
       end
     | trans_exp env (A.Marked data) a = trans_exp env (Mark.data data) a
 
+  (* trans_conditional : env * (id * T.edge) * (id * T.edge) -> T.exp -> unit
+   *
+   * Translates a conditional expression to jump to the correct locations in
+   * the graph. The graph is modified appropriately to include the given
+   * condition and all necessary edges for jumps.
+   *
+   * @param (e, g, s) the currently known environment
+   * @param (tid, tedge) the node id and type of edge to be jumped to in the
+   *                     true case
+   * @param (fid, fedge) same as tid/tedge, except for false case
+   * @param exp the expression which should be conditionally jumped on
+   *)
+  fun trans_conditional env (A.Marked data) =
+        trans_conditional env (Mark.data data)
+    | trans_conditional ((e, g, s), (tid, tedge), (fid, fedge))
+                        (A.BinaryOp (A.LOR, e1, e2)) = let
+        val next = new_id g
+        val _ = trans_conditional ((e, g, s),
+                                     (tid, T.TBRANCH), (next, T.FALSE)) e1
+        val _ = trans_conditional ((e, g, ([], [], next)),
+                                     (tid, tedge), (fid, fedge)) e2
+      in () end
+    | trans_conditional ((e, g, s), (tid, tedge), (fid, fedge))
+                        (A.BinaryOp (A.LAND, e1, e2)) = let
+        val next = new_id g
+        val _ = trans_conditional ((e, g, s),
+                                     (next, T.TRUE), (fid, T.FBRANCH)) e1
+        val _ = trans_conditional ((e, g, ([], [], next)),
+                                     (tid, tedge), (fid, fedge)) e2
+      in () end
+    | trans_conditional (env as (_, g, _), (tid, tedge), (fid, fedge)) exp = let
+        val (state', exp') = trans_exp env exp false
+        val id = commit g (change_state (state', T.COND exp'))
+        val G.GRAPH graph = g
+      in
+        #add_edge graph (id, tid, tedge);
+        #add_edge graph (id, fid, fedge)
+      end
+
   (* trans_stm : 'a -> A.stm -> Label.label * Label.label -> T.program
    *
    * Translates statements from the AST to the IL representation. This assumes
@@ -324,27 +363,24 @@ struct
         change_state (s'', T.MOVE (e1', e3'))
       end
     | trans_stm (env as (e, g, _)) (A.If (exp, s1, s2)) lp = let
-        val (state, e') = trans_exp env exp false
-        val id = commit g (change_state (state, T.COND e'))
         val (tid, fid) = (new_id g, new_id g)
-        val tstate = trans_stm (e, g, ([], [(id, T.TRUE)], tid)) s1 lp
-        val fstate = trans_stm (e, g, ([], [(id, T.FALSE)], fid)) s2 lp
-        val tid = commit g tstate
-        val fid = commit g fstate
-      in ([], [(tid, T.BRANCH), (fid, T.ALWAYS)], new_id g) end
+        val _ = trans_conditional (env, (tid, T.TRUE), (fid, T.FALSE)) exp
+        val tstate = trans_stm (e, g, ([], [], tid)) s1 lp
+        val fstate = trans_stm (e, g, ([], [], fid)) s2 lp
+        val tid' = commit g tstate
+        val fid' = commit g fstate
+      in ([], [(tid', T.BRANCH), (fid', T.ALWAYS)], new_id g) end
     | trans_stm (env as (e, g, state)) (A.While (exp, s)) _ = let
         val pred = commit g state
         val G.GRAPH graph = g
-        val eid = new_id g
-        val (state, e') = trans_exp (e, g, ([], [(pred, T.ALWAYS)], eid))
-                                    exp false
-        val eid' = commit g (change_state (state, T.COND e'))
+        val (eid, bid, endid) = (new_id g, new_id g, new_id g)
+        val _ = trans_conditional ((e, g, ([], [(pred, T.ALWAYS)], eid)),
+                                   (bid, T.TRUE), (endid, T.FALSE)) exp
         val blist = ref []
-        val bstate = trans_stm (e, g, ([], [(eid', T.TRUE)], new_id g)) s
-                               (blist, eid)
-        val bid = commit g bstate
-        val _ = #add_edge graph (bid, eid, T.ALWAYS)
-      in ([], (eid', T.FALSE) :: (!blist), new_id g) end
+        val bstate = trans_stm (e, g, ([], [], bid)) s (blist, eid)
+        val bid' = commit g bstate
+        val _ = #add_edge graph (bid', eid, T.ALWAYS)
+      in ([], !blist, endid) end
     | trans_stm (_, g, state) A.Continue (_, cexp) = let
         val id = commit g state
         val G.GRAPH graph = g

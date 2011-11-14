@@ -149,6 +149,8 @@ struct
           fun pp_edge (_, _, Tree.TRUE) = "label=true"
             | pp_edge (_, _, Tree.FALSE) = "label=false"
             | pp_edge (_, _, Tree.BRANCH) = "label=branch"
+            | pp_edge (_, _, Tree.TBRANCH) = "label=tbranch"
+            | pp_edge (_, _, Tree.FBRANCH) = "label=fbranch"
             | pp_edge (_, _, Tree.ALWAYS) = ""
         in
           Dotfile.mkdot (Options.filename () ^ ".cfg." ^ key ^ "." ^
@@ -207,7 +209,6 @@ struct
 
     val ir' = P.time ("Neededness", fn () => Neededness.eliminate ir)
     val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir')) ()
-
 
     (* Codegen/Assembly generation*)
     val _ = Flag.guard O.flag_verbose say "Codegen..."

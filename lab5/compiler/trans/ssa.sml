@@ -447,6 +447,22 @@ struct
                     in
                       L'' @ dfs tid @ dfs fid
                     end
+                 | ([(_, tid, T.TBRANCH), (_, fid, T.FALSE)] |
+                    [(_, fid, T.FALSE), (_, tid, T.TBRANCH)]) => let
+                      val (e, L') = extract_cond L
+                      val L'' = L' @ [T.GOTO (label tid, SOME e)]
+                    in
+                      skipped := tid::(!skipped); L'' @ dfs fid
+                    end
+                 | ([(_, tid, T.TRUE), (_, fid, T.FBRANCH)] |
+                    [(_, fid, T.FBRANCH), (_, tid, T.TRUE)]) => let
+                      val (e, L') = extract_cond L
+                      val e' = T.BINOP (T.XOR,
+                                        T.CONST (Word32.fromInt 1, T.WORD), e)
+                      val L'' = L' @ [T.GOTO (label fid, SOME e')]
+                    in
+                      skipped := fid::(!skipped); L'' @ dfs tid
+                    end
                  | _ => raise Fail "Invalid graph successors"
             end
 
