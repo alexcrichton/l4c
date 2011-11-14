@@ -447,7 +447,8 @@ struct
         val funs = foldr build_funs Symbol.empty p
         fun field_size structs ((typ, id), (s, n)) = let
               val size = typ_size structs typ
-              val pad = if n mod size = 0 then 0 else 4 (* TODO: real math *)
+              val pad = if size = 0 orelse n mod size = 0 then 0
+                        else 4 (* TODO: real math *)
               val typ' = trans_typ typ
             in
               (Symbol.bind s (id, (n + pad, typ')), n + pad + size)
