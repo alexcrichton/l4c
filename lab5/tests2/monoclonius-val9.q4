@@ -1,4 +1,4 @@
-#test return 0
+//test return 0
 
 struct foo_t{
     int a;

@@ -1,4 +1,4 @@
-#test exception 14
+//test exception 14
 int
 main ()
 {
@@ -1171,6 +1171,6 @@ main ()
     {
       printchar (a[i]);
     }
-  while (true);
+  while (true){}
   return 0;
 }
