@@ -13,6 +13,7 @@ Group is
   util/word32.sml
   util/cfg.sml
   util/dgraph.sml
+  util/udgraph.sml
   util/profile.sml
   util/dotfile.sml
   util/debug.sml

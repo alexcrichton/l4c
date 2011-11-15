@@ -1,13 +1,13 @@
 (* L5 Compiler
- * Directed graph that implements the GRAPH_IMPLEMENTATION structure.
+ * Undirected graph that implements the GRAPH_IMPLEMENTATION structure.
  * The graph is represented as an array of hashtables that represent the
  * edges between the nodes. This gives better performance than the
- * original directed graph implementation.
+ * original undirected graph implementation.
  *
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
 
-functor DirectedHashGraph (A : ARRAY) : GRAPH_IMPLEMENTATION =
+functor UndirectedHashGraph (A : ARRAY) : GRAPH_IMPLEMENTATION =
 struct
 
   structure G = Graph
@@ -40,7 +40,8 @@ struct
 
       fun get_edges () = raise Fail "Edges unimplemnted"
       (*fun get_edges () =
-        A.foldri (fn (i,es,L) => H.foldi (fn (j,e,L) => (i,j,e)::L) L es)
+        A.foldri (fn (i,es,L) => H.foldi (fn (j,e,L) =>
+                  if i <= j then (i,j,e)::L else L) L es)
                 [] adj*)
 
       fun order () = raise Fail "Order unimplemnted"
@@ -48,7 +49,8 @@ struct
 
       fun size ()  = !edge_count
 
-      fun capacity () = A.length nodes
+      fun capacity () = raise Fail "Capacity unimplemnted"
+      (*fun capacity () = A.length nodes*)
 
       fun add_node(i,n) =
         (case A.sub(nodes,i)
@@ -58,12 +60,14 @@ struct
 
       fun add_edge (i,j,e) =
         (H.insert (adj_ht i) (j, e);
+         if i <> j then H.insert (adj_ht j) (i, e) else ();
          edge_count := 1 + !edge_count)
 
       fun set_edges (i, edges) = raise Fail "Set edges unimplemnted"
       (*fun set_edges (i, edges) = let
         val table = A.sub (adj, i)
       in
+        H.appi (fn (j,_) => (H.remove (A.sub(adj, j)) i; ())) table;
         H.clear table;
         app (fn (_,j,e) => add_edge (i,j,e)) edges
         (* FIXME: update edge_count *)
@@ -80,20 +84,20 @@ struct
 
       fun remove_nodes ns = app remove_node ns
 
-      fun set_entries ns = entries := ns
+      fun set_entries ns = raise Fail "Set entries unimplemnted"
+      (*fun set_entries ns = entries := ns*)
 
       fun set_exits ns = raise Fail "Set exits unimplemnted"
       (*fun set_exits ns = exits := ns*)
 
-      fun get_entries()  = !entries
+      fun get_entries() = raise Fail "Get entries unimplemnted"
+      (*fun get_entries()  = !entries*)
 
       fun get_exits() = raise Fail "Get exits unimplemnted"
       (*fun get_exits()  = !exits*)
 
-      fun adj_edges i = H.foldi (fn (j,e,L) => (i,j,e)::L) [] (adj_ht i)
-          (*(case A.sub (adj, i)
-             of SOME arr => H.foldi (fn (j,e,L) => (i,j,e)::L) [] arr
-              | NONE => [])*)
+      fun adj_edges i = raise Fail "Adj edges unimplemnted"
+      (*fun adj_edges i = H.foldi (fn (j,e,L) => (i,j,e)::L) [] (A.sub (adj, i))*)
 
       fun neighbors i = H.foldi (fn (j,_,L) => j::L) [] (adj_ht i)
 
@@ -111,8 +115,9 @@ struct
       fun forall_nodes f =
           A.appi (fn (i,SOME x) => f(i,x) | _ => ()) nodes
 
+      (*fun forall_edges f = raise Fail "Forall edges unimplemnted"*)
       fun forall_edges f = A.appi (fn (i,es) =>
-            H.appi (fn (j,e) => f(i,j,e)) (valOf es)) adj
+            H.appi (fn (j,e) => if i <= j then f(i,j,e) else ()) (valOf es)) adj
 
       fun none _ = []
 
