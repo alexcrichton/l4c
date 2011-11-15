@@ -270,7 +270,7 @@ struct
       end
     | trans_exp env (A.Deref (e, ref typ)) a = let
         val (s', e') = trans_exp env e false
-        val s' = protect_access (s', e')
+        val s' = case typ of A.STRUCT _ => protect_access (s', e') | _ => s'
       in
         if a then (s', e')
         else let val t = T.TEMP ((Temp.new(), ref ~1), trans_typ typ) in
