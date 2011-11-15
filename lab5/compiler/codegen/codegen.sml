@@ -160,18 +160,18 @@ struct
             of (T.DIV | T.MOD) =>
                  [AS.MOV (reg AS.EAX, t1), AS.ASM "cltd",
                   AS.BINOP (oper, reg AS.EAX, t2),
-                  AS.MOV (d, reg (if binop = T.DIV then AS.EAX else AS.EDX))]
+                  AS.MOV (d', reg (if binop = T.DIV then AS.EAX else AS.EDX))]
              | (T.RSH | T.LSH) =>
-                if eq_ops (d, t2) then let
+                if eq_ops (d', t2) then let
                     val t = AS.TEMP(Temp.new(), size t1)
                   in
                    [AS.MOV (t, t1), AS.MOV (reg AS.ECX, t2),
-                    AS.BINOP (oper, t, reg AS.ECX), AS.MOV (d, t)]
+                    AS.BINOP (oper, t, reg AS.ECX), AS.MOV (d', t)]
                   end
                 else (case t2
-                        of AS.IMM _ => [AS.MOV (d, t1), AS.BINOP (oper, d, t2)]
-                         | _ => [AS.MOV (d, t1), AS.MOV (reg AS.ECX, t2),
-                                 AS.BINOP (oper, d, reg AS.ECX)])
+                        of AS.IMM _ => [AS.MOV (d', t1), AS.BINOP(oper, d', t2)]
+                         | _ => [AS.MOV (d', t1), AS.MOV (reg AS.ECX, t2),
+                                 AS.BINOP (oper, d', reg AS.ECX)])
              | _ => if not(eq_ops (d', t2)) then
                       [AS.MOV (d', t1), AS.BINOP (oper, d', t2)]
                     else if binop <> T.SUB then
@@ -187,7 +187,8 @@ struct
             | T.GTE => instrs @ [AS.MOVFLAG (d, AS.GTE)]
             | T.EQ  => instrs @ [AS.MOVFLAG (d, AS.EQ)]
             | T.NEQ => instrs @ [AS.MOVFLAG (d, AS.NEQ)]
-            | _     => instrs @ (if size d <> size t1 then [AS.MOV (d, d')] else []))
+            | _     => instrs @ (if size d <> size t1 then [AS.MOV (d, d')]
+                                 else []))
       end
 
   (* munch_conditional : Label.label -> T.exp -> Assem.instr list
