@@ -1,4 +1,4 @@
-//test exception 8
+#test exception 8
 
 int main() {
   int[] foo = alloc_array(int, 3);

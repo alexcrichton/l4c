@@ -1,4 +1,4 @@
-//test return 17300
+#test return 17300
 
 struct foo_t{
     int a;

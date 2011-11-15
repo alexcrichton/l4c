@@ -1,5 +1,5 @@
-//test exception
-//out of bounds?
+#test exception
+#out of bounds?
 
 int main()
 {
