@@ -159,7 +159,7 @@ struct
 
     (* Performs a list of transforations on the IR *)
     val optstr = Flag.svalue O.flag_opt
-    val optlevel = valOf (Int.fromString (if optstr = "" then "9" else optstr))
+    val optlevel = valOf (Int.fromString (if optstr = "" then "0" else optstr))
     fun optimize cfg [] = cfg
       | optimize cfg ({active=a, desc=d, ppfile=ppf, level=l, func=f}::L) =
         if not a orelse l > optlevel then optimize cfg L else let
