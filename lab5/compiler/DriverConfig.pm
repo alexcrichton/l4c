@@ -47,9 +47,9 @@ my $MAX_SCORE1 = 50;        # maximal score for compiler, test suite 1
 my $MAX_SCORE2 = 10;        # maximal score for compiler, test suite 2
 my $TESTS1_N = 10;      # first n failing suite 1 tests...
 my $TESTS1_PTS = 2;     # ...are worth this many points each
-my $TESTS0_MIN = 50;    # number of error cases in tests0
-my $TESTS1_MIN = 267;   # number of error cases in tests1
-my $TESTS2_MIN = 404;   # number of error cases in tests2
+my $TESTS0_MIN = 52;    # number of error cases in tests0
+my $TESTS1_MIN = 270;   # number of error cases in tests1
+my $TESTS2_MIN = 412;   # number of error cases in tests2
 
 sub tests_grade {
     my $tried = shift;
