@@ -1,0 +1,349 @@
+//test return 0
+// Computes SHA-1 of the input in compliance with FIPS-180-2
+
+// Library functions
+int assertIsAKeyword() {
+    1 / 0;
+    return 0;
+}
+int printhexPrints0x(int in) {
+    for (int i = 0; i < 8; i++) {
+        int nibble = (in >> (4 * (7 - i))) & 0xf;
+        if (nibble == 0)
+            printchar(0x30);
+        else if (nibble == 1)
+            printchar(0x31);
+        else if (nibble == 2)
+            printchar(0x32);
+        else if (nibble == 3)
+            printchar(0x33);
+        else if (nibble == 4)
+            printchar(0x34);
+        else if (nibble == 5)
+            printchar(0x35);
+        else if (nibble == 6)
+            printchar(0x36);
+        else if (nibble == 7)
+            printchar(0x37);
+        else if (nibble == 8)
+            printchar(0x38);
+        else if (nibble == 9)
+            printchar(0x39);
+        else if (nibble == 10)
+            printchar(0x61);
+        else if (nibble == 11)
+            printchar(0x62);
+        else if (nibble == 12)
+            printchar(0x63);
+        else if (nibble == 13)
+            printchar(0x64);
+        else if (nibble == 14)
+            printchar(0x65);
+        else if (nibble == 15)
+            printchar(0x66);
+        else
+            assertIsAKeyword();
+    }
+    return 0;
+}
+
+
+// Section 4.1.1 SHA-1 Functions
+int Ch(int x, int y, int z) {
+    return (x & y) ^ (~x & z);
+}
+int Parity(int x, int y, int z) {
+    return x ^ y ^ z;
+}
+int Maj(int x, int y, int z) {
+    return (x & y) ^ (x & z) ^ (y & z);
+}
+int f(int t, int x, int y, int z) {
+    if (0 <= t && t <= 19) {
+        return Ch(x, y, z);
+    } else if (20 <= t && t <= 39) {
+        return Parity(x, y, z);
+    } else if (40 <= t && t <= 59) {
+        return Maj(x, y, z);
+    } else if (60 <= t && t <= 79) {
+        return Parity(x, y, z);
+    } else {
+        assertIsAKeyword();
+        return 0;
+    }
+}
+int ROTL(int n, int x) {
+    int mask = 0x7fffffff >> (31 - n);
+    return (x << n) | ((x >> (32 - n)) & mask);
+}
+
+// Section 4.2.1 SHA-1 Constants
+int K(int t) {
+    if (0 <= t && t <= 19) {
+        return 0x5a827999;
+    } else if (20 <= t && t <= 39) {
+        return 0x6ed9eba1;
+    } else if (40 <= t && t <= 59) {
+        return 0x8f1bbcdc;
+    } else if (60 <= t && t <= 79) {
+        return 0xca62c1d6;
+    } else {
+        assertIsAKeyword();
+    }
+    return 0;
+}
+
+// Section 6.1.1 SHA-1 Preprocessing
+#define read32(word) {\
+    word = 0;\
+    for (int read32_i = 0; read32_i < 4; read32_i++) {\
+        if (eof()) {\
+            if (pastEOF) {\
+                if (inLength) {\
+                    if (bytesRead % 64 == 59) {\
+                        word = (word << 8) | ((inputSize >> 29) & 0xff);\
+                    } else if (bytesRead % 64 == 60) {\
+                        word = (word << 8) | ((inputSize >> 21) & 0xff);\
+                    } else if (bytesRead % 64 == 61) {\
+                        word = (word << 8) | ((inputSize >> 13) & 0xff);\
+                    } else if (bytesRead % 64 == 62) {\
+                        word = (word << 8) | ((inputSize >> 5) & 0xff);\
+                    } else if (bytesRead % 64 == 63) {\
+                        word = (word << 8) | ((inputSize << 3) & 0xff);\
+                        lastBlock = true;\
+                    } else {\
+                        word = word << 8;\
+                    }\
+                } else {\
+                    word = word << 8;\
+                    inLength = (bytesRead + 1) % 64 == 0;\
+                }\
+            } else {\
+                word = (word << 8) | 0x80;\
+                pastEOF = true;\
+                inLength = (bytesRead + 1) % 64 <= 56;\
+            }\
+        } else {\
+            word = (word << 8) | readchar();\
+            inputSize++;\
+        }\
+        bytesRead++;\
+    }\
+} true
+
+// Section 6.1.2 SHA-1 Hash Computation
+#define round(num, name) {\
+    T = ROTL(5, a) + f(num, b, c, d) + e + K(num) + name;\
+    e = d;\
+    d = c;\
+    c = ROTL(30, b);\
+    b = a;\
+    a = T;\
+} true
+
+int main() {
+    bool lastBlock = false;
+    bool pastEOF = false;
+    bool inLength = false;
+    int inputSize = 0;
+    int bytesRead = 0;
+
+    int H0 = 0x67452301;
+    int H1 = 0xefcdab89;
+    int H2 = 0x98badcfe;
+    int H3 = 0x10325476;
+    int H4 = 0xc3d2e1f0;
+
+    while (!lastBlock) {
+        // 1. Prepare the message schedule
+        int W00; read32(W00);
+        int W01; read32(W01);
+        int W02; read32(W02);
+        int W03; read32(W03);
+        int W04; read32(W04);
+        int W05; read32(W05);
+        int W06; read32(W06);
+        int W07; read32(W07);
+        int W08; read32(W08);
+        int W09; read32(W09);
+        int W10; read32(W10);
+        int W11; read32(W11);
+        int W12; read32(W12);
+        int W13; read32(W13);
+        int W14; read32(W14);
+        int W15; read32(W15);
+        int W16 = ROTL(1, W13 ^ W08 ^ W02 ^ W00);
+        int W17 = ROTL(1, W14 ^ W09 ^ W03 ^ W01);
+        int W18 = ROTL(1, W15 ^ W10 ^ W04 ^ W02);
+        int W19 = ROTL(1, W16 ^ W11 ^ W05 ^ W03);
+        int W20 = ROTL(1, W17 ^ W12 ^ W06 ^ W04);
+        int W21 = ROTL(1, W18 ^ W13 ^ W07 ^ W05);
+        int W22 = ROTL(1, W19 ^ W14 ^ W08 ^ W06);
+        int W23 = ROTL(1, W20 ^ W15 ^ W09 ^ W07);
+        int W24 = ROTL(1, W21 ^ W16 ^ W10 ^ W08);
+        int W25 = ROTL(1, W22 ^ W17 ^ W11 ^ W09);
+        int W26 = ROTL(1, W23 ^ W18 ^ W12 ^ W10);
+        int W27 = ROTL(1, W24 ^ W19 ^ W13 ^ W11);
+        int W28 = ROTL(1, W25 ^ W20 ^ W14 ^ W12);
+        int W29 = ROTL(1, W26 ^ W21 ^ W15 ^ W13);
+        int W30 = ROTL(1, W27 ^ W22 ^ W16 ^ W14);
+        int W31 = ROTL(1, W28 ^ W23 ^ W17 ^ W15);
+        int W32 = ROTL(1, W29 ^ W24 ^ W18 ^ W16);
+        int W33 = ROTL(1, W30 ^ W25 ^ W19 ^ W17);
+        int W34 = ROTL(1, W31 ^ W26 ^ W20 ^ W18);
+        int W35 = ROTL(1, W32 ^ W27 ^ W21 ^ W19);
+        int W36 = ROTL(1, W33 ^ W28 ^ W22 ^ W20);
+        int W37 = ROTL(1, W34 ^ W29 ^ W23 ^ W21);
+        int W38 = ROTL(1, W35 ^ W30 ^ W24 ^ W22);
+        int W39 = ROTL(1, W36 ^ W31 ^ W25 ^ W23);
+        int W40 = ROTL(1, W37 ^ W32 ^ W26 ^ W24);
+        int W41 = ROTL(1, W38 ^ W33 ^ W27 ^ W25);
+        int W42 = ROTL(1, W39 ^ W34 ^ W28 ^ W26);
+        int W43 = ROTL(1, W40 ^ W35 ^ W29 ^ W27);
+        int W44 = ROTL(1, W41 ^ W36 ^ W30 ^ W28);
+        int W45 = ROTL(1, W42 ^ W37 ^ W31 ^ W29);
+        int W46 = ROTL(1, W43 ^ W38 ^ W32 ^ W30);
+        int W47 = ROTL(1, W44 ^ W39 ^ W33 ^ W31);
+        int W48 = ROTL(1, W45 ^ W40 ^ W34 ^ W32);
+        int W49 = ROTL(1, W46 ^ W41 ^ W35 ^ W33);
+        int W50 = ROTL(1, W47 ^ W42 ^ W36 ^ W34);
+        int W51 = ROTL(1, W48 ^ W43 ^ W37 ^ W35);
+        int W52 = ROTL(1, W49 ^ W44 ^ W38 ^ W36);
+        int W53 = ROTL(1, W50 ^ W45 ^ W39 ^ W37);
+        int W54 = ROTL(1, W51 ^ W46 ^ W40 ^ W38);
+        int W55 = ROTL(1, W52 ^ W47 ^ W41 ^ W39);
+        int W56 = ROTL(1, W53 ^ W48 ^ W42 ^ W40);
+        int W57 = ROTL(1, W54 ^ W49 ^ W43 ^ W41);
+        int W58 = ROTL(1, W55 ^ W50 ^ W44 ^ W42);
+        int W59 = ROTL(1, W56 ^ W51 ^ W45 ^ W43);
+        int W60 = ROTL(1, W57 ^ W52 ^ W46 ^ W44);
+        int W61 = ROTL(1, W58 ^ W53 ^ W47 ^ W45);
+        int W62 = ROTL(1, W59 ^ W54 ^ W48 ^ W46);
+        int W63 = ROTL(1, W60 ^ W55 ^ W49 ^ W47);
+        int W64 = ROTL(1, W61 ^ W56 ^ W50 ^ W48);
+        int W65 = ROTL(1, W62 ^ W57 ^ W51 ^ W49);
+        int W66 = ROTL(1, W63 ^ W58 ^ W52 ^ W50);
+        int W67 = ROTL(1, W64 ^ W59 ^ W53 ^ W51);
+        int W68 = ROTL(1, W65 ^ W60 ^ W54 ^ W52);
+        int W69 = ROTL(1, W66 ^ W61 ^ W55 ^ W53);
+        int W70 = ROTL(1, W67 ^ W62 ^ W56 ^ W54);
+        int W71 = ROTL(1, W68 ^ W63 ^ W57 ^ W55);
+        int W72 = ROTL(1, W69 ^ W64 ^ W58 ^ W56);
+        int W73 = ROTL(1, W70 ^ W65 ^ W59 ^ W57);
+        int W74 = ROTL(1, W71 ^ W66 ^ W60 ^ W58);
+        int W75 = ROTL(1, W72 ^ W67 ^ W61 ^ W59);
+        int W76 = ROTL(1, W73 ^ W68 ^ W62 ^ W60);
+        int W77 = ROTL(1, W74 ^ W69 ^ W63 ^ W61);
+        int W78 = ROTL(1, W75 ^ W70 ^ W64 ^ W62);
+        int W79 = ROTL(1, W76 ^ W71 ^ W65 ^ W63);
+
+        // 2. Initialize the five working variables
+        int a = H0;
+        int b = H1;
+        int c = H2;
+        int d = H3;
+        int e = H4;
+        int T;
+
+        // 3. Do the loop
+        round(0, W00);
+        round(1, W01);
+        round(2, W02);
+        round(3, W03);
+        round(4, W04);
+        round(5, W05);
+        round(6, W06);
+        round(7, W07);
+        round(8, W08);
+        round(9, W09);
+        round(10, W10);
+        round(11, W11);
+        round(12, W12);
+        round(13, W13);
+        round(14, W14);
+        round(15, W15);
+        round(16, W16);
+        round(17, W17);
+        round(18, W18);
+        round(19, W19);
+        round(20, W20);
+        round(21, W21);
+        round(22, W22);
+        round(23, W23);
+        round(24, W24);
+        round(25, W25);
+        round(26, W26);
+        round(27, W27);
+        round(28, W28);
+        round(29, W29);
+        round(30, W30);
+        round(31, W31);
+        round(32, W32);
+        round(33, W33);
+        round(34, W34);
+        round(35, W35);
+        round(36, W36);
+        round(37, W37);
+        round(38, W38);
+        round(39, W39);
+        round(40, W40);
+        round(41, W41);
+        round(42, W42);
+        round(43, W43);
+        round(44, W44);
+        round(45, W45);
+        round(46, W46);
+        round(47, W47);
+        round(48, W48);
+        round(49, W49);
+        round(50, W50);
+        round(51, W51);
+        round(52, W52);
+        round(53, W53);
+        round(54, W54);
+        round(55, W55);
+        round(56, W56);
+        round(57, W57);
+        round(58, W58);
+        round(59, W59);
+        round(60, W60);
+        round(61, W61);
+        round(62, W62);
+        round(63, W63);
+        round(64, W64);
+        round(65, W65);
+        round(66, W66);
+        round(67, W67);
+        round(68, W68);
+        round(69, W69);
+        round(70, W70);
+        round(71, W71);
+        round(72, W72);
+        round(73, W73);
+        round(74, W74);
+        round(75, W75);
+        round(76, W76);
+        round(77, W77);
+        round(78, W78);
+        round(79, W79);
+
+        // 4. Compute the next intermediate hash value
+        H0 += a;
+        H1 += b;
+        H2 += c;
+        H3 += d;
+        H4 += e;
+    }
+
+    // And dump out the hash like sha1sum(1)
+    printhexPrints0x(H0);
+    printhexPrints0x(H1);
+    printhexPrints0x(H2);
+    printhexPrints0x(H3);
+    printhexPrints0x(H4);
+    printchar(0x20);
+    printchar(0x20);
+    printchar(0x2d);
+    printchar(0x0a);
+    return 0;
+}

@@ -1,4 +1,4 @@
-//test exception 11
+//test return 0
 
 struct a {
     int[] xs;
