@@ -1,0 +1,10 @@
+//test error
+
+int badtype(bool i){
+    return 0;
+}
+
+int main(){
+    badtype(10);
+    return 1;
+}

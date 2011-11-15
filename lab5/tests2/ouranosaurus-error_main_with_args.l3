@@ -1,0 +1,6 @@
+//test error
+// main can't take args
+
+int main(int argc) {
+    return 0;
+}

@@ -1,0 +1,15 @@
+//test return 42967
+
+// test a prime number
+bool isPrime(int n){
+	int i;
+	for(i = 2; i < n / 2 + 1; i++){
+		if(n % i == 0) return false;
+	}
+	return true;
+}
+
+int main(){
+	bool test = isPrime(50) || isPrime(99) || isPrime(42967);
+	return test ? 42967 : -1;
+}

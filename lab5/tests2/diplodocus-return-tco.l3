@@ -1,0 +1,18 @@
+//test return 1337
+
+int nice(int n);
+
+int main()
+{
+    return nice(1000);
+}
+
+int nice(int n)
+{
+    if (n == 1)
+    {
+        return 1337;
+    }
+    
+    return nice(n-1);
+}

@@ -1,0 +1,22 @@
+//test exception
+//a slightly less trivial non terminating program
+
+int f(int x);
+int g(int x);
+
+int f(int x)
+{
+  int y = x > 0 ? g(x - 1) : g(x + 1);
+  return y + 1;
+}
+
+int g(int x)
+{
+  int y = x < 0 ? f(x + 1) : f(x - 1);
+  return y + 1;
+}
+
+int main()
+{
+  return f(0);
+}

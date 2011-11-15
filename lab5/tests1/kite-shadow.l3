@@ -1,0 +1,9 @@
+//test error
+int foo() {
+ int foo = 1;
+ return foo();
+}
+
+int main() {
+ return foo();
+}

@@ -1,0 +1,33 @@
+//test return 1076235779
+//Approximate e using power law thing...?
+
+//Exp is interpreted as an int, base as a float
+int power(int base, int exp)
+{
+	if(exp == 0)
+		return tofloat(1);
+	if(exp % 2 == 0)
+		return power(fmul(base, base), exp >> 1);
+	else
+		return fmul(base, power(fmul(base, base), exp >> 1));
+}
+
+int approx(int depth)
+{
+	int one = tofloat(1);
+	int e = fadd(one, fdiv(one, tofloat(depth)));
+
+	e = power(e, depth);
+	return e;
+}
+
+int main()
+{
+	int e = approx(1000000);
+	int nl = 10;
+	
+	printfloat(e);
+	printchar(nl);
+
+	return e;
+}

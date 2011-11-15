@@ -1,0 +1,19 @@
+//test exception 8
+int foo(int zzzz);
+
+int main()
+{
+  int y = 0;
+  int i;
+  for(i = 0; i < 5; i++)
+  {
+    y = 0*foo(i);
+    y++;
+  }
+  return y;
+}
+
+int foo(int x)
+{
+  return 15411/(x-3);
+}

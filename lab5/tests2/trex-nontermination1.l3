@@ -1,0 +1,12 @@
+//test exception 
+// a trivial non-terminating program
+
+int f()
+{
+  return f();
+}
+
+int main()
+{
+  return f();
+}

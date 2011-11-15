@@ -1,0 +1,13 @@
+//test return 4155482
+// simple loop with continue
+int main()
+{
+  int sum = 0;
+  for(int a = 0; a < 0xfee; a++)
+  {
+    if(!(a % 2 == 0))
+      continue;
+    sum += a;
+  }
+  return sum;
+}

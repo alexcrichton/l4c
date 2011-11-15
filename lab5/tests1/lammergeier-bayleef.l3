@@ -1,0 +1,5 @@
+//test error
+int _c0_main();
+int main() {
+	return _c0_main();
+}

@@ -1,0 +1,9 @@
+//test error 
+//continue in an if statement
+int main() {
+   if(0==1){
+        continue;
+        return -500000;
+   }
+   return 3;
+}

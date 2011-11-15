@@ -1,0 +1,16 @@
+//test return 1
+
+int foo(int x)
+{
+x++;
+return x; 
+}
+
+int main()
+{
+int x =1;
+int y = foo(x);
+
+return x;
+
+}

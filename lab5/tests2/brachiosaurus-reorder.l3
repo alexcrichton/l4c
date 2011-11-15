@@ -1,0 +1,18 @@
+//test exception 14
+/* Should infinite loop. */
+
+int loupe()
+{
+	while (true) {}
+	return 5;
+}
+
+int div()
+{
+	return 1/0;
+}
+
+int main()
+{
+	return loupe() + div();
+}

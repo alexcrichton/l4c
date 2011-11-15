@@ -1,0 +1,13 @@
+//test return 0
+
+int shadow_me();
+
+int main() {
+    bool shadow_me = true;
+    if (shadow_me) {
+        return 0;
+    }
+    else {
+        return -1;
+    }
+}

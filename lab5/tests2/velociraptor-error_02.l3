@@ -1,0 +1,15 @@
+//test error
+// a function may only be defined once, even if the alternate definition
+// would not conflict
+
+int foo (int x) {
+  return x * 2;
+}
+
+int main (int x) {
+  return x + x;
+}
+
+int foo (int y) {
+  return 2 - y;
+}

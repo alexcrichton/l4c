@@ -1,0 +1,21 @@
+//test error
+/* Test that the variables in a for step do need to be initialized
+ * before a continue. Note that dynamically, y always will be
+ * initialized before use, but... */
+
+int main()
+{
+	int x;
+	int y;
+
+	for (x = 0; x < 42; y++) {
+		if (x == 7) {
+			continue;
+		} else {
+			y = x;
+		}
+		x++;
+	}
+
+	return x;
+}

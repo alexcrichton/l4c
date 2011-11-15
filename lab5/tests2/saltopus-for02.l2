@@ -1,0 +1,15 @@
+//test return 0
+/* Test that the variables in a for step don't need to be initialized
+ * if there is a break. */
+
+int main()
+{
+	int x;
+	int y;
+
+	for (x = 0; x < 42; y++) {
+		break;
+	}
+
+	return x;
+}

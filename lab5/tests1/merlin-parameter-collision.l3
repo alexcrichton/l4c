@@ -1,0 +1,18 @@
+//test error
+//Function parameters and locally declared variables with overlapping
+//scopes may not have same names
+
+bool p(int g,int h,int i,int j,int k,int l);
+
+int main() {
+  int g = 1; // this is ok
+  if (p(1,2,3,4,5,6))
+    return 0;
+  return a;
+}
+
+bool p(int a, int b, int c, int d, int e, int f) {
+  return true;
+  if(a < c )
+    bool b = false; // this is not
+}

@@ -1,0 +1,23 @@
+//test return 71
+// compute the 20th prime number
+
+bool prime (int p) {
+  int i = 2;
+  for (; i < p; i++)
+    if (p % i == 0)
+      return false;
+
+  return true;
+}
+
+int main() {
+  int i = 0;
+  int x = 1;
+  for (; i < 20;) {
+    x++;
+    if (prime(x))
+      i++;
+  }
+
+  return x;
+}

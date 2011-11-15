@@ -1,0 +1,14 @@
+//test error
+//Can't define a function named as a typedef
+
+typedef int foobar;
+
+int foobar(int x, foobar y)
+{
+    return 55;
+}
+
+int main()
+{
+    return foobar(7, 42);
+}

@@ -1,0 +1,13 @@
+//test exception 8
+/* datatype exp = Edo of oper list * exp | ... */
+
+int div()
+{
+	return 1/0;
+}
+
+int main()
+{
+	div();
+	return 0;
+}

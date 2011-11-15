@@ -1,0 +1,17 @@
+//test error
+int b(bool f)
+{
+	if (f)
+		return true;
+	return false;
+}
+int f(int x, int y, int z)
+{
+	if (b(x))
+		return 0;
+	return 1;
+}
+int main()
+{
+	return f(1, 2, 3);
+}

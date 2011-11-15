@@ -1,0 +1,49 @@
+//test return 6
+int leftBitCount(int x);
+int bang(int x);
+int main(){
+    int x = 0xFC111141;
+    return leftBitCount(x);
+
+
+}
+int leftBitCount(int x) {
+    int count;
+    int lastCount;
+
+    count = (~(x >> 16)) & ((0xFF << 8) + 0xFF);
+    count = (bang(count)) << 4;
+    x = x << count;
+
+    lastCount = (~(x >> 24)) & 0xFF;
+    lastCount = (bang(lastCount)) << 3;
+    count += lastCount;
+    x = x << lastCount;
+
+    lastCount = (~(x >> 28)) & 0xF;
+    lastCount = (bang(lastCount)) << 2;
+    count += lastCount;
+    x = x << lastCount;
+
+    lastCount = (~(x >> 30)) & 0x3;
+    lastCount = (bang(lastCount)) << 1;
+    count += lastCount;
+    x = x << lastCount;
+
+    lastCount = (x >> 31) & 1;
+    count += lastCount;
+    x = x << lastCount;
+
+    count += ((x >> 31) & 1);
+
+    return count;
+}
+
+int bang(int x) {
+    int temp = ~x;
+    temp = temp + 1;
+    temp = temp | x;
+    temp = temp >> 31;
+    return (temp + 1);
+}
+

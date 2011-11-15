@@ -1,0 +1,14 @@
+//test return 256
+/* Tests interactions between argument-passing and fixed-register operations. */
+
+int divide_stuff(int edi, int esi, int edx)
+{
+	/* Divide fixes EDX. Make sure the edx arg is live after the divide.
+	 * A broken compiler may qlobber edx before using it. */
+	return (edi/esi) + edx;
+}
+
+int main()
+{
+	return divide_stuff(1024, 8, 128);
+}

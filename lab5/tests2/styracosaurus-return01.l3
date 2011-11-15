@@ -1,0 +1,26 @@
+//test return 100
+//Test chained typedefs
+
+typedef int a;
+typedef a b;
+typedef b c;
+typedef c d;
+typedef d e;
+typedef e f;
+typedef f g;
+typedef g h;
+typedef h i;
+typedef i j;
+typedef j k;
+typedef k l;
+typedef l m;
+typedef m n;
+typedef n o;
+typedef o p;
+
+p main()
+{
+	a x = 50;
+	p y = 50;
+	return x+y;
+}

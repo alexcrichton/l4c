@@ -1,0 +1,44 @@
+//test error
+
+int g(int x);
+bool h(int x);
+int j(int x);
+
+int g(int x)
+{
+  if (x < 0)
+  {
+    return f(x, true, x);
+  }
+  else
+  {
+    return j(x);
+  }
+}
+
+bool h(int x)
+{
+  return x >= 0;
+}
+
+int j(int x)
+{
+  if (h(x))
+  {
+    return x;
+  }
+  else
+  {
+    return true;
+  }
+}
+
+int f(int x, bool b, int y)
+{
+  return b ? x + b : x - b;
+}
+
+int main()
+{
+  return f(g(), h(), j());
+}

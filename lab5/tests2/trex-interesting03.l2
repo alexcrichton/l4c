@@ -1,0 +1,37 @@
+//test return 232792560
+
+// solves problem 5 on projecteuler.net
+//
+// find the smallest positive number that is evenly divisible by all of the numbers from 1 to 20
+
+int main()
+{
+  int lcm_upto_10 = 2520;
+
+  int numsStart = 11;
+  int numsStop = 20;
+  int intMax = (1<<31)-1;
+
+  int n;
+  int d;
+
+  for (n = lcm_upto_10; n <= intMax; n+= lcm_upto_10)
+  {
+    bool good = true;
+    for (d = numsStart; d <= numsStop; d++)
+    {
+      if (n % d != 0)
+      {
+        good = false;
+        break;
+      }
+    }
+
+    if (good)
+    {
+      return n;
+    }
+  }
+
+  return n;
+}

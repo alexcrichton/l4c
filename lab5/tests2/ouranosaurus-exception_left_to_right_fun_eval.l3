@@ -1,0 +1,19 @@
+//test exception 8
+// args must evaluate from left to right
+
+int f1() {
+    return 1 / 0;
+}
+
+int f2() {
+    return f2() + 1;
+}
+
+int f3(int arg1, int arg2) {
+    return 0;
+}
+
+int main() {
+    f3(f1(), f2());
+    return 0;
+}

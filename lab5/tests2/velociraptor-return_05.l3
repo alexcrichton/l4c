@@ -1,0 +1,15 @@
+//test return 10
+// just seeing if your typedefs work
+
+typedef int bob;
+typedef bob steve;
+typedef steve joe;
+typedef bool sam;
+
+sam johnson(bob jones, joe smith) {
+  return jones < smith;
+}
+
+steve main() {
+  return johnson(2, 1) ? 0 : 10;
+}

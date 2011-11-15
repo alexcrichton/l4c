@@ -1,0 +1,28 @@
+//test return 504
+// find first pair of amicable numbers, and returns sum (220 + 284)
+
+int sum_factors(int n)
+{
+  int sum = 0;
+  for (int k = 1; k < n; k++)
+  {
+    if (n % k == 0)
+      sum += k;
+  }
+  return sum;
+}
+
+int main()
+{
+  for (int m = 1; true; m++)
+  {
+    for (int n = 1; n < m; n++)
+    {
+      int sum_m = sum_factors(m);
+      int sum_n = sum_factors(n);
+      if (sum_m == n && sum_n == m)
+        return m + n;
+    }
+  }
+  return -1;
+}

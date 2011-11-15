@@ -1,0 +1,14 @@
+//test error
+/*
+ * Statement in ternary operation.
+ */
+
+int main()
+{
+	int a;
+	a = 0;
+	while(true)
+	{
+		a = (a>10) ? break : a+1;	
+	}
+}

@@ -1,0 +1,13 @@
+//test return 5
+
+int fun1(int n){
+	return n+1;
+}
+
+int fun2(int m){
+	return 2*m;
+}
+
+int main(){
+	return fun1(fun2(2));
+}

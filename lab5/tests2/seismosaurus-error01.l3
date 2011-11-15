@@ -1,0 +1,19 @@
+//test error
+// Can't define the same function twice
+
+bool willThisCompile();
+
+bool willThisCompile(){
+     return true;
+}
+
+bool willThisCompile(){
+     return false;
+}
+
+int main(){
+    if(willThisCompile())
+	return 1000;
+    else
+	return -1000;
+}

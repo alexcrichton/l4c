@@ -1,0 +1,113 @@
+//test return -773194040
+//This is a bitpacked turing machine loaded with the 4 state, 2 symbol busy beaver.
+//Bits 0-17 hold tape
+//Bits 18-22 hold dex
+//Bits 23-24 hold state
+//Bits 25-* hold step counter
+bool castInt(int var)
+{
+	return (var != 1);
+}
+int castBool(bool var)
+{
+	if (var)
+		return 1;
+	return 0;
+}
+int mask(int length)
+{
+	int i;
+	int mask = 0;
+	for (i = 0; i < length; i++)
+	{
+		mask <<= 1;
+		mask |= 1;
+	}
+	return mask;
+}
+int getBits(int tape, int start, int length)
+{
+	return (tape >> start) & mask(length);
+}
+int setBits(int tape, int start, int length, int bits)
+{
+	return (tape & ~(mask(length) << start)) | (bits << start);
+}
+int getDex(int tape)
+{
+	return getBits(tape, 18, 5);
+}
+bool extract(int tape)
+{
+	return castInt(getBits(tape, getDex(tape), 1));
+}
+int writeTape(bool sym, int tape)
+{
+	return setBits(tape, getDex(tape), 1, castBool(sym));
+}
+int shiftTape(bool dir, int tape)
+{
+	int dex = getDex(tape);
+	if (dir)
+		dex++;
+	else
+		dex--;
+	return setBits(tape, 18, 5, dex);
+}
+int stateTape(int state, int tape)
+{
+	return setBits(tape, 23, 2, state);
+}
+int step(int tape)
+{
+	tape = setBits(tape, 25, 8, getBits(tape, 25, 8) + 1);
+	return tape;
+}
+int stepit(bool sym, bool dir, int state, int tape)
+{
+	return step(stateTape(state, shiftTape(dir, writeTape(sym, tape))));
+}
+int busy(int tape)
+{
+	int state = getBits(tape, 23, 2);
+	if (extract(tape))
+	{
+		if (state == 0)
+			return busy(stepit(true, true, 1, tape));
+		if (state == 1)
+			return busy(stepit(true, false, 0, tape));
+		if (state == 2)
+		{
+			tape = writeTape(true, tape);
+			tape = shiftTape(true, tape);
+			return tape;
+		}
+		if (state == 3)
+			return busy(stepit(true, true, 3, tape));
+	}
+	else
+	{
+		if (state == 0)
+			return busy(stepit(true, false, 1, tape));
+		if (state == 1)
+			return busy(stepit(false, false, 2, tape));
+		if (state == 2)
+			return busy(stepit(true, false, 3, tape));
+		if (state == 3)
+			return busy(stepit(false, true, 0, tape));
+	}
+	return (1 / 0); //You dun goofed
+}
+int countOnes(int foo)
+{
+	if (foo == 0)
+	{
+		return 0;
+	}
+	return (foo & 1) + countOnes(foo >> 1);
+}
+int main()
+{
+	int res = busy(setBits(0, 18, 5, 13));
+	return (res * countOnes(getBits(res, 0, 18)));
+}

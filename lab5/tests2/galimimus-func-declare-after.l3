@@ -1,0 +1,15 @@
+//test error
+
+// Declared after use
+
+int foo() {
+  return bar();
+}
+
+int bar() {
+  return 0;
+}
+
+int main() {
+  return foo();
+}

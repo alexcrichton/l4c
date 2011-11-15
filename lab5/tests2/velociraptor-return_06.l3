@@ -1,0 +1,16 @@
+//test return 0
+// mutually recursion!  whoooooaaaaaah
+
+int g(int x);
+
+int f(int x) {
+  return g(g(x-1));
+}
+
+int g(int x) {
+  return x == 0 ? 0 : f(x-1);
+}
+
+int main() {
+  return g(30);
+}

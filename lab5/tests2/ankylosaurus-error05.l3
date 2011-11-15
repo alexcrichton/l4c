@@ -1,0 +1,14 @@
+//test error
+// Tests that different parameters should be given different names
+
+int many_pars(int x, int y, int z, int a, int b, int c, int d, int f, int g);
+
+int main()
+{
+    return many_pars(1, 2, 3, 4, 5, 6, 7, 8, 9);
+}
+
+int many_pars(int x, int y, int z, int a, int b, int c, int x, int f, int g)
+{
+    return x + y + z;
+}

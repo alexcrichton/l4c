@@ -1,0 +1,12 @@
+//test return 0
+
+int foo(int x);
+int foo(int y);
+
+int foo(int z) {
+  return z;
+}
+
+int main() {
+  return foo(0);
+}
