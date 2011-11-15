@@ -1,36 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <stdint.h>
 #include <signal.h>
-#include <string.h>
-
-void* zeromem(size_t bytes) {
-  void *mem = calloc(bytes, 1);
-  if (mem == NULL) {
-    raise(SIGSEGV);
-  }
-  return mem;
-}
-
-void raise_segv() {
-  raise(SIGSEGV);
-}
-
-/* Two arguments for compatibility with calloc when using --safe/--unsafe */
-void* salloc(ssize_t elements, size_t size) {
-  return zeromem(elements * size);
-}
-
-void* salloc_array(ssize_t elements, size_t size) {
-  if (elements < 0) {
-    raise(SIGSEGV);
-  }
-  /* 8 extra bytes to shove the size of the array before the array */
-  uint32_t *mem = zeromem(elements * size + 8);
-  *mem = (uint32_t) elements;
-  /* Return the pointer to actual data so everything is compatible */
-  return mem + 2;
-}
 
 void checkeof () {
   if (feof(stdin)) {

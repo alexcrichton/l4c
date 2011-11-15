@@ -221,6 +221,7 @@ struct
                                  Label.name (Label.extfunc "_c0_main"))]
           @ assem
           @ [Assem.DIRECTIVE ".ident\t\"15-411 L5 reference compiler\""]
+          @ Runtime.instrs
     val code = P.time ("Formatting",
                        fn () => String.concat (List.map (Assem.format) assem))
 
