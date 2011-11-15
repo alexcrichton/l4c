@@ -1,0 +1,36 @@
+//test return 0
+//This is the same test as CSE, but I have given you access to i, j, and k at compile time. As a result, you should get k+=18 as your loop body
+//if you have add coalescing, constant propogation, and constant folding.
+int main()
+{
+	int i = 1;
+	int j = 1;
+	int k = 0;
+	while(true)
+	{
+		if (k > 0xFFFFF)
+			return 0;
+		k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+		k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+		//printint(k);
+		//printchar(10);
+	}
+	//This should never happen.
+	return -1;	
+}

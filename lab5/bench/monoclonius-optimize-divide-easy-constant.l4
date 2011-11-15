@@ -1,0 +1,13 @@
+//test return -777934592
+
+int main()
+{
+    int res = 0;
+    int i;
+    for (i = 0; i < 1000000; i++)
+    {
+        res += i / 64;
+    }
+    return res;
+}
+

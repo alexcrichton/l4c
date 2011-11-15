@@ -1,0 +1,35 @@
+//test return -165708860
+
+struct point_t {
+    int x;
+    int y;
+};
+
+typedef struct point_t pt;
+
+// operator-strength reduction
+
+int main()
+{
+    int size = 1000000;
+    pt[] arr = alloc_array(pt, size);
+    int i;
+    int sum;
+
+    for (i = 0; i < size; i++)
+    {
+        arr[i].x = i * 4 + i / 8;
+        arr[i].y = arr[i].x * 10 - arr[i].x / 4;
+        arr[i].x = -arr[i].y * 9 + arr[i].y / 16;
+        arr[i].y = arr[i].x / 9 + arr[i].x * 15;
+    }
+
+    sum = 0;
+    for (i = 0; i < size; i++)
+    {
+        sum += arr[i].x;
+        sum -= arr[i].y;
+    }
+    
+    return sum;
+}

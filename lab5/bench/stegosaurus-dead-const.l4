@@ -1,0 +1,30 @@
+//test return 999000000
+
+/* Check combination of constant folding and dead code elimination */
+
+int foo(int bar, int baz) {
+	int a = 1;
+	bool b = true;
+	bool c = false;
+	a = bar;
+	a += 2*bar;
+	a *= (bar+2)*5+baz*7;
+	a /= (bar+baz+1);
+	a = (bar + a) * 2 + (a - baz)  * 7 / 3;
+	a >>= 1;
+	c = (b && !c) && (c || c || c || c || c || c || c || b);
+	if (!c)
+		return a;
+	else
+		return bar+baz;
+}
+
+int main() {
+	int i; int j; int sum = 0; int max = 1000;
+	for (i = 0; i < max; i++) {
+		for (j = 0; j < max; j++) {
+			sum += foo(i,j);
+		}
+	}
+	return sum;
+}

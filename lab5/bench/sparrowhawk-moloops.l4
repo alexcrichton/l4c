@@ -1,0 +1,27 @@
+//test return 10
+
+int main(){
+	int x = 5;
+	int i = 1000000000;
+	int q = 0;
+	int r = 0;
+	int s = 0;
+	int t = 0;
+	int u = 0;
+	int v = 0;
+	while(i>0){	
+		q= r+1;
+		r = s+1;
+		s = t+1;
+		t = u+1; 
+		u = v+1;
+		v = q+1;
+		i--;
+	}
+	if(x<5){
+		return q;
+	}
+	else
+		return 10;
+
+}

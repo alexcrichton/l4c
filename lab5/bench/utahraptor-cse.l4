@@ -1,0 +1,37 @@
+//test return 0
+//Eliminating the common subexpression will speed up this loop hugely.
+//If you have SSA, your generator may also notice that the expensive expression can be computed outside the loop instead of inside, helping even more.
+//You should really see the difference here, as the refcompiler almost times, out, but with proper CSE this will just be counting to 0xFFFFFF
+int main()
+{
+	int i = booltoint(true);
+	int j = booltoint(true);
+	int k = booltoint(false);
+	while(true)
+	{
+		if (k > 0xFFFFF)
+			return 0;
+		k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+		k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+                k += i * j / j / j / j / j / j / j/ j / j / j / j / j / j / j / j ;
+		//printint(k);
+		//printchar(10);
+	}
+	//This should never happen.
+	return -1;	
+}

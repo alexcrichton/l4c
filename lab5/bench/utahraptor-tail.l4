@@ -1,0 +1,17 @@
+//test return 32767
+//This will benefit from tail call optimization
+int tail(int n)
+{
+	if (n == 0)
+		return 1;
+	return tail(n - 1);
+}
+int main()
+{
+	int k = 0;
+	while(k < 0x7FFF)
+	{
+		k += tail(8192);
+	}
+	return k;
+}

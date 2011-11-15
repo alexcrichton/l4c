@@ -1,0 +1,85 @@
+//test return 1
+//some sorts to invoke a fair number of bounds checks
+
+int[] swap(int[] x, int a, int b)
+{
+  int temp=x[a];
+  x[a]=x[b];
+  x[b]=temp;
+  return x;
+}
+
+int[] bubble_sort(int[] x, int len)
+{
+  for(int i=1; i<len; i++)
+    for(int j=0; j<len-1; j++)
+      if(x[j]>x[j+1])
+        swap(x,j,j+1);
+  return x;
+}
+
+int[] insertion_sort(int[] x, int len)
+{
+  for(int n=1; n<len; n++)
+  {
+    int temp=x[n];
+    int i=n;
+    while(i>0 && temp<x[i-1])
+    {
+      x[i]=x[i-1];
+      i--;
+    }
+    x[i]=temp;
+  }
+  return x;
+}
+
+int compare(int[] x, int[] y, int len)
+{
+  for(int i=0; i<len; i++)
+  {
+    if(x[i] != y[i])
+      return 0;
+  }
+  return 1;
+}
+
+int main()
+{
+  int[] x = alloc_array(int, 15);
+  x[0] = 3;
+  x[1] = 11;
+  x[2] = 10;
+  x[3] = 5;
+  x[4] = 2;
+  x[5] = 2;
+  x[6] = 21;
+  x[7] = 15;
+  x[8] = 7;
+  x[9] = 1;
+  x[10] = 9;
+  x[11] = 1;
+  x[12] = 32;
+  x[13] = 25;
+  x[14] = 6;
+  int[] y = alloc_array(int, 15);
+  y[0] = 3;
+  y[1] = 11;
+  y[2] = 10;
+  y[3] = 5;
+  y[4] = 2;
+  y[5] = 2;
+  y[6] = 21;
+  y[7] = 15;
+  y[8] = 7;
+  y[9] = 1;
+  y[10] = 9;
+  y[11] = 1;
+  y[12] = 32;
+  y[13] = 25;
+  y[14] = 6;
+  
+  bubble_sort(x,15);
+  insertion_sort(y,15);
+  return compare(x,y,15);
+}

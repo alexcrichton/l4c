@@ -1,0 +1,117 @@
+//test return -722646975
+
+/* Benefit compilers that optimize division by constants to not suk. */
+
+int main()
+{
+	int count = 2000;
+	int msum = 0;
+	int qsum = 0;
+	int i;
+
+	for (i = 0; i < count; i++) {
+		int n = 15410+1337*i;
+		msum += n % 1;
+		msum += n % 2;
+		msum += n % 3;
+		msum += n % 4;
+		msum += n % 5;
+		msum += n % 6;
+		msum += n % 7;
+		msum += n % 8;
+		msum += n % 9;
+		msum += n % 10;
+		msum += n % 11;
+		msum += n % 12;
+		msum += n % 13;
+		msum += n % 14;
+		msum += n % 15;
+		msum += n % 16;
+		msum += n % 17;
+		msum += n % 18;
+		msum += n % 19;
+		msum += n % 20;
+		msum += n % 21;
+		msum += n % 22;
+		msum += n % 23;
+		msum += n % 24;
+		msum += n % 25;
+		msum += n % 26;
+		msum += n % 27;
+		msum += n % 28;
+		msum += n % 29;
+		msum += n % 30;
+		msum += n % 31;
+		msum += n % 32;
+		msum += n % 33;
+		msum += n % 34;
+		msum += n % 35;
+		msum += n % 36;
+		msum += n % 37;
+		msum += n % 38;
+		msum += n % 39;
+		msum += n % 40;
+		msum += n % 41;
+		msum += n % 42;
+		msum += n % 43;
+		msum += n % 44;
+		msum += n % 45;
+		msum += n % 46;
+		msum += n % 47;
+		msum += n % 48;
+		msum += n % 49;
+		msum += n % 50;
+		qsum += n / 1;
+		qsum += n / 2;
+		qsum += n / 3;
+		qsum += n / 4;
+		qsum += n / 5;
+		qsum += n / 6;
+		qsum += n / 7;
+		qsum += n / 8;
+		qsum += n / 9;
+		qsum += n / 10;
+		qsum += n / 11;
+		qsum += n / 12;
+		qsum += n / 13;
+		qsum += n / 14;
+		qsum += n / 15;
+		qsum += n / 16;
+		qsum += n / 17;
+		qsum += n / 18;
+		qsum += n / 19;
+		qsum += n / 20;
+		qsum += n / 21;
+		qsum += n / 22;
+		qsum += n / 23;
+		qsum += n / 24;
+		qsum += n / 25;
+		qsum += n / 26;
+		qsum += n / 27;
+		qsum += n / 28;
+		qsum += n / 29;
+		qsum += n / 30;
+		qsum += n / 31;
+		qsum += n / 32;
+		qsum += n / 33;
+		qsum += n / 34;
+		qsum += n / 35;
+		qsum += n / 36;
+		qsum += n / 37;
+		qsum += n / 38;
+		qsum += n / 39;
+		qsum += n / 40;
+		qsum += n / 41;
+		qsum += n / 42;
+		qsum += n / 43;
+		qsum += n / 44;
+		qsum += n / 45;
+		qsum += n / 46;
+		qsum += n / 47;
+		qsum += n / 48;
+		qsum += n / 49;
+		qsum += n / 50;
+	}
+
+	return msum ^ qsum;
+}

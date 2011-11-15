@@ -1,0 +1,50 @@
+//test return 1351725000
+/* Copy propagation/constant folding/aliasing */
+int foo(int z) {
+	int* a = alloc(int);
+	int* b = alloc(int);
+	int* c = alloc(int);
+	int* d = alloc(int);
+	int* e = alloc(int);
+	int* f = alloc(int);
+	int* g = alloc(int);
+	int* h = alloc(int);
+	int* i = alloc(int);
+	int* j = alloc(int);
+	int** K = alloc(int*);
+	int** L = alloc(int*);
+	int** M = alloc(int*);
+	*a = 0;
+	*b = 1;
+	*c = 2;
+	*d = z;
+	*e = 4;
+	f = a;
+	g = b;
+	h = c;
+	i = d;
+	j = e;
+	*f = *b;
+	*g = *c;
+	*h = *d;
+	*i = *e;
+	*j = *a;
+	*K = f;
+	*L = h;
+	M = K;
+	**K = 8;
+	b = *K;
+	f = *L;
+	h = j;
+	*h = 5;
+	*i = *j;
+	return *a + *b + *c + *d + *e + *f + *g + *h + *i + *j + **K + **L + **M;
+}
+
+int main() {
+	int i = 0; int sum = 0;
+	for (i = 0; i < 30000; i++) {
+		sum += foo(i);
+	}
+	return sum;
+}
