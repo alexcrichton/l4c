@@ -464,7 +464,7 @@ sub grade_execution {
     my $expected = shift;
     my $p = shift;
 
-    if ($result != 0) {
+    if ($result >= 128) {
         $result = $result - 128; # killed by signal
     }
 
