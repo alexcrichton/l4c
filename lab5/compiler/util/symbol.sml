@@ -96,10 +96,7 @@ struct
   end
 
   fun valid name = let
-    val blacklist = ["struct", "typedef", "if", "else", "while", "for",
-                     "continue", "break", "return", "assert", "true", "false",
-                     "NULL", "alloc", "alloc_array", "int", "bool", "void",
-                     "char", "string"]
+    val blacklist = ["assert", "void", "char", "string"]
   in not (List.exists (fn (s) => s = name) blacklist) end
 
   fun name (n, i) = n
