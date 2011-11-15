@@ -15,7 +15,7 @@ struct
   structure A = Ast
   structure T = Tree
   structure G = Graph
-  structure DG = DirectedHashGraph(DynArray)
+  structure DG = DirectedGraph(DynArray)
   structure HT = HashTable
 
   type func_table = (bool * Tree.typ * Tree.typ list) Symbol.table
