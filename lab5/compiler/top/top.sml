@@ -206,7 +206,8 @@ struct
     val ir = P.time ("Flatten", fn () => SSA.dessa cfg')
     val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir)) ()
 
-    val ir' = P.time ("Neededness", fn () => Neededness.eliminate ir)
+    val ir' = if not (O.opt_on 1) then ir
+              else P.time ("Neededness", fn () => Neededness.eliminate ir)
     val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir')) ()
 
     (* Codegen/Assembly generation*)
