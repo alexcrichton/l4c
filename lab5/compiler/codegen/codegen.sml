@@ -128,8 +128,7 @@ struct
    * @return the list of instructions needed to perform the operation and move
    *         it into the destination register
    *)
-  and munch_binop ts d (binop, e1, e2) =
-      let
+  and munch_binop ts d (binop, e1, e2) = let
         val oper = munch_op binop
         val (t1, t1instrs) = munch_half ts oper e1
         val (t2, t2instrs) = munch_half ts oper e2
@@ -148,10 +147,12 @@ struct
         fun eq_ops (AS.TEMP (t1, _), AS.TEMP (t2, _)) = Temp.equals (t1, t2)
           | eq_ops (AS.REG (a, _), AS.REG (b, _)) = (a = b)
           | eq_ops _ = false
+        fun assoc (AS.ADD | AS.MUL) = true | assoc _ = false
+        fun isimm (AS.IMM _) = true | isimm _ = false
 
         fun reg r = AS.REG (r, size t1)
-        val d' = if size d <> size t1 then AS.TEMP (Temp.new(), size t1)
-                 else d
+        val d' = if size d = size t1 then d
+                 else AS.TEMP (Temp.new(), size t1)
         val _ = if size t1 <> size t2 then raise Fail "diff size" else ()
         (* x86 has weird conditions on instructions. Catch those oddities here
            and expand a single binop into multiple instructions as necessary *)
@@ -170,11 +171,17 @@ struct
                   end
                 else (case t2
                         of AS.IMM _ => [AS.MOV (d', t1), AS.BINOP(oper, d', t2)]
-                         | _ => [AS.MOV (d', t1), AS.MOV (reg AS.ECX, t2),
-                                 AS.BINOP (oper, d', reg AS.ECX)])
-             | _ => if not(eq_ops (d', t2)) then
+                         | _ => case t1
+                                  of AS.IMM _ =>
+                                      [AS.MOV (d', t2), AS.BINOP(oper, d', t1)]
+                                   | _ => [AS.MOV (d', t1),
+                                           AS.MOV (reg AS.ECX, t2),
+                                           AS.BINOP (oper, d', reg AS.ECX)])
+             | _ => if assoc oper andalso isimm t1 then
+                      [AS.MOV (d', t2), AS.BINOP (oper, d', t1)]
+                    else if not(eq_ops (d', t2)) then
                       [AS.MOV (d', t1), AS.BINOP (oper, d', t2)]
-                    else if binop <> T.SUB then
+                    else if assoc oper then
                       [AS.MOV (d', t2), AS.BINOP (oper, d', t1)]
                     else let val t = AS.TEMP (Temp.new(), size t1) in
                       [AS.MOV (t, t1), AS.BINOP (oper, t, t2), AS.MOV (d', t)]
@@ -330,7 +337,9 @@ struct
         val ts = HT.mkTable (T.tmphash, T.tmpequals) (97, Fail "Temp bug")
         val _  = app (fn (t, _) => HT.insert ts ((t, ref 0), t)) T
         val L' = P.time ("Munching", fn () => munch_stmts ts (munch_typ t) L)
-        val instrs = argmvs @ L'
+        val L'' = if not (Options.opt_on 1) then L'
+                  else P.time ("Peephole", fn() => Peephole.optimize L')
+        val instrs = argmvs @ L''
         val assem = Allocation.allocate (id, instrs)
 
         (* Make sure we have a stack for this function *)

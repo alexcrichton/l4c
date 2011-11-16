@@ -49,6 +49,7 @@ Group is
   optimizations/cfg_prune.sml
   optimizations/cfold.sml
   optimizations/neededness.sml
+  optimizations/peephole.sml
 
   top/top.sml
   top/options.sml
