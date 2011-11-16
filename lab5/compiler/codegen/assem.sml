@@ -252,8 +252,10 @@ struct
         "mov" ^ format_suffix (d, s) ^ " " ^ format_operand s ^ ", " ^
                  format_operand d
     | format_instr (JMP (l, jmp)) = format_condition jmp ^ " " ^ Label.name l
-    | format_instr (MOVFLAG (d,_)) = "movzbl " ^ format_operand8 d ^
-                                     ", " ^ format_operand d
+    | format_instr (MOVFLAG (d as REG (_, QUAD), _)) =
+        "movzbq " ^ format_operand8 d ^ ", " ^ format_operand d
+    | format_instr (MOVFLAG (d, _)) =
+        "movzbl " ^ format_operand8 d ^ ", " ^ format_operand d
     | format_instr (CALL (l, _)) = "callq " ^ Label.name l
     | format_instr (ASM str) = str
     | format_instr (DIRECTIVE str) = str
