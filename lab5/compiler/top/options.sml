@@ -16,6 +16,8 @@ sig
   val filename : unit -> string
   val set_filename : string -> unit
 
+  val opt_on : int -> bool
+  val guard_opt : int -> ('a -> 'a) -> 'a -> 'a
 end
 
 structure Options :> OPTIONS =
@@ -36,5 +38,15 @@ struct
   val fname = ref "output"
   fun filename () = !fname
   fun set_filename s = fname := s
+
+  fun opt_on level = let
+        val optstr = Flag.svalue flag_opt
+        val optlevel = valOf (Int.fromString (if optstr = "" then "0"
+                                              else optstr))
+      in
+        level <= optlevel
+      end
+
+  fun guard_opt level f a = if opt_on level then f a else a
 
 end

@@ -388,7 +388,8 @@ struct
 
         val order = P.time ("Generate SEO", fn () => generate_seo graph_rec pq)
         val _ = P.time ("Coloring", fn () => app (color graph_rec) order)
-        val _ = P.time ("Coalescing", fn () => app (coalesce graph_rec) L)
+        val _ = if not (Options.opt_on 1) then ()
+                else P.time ("Coalescing", fn () => app (coalesce graph_rec) L)
 
         (* Adhere to callee/caller register saving conventions *)
         val L = P.time ("Caller/callee", fn () => let

@@ -158,17 +158,16 @@ struct
         end
 
     (* Performs a list of transforations on the IR *)
-    val optstr = Flag.svalue O.flag_opt
-    val optlevel = valOf (Int.fromString (if optstr = "" then "0" else optstr))
     fun optimize cfg [] = cfg
       | optimize cfg ({active=a, desc=d, ppfile=ppf, level=l, func=f}::L) =
-        if not a orelse l > optlevel then optimize cfg L else let
+        if a andalso O.opt_on l then let
           val _ = Flag.guard O.flag_verbose say (d ^ "...")
           val cfg' = P.time (d, fn () => f cfg)
           val _ = Flag.guard O.flag_dotcfg (fn () => app (pretty ppf) cfg') ()
         in
           optimize cfg' L
         end
+        else optimize cfg L
 
     (* IR translation/Optimizations *)
     val _ = Flag.guard O.flag_verbose say "Translating..."
