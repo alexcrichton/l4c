@@ -13,7 +13,9 @@ use warnings;
 use vars qw($LAB $COMPILER $COMPILER_EXEC $COMPILER_ARGS @LEXTS $GCC $RUNTIME
             $REF_COMPILER $REF_COMPILER_ARGS $MAKE_TIMEOUT $COMPILER_TIMEOUT
             $GCC_TIMEOUT $RUN_TIMEOUT $TEST_SUITES_PATH $MAX_VALIDATE_SCORE
-            $MIN_TESTS &tests_grade $CMPL_GRADE);
+            $MIN_TESTS &tests_grade $CMPL_GRADE
+			$BENCH_LINK @BENCH_FLAGS @BENCH_SAFES $BENCH_RUN_TIMEOUT
+			$BENCH_EPSILON $BENCH_OUTLYING $BENCH_SUITE $BENCH_LEXT);
 
 our $LAB             = 4;
 
@@ -21,7 +23,7 @@ my $rt_stem = "l${LAB}rt";
 
 our $COMPILER       = "l${LAB}c";                       # name of compiler to generate
 our $COMPILER_EXEC  = "bin/$COMPILER";                  # compiler executable
-our $COMPILER_ARGS  = "-l $rt_stem.h0 --safe";
+our $COMPILER_ARGS  = "-l $rt_stem.h0";
 our @LEXTS          = reverse map {"l$_"} (1 .. $LAB);  # source filename extensions
 
 our $GCC            = "gcc -m64";       # gcc executable and default flags
@@ -39,6 +41,20 @@ our $RUN_TIMEOUT        = 5;    # timeout for running compiled executable
 # path to directory containing tests/, tests0/, tests1/, tests2/
 our $TEST_SUITES_PATH = "..";
 
+# benchmarking configuration
+our $BENCH_LINK = "-m64 bench.c cyc.c -o bench";
+our @BENCH_FLAGS = ( "-O0", "-O1" );
+our @BENCH_SAFES = ( "--safe", "--unsafe" );
+
+our $BENCH_RUN_TIMEOUT = 30;
+
+our $BENCH_EPSILON = 0.002;
+our $BENCH_OUTLYING = 2.0;
+
+our $BENCH_LEXT = "l4";
+our $BENCH_SUITE = "bench";
+
+
 our $MAX_VALIDATE_SCORE = 20;    # maximal score for test case validation
 our $MIN_TESTS          = 14;    # minimum number of tests to submit
 
@@ -47,9 +63,9 @@ my $MAX_SCORE1 = 50;        # maximal score for compiler, test suite 1
 my $MAX_SCORE2 = 10;        # maximal score for compiler, test suite 2
 my $TESTS1_N = 10;      # first n failing suite 1 tests...
 my $TESTS1_PTS = 2;     # ...are worth this many points each
-my $TESTS0_MIN = 50;    # number of error cases in tests0
-my $TESTS1_MIN = 267;   # number of error cases in tests1
-my $TESTS2_MIN = 404;   # number of error cases in tests2
+my $TESTS0_MIN = 52;    # number of error cases in tests0
+my $TESTS1_MIN = 270;   # number of error cases in tests1
+my $TESTS2_MIN = 412;   # number of error cases in tests2
 
 sub tests_grade {
     my $tried = shift;
