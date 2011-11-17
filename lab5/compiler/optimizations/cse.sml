@@ -3,7 +3,7 @@
  * Author: Alex Crichton <acrichto@andrew.cmu.edu>
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
-structure CSE :> OPTIMIZATION =
+structure CSE :> CFG_OPTIMIZATION =
 struct
   structure HT = HashTable
   structure T  = Tree

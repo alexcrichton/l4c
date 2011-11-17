@@ -11,7 +11,7 @@
  * Author: Alex Crichton <acrichto@andrew.cmu.edu>
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
-structure TMPCoalesce :> OPTIMIZATION =
+structure TMPCoalesce :> CFG_OPTIMIZATION =
 struct
   structure HT = HashTable
   structure T  = Tree
