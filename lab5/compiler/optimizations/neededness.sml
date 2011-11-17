@@ -71,6 +71,7 @@ struct
         (U, NONE, [], U, s)
       end
     | rulegen f (l, T.LABEL _) = ([], NONE, [l + 1], [], false)
+    | rulegen f (l, T.NOP) = ([], NONE, [l + 1], [], false)
     | rulegen _ _ = raise Fail "Inalid instruction"
 
   (* lookup_needed : label list -> (label -> TS.set ref) -> TS.set -> TS.set

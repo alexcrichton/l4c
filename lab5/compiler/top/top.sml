@@ -197,8 +197,20 @@ struct
                   func   = CFGPrune.optimize
                 }, {
                   active = false,
+                  desc   = "CSE",
+                  ppfile = "cse",
+                  level  = 1,
+                  func   = CSE.optimize
+                }, {
+                  active = true,
+                  desc   = "Coalesce temps",
+                  ppfile = "tmp_coalesce",
+                  level  = 1,
+                  func   = TMPCoalesce.optimize
+                }, {
+                  active = false,
                   desc   = "Coalesce CFG",
-                  ppfile = "coalesce",
+                  ppfile = "cfg_coalesce",
                   level  = 1,
                   func   = CFGCoalesce.optimize
                 }]

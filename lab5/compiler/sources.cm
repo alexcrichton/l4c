@@ -50,6 +50,8 @@ Group is
   optimizations/cfold.sml
   optimizations/neededness.sml
   optimizations/peephole.sml
+  optimizations/cse.sml
+  optimizations/tmp_coalesce.sml
 
   top/top.sml
   top/options.sml

@@ -27,6 +27,7 @@ sig
     | GOTO  of Label.label * exp option
     | COND  of exp
     | RETURN of exp
+    | NOP
 
   type block = stm list
   type cfgraph = (block, edge, unit) Graph.graph
@@ -72,6 +73,7 @@ struct
     | GOTO  of Label.label * exp option
     | COND  of exp
     | RETURN of exp
+    | NOP
 
   type block = stm list
   type cfgraph = (block, edge, unit) Graph.graph
@@ -151,6 +153,7 @@ struct
       | pp_stm (GOTO (l, SOME exp)) =
           "if (" ^ pp_exp exp ^ ") goto " ^ Label.name l
       | pp_stm (RETURN e) = "return " ^ pp_exp e
+      | pp_stm NOP = "nop"
 
     fun pp_func (l, _, args, stms) = Label.name l ^ "(" ^
                           String.concatWith ", "

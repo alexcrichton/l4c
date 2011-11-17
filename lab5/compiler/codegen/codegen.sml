@@ -232,6 +232,7 @@ struct
     | munch_stm _ _ (T.LABEL l)  = [AS.LABEL l]
     | munch_stm _ _ (T.GOTO (l, NONE)) = [AS.JMP (l, NONE)]
     | munch_stm ts _ (T.GOTO (l, SOME e)) = munch_conditional ts l e
+    | munch_stm _ _ T.NOP = []
     | munch_stm _ _ _ = raise Fail "Invalid IR"
   and munch_stmts ts t stmts = foldr (op @) [] (map (munch_stm ts t) stmts)
 
