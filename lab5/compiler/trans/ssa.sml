@@ -118,11 +118,18 @@ struct
   fun dom_frontiers (G.GRAPH g) = let
         val _ = debug "dom_frontiers"
         val nodes = S.fromList (map #1 (#nodes g ()))
-        val idom = idoms (G.GRAPH g)
+        val idom = P.time ("calculating idoms...", fn () => idoms (G.GRAPH g))
+
+        val id_cache = A.array (#capacity g (), S.empty)
+        fun build_cache (_, ~1) = ()
+          | build_cache (a, b) = A.update (id_cache, b,
+                                           S.add (A.sub (id_cache, b), a))
+        val _ = A.appi build_cache idom
 
         val _ = gverbose (fn () => dump_arri Int.toString idom)
         val df's = A.array (#capacity g (), S.empty)
-        val (order, _) = CFG.rev_postorder (G.GRAPH g)
+        val (order, _) = P.time ("postorder...",
+                                 fn () => CFG.rev_postorder (G.GRAPH g))
         val order = rev order
 
         (* Returns true if a isn't the immediate dominator of b *)
@@ -132,12 +139,11 @@ struct
         fun df_up (a, c) = if not_idom a c then S.empty
                            else S.filter (not_idom a) (A.sub (df's, c))
 
-        (* This is quadratic - it shouldn't be   FIXME, TODO, XXX *)
         fun df a = let
-              fun union (c, set) = if not_idom a c then set
-                                   else S.union (set, df_up (a, c))
+              fun union (c, set) = S.union (set, df_up (a, c))
             in
-              A.update (df's, a, S.foldl union (df_local a) nodes)
+              A.update (df's, a, S.foldl union (df_local a)
+                                         (A.sub (id_cache, a)))
             end
       in
         app df order; df's
@@ -179,7 +185,7 @@ struct
    *         temps to their respective sizes
    *)
   fun find_phis (G.GRAPH g, defs) = let
-        val df's = dom_frontiers (G.GRAPH g)
+        val df's = P.time ("dom_frontiers", fn () => dom_frontiers (G.GRAPH g))
         val phis = HT.mkTable (Word.fromInt, op =)
                               (97, Fail "Node not found")
         fun process_defs (temp, (nodes, typ)) = let
