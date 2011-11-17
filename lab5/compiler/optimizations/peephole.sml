@@ -26,14 +26,17 @@ struct
                  else ispow2 (n div two)
 
   fun optimize ((i as A.BINOP (A.MUL, oper, A.IMM (n, s))) :: L) =
-        if ispow2 n then A.BINOP (A.LSH, oper, A.IMM (log2 n, s)) :: optimize L
+        if ispow2 n then optimize (A.BINOP (A.LSH, oper, A.IMM (log2 n, s))::L)
         else i :: optimize L
     | optimize ((i as A.BINOP (A.DIV, oper, A.IMM (n, s))) :: L) =
-        if ispow2 n then A.BINOP (A.RSH, oper, A.IMM (log2 n, s)) :: optimize L
+        if ispow2 n then optimize (A.BINOP (A.RSH, oper, A.IMM (log2 n, s))::L)
         else i :: optimize L
     | optimize ((i as A.BINOP (A.MOD, oper, A.IMM (n, s))) :: L) =
-        if ispow2 n then A.BINOP (A.AND, oper, A.IMM (n - one, s)) :: optimize L
+        if ispow2 n then optimize (A.BINOP (A.AND, oper, A.IMM (n - one, s))::L)
         else i :: optimize L
+    | optimize (A.BINOP (CMP, d as A.IMM _, s) ::
+                (j as A.JMP (_, SOME (A.EQ | A.NEQ))) :: L) =
+        A.BINOP (CMP, s, d) :: j :: optimize L
     | optimize (i :: L) = i :: (optimize L)
     | optimize [] = []
 
