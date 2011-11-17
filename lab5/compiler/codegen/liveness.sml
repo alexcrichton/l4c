@@ -127,6 +127,18 @@ struct
     then munge rulesets f
     else ()
 
+  (* precolor : A.instr * OS.set -> OS.set
+   *
+   * Adds precolored registers to the given set so that the registers are
+   * available during allocation.
+   *)
+  fun precolor (A.BINOP ((A.DIV | A.MOD), _, _), set) =
+        OS.add (OS.add (set, A.REG (A.EAX, A.QUAD)), A.REG (A.EDX, A.QUAD))
+    | precolor (A.BINOP ((A.RSH | A.LSH), _, A.IMM _), set) = set
+    | precolor (A.BINOP ((A.RSH | A.LSH), _, _), set) =
+        OS.add (set, A.REG (A.ECX, A.QUAD))
+    | precolor (_, set) = set
+
   (* compute : Assem.instr list -> OS.set list
    *
    * Performs liveness analysis on the given list of instructions.
@@ -148,11 +160,13 @@ struct
     val rules = Vector.fromList L
     val rules = Vector.mapi (fn pair => (rulegen (HT.lookup labels) pair,
                                          ref OS.empty)) rules
+    fun getsets label = (#2 (Vector.sub (rules, label)))
+                        handle Subscript => ref OS.empty
+
+    val _ = munge rules getsets
+    val rulesets = Vector.foldr (fn ((_, ref s), L) => s::L) [] rules
   in
-    munge rules (fn label =>
-      (#2 (Vector.sub (rules, label))) handle Subscript => ref OS.empty
-    );
-    Vector.foldr (fn ((_, ref s), L) => s::L) [] rules
+    ListPair.mapEq precolor (L, rulesets)
   end
 
 end

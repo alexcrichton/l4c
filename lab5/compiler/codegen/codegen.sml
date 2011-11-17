@@ -33,9 +33,6 @@ struct
   fun munch_typ T.WORD = AS.WORD
     | munch_typ T.QUAD = AS.QUAD
 
-  fun size (AS.MEM (_, t) | AS.REG (_, t) |
-            AS.TEMP (_, t) | AS.IMM(_, t)) = t
-
   (* Returns true if the operator evaluates to a bool *)
   fun eval_bool (T.LT | T.LTE | T.GT | T.GTE | T.EQ | T.NEQ) = true
     | eval_bool _  = false
@@ -99,7 +96,7 @@ struct
    *         perform the computation
    *)
   and munch_half ts oper (T.TEMP (t, typ)) = (munch_temp ts (t, typ), [])
-    | munch_half ts (AS.DIV | AS.MOD | AS.CMP) (e as T.CONST (_, typ)) = let
+    | munch_half ts (AS.CMP) (e as T.CONST (_, typ)) = let
         val t = AS.TEMP(Temp.new(), munch_typ typ)
       in (t, munch_exp ts t e) end
     | munch_half _ _ (T.CONST (n, typ)) = (AS.IMM (n, munch_typ typ), [])
@@ -132,12 +129,12 @@ struct
         val oper = munch_op binop
         val (t1, t1instrs) = munch_half ts oper e1
         val (t2, t2instrs) = munch_half ts oper e2
-        fun promote r = if size r = AS.QUAD then ([], r)
+        fun promote r = if AS.size r = AS.QUAD then ([], r)
                         else let val t = AS.TEMP (Temp.new(), AS.QUAD) in
                           ([AS.MOV(t, r)], t)
                         end
         val (t1, t2, t2instrs) =
-          if size t1 = AS.QUAD orelse size t2 = AS.QUAD then let
+          if AS.size t1 = AS.QUAD orelse AS.size t2 = AS.QUAD then let
               val (t1instrs', t1') = promote t1
               val (t2instrs', t2') = promote t2
             in
@@ -150,38 +147,21 @@ struct
         fun assoc (AS.ADD | AS.MUL) = true | assoc _ = false
         fun isimm (AS.IMM _) = true | isimm _ = false
 
-        fun reg r = AS.REG (r, size t1)
-        val d' = if size d = size t1 then d
-                 else AS.TEMP (Temp.new(), size t1)
-        val _ = if size t1 <> size t2 then raise Fail "diff size" else ()
+        fun reg r = AS.REG (r, AS.size t1)
+        val d' = if AS.size d = AS.size t1 then d
+                 else AS.TEMP (Temp.new(), AS.size t1)
+        val _ = if AS.size t1 <> AS.size t2 then raise Fail "diff size" else ()
         (* x86 has weird conditions on instructions. Catch those oddities here
            and expand a single binop into multiple instructions as necessary *)
-        val instrs =
-          case binop
-            of (T.DIV | T.MOD) =>
-                 [AS.MOV (reg AS.EAX, t1), AS.ASM "cltd",
-                  AS.BINOP (oper, reg AS.EAX, t2),
-                  AS.MOV (d', reg (if binop = T.DIV then AS.EAX else AS.EDX))]
-             | (T.RSH | T.LSH) =>
-                if eq_ops (d', t2) then let
-                    val t = AS.TEMP(Temp.new(), size t1)
-                  in
-                   [AS.MOV (t, t1), AS.MOV (reg AS.ECX, t2),
-                    AS.BINOP (oper, t, reg AS.ECX), AS.MOV (d', t)]
-                  end
-                else (case t2
-                        of AS.IMM _ => [AS.MOV (d', t1), AS.BINOP(oper, d', t2)]
-                         | _ => [AS.MOV (d', t1), AS.MOV (reg AS.ECX, t2),
-                                 AS.BINOP (oper, d', reg AS.ECX)])
-             | _ => if assoc oper andalso isimm t1 then
-                      [AS.MOV (d', t2), AS.BINOP (oper, d', t1)]
-                    else if not(eq_ops (d', t2)) then
-                      [AS.MOV (d', t1), AS.BINOP (oper, d', t2)]
-                    else if assoc oper then
-                      [AS.MOV (d', t2), AS.BINOP (oper, d', t1)]
-                    else let val t = AS.TEMP (Temp.new(), size t1) in
-                      [AS.MOV (t, t1), AS.BINOP (oper, t, t2), AS.MOV (d', t)]
-                    end
+        val instrs = if assoc oper andalso isimm t1 then
+                       [AS.MOV (d', t2), AS.BINOP (oper, d', t1)]
+                     else if not(eq_ops (d', t2)) then
+                       [AS.MOV (d', t1), AS.BINOP (oper, d', t2)]
+                     else if assoc oper then
+                       [AS.MOV (d', t2), AS.BINOP (oper, d', t1)]
+                     else let val t = AS.TEMP (Temp.new(), AS.size t1) in
+                       [AS.MOV (t, t1), AS.BINOP (oper, t, t2), AS.MOV (d', t)]
+                     end
       in
         t1instrs @ t2instrs @ (case binop
            of T.LT  => instrs @ [AS.MOVFLAG (d, AS.LT)]
@@ -190,8 +170,8 @@ struct
             | T.GTE => instrs @ [AS.MOVFLAG (d, AS.GTE)]
             | T.EQ  => instrs @ [AS.MOVFLAG (d, AS.EQ)]
             | T.NEQ => instrs @ [AS.MOVFLAG (d, AS.NEQ)]
-            | _     => instrs @ (if size d <> size t1 then [AS.MOV (d, d')]
-                                 else []))
+            | _     => instrs @ (if AS.size d = AS.size t1 then []
+                                 else [AS.MOV (d, d')]))
       end
 
   (* munch_conditional : Label.label -> T.exp -> Assem.instr list
@@ -216,7 +196,7 @@ struct
     | munch_conditional ts dest (T.BINOP (oper, e1, e2)) = let
         val (t1, t1instrs) = munch_half ts AS.CMP e1
         val (t2, t2instrs) = munch_half ts AS.CMP e2
-        val _ = if size t1 <> size t2 then raise Fail "diff size!" else ()
+        val _ = if AS.size t1 <> AS.size t2 then raise Fail "diff size!" else ()
         val cond = case oper of T.LT => AS.LT | T.LTE => AS.LTE
                               | T.GT => AS.GT | T.GTE => AS.GTE
                               | T.EQ => AS.EQ | T.NEQ => AS.NEQ
@@ -229,7 +209,7 @@ struct
     | munch_conditional ts dest (T.MEM (a, T.WORD)) = let
         val (t, tinstrs) = munch_half ts AS.CMP a
       in
-        [AS.BINOP (AS.CMP, t, AS.IMM (Word32Signed.ZERO, size t)),
+        [AS.BINOP (AS.CMP, t, AS.IMM (Word32Signed.ZERO, AS.size t)),
          AS.JMP(dest, SOME(AS.NEQ))]
       end
     | munch_conditional _ _ _ = raise Fail "bad types in munch_conditional"

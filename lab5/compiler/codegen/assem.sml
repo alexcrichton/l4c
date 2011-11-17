@@ -41,6 +41,7 @@ sig
   val caller_regs : reg list
   val callee_regs : reg list
 
+  val size : operand -> size
   val format : instr -> string
   val format_operand : operand -> string
   val compare : operand * operand -> order
@@ -92,6 +93,9 @@ struct
         if Flag.isset Options.flag_types then
           case s of WORD => ":32" | QUAD => ":64"
         else ""
+
+  fun size (MEM (_, t) | REG (_, t) |
+            TEMP (_, t) | IMM(_, t)) = t
 
   (* format_reg : reg -> string
    *
@@ -321,7 +325,25 @@ struct
    * @param I the instruction to expand
    * @return L a list of instructions which should be passed to format_instr
    *)
-  fun instr_expand (BINOP (oper, d, s)) = let
+  fun instr_expand (BINOP (oper as (DIV | MOD), d, s as IMM (_, size))) =
+        [MOV (swapl size, s)] @ instr_expand (BINOP (oper, d, swapl size))
+    | instr_expand (BINOP (oper as (DIV | MOD), d, s)) = let val typ = size d in
+        instr_expand (MOV (REG (EAX, typ), d)) @
+          [ASM "cltd", BINOP (oper, d, s)] @
+          instr_expand (MOV (d, REG (if oper = MOD then EDX else EAX, typ)))
+      end
+    | instr_expand (BINOP (oper as (RSH | LSH), d, s as IMM _)) = let
+        val (instrs, d', s') = resolve_mem (d, s)
+      in
+        instrs @ [BINOP (oper, d', s')]
+      end
+    | instr_expand (BINOP (oper as (RSH | LSH), d, s)) = let
+        val (instrs, d', s') = resolve_mem (d, s)
+        val ecx = REG (ECX, size d)
+      in
+        instrs @ [MOV (ecx, s'), BINOP (oper, d', ecx)]
+      end
+    | instr_expand (BINOP (oper, d, s)) = let
         val (instrs, d', s') = resolve_mem (d, s)
       in
         case d'
