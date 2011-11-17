@@ -95,12 +95,9 @@ struct
    * @return the result of the computation and the instructions necessary to
    *         perform the computation
    *)
-  and munch_half ts oper (T.TEMP (t, typ)) = (munch_temp ts (t, typ), [])
-    | munch_half ts (AS.CMP) (e as T.CONST (_, typ)) = let
-        val t = AS.TEMP(Temp.new(), munch_typ typ)
-      in (t, munch_exp ts t e) end
-    | munch_half _ _ (T.CONST (n, typ)) = (AS.IMM (n, munch_typ typ), [])
-    | munch_half ts oper e = let
+  and munch_half ts (T.TEMP (t, typ)) = (munch_temp ts (t, typ), [])
+    | munch_half _ (T.CONST (n, typ)) = (AS.IMM (n, munch_typ typ), [])
+    | munch_half ts e = let
         fun guess_size (T.CONST (_, t) | T.TEMP (_, t) | T.MEM (_, t) |
                         T.CALL (_, t, _)) = munch_typ t
           | guess_size (T.BINOP (oper, e1, e2)) =
@@ -127,8 +124,8 @@ struct
    *)
   and munch_binop ts d (binop, e1, e2) = let
         val oper = munch_op binop
-        val (t1, t1instrs) = munch_half ts oper e1
-        val (t2, t2instrs) = munch_half ts oper e2
+        val (t1, t1instrs) = munch_half ts e1
+        val (t2, t2instrs) = munch_half ts e2
         fun promote r = if AS.size r = AS.QUAD then ([], r)
                         else let val t = AS.TEMP (Temp.new(), AS.QUAD) in
                           ([AS.MOV(t, r)], t)
@@ -194,8 +191,8 @@ struct
          AS.IMM (Word32Signed.ZERO, AS.WORD)), AS.JMP(dest, SOME(AS.NEQ))]
       end
     | munch_conditional ts dest (T.BINOP (oper, e1, e2)) = let
-        val (t1, t1instrs) = munch_half ts AS.CMP e1
-        val (t2, t2instrs) = munch_half ts AS.CMP e2
+        val (t1, t1instrs) = munch_half ts e1
+        val (t2, t2instrs) = munch_half ts e2
         val _ = if AS.size t1 <> AS.size t2 then raise Fail "diff size!" else ()
         val cond = case oper of T.LT => AS.LT | T.LTE => AS.LTE
                               | T.GT => AS.GT | T.GTE => AS.GTE
@@ -207,7 +204,7 @@ struct
           [AS.BINOP (AS.CMP, t1, t2), AS.JMP(dest, SOME cond)]
       end
     | munch_conditional ts dest (T.MEM (a, T.WORD)) = let
-        val (t, tinstrs) = munch_half ts AS.CMP a
+        val (t, tinstrs) = munch_half ts a
       in
         [AS.BINOP (AS.CMP, t, AS.IMM (Word32Signed.ZERO, AS.size t)),
          AS.JMP(dest, SOME(AS.NEQ))]

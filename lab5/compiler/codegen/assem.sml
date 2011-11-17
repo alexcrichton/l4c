@@ -339,6 +339,10 @@ struct
         val (instrs, d', s') = resolve_mem (d, s)
         val ecx = REG (ECX, size d)
       in instrs @ [MOV (ecx, s'), BINOP (oper, d', ecx)] end
+    | instr_expand (BINOP (CMP, d as IMM _, s)) = let
+        val (instrs, d', s') = resolve_mem (d, s)
+        val typ = size d
+      in instrs @ [MOV (swapl typ, d), BINOP (CMP, swapl typ, s)] end
     | instr_expand (BINOP (oper, d, s)) = let
         val (instrs, d', s') = resolve_mem (d, s)
       in
