@@ -49,17 +49,17 @@ struct
     | rulegen f (l, A.MOV(d, A.MEM (s, _))) = ([s], [d], [l + 1])
     | rulegen f (l, A.MOV(d, s)) = ([s], [d], [l + 1])
     | rulegen f (l, A.MOVFLAG(d, _)) = ([], [d], [l + 1])
-    | rulegen f (l, A.JMP (lbl, _)) = if Label.isfunc lbl then ([], [], [l + 1])
-                                      else ([], [], [f lbl, l + 1])
+    | rulegen f (l, A.JMP (lbl, _)) =
+        if Label.isfunc lbl then ([], [], [l + 1])
+        else ([], [], [f lbl, l + 1])
     | rulegen f (l, A.DIRECTIVE _) = ([], [], [l + 1])
     | rulegen f (l, A.COMMENT _) = ([], [], [l + 1])
     | rulegen f (l, A.RET) = ([eax], [], [])
     | rulegen f (l, A.LABEL _) = ([], [], [l + 1])
-    | rulegen f (l, A.CALL (_, n)) = (List.tabulate (n, mkreg o A.arg_reg),
-                                      [eax], [l + 1])
-    | rulegen f (l, A.ASM s) =
-        if s = "cltd" then ([], [A.REG (A.EDX, A.WORD)], [l + 1])
-        else ([], [], [l + 1])
+    | rulegen f (l, A.CALL (_, n)) =
+        (List.tabulate (abs n, mkreg o A.arg_reg), [eax],
+         if n < 0 then [] else [l + 1])
+    | rulegen f (l, A.ASM s) = ([], [], [l + 1])
 
   (* add_uses : OS.set -> OS.set ref -> bool
    *

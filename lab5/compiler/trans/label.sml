@@ -13,6 +13,7 @@ sig
   val extfunc : string -> label
   val intfunc : string -> label
   val name : label -> string
+  val str : label -> string
   val hash : label -> word
   val equal : label * label -> bool
   val compare : label * label -> order
@@ -52,6 +53,7 @@ struct
     | name (s, INTFUNC) = extprefix ^ "_c0_" ^ s
     | name (s, _) = extprefix ^ s
 
+  fun str (s, _) = s
   fun isfunc (_, (EXTFUNC | INTFUNC)) = true
     | isfunc _ = false
   fun hash label = HashString.hashString (name label)

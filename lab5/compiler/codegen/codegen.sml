@@ -312,7 +312,8 @@ struct
         val L' = P.time ("Munching", fn () => munch_stmts ts (munch_typ t) L)
         val L'' = if not (Options.opt_on 1) then L'
                   else P.time ("Peephole", fn() => Peephole.optimize id L')
-        val instrs = argmvs @ L''
+        val instrs = AS.LABEL (Label.literal (Label.str id ^ "_start")) ::
+                       argmvs @ L''
         val assem = Allocation.allocate (id, instrs)
 
         (* Make sure we have a stack for this function *)

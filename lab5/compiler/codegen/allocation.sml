@@ -264,7 +264,8 @@ struct
    *         nodes because otherwise callee_regs wouldn't know new registers
    *         were added but need to be saved.
    *)
-  fun caller_save (G.GRAPH g) (c as AS.CALL (_, args), live, L) = let
+  fun caller_save (G.GRAPH g) (c as AS.CALL (_, args), live, L) =
+      if args < 0 then c :: L else let
         (* Map the live operands to the set of live colors of registers on the
            current line *)
         fun getcolor id = !(#color (#node_info g id : node_data))

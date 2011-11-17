@@ -189,10 +189,11 @@ struct
     | format_binop LSH = "sal"
     | format_binop RSH = "sar"
 
-  fun format_suffix ((REG (_, QUAD) | MEM (_, QUAD)),
-                     (REG (_, WORD) | MEM (_, WORD))) = "slq"
-    | format_suffix ((REG (_, QUAD) | MEM (_, QUAD)), _) = "q"
-    | format_suffix (_, (REG (_, QUAD) | MEM (_, QUAD))) = "ERROR"
+  fun format_suffix ((REG (_, QUAD) | MEM (_, QUAD) | TEMP (_, QUAD)),
+                     (REG (_, WORD) | MEM (_, WORD) | TEMP (_, WORD))) = "slq"
+    | format_suffix ((REG (_, QUAD) | MEM (_, QUAD) | TEMP (_, QUAD)), _) = "q"
+    | format_suffix (_, (REG (_, QUAD) | MEM (_, QUAD) | TEMP (_, QUAD))) =
+        "ERROR"
     | format_suffix _ = "l"
 
   (* format_operand : operand -> string
@@ -369,6 +370,10 @@ struct
       in
         instrs @ [MOV (d, s)]
       end
+    | instr_expand (CALL (l, n)) =
+        (* tail-recursive calls are encoded with negative argument numbers *)
+        if n >= 0 then [CALL (l, n)]
+        else [JMP (Label.literal (Label.str l ^ "_start"), NONE)]
     | instr_expand i = [i]
 
   (* format : instr -> string
