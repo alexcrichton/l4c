@@ -171,12 +171,8 @@ struct
                   end
                 else (case t2
                         of AS.IMM _ => [AS.MOV (d', t1), AS.BINOP(oper, d', t2)]
-                         | _ => case t1
-                                  of AS.IMM _ =>
-                                      [AS.MOV (d', t2), AS.BINOP(oper, d', t1)]
-                                   | _ => [AS.MOV (d', t1),
-                                           AS.MOV (reg AS.ECX, t2),
-                                           AS.BINOP (oper, d', reg AS.ECX)])
+                         | _ => [AS.MOV (d', t1), AS.MOV (reg AS.ECX, t2),
+                                 AS.BINOP (oper, d', reg AS.ECX)])
              | _ => if assoc oper andalso isimm t1 then
                       [AS.MOV (d', t2), AS.BINOP (oper, d', t1)]
                     else if not(eq_ops (d', t2)) then
