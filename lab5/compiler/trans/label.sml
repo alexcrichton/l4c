@@ -16,7 +16,7 @@ sig
   val hash : label -> word
   val equal : label * label -> bool
   val compare : label * label -> order
-  val isext : label -> bool
+  val isfunc : label -> bool
 end
 
 structure Label :> LABEL =
@@ -52,8 +52,8 @@ struct
     | name (s, INTFUNC) = extprefix ^ "_c0_" ^ s
     | name (s, _) = extprefix ^ s
 
-  fun isext (_, EXTFUNC) = true
-    | isext _ = false
+  fun isfunc (_, (EXTFUNC | INTFUNC)) = true
+    | isfunc _ = false
   fun hash label = HashString.hashString (name label)
   fun compare (l1, l2) = String.compare (name l1, name l2)
   fun equal ts = (compare ts = EQUAL)

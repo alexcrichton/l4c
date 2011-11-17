@@ -62,10 +62,10 @@ struct
       in
         (U1 @ U2, NONE, [l + 1], U1 @ U2, true)
       end
-    | rulegen f (l, T.GOTO (l', NONE)) = ([], NONE, if Label.isext l' then []
+    | rulegen f (l, T.GOTO (l', NONE)) = ([], NONE, if Label.isfunc l' then []
                                                     else [f l'], [], false)
     | rulegen f (l, T.GOTO (l', SOME e)) = let val (U, _, s) = rulegen_exp e in
-        (U, NONE, if Label.isext l' then [l + 1] else [f l', l + 1], U, s)
+        (U, NONE, if Label.isfunc l' then [l + 1] else [f l', l + 1], U, s)
       end
     | rulegen f (l, T.RETURN e) = let val (U, _, s) = rulegen_exp e in
         (U, NONE, [], U, s)

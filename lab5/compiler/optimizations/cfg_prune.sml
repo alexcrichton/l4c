@@ -9,7 +9,7 @@
  * Author: Alex Crichton <acrichto@andrew.cmu.edu>
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
-structure CFGPrune :> OPTIMIZATION =
+structure CFGPrune :> CFG_OPTIMIZATION =
 struct
 
   structure G = Graph

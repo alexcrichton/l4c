@@ -7,7 +7,7 @@
  * Author: Alex Crichton <acrichto@andrew.cmu.edu>
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
-structure SimpPhis :> OPTIMIZATION =
+structure SimpPhis :> CFG_OPTIMIZATION =
 struct
 
   structure T = Tree

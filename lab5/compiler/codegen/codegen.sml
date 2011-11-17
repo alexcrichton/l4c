@@ -311,7 +311,7 @@ struct
         val _  = app (fn (t, _) => HT.insert ts ((t, ref 0), t)) T
         val L' = P.time ("Munching", fn () => munch_stmts ts (munch_typ t) L)
         val L'' = if not (Options.opt_on 1) then L'
-                  else P.time ("Peephole", fn() => Peephole.optimize L')
+                  else P.time ("Peephole", fn() => Peephole.optimize id L')
         val instrs = argmvs @ L''
         val assem = Allocation.allocate (id, instrs)
 

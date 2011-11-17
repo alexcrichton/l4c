@@ -3,7 +3,7 @@
  * Author: Alex Crichton <acrichto@andrew.cmu.edu>
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
-structure CFGCoalesce :> OPTIMIZATION =
+structure CFGCoalesce :> CFG_OPTIMIZATION =
 struct
 
 structure G = Graph

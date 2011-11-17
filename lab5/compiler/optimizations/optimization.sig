@@ -3,7 +3,12 @@
  * Author: Alex Crichton <acrichto@andrew.cmu.edu>
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
-signature OPTIMIZATION =
+signature CFG_OPTIMIZATION =
 sig
   val optimize : Tree.cfg -> Tree.cfg
+end
+
+signature CODEGEN_OPTIMIZATION =
+sig
+  val optimize : Label.label -> Assem.instr list -> Assem.instr list
 end

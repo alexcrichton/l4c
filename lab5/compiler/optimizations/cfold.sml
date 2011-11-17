@@ -3,7 +3,7 @@
  * Author: Alex Crichton <acrichto@andrew.cmu.edu>
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
-structure CFold :> OPTIMIZATION =
+structure CFold :> CFG_OPTIMIZATION =
 struct
   structure T = Tree
   structure W32S = Word32Signed
