@@ -35,12 +35,7 @@ struct
    * @param i the instruction to generate a rule for
    * @return a rule representing the current instruction
    *)
-  fun rulegen f (l, A.BINOP((A.DIV|A.MOD), A.MEM (d, _), A.MEM (s, _))) =
-        ([edx, d, s], [], [l + 1])
-    | rulegen f (l, A.BINOP((A.DIV|A.MOD), A.MEM (d, _), s)) =
-        ([edx, d, s], [], [l + 1])
-    | rulegen f (l, A.BINOP((A.DIV|A.MOD), d, s)) = ([edx, d, s], [d], [l + 1])
-    | rulegen f (l, A.BINOP(_, A.MEM (d, _), A.MEM (s, _))) =
+  fun rulegen f (l, A.BINOP(_, A.MEM (d, _), A.MEM (s, _))) =
         ([d, s], [], [l + 1])
     | rulegen f (l, A.BINOP(_, A.MEM (d, _), s)) = ([d, s], [], [l + 1])
     | rulegen f (l, A.BINOP(_, d, s)) = ([d, s], [d], [l + 1])
@@ -49,9 +44,12 @@ struct
     | rulegen f (l, A.MOV(d, A.MEM (s, _))) = ([s], [d], [l + 1])
     | rulegen f (l, A.MOV(d, s)) = ([s], [d], [l + 1])
     | rulegen f (l, A.MOVFLAG(d, _)) = ([], [d], [l + 1])
-    | rulegen f (l, A.JMP (lbl, _)) =
+    | rulegen f (l, A.JMP (lbl, SOME _)) =
         if Label.isfunc lbl then ([], [], [l + 1])
         else ([], [], [f lbl, l + 1])
+    | rulegen f (l, A.JMP (lbl, NONE)) =
+        if Label.isfunc lbl then ([], [], [])
+        else ([], [], [f lbl])
     | rulegen f (l, A.DIRECTIVE _) = ([], [], [l + 1])
     | rulegen f (l, A.COMMENT _) = ([], [], [l + 1])
     | rulegen f (l, A.RET) = ([eax], [], [])
