@@ -1,0 +1,30 @@
+//test return 55
+// common sub-expression elimination
+
+int id(int n) {
+  return n;
+}
+
+int main() {
+  int one   = id(1);
+  int two   = id(2);
+  int three = id(3);
+  int four  = id(4);
+  int five  = id(5);
+  int six   = id(6);
+  int seven = id(7);
+  int eight = id(8);
+  int nine  = id(9);
+  int ten   = id(10);
+
+  int i1 = one;
+  int i2 = one + two;
+  int i3 = one + two + three;
+  int i4 = one + two + three + four;
+  int i5 = one + two + three + four + five;
+  int i6 = one + two + three + four + five + six;
+  int i7 = one + two + three + four + five + six + seven;
+  int i8 = one + two + three + four + five + six + seven + eight;
+  int i9 = one + two + three + four + five + six + seven + eight + nine;
+  return   one + two + three + four + five + six + seven + eight + nine + ten;
+}
