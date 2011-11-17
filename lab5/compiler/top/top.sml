@@ -202,7 +202,7 @@ struct
                   level  = 1,
                   func   = CSE.optimize
                 }, {
-                  active = true,
+                  active = false,
                   desc   = "Coalesce temps",
                   ppfile = "tmp_coalesce",
                   level  = 1,
