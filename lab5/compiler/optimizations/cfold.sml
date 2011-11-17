@@ -10,30 +10,6 @@ struct
   structure HT = HashTable
   structure G = Graph
 
-  fun commutative T.ADD = true
-    | commutative T.SUB = false
-    | commutative T.MUL = true
-    | commutative T.DIV = false
-    | commutative T.MOD = false
-    | commutative T.LT  = false
-    | commutative T.LTE = false
-    | commutative T.GT  = false
-    | commutative T.GTE = false
-    | commutative T.EQ  = true
-    | commutative T.NEQ = true
-    | commutative T.AND = true
-    | commutative T.OR  = true
-    | commutative T.XOR = true
-    | commutative T.LSH = false
-    | commutative T.RSH = false
-
-  fun associative T.ADD = true
-    | associative T.MUL = true
-    | associative T.AND = true
-    | associative T.OR  = true
-    | associative T.XOR = true
-    | associative _     = false
-
   val zero = Word32.fromInt 0
   val one  = Word32.fromInt 1
 
@@ -81,7 +57,7 @@ struct
   (* Handle tree rotations then delegate to fold_simp *)
   fun fold_binop_1 tbl (oper1, c1 as (T.CONST _),
                     T.BINOP (oper2, c2 as (T.CONST _), e3), p) =
-        if oper1 = oper2 andalso associative oper1 then (* rotation! *)
+        if oper1 = oper2 andalso T.associative oper1 then (* rotation! *)
           fold_exp tbl (T.BINOP (oper1, folde tbl (T.BINOP (oper1, c1, c2)), e3))
         else if oper1 = oper2 andalso oper1 = T.SUB then
           fold_exp tbl (T.BINOP (T.ADD, folde tbl (T.BINOP (T.SUB, c1, c2)), e3))
@@ -112,7 +88,7 @@ struct
         case (e1', e2')
           of (T.CONST c1, T.CONST c2) => fold_binop_const (oper, c1, c2)
            | (e, T.CONST (c as (w, t))) => (* move constant left if possible *)
-              if commutative oper then fold_binop_1 tbl (oper, T.CONST c, e, pure)
+              if T.commutative oper then fold_binop_1 tbl (oper, T.CONST c, e, pure)
               else if oper <> T.SUB then fold_binop_1 tbl (oper, e, T.CONST c, pure)
               else fold_binop_1 tbl (T.ADD, T.CONST (~w, t), e, pure)
            | (T.CONST c, e) => fold_binop_1 tbl (oper, T.CONST c, e, pure)

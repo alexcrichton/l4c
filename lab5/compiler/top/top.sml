@@ -196,7 +196,7 @@ struct
                   level  = 1,
                   func   = CFGPrune.optimize
                 }, {
-                  active = false,
+                  active = true,
                   desc   = "CSE",
                   ppfile = "cse",
                   level  = 1,
@@ -216,7 +216,6 @@ struct
                 }]
 
     val ir = P.time ("Flatten", fn () => SSA.dessa cfg')
-    val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir)) ()
 
     val ir' = if not (O.opt_on 1) then ir
               else P.time ("Neededness", fn () => Neededness.eliminate ir)

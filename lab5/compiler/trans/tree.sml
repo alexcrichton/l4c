@@ -37,6 +37,8 @@ sig
   type func = Label.label * typ * (Temp.temp * typ) list * stm list
   type program = func list
 
+  val commutative : binop -> bool
+  val associative : binop -> bool
   val negate : exp -> exp
 
   val tmphash : tmp -> word
@@ -46,6 +48,7 @@ sig
   structure Print :
   sig
     val pp_program : program -> string
+    val pp_exp : exp -> string
     val pp_stm : stm -> string
   end
 end
@@ -82,6 +85,30 @@ struct
 
   type func = Label.label * typ * (Temp.temp * typ) list * stm list
   type program = func list
+
+  fun commutative ADD = true
+    | commutative SUB = false
+    | commutative MUL = true
+    | commutative DIV = false
+    | commutative MOD = false
+    | commutative LT  = false
+    | commutative LTE = false
+    | commutative GT  = false
+    | commutative GTE = false
+    | commutative EQ  = true
+    | commutative NEQ = true
+    | commutative AND = true
+    | commutative OR  = true
+    | commutative XOR = true
+    | commutative LSH = false
+    | commutative RSH = false
+
+  fun associative ADD = true
+    | associative MUL = true
+    | associative AND = true
+    | associative OR  = true
+    | associative XOR = true
+    | associative _     = false
 
   val zero = Word32.fromInt 0
   val one  = Word32.fromInt 1
