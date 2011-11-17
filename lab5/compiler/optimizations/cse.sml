@@ -126,39 +126,49 @@ struct
    * @param tbl the table of known expression mappings
    * @param e the expression to eliminate parts of possibly
    *)
-  fun lookup tbl e = let val e' = mape tbl e in
+  fun lookup tbl (g as (graph, id)) e = let val e' = mape tbl g e in
         (case ET.find (tbl, e')
-          of SOME e'' => e''
-           | NONE     => e')
+          of SOME (e'', nid) => if CFG.dominates graph (nid, id) then e''
+                                else e'
+           | NONE => e')
       end
 
   (* mape : T.exp ET.table -> T.exp -> T.exp
    * Performs CSE on the given expression, recursively replacing all components
    * of this expression.
    *)
-  and mape tbl (T.BINOP (oper, e1, e2)) =
-        T.BINOP (oper, lookup tbl e1, lookup tbl e2)
-    | mape tbl (T.CALL (l, t, args)) =
-        T.CALL (l, t, map (fn (e, t) => (lookup tbl e, t)) args)
-    | mape tbl (T.MEM (e, t)) = (T.MEM (lookup tbl e, t))
-    | mape _ e = e
+  and mape tbl g (T.BINOP (oper, e1, e2)) =
+        T.BINOP (oper, lookup tbl g e1, lookup tbl g e2)
+    | mape tbl g (T.CALL (l, t, args)) =
+        T.CALL (l, t, map (fn (e, t) => (lookup tbl g e, t)) args)
+    | mape tbl g (T.MEM (e, t)) = (T.MEM (lookup tbl g e, t))
+    | mape _ _ e = e
 
-  (* maps*)
-  fun maps (T.MOVE (e1 as T.TEMP _, e2), (tbl, stms)) = let
-        val e2' = lookup tbl e2
+  (* maps : T.stm * (T.exp ET.table * T.stm list) ->
+   *                                              (T.exp ET.table * T.stm list)
+   * Performs CSE on a statement, return the modified statement and updated
+   * table if necessary.
+   *)
+  fun maps (graph, id) (T.MOVE (e1 as T.TEMP _, e2), (tbl, stms)) = (let
+        val (e2', nid) = valOf (ET.find (tbl, lookup tbl (graph, id) e2))
+        val _ = if CFG.dominates graph (nid, id) then () else raise Option
+      in
+        (tbl, T.MOVE (e1, e2') :: stms)
+      end handle Option => let
+        val e2' = lookup tbl (graph, id) e2
         val (k, v) = case e2'
                        of (T.TEMP _ | T.CONST _) => (e1, e2')
                         | _ => (e2', e1)
       in
-        (ET.insert (tbl, k, v), T.MOVE (e1, e2') :: stms)
-      end
-    | maps (T.MOVE (e1, e2), (tbl, stms)) =
-        (tbl, T.MOVE (lookup tbl e1, lookup tbl e2) :: stms)
-    | maps (T.GOTO (l, SOME e), (tbl, stms)) =
-        (tbl, T.GOTO (l, SOME (lookup tbl e)) :: stms)
-    | maps (T.COND e, (tbl, stms)) = (tbl, T.COND (lookup tbl e) :: stms)
-    | maps (T.RETURN e, (tbl, stms)) = (tbl, T.RETURN (lookup tbl e) :: stms)
-    | maps (i, (tbl, stms)) = (tbl, i :: stms)
+        (ET.insert (tbl, k, (v, id)), T.MOVE (e1, e2') :: stms)
+      end)
+    | maps g (T.MOVE (e1, e2), (tbl, stms)) =
+        (tbl, T.MOVE (lookup tbl g e1, lookup tbl g e2) :: stms)
+    | maps g (T.GOTO (l, SOME e), (tbl, stms)) =
+        (tbl, T.GOTO (l, SOME (lookup tbl g e)) :: stms)
+    | maps g (T.COND e, (tbl, stms)) = (tbl, T.COND (lookup tbl g e) :: stms)
+    | maps g (T.RETURN e, (tbl, stms)) = (tbl, T.RETURN (lookup tbl g e) :: stms)
+    | maps _ (i, (tbl, stms)) = (tbl, i :: stms)
 
   fun optimize [] = []
     | optimize ((id, t, args, g) :: L) = let
@@ -167,7 +177,7 @@ struct
         fun walk et id = if Array.sub (visited, id) then () else let
               val stms = #node_info graph id
               val stms' = map order_stm stms
-              val (et', stms'') = foldl maps (et, []) stms'
+              val (et', stms'') = foldl (maps (g, id)) (et, []) stms'
             in
               Array.update (visited, id, true);
               #add_node graph (id, rev stms'');

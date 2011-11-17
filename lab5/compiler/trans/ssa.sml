@@ -15,6 +15,7 @@ struct
   structure L = List
   structure T = Tree
   structure P = Profile
+  structure DA = DynamicArray
   structure HT = HashTable
   structure TM = BinaryMapFn(Temp)
 
@@ -35,7 +36,7 @@ struct
         val _ = debug "idoms"
         val entry = List.hd (#entries g ())
         val (order, postorder) = CFG.rev_postorder (G.GRAPH g)
-        val doms = A.array (#capacity g (), ~1)
+        val doms = #graph_info g
         val _ = gverbose (fn () => dump_list Int.toString order)
 
         fun compare (n1, n2) = Int.compare (A.sub (postorder, n1),
@@ -45,7 +46,7 @@ struct
               fun find (finger, other) = if compare (finger, other) <> LESS then
                                            finger
                                          else let
-                                           val finger' = A.sub (doms, finger)
+                                           val finger' = DA.sub (doms, finger)
                                          in
                                            if finger' = ~1 then
                                              raise Fail "invariant bad!"
@@ -59,14 +60,14 @@ struct
           | update_node b = let
               val _ = verbose ("idoms: updating - " ^ Int.toString b)
               val new_idom = ref ~1
-              fun update_pred p = if A.sub(doms, p) = ~1 then ()
+              fun update_pred p = if DA.sub(doms, p) = ~1 then ()
                                   else if (!new_idom) = ~1 then new_idom := p
                                   else new_idom := intersect (p, !new_idom)
             in
               app update_pred (#pred g b);
               if !new_idom = ~1 then raise Fail "negative one!" else ();
-              if A.sub(doms, b) = (!new_idom) then false
-              else (A.update (doms, b, !new_idom); true)
+              if DA.sub(doms, b) = (!new_idom) then false
+              else (DA.update (doms, b, !new_idom); true)
             end
 
         fun change () = let
@@ -79,7 +80,7 @@ struct
               if changed then change () else ()
             end
       in
-        A.update (doms, entry, entry); change (); doms
+        DA.update (doms, entry, entry); change (); doms
       end
 
   (* idf : IntBinarySet.set array -> IntBinarySet.set -> IntBinarySet.set
@@ -124,16 +125,15 @@ struct
         fun build_cache (_, ~1) = ()
           | build_cache (a, b) = A.update (id_cache, b,
                                            S.add (A.sub (id_cache, b), a))
-        val _ = A.appi build_cache idom
+        val _ = DA.appi build_cache idom
 
-        val _ = gverbose (fn () => dump_arri Int.toString idom)
         val df's = A.array (#capacity g (), S.empty)
         val (order, _) = P.time ("postorder...",
                                  fn () => CFG.rev_postorder (G.GRAPH g))
         val order = rev order
 
         (* Returns true if a isn't the immediate dominator of b *)
-        fun not_idom a b = (A.sub (idom, b) <> a)
+        fun not_idom a b = (DA.sub (idom, b) <> a)
 
         fun df_local a = S.fromList (L.filter (not_idom a) (#succ g a))
         fun df_up (a, c) = if not_idom a c then S.empty

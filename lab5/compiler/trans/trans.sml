@@ -417,7 +417,8 @@ struct
         fun bind ((typ, id), e) =
               Symbol.bind e (id, (Temp.new (), trans_typ typ))
         val e = foldr bind Symbol.empty args
-        val graph_rec = DG.graph (Symbol.name name, (), 10)
+        val graph_rec = DG.graph (Symbol.name name,
+                                  DynamicArray.array (10, ~1), 10)
         val G.GRAPH g = graph_rec
         val id = new_id graph_rec
         val _ = trans_stm ((funs, structs, e), graph_rec, ([], [], id))

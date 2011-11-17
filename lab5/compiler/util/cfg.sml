@@ -13,6 +13,8 @@ sig
   val rev_postorder : Tree.cfgraph -> (int list * int array)
 
   val postorder : Tree.cfgraph -> int list
+
+  val dominates : Tree.cfgraph -> (int * int) -> bool
 end
 
 structure CFG :> CFG =
@@ -20,6 +22,7 @@ struct
 
   structure G = Graph
   structure A = Array
+  structure DA = DynamicArray
 
   (* genorder : (foldl | foldr) -> graph -> (int list * int array)
    *
@@ -76,5 +79,12 @@ struct
       in
          app appg L
       end
+
+  fun dominates (G.GRAPH g) (id1, id2) =
+        if id1 = id2 then true
+        else let val idoms = #graph_info g in
+          if DA.sub (idoms, id2) = id2 then false
+          else dominates (G.GRAPH g) (id2, DA.sub (idoms, id2))
+        end
 
 end
