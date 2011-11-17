@@ -334,15 +334,11 @@ struct
       end
     | instr_expand (BINOP (oper as (RSH | LSH), d, s as IMM _)) = let
         val (instrs, d', s') = resolve_mem (d, s)
-      in
-        instrs @ [BINOP (oper, d', s')]
-      end
+      in instrs @ [BINOP (oper, d', s')] end
     | instr_expand (BINOP (oper as (RSH | LSH), d, s)) = let
         val (instrs, d', s') = resolve_mem (d, s)
         val ecx = REG (ECX, size d)
-      in
-        instrs @ [MOV (ecx, s'), BINOP (oper, d', ecx)]
-      end
+      in instrs @ [MOV (ecx, s'), BINOP (oper, d', ecx)] end
     | instr_expand (BINOP (oper, d, s)) = let
         val (instrs, d', s') = resolve_mem (d, s)
       in
