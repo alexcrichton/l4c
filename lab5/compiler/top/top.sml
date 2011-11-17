@@ -191,16 +191,16 @@ struct
                   func   = CFold.optimize
                 }, {
                   active = true,
-                  desc   = "Prune CFG",
-                  ppfile = "prune",
-                  level  = 1,
-                  func   = CFGPrune.optimize
-                }, {
-                  active = true,
                   desc   = "CSE",
                   ppfile = "cse",
                   level  = 1,
                   func   = CSE.optimize
+                }, {
+                  active = true,
+                  desc   = "Prune CFG",
+                  ppfile = "prune",
+                  level  = 1,
+                  func   = CFGPrune.optimize
                 }, {
                   active = false,
                   desc   = "Coalesce temps",
