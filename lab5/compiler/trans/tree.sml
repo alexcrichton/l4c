@@ -30,7 +30,7 @@ sig
     | NOP
 
   type block = stm list
-  type cfgraph = (block, edge, int DynamicArray.array) Graph.graph
+  type cfgraph = (block, edge, int DynArray.array) Graph.graph
   type cfg_func = Label.label * typ * (Temp.temp * typ) list * cfgraph
   type cfg = cfg_func list
 
@@ -79,7 +79,7 @@ struct
     | NOP
 
   type block = stm list
-  type cfgraph = (block, edge, int DynamicArray.array) Graph.graph
+  type cfgraph = (block, edge, int DynArray.array) Graph.graph
   type cfg_func = Label.label * typ * (Temp.temp * typ) list * cfgraph
   type cfg = cfg_func list
 

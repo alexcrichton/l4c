@@ -22,7 +22,7 @@ struct
 
   structure G = Graph
   structure A = Array
-  structure DA = DynamicArray
+  structure DA = DynArray
 
   (* genorder : (foldl | foldr) -> graph -> (int list * int array)
    *

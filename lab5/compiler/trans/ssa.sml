@@ -15,7 +15,7 @@ struct
   structure L = List
   structure T = Tree
   structure P = Profile
-  structure DA = DynamicArray
+  structure DA = DynArray
   structure HT = HashTable
   structure TM = BinaryMapFn(Temp)
 
