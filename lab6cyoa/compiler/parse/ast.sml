@@ -268,8 +268,12 @@ struct
               classes := Symbol.add (!classes) id; s
             end
           | elaborate_gdecl ext (CFun (class, typ, id, params, body)) = let
+              val _ = if not (Symbol.member (!classes) class) then
+                        (ErrorMsg.error ext ("Class not defined: " ^
+                                             Symbol.name class);
+                         raise ErrorMsg.Error)
+                      else ()
             in
-              check_set_id "Class" (!classes) ext class;
               CFun (class, resolve ext typ, id, check_params ext params,
                     elaborate_stm (!types, !classes, ext) body)
             end
