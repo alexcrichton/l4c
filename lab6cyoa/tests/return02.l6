@@ -1,0 +1,35 @@
+//test return 10
+class String {
+  // instance variables
+  int[] chars;
+  int length;
+  // functions
+  String(int len); // a single constructor is required
+  int length();
+  bool print();
+};
+
+String::String(int len) {
+  length = len;
+}
+int String::length() { return length; }
+bool String::print() { }
+
+class Foo extends String {
+  Foo();
+  // stuff...
+};
+Foo::Foo() {
+  super(50); // super(..) is required as the first line - initializes parent
+  length++;  // we can access parent fields
+  // stuff...
+}
+bool Foo::print() {
+  // do nothing
+}
+
+int main() {
+  String *str = new Foo(); // sub-typing
+  str->print(); // calls Foo's print
+  return str->length();
+}

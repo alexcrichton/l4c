@@ -1,0 +1,19 @@
+//test return 3
+class Foo {
+  int foo;
+  int bar();
+  Foo();
+};
+
+Foo::Foo() {
+  foo = 3;
+}
+
+int Foo::bar() {
+  return foo;
+}
+
+int main() {
+  Foo *f = new Foo();
+  return f->bar();
+}
