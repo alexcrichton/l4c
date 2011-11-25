@@ -206,6 +206,7 @@ struct
         val efuns   = ref Symbol.null
         val funs    = ref Symbol.null
         val structs = ref Symbol.null
+        val classes = ref Symbol.null
         val types   = ref Symbol.empty
 
         val resolve = resolve_typ types
@@ -238,7 +239,7 @@ struct
                check_set_id "Function" (!funs) ext id;
                funs := Symbol.add (!funs) id;
                Fun (resolve ext typ, id, check_params ext params,
-                    elaborate_stm (!types) body))
+                    elaborate_stm (!types, !classes, ext) body))
           | elaborate_gdecl ext (p as Typedef (id, typ)) =
               (check_id ext id; check_set_id "Function" (!efuns) ext id;
                check_set_id "Function" (!funs) ext id;
@@ -252,19 +253,35 @@ struct
           | elaborate_gdecl ext (StrDecl id) = StrDecl id
           | elaborate_gdecl ext (Struct (id, fields)) = let
               val _ = (check_set_id "Struct" (!structs) ext id)
-              val s = Struct (id, map (fn (t, f) => (resolve_typ types ext t, f)) fields);
+              val s = Struct (id, map (fn (t, f) =>
+                                          (resolve_typ types ext t, f)) fields)
             in
               structs := Symbol.add (!structs) id; s
             end
+          | elaborate_gdecl ext (Class (id, decls, extends)) = let
+              val _ = check_set_id "Class" (!classes) ext id
+              val _ = case extends of NONE => ()
+                         | SOME id => check_set_id "Class" (!classes) ext id
+              val s = Class (id, map (elaborate_cdecl (!types) NONE) decls,
+                             extends)
+            in
+              classes := Symbol.add (!classes) id; s
+            end
+          | elaborate_gdecl ext (CFun (class, typ, id, params, body)) = let
+            in
+              check_set_id "Class" (!classes) ext class;
+              CFun (class, resolve ext typ, id, check_params ext params,
+                    elaborate_stm (!types, !classes, ext) body)
+            end
       in map (elaborate_gdecl NONE) prog end
+
   and elaborate_stm env (Markeds mark) =
         Markeds (Mark.mark' (elaborate_stm env (Mark.data mark), Mark.ext mark))
-    | elaborate_stm env (Declare (id, typ, stm)) =
-        (* TODO: extent information *)
-        (case Symbol.look env id
-           of SOME t => (ErrorMsg.error NONE ("Variable name is a type: " ^
+    | elaborate_stm (env as (typs, classes, ext)) (Declare (id, typ, stm)) =
+        (case Symbol.look typs id
+           of SOME t => (ErrorMsg.error ext ("Variable name is a type: " ^
                          Symbol.name id); raise ErrorMsg.Error)
-            | NONE => let val t = resolve_typ (ref env) NONE typ in
+            | NONE => let val t = resolve_typ (ref typs) ext typ in
                         Declare (id, t, elaborate_stm env stm)
                       end)
     | elaborate_stm env (For (Declare(id, typ, s1), e, s2, s3)) =
@@ -293,10 +310,11 @@ struct
         elaborate_stm env (Assign (Var id, NONE, BinaryOp (oper, Var id, e2)))
     | elaborate_stm env (Assign (e1, s, e2)) =
         Assign (elaborate_exp env e1, s, elaborate_exp env e2)
-    | elaborate_stm _ stm = stm
+    | elaborate_stm _ (s as (Continue | Break | Nop)) = s
 
-  and elaborate_exp env (Marked mark) =
-        Marked (Mark.mark' (elaborate_exp env (Mark.data mark), Mark.ext mark))
+  and elaborate_exp (typs, classes, _) (Marked mark) =
+        Marked (Mark.mark' (elaborate_exp (typs, classes, Mark.ext mark)
+                                          (Mark.data mark), Mark.ext mark))
     | elaborate_exp env (BinaryOp (b, e1, e2)) =
         BinaryOp (b, elaborate_exp env e1, elaborate_exp env e2)
     | elaborate_exp env (UnaryOp (b, e)) = UnaryOp (b, elaborate_exp env e)
@@ -308,10 +326,29 @@ struct
     | elaborate_exp env (Field (e, i, t)) = Field (elaborate_exp env e, i, t)
     | elaborate_exp env (ArrSub (e1, e2, t)) =
         ArrSub (elaborate_exp env e1, elaborate_exp env e2, t)
-    | elaborate_exp env (Alloc typ) = Alloc (resolve_typ (ref env) NONE typ)
-    | elaborate_exp env (AllocArray (typ, e)) =
-        AllocArray (resolve_typ (ref env) NONE typ, elaborate_exp env e)
-    | elaborate_exp _ e = e
+    | elaborate_exp (typs, _, ext) (Alloc typ) =
+        Alloc (resolve_typ (ref typs) ext typ)
+    | elaborate_exp (env as (typs, _, ext)) (AllocArray (typ, e)) =
+        AllocArray (resolve_typ (ref typs) ext typ, elaborate_exp env e)
+    | elaborate_exp (env as (typs, classes, ext)) (Allocate (id, E)) =
+        if not (Symbol.member classes id) then
+          (ErrorMsg.error ext ("Class not defined: " ^ Symbol.name id);
+           raise ErrorMsg.Error)
+        else
+          Allocate (id, map (elaborate_exp env) E)
+    | elaborate_exp env (Invoke (e, id, E)) =
+        Invoke (elaborate_exp env e, id, map (elaborate_exp env) E)
+    | elaborate_exp _ (e as (Null | Const _ | Var _ | Bool _)) = e
+
+  and elaborate_cdecl env _ (Markedc data) =
+        Markedc (Mark.mark' (elaborate_cdecl env (Mark.ext data)
+                                             (Mark.data data),
+                             Mark.ext data))
+    | elaborate_cdecl env ext (CField (typ, id)) =
+        CField (resolve_typ (ref env) ext typ, id)
+    | elaborate_cdecl env ext (CFunDecl (typ, id, L)) =
+        CFunDecl (resolve_typ (ref env) ext typ, id,
+                  map (fn (t, i) => (resolve_typ (ref env) ext typ, i)) L)
 
   (* elaborate_external : program -> program
    *
@@ -368,6 +405,7 @@ struct
       | pp_typ (STRUCT id)  = "struct " ^ pp_ident id
       | pp_typ (ARRAY t)  = pp_typ t ^ "[]"
       | pp_typ (TYPEDEF id)  = pp_ident id
+      | pp_typ (CLASS id)  = pp_ident id
 
     fun pp_unop NEGATIVE = "-"
       | pp_unop INVERT   = "~"
@@ -409,7 +447,10 @@ struct
       | pp_exp (UnaryOp (oper, e)) = pp_unop oper ^ "(" ^ pp_exp e ^ ")"
       | pp_exp (Ternary (e1, e2, e3, _)) =
           "((" ^ pp_exp e1 ^ ") ? (" ^ pp_exp e2 ^ ") : (" ^ pp_exp e3 ^ "))"
-      | pp_exp (Marked(marked_exp)) = pp_exp (Mark.data marked_exp)
+      | pp_exp (Invoke (e, id, E)) = pp_exp e ^ "->" ^ pp_exp (Call (id, E))
+      | pp_exp (Allocate (id, E)) = "new " ^ pp_ident id ^ "(" ^
+          String.concatWith ", " (map pp_exp E) ^ ")"
+      | pp_exp (Marked marked_exp) = pp_exp (Mark.data marked_exp)
 
     fun tab str = "  " ^ (String.translate
       (fn c => if c = #"\n" then "\n  " else (String.str c)) str)
@@ -439,7 +480,14 @@ struct
 
     fun pp_def (typ, id) = pp_typ typ ^ " " ^ pp_ident id
 
-    fun pp_adecl (Typedef (id, typ)) =
+    fun pp_extends NONE = ""
+      | pp_extends (SOME id) = "extends " ^ pp_ident id
+
+    fun pp_cdecl (Markedc data) = pp_cdecl (Mark.data data)
+      | pp_cdecl (CField (typ, id)) = pp_typ typ ^ " " ^ pp_ident id ^ ";"
+      | pp_cdecl (CFunDecl d) = pp_adecl (IntDecl d)
+
+    and pp_adecl (Typedef (id, typ)) =
           "typedef " ^ Symbol.name id ^ " " ^ pp_typ typ
       | pp_adecl (Markedg d) = pp_adecl (Mark.data d)
       | pp_adecl (IntDecl (t, i, L)) =
@@ -448,9 +496,15 @@ struct
       | pp_adecl (ExtDecl t) = "extern " ^ pp_adecl (IntDecl t)
       | pp_adecl (Fun (t, i, L, s)) =
           pp_adecl (IntDecl (t, i, L)) ^ "{\n" ^ tab(pp_stm s) ^ "\n}"
+      | pp_adecl (CFun (klass, t, i, L, s)) =
+          pp_typ t ^ " " ^ pp_ident klass ^ "::" ^ pp_ident i ^ "(" ^
+            String.concatWith ", " (map pp_def L) ^ ")" ^ "{\n" ^
+            tab (pp_stm s) ^ "\n}"
       | pp_adecl (StrDecl s) = "struct " ^ pp_ident s ^ ";"
       | pp_adecl (Struct (s, F)) = "struct " ^ pp_ident s ^ " {\n" ^
           tab (String.concatWith "\n" (map pp_def F)) ^ "\n}"
+      | pp_adecl (Class (id, L, ext)) = "class " ^ pp_extends ext ^ " {\n" ^
+          tab (String.concatWith "\n" (map pp_cdecl L)) ^ "\n}"
 
     fun pp_program prog = foldl (fn (d, s) => s ^ pp_adecl d ^ "\n") "" prog
   end
