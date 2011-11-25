@@ -1,0 +1,16 @@
+//test error
+// overloaded methods
+
+class Foo {
+  Foo();
+  int bar();
+  int bar(int baz);
+};
+
+Foo::Foo() {}
+int Foo::bar() { return 3; }
+int Foo::bar(int baz) { return 3; }
+
+int main() {
+  return 1;
+}

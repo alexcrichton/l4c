@@ -1,0 +1,13 @@
+//test error
+// unimplemented method
+
+class Foo {
+  Foo();
+  int bar();
+};
+
+Foo::Foo() { }
+
+int main() {
+  return 1;
+}

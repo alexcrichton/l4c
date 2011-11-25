@@ -1,4 +1,6 @@
 //test return 3
+// easy test for fields/allocation/constructors
+
 class Foo {
   int foo;
   int bar();
