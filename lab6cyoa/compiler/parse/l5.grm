@@ -13,6 +13,7 @@ fun marker (a, (l, r)) = Mark.mark' (a, ParseState.ext (l, r))
 val mark = A.Marked o marker
 val marks = A.Markeds o marker
 val markg = A.Markedg o marker
+val markc = A.Markedc o marker
 
 fun convert_exp2 (exp1, left) (SOME binop, exp2, NONE, right) =
       mark (A.BinaryOp(binop, exp1, exp2), (left, right))
@@ -33,8 +34,8 @@ fun genptrinc (exp, oper) =
  | INTCONST of Word32.word
  | IDENT    of Symbol.symbol
  | TYPE     of Symbol.symbol
- | TRUE | FALSE | NULL | ALLOC | ALLOCARR
- | INT | BOOL | STRUCT
+ | TRUE | FALSE | NULL | ALLOC | ALLOCARR | NEW
+ | INT | BOOL | STRUCT | CLASS | EXTENDS
  | PLUS | MINUS | STAR | SLASH | PERCENT
  | PLUSPLUS | MINUSMINUS
  | AND | PIPE | BANG | CARET | LSHIFT | RSHIFT | TILDE
@@ -46,7 +47,7 @@ fun genptrinc (exp, oper) =
  | LPAREN | RPAREN
  | COMMA | PERIOD | ARROW | LBRACKET | RBRACKET
  | IF | ELSE | WHILE | FOR | CONTINUE | BREAK | RETURN | TYPEDEF
- | QUESTION | COLON
+ | QUESTION | COLON | CONS
  | UNARY | ASNOP
 (* UNARY and ASNOP are dummy terminals.
  * We need dummy terminals if we wish to assign a precedence
@@ -90,6 +91,11 @@ fun genptrinc (exp, oper) =
  | simpopt  of A.stm
  | elseopt  of A.stm
  | typ      of A.typ
+ | class    of A.gdecl
+ | cdecls   of A.cdecl list
+ | cdecl    of A.cdecl
+ | classfun of A.gdecl
+ | extendsopt of A.ident option
 
 %verbose       (* print summary of errors *)
 %pos int       (* positions *)
@@ -133,8 +139,31 @@ gdecl      : fdecl                      (markg (fdecl, (fdeclleft, fdeclright)))
                                                 (typedefleft, typedefright)))
            | sdecl                      (markg (sdecl, (sdeclleft, sdeclright)))
            | sdef                       (markg (sdef, (sdefleft, sdefright)))
+           | class                      (markg (class, (classleft, classright)))
+           | classfun                   (markg (classfun,
+                                                (classfunleft, classfunright)))
 
+class      : CLASS IDENT extendsopt LBRACE cdecls RBRACE SEMI
+                                        (A.Class (IDENT, cdecls, extendsopt))
 
+extendsopt :                            (NONE)
+           | EXTENDS IDENT              (SOME IDENT)
+
+cdecls     :                            ([])
+           | cdecl cdecls               (markc (cdecl,
+                                               (cdeclleft, cdeclright))::cdecls)
+
+cdecl      : typ IDENT SEMI             (A.CField (typ, IDENT))
+           | typ IDENT param_list SEMI  (A.CFunDecl (typ, IDENT, param_list))
+           | IDENT param_list SEMI      (A.CFunDecl (A.PTR (A.CLASS IDENT),
+                                                     IDENT, param_list))
+
+classfun   : typ IDENT CONS IDENT param_list block
+                                        (A.CFun (IDENT1, typ, IDENT2,
+                                                 param_list, block))
+           | IDENT CONS IDENT param_list block
+                                        (A.CFun (IDENT1, A.PTR (A.CLASS IDENT1),
+                                                 IDENT2, param_list, block))
 
 fdecl      : typ IDENT param_list SEMI  (A.IntDecl (typ, IDENT, param_list))
 
@@ -246,6 +275,8 @@ expnostar  : IDENT                      (A.Var IDENT)
            | ALLOC LPAREN typ RPAREN    (A.Alloc typ)
            | ALLOCARR LPAREN typ COMMA exp RPAREN (A.AllocArray (typ, exp))
            | exp LBRACKET exp RBRACKET (A.ArrSub (exp1, exp2, ref A.NULL))
+           | NEW IDENT arg_list        (A.Allocate (IDENT, arg_list))
+           | exp ARROW IDENT arg_list  (A.Invoke (exp, IDENT, arg_list))
 
 exp2       : PLUS exp         (SOME(A.PLUS), exp, NONE, expright)
            | MINUS exp        (SOME(A.MINUS), exp, NONE, expright)

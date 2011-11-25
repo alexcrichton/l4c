@@ -79,6 +79,7 @@ ws = [\ \t\011\013\012];
 <INITIAL> "?"         => (Tokens.QUESTION (yypos, yypos + size yytext));
 <INITIAL> ":"         => (Tokens.COLON (yypos, yypos + size yytext));
 <INITIAL> "->"        => (Tokens.ARROW (yypos, yypos + size yytext));
+<INITIAL> "::"        => (Tokens.CONS (yypos, yypos + size yytext));
 
 <INITIAL> "="         => (Tokens.ASSIGN (yypos, yypos + size yytext));
 <INITIAL> "+="        => (Tokens.PLUSEQ (yypos, yypos + size yytext));
@@ -133,6 +134,9 @@ ws = [\ \t\011\013\012];
 <INITIAL> "alloc"       => (Tokens.ALLOC (yypos, yypos + size yytext));
 <INITIAL> "alloc_array" => (Tokens.ALLOCARR (yypos, yypos + size yytext));
 <INITIAL> "typedef"     => (Tokens.TYPEDEF (yypos, yypos + size yytext));
+<INITIAL> "class"       => (Tokens.CLASS (yypos, yypos + size yytext));
+<INITIAL> "new"         => (Tokens.NEW (yypos, yypos + size yytext));
+<INITIAL> "extends"     => (Tokens.EXTENDS (yypos, yypos + size yytext));
 
 <INITIAL> {decnum}    => (number Word32Signed.fromString (yytext, yypos));
 <INITIAL> {hexnum}    => (number Word32Signed.fromHexString (yytext, yypos));

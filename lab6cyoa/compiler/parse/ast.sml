@@ -9,7 +9,7 @@ sig
   type ident = Symbol.symbol
 
   datatype typ = INT | BOOL | TYPEDEF of ident | PTR of typ | ARRAY of typ
-               | STRUCT of ident | NULL
+               | STRUCT of ident | NULL | CLASS of ident
 
   datatype unop =
      NEGATIVE
@@ -36,6 +36,8 @@ sig
    | LSHIFT
    | RSHIFT
 
+  type param = typ * ident
+
   datatype exp =
      Var of ident
    | Bool of bool
@@ -46,9 +48,11 @@ sig
    | Call of ident * exp list
    | Deref of exp * typ ref
    | Field of exp * ident * typ ref
+   | Invoke of exp * ident * exp list
    | ArrSub of exp * exp * typ ref
    | Alloc of typ
    | AllocArray of typ * exp
+   | Allocate of ident * exp list
    | Null
    | Marked of exp Mark.marked
   and stm =
@@ -65,14 +69,21 @@ sig
    | Declare of ident * typ * stm
    | Markeds of stm Mark.marked
 
+  datatype cdecl =
+     CFunDecl of typ * ident * param list
+   | CField   of typ * ident
+   | Markedc  of cdecl Mark.marked
+
   datatype gdecl =
-     Fun of typ * ident * (typ * ident) list * stm
-   | ExtDecl of typ * ident * (typ * ident) list
-   | IntDecl of typ * ident * (typ * ident) list
+     Fun     of typ * ident * param list * stm
+   | CFun    of ident * typ * ident * param list * stm
+   | ExtDecl of typ * ident * param list
+   | IntDecl of typ * ident * param list
    | Typedef of ident * typ
    | Markedg of gdecl Mark.marked
    | StrDecl of ident
-   | Struct  of ident * (typ * ident) list
+   | Struct  of ident * param list
+   | Class   of ident * cdecl list * ident option
 
   type program = gdecl list
 
@@ -93,7 +104,7 @@ struct
   type ident = Symbol.symbol
 
   datatype typ = INT | BOOL | TYPEDEF of ident | PTR of typ | ARRAY of typ
-               | STRUCT of ident | NULL
+               | STRUCT of ident | NULL | CLASS of ident
 
   datatype unop =
      NEGATIVE
@@ -120,6 +131,8 @@ struct
    | LSHIFT
    | RSHIFT
 
+  type param = typ * ident
+
   datatype exp =
      Var of ident
    | Bool of bool
@@ -128,11 +141,13 @@ struct
    | UnaryOp of unop * exp
    | Ternary of exp * exp * exp * typ ref
    | Call of ident * exp list
+   | Invoke of exp * ident * exp list
    | Deref of exp * typ ref
    | Field of exp * ident * typ ref
    | ArrSub of exp * exp * typ ref
    | Alloc of typ
    | AllocArray of typ * exp
+   | Allocate of ident * exp list
    | Null
    | Marked of exp Mark.marked
   and stm =
@@ -149,14 +164,21 @@ struct
    | Declare of ident * typ * stm
    | Markeds of stm Mark.marked
 
+  datatype cdecl =
+     CFunDecl of typ * ident * param list
+   | CField   of typ * ident
+   | Markedc  of cdecl Mark.marked
+
   datatype gdecl =
-     Fun of typ * ident * (typ * ident) list * stm
-   | ExtDecl of typ * ident * (typ * ident) list
-   | IntDecl of typ * ident * (typ * ident) list
+     Fun     of typ * ident * param list * stm
+   | CFun    of ident * typ * ident * param list * stm
+   | ExtDecl of typ * ident * param list
+   | IntDecl of typ * ident * param list
    | Typedef of ident * typ
    | Markedg of gdecl Mark.marked
    | StrDecl of ident
-   | Struct  of ident * (typ * ident) list
+   | Struct  of ident * param list
+   | Class   of ident * cdecl list * ident option
 
   type program = gdecl list
 
