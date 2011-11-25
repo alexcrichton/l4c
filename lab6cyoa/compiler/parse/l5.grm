@@ -9,9 +9,10 @@ structure A = Ast
 (* for simplicity, we only mark expressions, not statements *)
 
 (* mark e with region (left, right) in source file *)
-fun mark (e, (left, right)) = A.Marked (Mark.mark' (e, ParseState.ext (left, right)))
-fun marks (s, (left, right)) = A.Markeds (Mark.mark' (s, ParseState.ext (left, right)))
-fun markg (d, (left, right)) = A.Markedg (Mark.mark' (d, ParseState.ext (left, right)))
+fun marker (a, (l, r)) = Mark.mark' (a, ParseState.ext (l, r))
+val mark = A.Marked o marker
+val marks = A.Markeds o marker
+val markg = A.Markedg o marker
 
 fun convert_exp2 (exp1, left) (SOME binop, exp2, NONE, right) =
       mark (A.BinaryOp(binop, exp1, exp2), (left, right))
@@ -126,23 +127,21 @@ program    : gdecls                     (gdecls)
 gdecls     :                            ([])
            | gdecl gdecls               (gdecl::gdecls)
 
-gdecl      : fdecl                      (fdecl)
-           | fdef                       (fdef)
-           | typedef SEMI               (typedef)
-           | sdecl                      (sdecl)
-           | sdef                       (sdef)
+gdecl      : fdecl                      (markg (fdecl, (fdeclleft, fdeclright)))
+           | fdef                       (markg (fdef, (fdefleft, fdefright)))
+           | typedef SEMI               (markg (typedef,
+                                                (typedefleft, typedefright)))
+           | sdecl                      (markg (sdecl, (sdeclleft, sdeclright)))
+           | sdef                       (markg (sdef, (sdefleft, sdefright)))
 
-fdecl      : typ IDENT param_list SEMI  (markg (A.IntDecl (typ, IDENT,
-                                                           param_list),
-                                               (typleft, SEMIright)))
 
-fdef       : typ IDENT param_list block (markg (A.Fun (typ, IDENT, param_list,
-                                                       block),
-                                                (typleft, param_listright)))
+
+fdecl      : typ IDENT param_list SEMI  (A.IntDecl (typ, IDENT, param_list))
+
+fdef       : typ IDENT param_list block (A.Fun (typ, IDENT, param_list, block))
 
 typedef    : TYPEDEF typ IDENT          (Symbol.addtype IDENT;
-                                         markg (A.Typedef (IDENT, typ),
-                                                (TYPEDEFleft, typright)))
+                                         A.Typedef (IDENT, typ))
 
 param      : typ IDENT                  (typ, IDENT)
 
@@ -152,17 +151,13 @@ param_list_follow :                                 ([])
 param_list : LPAREN RPAREN                          ([])
            | LPAREN param param_list_follow RPAREN  (param::param_list_follow)
 
-sdecl      : STRUCT IDENT SEMI          (markg (A.StrDecl IDENT,
-                                               (STRUCTleft, SEMIright)))
-           | STRUCT TYPE SEMI           (markg (A.StrDecl TYPE,
-                                               (STRUCTleft, SEMIright)))
+sdecl      : STRUCT IDENT SEMI          (A.StrDecl IDENT)
+           | STRUCT TYPE SEMI           (A.StrDecl TYPE)
 
 sdef       : STRUCT IDENT LBRACE field_list RBRACE SEMI
-                                        (markg (A.Struct (IDENT, field_list),
-                                               (STRUCTleft, SEMIright)))
+                                        (A.Struct (IDENT, field_list))
            | STRUCT TYPE LBRACE field_list RBRACE SEMI
-                                        (markg (A.Struct (TYPE, field_list),
-                                               (STRUCTleft, SEMIright)))
+                                        (A.Struct (TYPE, field_list))
 
 field      : typ IDENT SEMI             ((typ, IDENT))
            | typ TYPE SEMI              ((typ, TYPE))
@@ -231,42 +226,26 @@ arg_list   : LPAREN RPAREN                      ([])
 
 exp        : STAR exp                   (mark (A.Deref (exp, ref A.NULL),
                                               (STARleft, expright)))
-           | expnostar                  (expnostar)
+           | expnostar                  (mark (expnostar, (expnostarleft,
+                                                           expnostarright)))
 
-expnostar  : IDENT                      (mark (A.Var IDENT,
-                                                (IDENTleft, IDENTright)))
+expnostar  : IDENT                      (A.Var IDENT)
            | LPAREN exp RPAREN          (exp)
-           | INTCONST                   (mark (A.Const(INTCONST),
-                                               (INTCONSTleft,INTCONSTright)))
-           | TRUE                       (mark (A.Bool(true),
-                                               (TRUEleft, TRUEright)))
-           | FALSE                      (mark (A.Bool(false),
-                                               (FALSEleft, FALSEright)))
-           | NULL                       (mark (A.Null, (NULLleft, NULLright)))
-           | unop exp %prec UNARY       (mark (A.UnaryOp(unop, exp),
-                                               (unopleft, expright)))
+           | INTCONST                   (A.Const INTCONST)
+           | TRUE                       (A.Bool true)
+           | FALSE                      (A.Bool false)
+           | NULL                       (A.Null)
+           | unop exp %prec UNARY       (A.UnaryOp(unop, exp))
            | exp exp2                   (convert_exp2 (exp, expleft) exp2)
-           | IDENT arg_list             (mark (A.Call (IDENT, arg_list),
-                                              (IDENTleft, arg_listright)))
-           | exp PERIOD IDENT           (mark (A.Field (exp, IDENT, ref A.NULL),
-                                              (expleft, IDENTright)))
-           | exp ARROW IDENT            (mark ((A.Field (A.Deref (exp,
-                                                                  ref A.NULL),
-                                                         IDENT,
-                                                         ref A.NULL)),
-                                              (expleft, IDENTright)))
-           | exp ARROW TYPE             (mark ((A.Field (A.Deref (exp,
-                                                                  ref A.NULL),
-                                                         TYPE,
-                                                         ref A.NULL)),
-                                              (expleft, TYPEright)))
-           | ALLOC LPAREN typ RPAREN    (mark (A.Alloc typ,
-                                              (ALLOCleft, RPARENright)))
-           | ALLOCARR LPAREN typ COMMA exp RPAREN
-                                        (mark (A.AllocArray (typ, exp),
-                                              (ALLOCARRleft, RPARENright)))
-           | exp LBRACKET exp RBRACKET (mark (A.ArrSub (exp1, exp2, ref A.NULL),
-                                              (exp1left, RBRACKETright)))
+           | IDENT arg_list             (A.Call (IDENT, arg_list))
+           | exp PERIOD IDENT           (A.Field (exp, IDENT, ref A.NULL))
+           | exp ARROW IDENT            (A.Field (A.Deref (exp, ref A.NULL),
+                                                  IDENT, ref A.NULL))
+           | exp ARROW TYPE             (A.Field (A.Deref (exp, ref A.NULL),
+                                                  TYPE, ref A.NULL))
+           | ALLOC LPAREN typ RPAREN    (A.Alloc typ)
+           | ALLOCARR LPAREN typ COMMA exp RPAREN (A.AllocArray (typ, exp))
+           | exp LBRACKET exp RBRACKET (A.ArrSub (exp1, exp2, ref A.NULL))
 
 exp2       : PLUS exp         (SOME(A.PLUS), exp, NONE, expright)
            | MINUS exp        (SOME(A.MINUS), exp, NONE, expright)
