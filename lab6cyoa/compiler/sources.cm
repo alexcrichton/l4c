@@ -1,0 +1,57 @@
+Group is  
+  $/basis.cm
+  $/smlnj-lib.cm
+  $/ml-yacc-lib.cm
+  $smlnj/MLRISC/Graphs.cm
+  $smlnj/MLRISC/Lib.cm
+
+  util/mark.sml
+  util/flag.sml
+  util/symbol.sml
+  util/errormsg.sml
+  util/safe-io.sml
+  util/word32.sml
+  util/cfg.sml
+  util/dgraph.sml
+  util/udgraph.sml
+  util/profile.sml
+  util/dotfile.sml
+  util/debug.sml
+
+  parse/ast.sml
+  parse/parsestate.sml
+  parse/l5.lex.sml
+  parse/l5.grm.sig
+  parse/l5.grm.sml
+  parse/parse.sml
+
+  codegen/assem.sml
+  codegen/allocation.sml
+  codegen/codegen.sml
+  codegen/liveness.sml
+  codegen/runtime.sml
+
+  analysis/analysis.sig
+  analysis/typechecker.sml
+  analysis/returnchecker.sml
+  analysis/initchecker.sml
+  analysis/mainchecker.sml
+
+  trans/label.sml
+  trans/temp.sml
+  trans/tree.sml
+  trans/trans.sml
+  trans/ssa.sml
+
+  optimizations/optimization.sig
+  optimizations/simp_phis.sml
+  optimizations/cfg_coalesce.sml
+  optimizations/cfg_prune.sml
+  optimizations/cfold.sml
+  optimizations/neededness.sml
+  optimizations/peephole.sml
+  optimizations/cse.sml
+  optimizations/tmp_coalesce.sml
+
+  top/top.sml
+  top/options.sml
