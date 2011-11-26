@@ -24,6 +24,7 @@ struct
           (ErrorMsg.error NONE "main() should have no arguments";
            raise ErrorMsg.Error)
         else true
+    | ismain (A.Markedg data) = ismain (Mark.data data)
     | ismain _ = false
 
   (* analyze : A.program -> unit
