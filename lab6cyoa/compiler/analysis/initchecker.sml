@@ -108,9 +108,11 @@ struct
    * looks inside of function definitions.
    * @see same args/raise as #analyze_stm
    *)
-  fun analyze_adecl (A.Fun (_, _, _, body)) =
-        analyze_stm (A.remove_for body A.Nop) NONE
-    | analyze_adecl _ = ()
+  fun analyze_adecl ext (A.Fun (_, _, _, body)) =
+        analyze_stm (A.remove_for body A.Nop) ext
+    | analyze_adecl _ (A.Markedg data) =
+        analyze_adecl (Mark.ext data) (Mark.data data)
+    | analyze_adecl _ _ = ()
 
   (* analyze : A.program -> unit
    *
@@ -120,6 +122,6 @@ struct
    * @param p the program to check
    * @raise ErrorMsg.Error if a variable is used before initialization
    *)
-  fun analyze prog = app analyze_adecl prog
+  fun analyze prog = app (analyze_adecl NONE) prog
 
 end
