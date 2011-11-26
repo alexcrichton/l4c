@@ -23,6 +23,35 @@ struct
     | returns (A.Return _) = true
     | returns _ = false
 
+  (* is_ctor : A.gdecl -> bool
+   *
+   * Tests whether the global declaration is a constructor for a class. This i
+   * because constructors should not return.
+   *)
+  fun is_ctor (A.CFun (class, A.PTR (A.CLASS c), id, _, _)) =
+        Symbol.equal (class, c) andalso Symbol.equal (c, id)
+    | is_ctor _ = false
+
+  (* analyze_gdecl : ext -> A.gdecl -> unit
+   *
+   * Analyzes global declarations to make sure that all functions listed will
+   * return.
+   *)
+  fun analyze_gdecl ext (g as (A.Fun (_, name, _, f) |
+                               A.CFun (_, _, name, _, f))) =
+        if is_ctor g then
+          if returns f then
+            (ErrorMsg.error ext ("Constructor should not return");
+             raise ErrorMsg.Error)
+          else ()
+        else if returns f then ()
+        else (ErrorMsg.error NONE ("Function " ^ Symbol.name name ^
+                                   " does not return");
+              raise ErrorMsg.Error)
+    | analyze_gdecl _ (A.Markedg data) =
+        analyze_gdecl (Mark.ext data) (Mark.data data)
+    | analyze_gdecl _ _ = ()
+
   (* analyze : A.program -> unit
    *
    * Checks a program to make sure that it always returns
@@ -30,12 +59,6 @@ struct
    * @param prog the program to check
    * @raise ErrorMsg.Error if the program does not return
    *)
-  fun analyze [] = ()
-    | analyze ((A.Fun (_, name, _, f))::G) = if returns f then ()
-        else (ErrorMsg.error NONE ("Function " ^ Symbol.name name ^
-                                   " does not return");
-              raise ErrorMsg.Error)
-    | analyze ((A.Markedg data)::G) = analyze ((Mark.data data)::G)
-    | analyze (g::G) = analyze G
+  fun analyze L = app (analyze_gdecl NONE) L
 
 end
