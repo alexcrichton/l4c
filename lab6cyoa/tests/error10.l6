@@ -5,7 +5,7 @@ class Foo {
   int bar;
   int bar;
   Foo();
-}
+};
 
 Foo::Foo() {}
 
