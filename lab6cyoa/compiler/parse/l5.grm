@@ -31,9 +31,10 @@ fun genptrinc (exp, oper) =
 %term
    EOF
  | SEMI
- | INTCONST of Word32.word
- | IDENT    of Symbol.symbol
- | TYPE     of Symbol.symbol
+ | INTCONST  of Word32.word
+ | IDENT     of Symbol.symbol
+ | TYPE      of Symbol.symbol
+ | CLASSNAME of Symbol.symbol
  | TRUE | FALSE | NULL | ALLOC | ALLOCARR | NEW
  | INT | BOOL | STRUCT | CLASS | EXTENDS
  | PLUS | MINUS | STAR | SLASH | PERCENT
@@ -139,15 +140,16 @@ gdecl      : fdecl                      (markg (fdecl, (fdeclleft, fdeclright)))
                                                 (typedefleft, typedefright)))
            | sdecl                      (markg (sdecl, (sdeclleft, sdeclright)))
            | sdef                       (markg (sdef, (sdefleft, sdefright)))
-           | class                      (markg (class, (classleft, classright)))
+           | class SEMI                 (markg (class, (classleft, classright)))
            | classfun                   (markg (classfun,
                                                 (classfunleft, classfunright)))
 
-class      : CLASS IDENT extendsopt LBRACE cdecls RBRACE SEMI
-                                        (A.Class (IDENT, cdecls, extendsopt))
+class      : CLASS IDENT extendsopt LBRACE cdecls RBRACE
+                                        (Symbol.addclass IDENT;
+                                         A.Class (IDENT, cdecls, extendsopt))
 
 extendsopt :                            (NONE)
-           | EXTENDS IDENT              (SOME IDENT)
+           | EXTENDS CLASSNAME          (SOME CLASSNAME)
 
 cdecls     :                            ([])
            | cdecl cdecls               (markc (cdecl,
@@ -158,12 +160,13 @@ cdecl      : typ IDENT SEMI             (A.CField (typ, IDENT))
            | IDENT param_list SEMI      (A.CFunDecl (A.PTR (A.CLASS IDENT),
                                                      IDENT, param_list))
 
-classfun   : typ IDENT CONS IDENT param_list block
-                                        (A.CFun (IDENT1, typ, IDENT2,
+classfun   : typ CLASSNAME CONS IDENT param_list block
+                                        (A.CFun (CLASSNAME, typ, IDENT,
                                                  param_list, block))
-           | IDENT CONS IDENT param_list block
-                                        (A.CFun (IDENT1, A.PTR (A.CLASS IDENT1),
-                                                 IDENT2, param_list, block))
+           | CLASSNAME CONS CLASSNAME param_list block
+                                        (A.CFun (CLASSNAME1,
+                                                 A.PTR (A.CLASS CLASSNAME1),
+                                                 CLASSNAME2, param_list, block))
 
 fdecl      : typ IDENT param_list SEMI  (A.IntDecl (typ, IDENT, param_list))
 
@@ -199,6 +202,7 @@ block      : LBRACE stmts RBRACE        (stmts)
 typ        : INT                        (A.INT)
            | BOOL                       (A.BOOL)
            | TYPE                       (A.TYPEDEF TYPE)
+           | CLASSNAME                  (A.CLASS CLASSNAME)
            | typ STAR                   (A.PTR typ)
            | typ LBRACKET RBRACKET      (A.ARRAY typ)
            | STRUCT IDENT               (A.STRUCT IDENT)

@@ -28,6 +28,8 @@ sig
   val valid : string -> bool (* returns whether a possible symbol is valid *)
   val istype : string -> bool
   val addtype : symbol -> unit
+  val isclass : string -> bool
+  val addclass : symbol -> unit
 
   (* symbol tables -- allows association of any type with each symbol *)
   type 'a table
@@ -42,6 +44,7 @@ sig
   val elems : 'a table -> 'a list (* return all the data as a list *)
   val elemsi : 'a table -> (symbol * 'a) list (* return the symbols with the associated data *)
   val keys : 'a table -> symbol list (* just the symbols *)
+  val merge : 'a table * 'a table -> 'a table
 
   (* symbol set -- similar to a () Symbol.table, elements can be removed *)
   type set
@@ -80,18 +83,24 @@ struct
                     ht := initht ())
     fun symbol name =
       (case HashTable.find (!ht) name of
-        SOME (i, _) => (name, i)
+        SOME (i, _, _) => (name, i)
         | NONE => let
             val i = !nexts before nexts := !nexts + 1
           in
-            HashTable.insert (!ht) (name, (i, false)); (name, i)
+            HashTable.insert (!ht) (name, (i, false, false)); (name, i)
           end)
 
     fun istype name = case HashTable.find (!ht) name
-                        of SOME (_, typ) => typ
+                        of SOME (_, typ, _) => typ
                          | NONE => false
 
-    fun addtype (name, i) = HashTable.insert (!ht) (name, (i, true))
+    fun addtype (name, i) = HashTable.insert (!ht) (name, (i, true, false))
+
+    fun isclass name = case HashTable.find (!ht) name
+                        of SOME (_, _, class) => class
+                         | NONE => false
+
+    fun addclass (name, i) = HashTable.insert (!ht) (name, (i, false, true))
 
   end
 
@@ -118,6 +127,7 @@ struct
   fun elems t = Map.listItems t
   fun elemsi t = Map.listItemsi t
   fun keys t = Map.listKeys t
+  fun merge maps = Map.unionWith (fn (a, _) => a) maps
 
   fun delimit' [] s = s
     | delimit' [x] s = s ^ x

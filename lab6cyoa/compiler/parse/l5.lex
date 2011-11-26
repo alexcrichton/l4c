@@ -149,7 +149,9 @@ ws = [\ \t\011\013\012];
                             val id = Symbol.symbol yytext
                           in
                             if Symbol.istype yytext then
-                              (Tokens.TYPE (id, yypos, yypos + size yytext))
+                              Tokens.TYPE (id, yypos, yypos + size yytext)
+                            else if Symbol.isclass yytext then
+                              Tokens.CLASSNAME (id, yypos, yypos + size yytext)
                             else
                               Tokens.IDENT (id, yypos, yypos + size yytext)
                           end);
