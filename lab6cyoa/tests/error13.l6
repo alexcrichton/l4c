@@ -1,0 +1,17 @@
+//test error
+// undefined variable
+
+class Foo {
+  int bar();
+  Foo();
+};
+
+Foo::Foo() {}
+
+int Foo::bar() {
+  return a;
+}
+
+int main() {
+  return 3;
+}

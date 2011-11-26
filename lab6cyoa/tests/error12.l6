@@ -1,0 +1,18 @@
+//test error
+// uninitialized error
+
+class Foo {
+  int bar();
+  Foo();
+};
+
+Foo::Foo() {}
+
+int Foo::bar() {
+  int a;
+  return a;
+}
+
+int main() {
+  return 3;
+}

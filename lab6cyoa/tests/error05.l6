@@ -1,0 +1,14 @@
+//test error
+// mismatched definitions
+
+class Foo {
+  Foo();
+};
+
+Foo::Foo(int bar) {
+  bar *= 3;
+}
+
+int main() {
+  return 3;
+}
