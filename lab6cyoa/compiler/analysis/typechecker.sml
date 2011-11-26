@@ -459,11 +459,7 @@ struct
               val class = munge_class (ext, decls, id)
             in
               classes := Symbol.bind (!classes)
-                                     (id, merge_class ext class extends);
-              ((find_ctor (!classes) id; ()) handle Fail _ => (
-                ErrorMsg.error ext ("No constructor for " ^ Symbol.name id);
-                raise ErrorMsg.Error
-              ))
+                                     (id, merge_class ext class extends)
             end
           | tc_gdecl ext (A.CFun (class, typ, id, params, body)) = let
               val (cfields, cfuns) = Symbol.look' (!classes) class
