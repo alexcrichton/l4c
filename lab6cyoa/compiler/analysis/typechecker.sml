@@ -19,6 +19,7 @@ struct
     | typ_name (A.ARRAY typ) = (typ_name typ) ^ "[]"
     | typ_name (A.STRUCT ident) = "struct " ^ Symbol.name ident
     | typ_name (A.TYPEDEF ident) = Symbol.name ident
+    | typ_name (A.CLASS ident) = "class " ^ Symbol.name ident
 
   (* typs_equal : A.typ * A.typ -> bool
    *
@@ -27,10 +28,11 @@ struct
   fun typs_equal (A.BOOL, A.BOOL) = true
     | typs_equal (A.INT, A.INT)   = true
     | typs_equal (A.NULL, A.NULL) = true
-    | typs_equal ((A.PTR _, A.NULL)|(A.NULL, A.PTR _)) = true
+    | typs_equal ((A.PTR _, A.NULL) | (A.NULL, A.PTR _)) = true
     | typs_equal (A.PTR t1, A.PTR t2) = typs_equal (t1, t2)
     | typs_equal (A.ARRAY t1, A.ARRAY t2) = typs_equal (t1, t2)
     | typs_equal (A.STRUCT s1, A.STRUCT s2) = Symbol.equal (s1, s2)
+    | typs_equal (A.CLASS s1, A.CLASS s2) = Symbol.equal (s1, s2)
     | typs_equal _ = false
 
   (* type_small : A.typ -> bool
@@ -71,7 +73,7 @@ struct
    * @param typ the type in question
    * @raise ErrorMsg.Error if the given type is not defined for allocation
    *)
-  fun ensure_typ_defined ext (_, structs, _) (A.STRUCT id) =
+  fun ensure_typ_defined ext (_, structs, _, _) (A.STRUCT id) =
         (case Symbol.look structs id
            of SOME(SOME _) => ()
             | _ => (ErrorMsg.error ext ("Struct not defined: " ^
@@ -119,6 +121,31 @@ struct
            | NONE => (ErrorMsg.error ext ("Unknown field " ^ Symbol.name field);
                       raise ErrorMsg.Error)
       end
+  and resolve_class ext classes id field = let
+        val (fields, _) = Symbol.look' classes id
+      in
+        case Symbol.look fields field
+          of SOME typ => typ
+           | NONE => (ErrorMsg.error ext ("Unknown field " ^ Symbol.name field);
+                      raise ErrorMsg.Error)
+      end
+
+  (* find_ctor : classes -> Symbol.symbol
+   *
+   * Finds the constructor for a class in the classes table.
+   * @return types - the types of the arguments for the constructor for this
+   *         specified class
+   *)
+  fun find_ctor classes id = let
+        fun sameclass (c1, (A.PTR (A.CLASS c2), _)) =
+              Symbol.equal (c1, id) andalso Symbol.equal (c1, c2)
+          | sameclass _ = false
+        val (_, funs) = Symbol.look' classes id
+      in
+        case List.find sameclass (Symbol.elemsi funs)
+          of SOME f => #2 (#2 f)
+           | NONE   => raise Fail "No constructor"
+      end
 
   (* tc_ensure : A.typ Symbol.table -> A.exp * A.typ -> Mark.ext option -> unit
    *
@@ -135,6 +162,23 @@ struct
    *)
   fun tc_ensure env (e, t) ext = tc_equal (t, tc_exp env e ext) ext
 
+  (* tc_args : 'a -> (A.exp list * A.typ list) -> unit
+   *
+   * Typechecks the arguments to a function, making sure that each argument
+   * resolves to the correct type.
+   *
+   * @param (ext, id, env) the current extends, function name, and current
+   *                       environment
+   * @param (E, T) the expressions and types
+   * @raise ErrorMsg.Error if there's a type error
+   *)
+  and tc_args _ ([], []) = ()
+    | tc_args (ext, id, env) (e::E, t::T) =
+        (tc_ensure env (e, t) ext; tc_args (ext, id, env) (E, T))
+    | tc_args (ext, id, _) _ = (ErrorMsg.error ext ("Wrong number of" ^
+                                " variables for: " ^ Symbol.name id);
+                                raise ErrorMsg.Error)
+
   (* tc_exp : 'a -> A.exp -> Mark.ext option -> A.typ
    *
    * Typecheck a single expression.
@@ -146,12 +190,12 @@ struct
    * @raise ErrorMsg.Error if there is a typecheck error
    * @return the type of the expression if it is well formed
    *)
-  and tc_exp (env' as (_, _, env)) (A.Var id) ext =
+  and tc_exp (env' as (_, _, env, _)) (A.Var id) ext =
       (case Symbol.look env id
          of NONE => (ErrorMsg.error ext ("undeclared variable `" ^
                       Symbol.name id ^ "'"); raise ErrorMsg.Error)
           | SOME t => t)
-    | tc_exp (env' as (funs, _, env)) (A.Call (id, args)) ext =
+    | tc_exp (env' as (funs, _, env, _)) (A.Call (id, args)) ext =
       (case Symbol.look env id
          of SOME _ => (ErrorMsg.error ext ("'" ^ Symbol.name id ^ "' is not" ^
                                            " a function!");
@@ -160,16 +204,7 @@ struct
       case Symbol.look funs id
          of NONE => (ErrorMsg.error ext ("undeclared function `" ^
                       Symbol.name id ^ "'"); raise ErrorMsg.Error)
-          | SOME (t, types) => let
-                        fun tc_args ([], []) = ()
-                          | tc_args (e::E, t::T) =
-                              (tc_ensure env' (e, t) ext; tc_args (E, T))
-                          | tc_args _ = (ErrorMsg.error ext ("Wrong number of" ^
-                                         " variables for: " ^ Symbol.name id);
-                                         raise ErrorMsg.Error)
-                      in
-                        tc_args (args, types); t
-                      end)
+          | SOME (t, types) => (tc_args (ext, id, env') (args, types); t))
     | tc_exp _ (A.Bool _) _ = A.BOOL
     | tc_exp _ (A.Const _) _ = A.INT
     | tc_exp _ A.Null _ = A.NULL
@@ -177,10 +212,12 @@ struct
     | tc_exp env (A.AllocArray (typ, e)) ext =
         (tc_ensure env (e, A.INT) ext; ensure_typ_defined ext env typ;
          A.ARRAY typ)
-    | tc_exp (env as (_, structs, _)) (A.Field (e, field, tr)) ext =
+    | tc_exp (env as (_, structs, _, classes)) (A.Field (e, field, tr)) ext =
         (case tc_exp env e ext
            of (t as A.STRUCT id) => (tr := t;
                                      resolve_struct ext structs id field)
+            | (t as A.CLASS id) => (tr := t;
+                                     resolve_class ext classes id field)
             | _ => (ErrorMsg.error ext "Should have a struct type";
                     raise ErrorMsg.Error))
     | tc_exp env (A.ArrSub (e1, e2, r)) ext =
@@ -215,6 +252,24 @@ struct
         tc_ensure env (e1, A.BOOL) ext; tc_ensure env (e3, t2) ext;
         tref := t2; t2
       end
+    | tc_exp (env as (_, _, _, classes)) (A.Invoke (e, id, E)) ext =
+       (case tc_exp env e ext
+          of A.CLASS class => let
+              val (_, funs) = Symbol.look' classes class
+            in
+              case Symbol.look funs id
+                of SOME (ret, args) => (tc_args (ext, id, env) (E, args); ret)
+                 | NONE => (ErrorMsg.error ext ("Unknown method '" ^
+                                                Symbol.name id ^ "' for class: "
+                                                ^ Symbol.name class);
+                            raise ErrorMsg.Error)
+            end
+           | t => (ErrorMsg.error ext ("Cannot invoke method on " ^ typ_name t);
+                   raise ErrorMsg.Error))
+    | tc_exp (env as (_, _, _, classes)) (A.Allocate (id, E)) ext = let
+          val ctor = find_ctor classes id
+          val _ = tc_args (ext, id, env) (E, ctor)
+        in A.PTR (A.CLASS id) end
     | tc_exp env (A.Marked marked_exp) _ =
         tc_exp env (Mark.data marked_exp) (Mark.ext marked_exp)
 
@@ -256,15 +311,47 @@ struct
     | tc_stm _ A.Nop _ _ = ()
     | tc_stm env (A.Seq (s1, s2)) ext lp =
         (tc_stm env s1 ext lp; tc_stm env s2 ext lp)
-    | tc_stm (funs, structs, env) (A.Declare (id, t, s)) ext lp =
+    | tc_stm (funs, structs, env, classes) (A.Declare (id, t, s)) ext lp =
         (ensure_small ext t;
         case Symbol.look env id
-          of NONE   => tc_stm (funs, structs, Symbol.bind env (id, t)) s ext lp
+          of NONE   => tc_stm (funs, structs, Symbol.bind env (id, t), classes)
+                              s ext lp
            | SOME _ => (ErrorMsg.error ext ("Redeclared variable: " ^
                                              Symbol.name id);
                          raise ErrorMsg.Error))
     | tc_stm env (A.Markeds marked_stm) _ lp =
         tc_stm env (Mark.data marked_stm) (Mark.ext marked_stm) lp
+
+  (* munge_class : mark * A.cdecl list * Symbol.symbol
+   *
+   * Works with the list of declarations in a class to create the class metadata
+   * for this class
+   *
+   * @param ext the extents we're looking at
+   * @param decls the declarations for this class
+   * @param class the name of the class we're creating
+   * @return the class metadata
+   * @raise ErrorMsg.Error if there's a problem with the declartions
+   *)
+  fun munge_class (ext, decls, class) = let
+        fun add_decl _ (A.Markedc data, env) =
+              add_decl (Mark.ext data) (Mark.data data, env)
+          | add_decl ext (A.CField (t, id), (fields, funs)) =
+             (case Symbol.look fields id
+                of SOME _ => (ErrorMsg.error ext ("Duplicate field: " ^
+                                                  Symbol.name id);
+                              raise ErrorMsg.Error)
+                 | NONE => (Symbol.bind fields (id, t), funs))
+          | add_decl ext (A.CFunDecl (t, id, params), (fields, funs)) =
+              case Symbol.look funs id
+                of SOME _ => (ErrorMsg.error ext ("Duplicate method: " ^
+                                                  Symbol.name id);
+                              raise ErrorMsg.Error)
+                 | NONE => (fields,
+                            Symbol.bind funs (id, (t, #1 (LP.unzip params))))
+      in
+        foldl (add_decl ext) (Symbol.empty, Symbol.empty) decls
+      end
 
   (* analyze : A.program -> unit
    *
@@ -276,18 +363,20 @@ struct
   fun analyze L = let
         val funs = ref Symbol.empty
         val structs = ref Symbol.empty
+        val classes = ref Symbol.empty
 
         (* helper function to bind a function definition into the function
            table, raising an error if necessary *)
-        fun bind_fun ext (typ, id, params) = let
-              val types = #1 (LP.unzip params)
+        fun bind_fun funs ext (typ, id, params) =
+              bind_fun_types funs ext (typ, id, #1 (LP.unzip params))
+        and bind_fun_types funs ext (typ, id, types) = let
               val _ = app (ensure_small ext) (typ::types)
             in
-              case Symbol.look (!funs) id
-                of NONE => (funs := Symbol.bind (!funs) (id, (typ, types)))
-                 | SOME(t, T) =>
+              case Symbol.look funs id
+                of NONE => Symbol.bind funs (id, (typ, types))
+                 | SOME (t, T) =>
                     (tc_equal (t, typ) ext;
-                     LP.appEq (fn ts => tc_equal ts ext) (types, T))
+                     LP.appEq (fn ts => tc_equal ts ext) (types, T); funs)
               handle UnequalLengths =>
                 (ErrorMsg.error ext ("Function '" ^ Symbol.name id ^ "' " ^
                                  "has a different number of args than before");
@@ -321,6 +410,30 @@ struct
                  | _ => structs := Symbol.bind (!structs) (id, SOME table)
             end
 
+        fun merge_class _ class NONE = class
+          | merge_class ext (fields, funs) (SOME parent) = let
+              fun check_redefine _ NONE = ()
+                | check_redefine id (SOME _) =
+                    (ErrorMsg.error ext ("Redefined field: " ^ Symbol.name id);
+                     raise ErrorMsg.Error)
+
+              val (pfields, pfuns) = Symbol.look' (!classes) parent
+              val _ = app (fn k => check_redefine k (Symbol.look pfields k))
+                          (Symbol.keys fields)
+              val funs' = foldl (fn ((f, (t, types)), funs) =>
+                                    bind_fun_types funs ext (t, f, types))
+                                funs (Symbol.elemsi pfuns)
+            in
+              (Symbol.merge (fields, pfields), funs')
+            end
+
+        fun bind_arg ext ((typ, id), env) = (ensure_small ext typ;
+              case Symbol.look env id
+                of SOME t => (ErrorMsg.error ext ("Duplicate argument" ^
+                              " name: " ^ Symbol.name id);
+                              raise ErrorMsg.Error)
+                 | NONE => Symbol.bind env (id, typ))
+
         (* tc_gdecl : Mark.ext option -> A.gdecl
          *
          * Typechecks one global declaration of a program at a time. This
@@ -329,25 +442,42 @@ struct
          *)
         fun tc_gdecl _ (A.Markedg data) =
               tc_gdecl (Mark.ext data) (Mark.data data)
-          | tc_gdecl ext (A.ExtDecl d) = bind_fun ext d
-          | tc_gdecl ext (A.IntDecl d) = bind_fun ext d
+          | tc_gdecl ext (A.ExtDecl d) = (funs := bind_fun (!funs) ext d)
+          | tc_gdecl ext (A.IntDecl d) = (funs := bind_fun (!funs) ext d)
           | tc_gdecl ext (A.Typedef (_, _)) = ()
           | tc_gdecl ext (A.StrDecl id) =
               (case Symbol.look (!structs) id
                 of NONE => structs := Symbol.bind (!structs) (id, NONE)
                  | SOME _ => ())
           | tc_gdecl ext (A.Struct s) = bind_struct ext s
-          | tc_gdecl ext (A.Fun (typ, ident, args, stm)) = let
-              fun bind_arg ((typ, id), env) = (ensure_small ext typ;
-                     case Symbol.look env id
-                       of SOME t => (ErrorMsg.error ext ("Duplicate argument" ^
-                                     " name: " ^ Symbol.name id);
-                                     raise ErrorMsg.Error)
-                        | NONE => Symbol.bind env (id, typ))
+          | tc_gdecl ext (A.Fun (typ, ident, args, stm)) =
+             (funs := bind_fun (!funs) ext (typ, ident, args);
+              tc_stm (!funs, !structs, foldl (bind_arg ext) Symbol.empty args,
+                      !classes)
+                     stm NONE (false, typ))
+          | tc_gdecl ext (A.Class (id, decls, extends)) = let
+              val class = munge_class (ext, decls, id)
             in
-              bind_fun ext (typ, ident, args);
-              tc_stm (!funs, !structs, foldl bind_arg Symbol.empty args) stm
-                     NONE (false, typ)
+              classes := Symbol.bind (!classes)
+                                     (id, merge_class ext class extends);
+              ((find_ctor (!classes) id; ()) handle Fail _ => (
+                ErrorMsg.error ext ("No constructor for " ^ Symbol.name id);
+                raise ErrorMsg.Error
+              ))
+            end
+          | tc_gdecl ext (A.CFun (class, typ, id, params, body)) = let
+              val (cfields, cfuns) = Symbol.look' (!classes) class
+              val (ret, args) =
+                  case Symbol.look cfuns id
+                    of NONE => (ErrorMsg.error ext (Symbol.name id ^
+                                                    " not defined for class");
+                                raise ErrorMsg.Error)
+                     | SOME a => a
+              val _ = bind_fun cfuns ext (typ, id, params)
+            in
+              tc_stm (!funs, !structs, foldl (bind_arg ext) cfields params,
+                      !classes)
+                     body ext (false, typ)
             end
       in app (tc_gdecl NONE) L end
 
