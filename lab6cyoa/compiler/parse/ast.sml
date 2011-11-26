@@ -206,7 +206,6 @@ struct
         val efuns   = ref Symbol.null
         val funs    = ref Symbol.null
         val structs = ref Symbol.null
-        val classes = ref Symbol.null
         val types   = ref Symbol.empty
 
         val resolve = resolve_typ types
@@ -239,7 +238,7 @@ struct
                check_set_id "Function" (!funs) ext id;
                funs := Symbol.add (!funs) id;
                Fun (resolve ext typ, id, check_params ext params,
-                    elaborate_stm (!types, !classes, ext) body))
+                    elaborate_stm (!types, ext) body))
           | elaborate_gdecl ext (p as Typedef (id, typ)) =
               (check_id ext id; check_set_id "Function" (!efuns) ext id;
                check_set_id "Function" (!funs) ext id;
@@ -258,36 +257,19 @@ struct
             in
               structs := Symbol.add (!structs) id; s
             end
-          | elaborate_gdecl ext (Class (id, decls, extends)) = let
-              val _ = check_set_id "Class" (!classes) ext id
-              val _ = case extends of NONE => ()
-                         | SOME id => check_set_id "Class" (!classes) ext id
-              val s = Class (id, map (elaborate_cdecl (!types) NONE) decls,
-                             extends)
-            in
-              classes := Symbol.add (!classes) id; s
-            end
-          | elaborate_gdecl ext (CFun (class, typ, id, params, body)) = let
-              val _ = if not (Symbol.member (!classes) class) then
-                        (ErrorMsg.error ext ("Class not defined: " ^
-                                             Symbol.name class);
-                         raise ErrorMsg.Error)
-                      else ()
-            in
+          | elaborate_gdecl ext (Class (id, decls, extends)) =
+              Class (id, map (elaborate_cdecl (!types) ext) decls, extends)
+          | elaborate_gdecl ext (CFun (class, typ, id, params, body)) =
               CFun (class, resolve ext typ, id, check_params ext params,
-                    elaborate_stm (!types, !classes, ext) body)
-            end
+                    elaborate_stm (!types, ext) body)
       in map (elaborate_gdecl NONE) prog end
 
   and elaborate_stm env (Markeds mark) =
         Markeds (Mark.mark' (elaborate_stm env (Mark.data mark), Mark.ext mark))
-    | elaborate_stm (env as (typs, classes, ext)) (Declare (id, typ, stm)) =
-        (case Symbol.look typs id
-           of SOME t => (ErrorMsg.error ext ("Variable name is a type: " ^
-                         Symbol.name id); raise ErrorMsg.Error)
-            | NONE => let val t = resolve_typ (ref typs) ext typ in
-                        Declare (id, t, elaborate_stm env stm)
-                      end)
+    | elaborate_stm (env as (typs, ext)) (Declare (id, typ, stm)) =
+        let val t = resolve_typ (ref typs) ext typ in
+          Declare (id, t, elaborate_stm env stm)
+        end
     | elaborate_stm env (For (Declare(id, typ, s1), e, s2, s3)) =
         elaborate_stm env (Declare (id, typ, For (s1, e, s2, s3)))
     | elaborate_stm env (For (Markeds mark, e, s2, s3)) =
@@ -316,8 +298,8 @@ struct
         Assign (elaborate_exp env e1, s, elaborate_exp env e2)
     | elaborate_stm _ (s as (Continue | Break | Nop)) = s
 
-  and elaborate_exp (typs, classes, _) (Marked mark) =
-        Marked (Mark.mark' (elaborate_exp (typs, classes, Mark.ext mark)
+  and elaborate_exp (typs, _) (Marked mark) =
+        Marked (Mark.mark' (elaborate_exp (typs, Mark.ext mark)
                                           (Mark.data mark), Mark.ext mark))
     | elaborate_exp env (BinaryOp (b, e1, e2)) =
         BinaryOp (b, elaborate_exp env e1, elaborate_exp env e2)
@@ -330,15 +312,11 @@ struct
     | elaborate_exp env (Field (e, i, t)) = Field (elaborate_exp env e, i, t)
     | elaborate_exp env (ArrSub (e1, e2, t)) =
         ArrSub (elaborate_exp env e1, elaborate_exp env e2, t)
-    | elaborate_exp (typs, _, ext) (Alloc typ) =
+    | elaborate_exp (typs, ext) (Alloc typ) =
         Alloc (resolve_typ (ref typs) ext typ)
-    | elaborate_exp (env as (typs, _, ext)) (AllocArray (typ, e)) =
+    | elaborate_exp (env as (typs, ext)) (AllocArray (typ, e)) =
         AllocArray (resolve_typ (ref typs) ext typ, elaborate_exp env e)
-    | elaborate_exp (env as (typs, classes, ext)) (Allocate (id, E)) =
-        if not (Symbol.member classes id) then
-          (ErrorMsg.error ext ("Class not defined: " ^ Symbol.name id);
-           raise ErrorMsg.Error)
-        else
+    | elaborate_exp env (Allocate (id, E)) =
           Allocate (id, map (elaborate_exp env) E)
     | elaborate_exp env (Invoke (e, id, E)) =
         Invoke (elaborate_exp env e, id, map (elaborate_exp env) E)
