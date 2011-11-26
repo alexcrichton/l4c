@@ -108,7 +108,7 @@ struct
    * looks inside of function definitions.
    * @see same args/raise as #analyze_stm
    *)
-  fun analyze_adecl ext (A.Fun (_, _, _, body)) =
+  fun analyze_adecl ext (A.Fun (_, _, _, body) | A.CFun (_, _, _, _, body)) =
         analyze_stm (A.remove_for body A.Nop) ext
     | analyze_adecl _ (A.Markedg data) =
         analyze_adecl (Mark.ext data) (Mark.data data)
