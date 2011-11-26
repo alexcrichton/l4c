@@ -332,7 +332,7 @@ struct
         CField (resolve_typ (ref env) ext typ, id)
     | elaborate_cdecl env ext (CFunDecl (typ, id, L)) =
         CFunDecl (resolve_typ (ref env) ext typ, id,
-                  map (fn (t, i) => (resolve_typ (ref env) ext typ, i)) L)
+                  map (fn (t, i) => (resolve_typ (ref env) ext t, i)) L)
 
   (* elaborate_external : program -> program
    *
