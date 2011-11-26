@@ -16,17 +16,20 @@ struct
    * @return true if the symbol is used in the computation of exp
    *)
   fun exp_uses sym (A.Var id) = Symbol.compare (sym, id) = EQUAL
-    | exp_uses sym (A.BinaryOp (_, e1, e2)) =
+    | exp_uses sym (A.BinaryOp (_, e1, e2) | A.ArrSub (e1, e2, _)) =
         exp_uses sym e1 orelse exp_uses sym e2
     | exp_uses sym (A.UnaryOp (_, e)) = exp_uses sym e
     | exp_uses sym (A.Ternary (e1, e2, e3, _)) =
         exp_uses sym e1 orelse exp_uses sym e2 orelse exp_uses sym e3
-    | exp_uses sym (A.Field (e, _, _)) = exp_uses sym e
-    | exp_uses sym (A.Deref (e, _)) = exp_uses sym e
-    | exp_uses sym (A.ArrSub (e1, e2, _)) =
-        exp_uses sym e1 orelse exp_uses sym e2
+    | exp_uses sym (A.Field (e, _, _) | A.Deref (e, _) | A.AllocArray (_, e)) =
+        exp_uses sym e
+    | exp_uses sym (A.Invoke (e, _, E)) =
+        exp_uses sym e orelse
+          foldl (fn (e, u) => u orelse exp_uses sym e) false E
+    | exp_uses sym (A.Allocate (_, E) | A.Call (_, E)) =
+        foldl (fn (e, u) => u orelse exp_uses sym e) false E
     | exp_uses sym (A.Marked mark) = exp_uses sym (Mark.data mark)
-    | exp_uses _ _ = false
+    | exp_uses _ (A.Null | A.Alloc _ | A.Bool _ | A.Const _) = false
 
   (* defines : Symbol.symbol -> A.stm -> bool
    *
@@ -95,11 +98,14 @@ struct
         if not (live id s) then analyze_stm s ext
         else (ErrorMsg.error ext ("Uninitialized variable: " ^ Symbol.name id);
               raise ErrorMsg.Error)
-    | analyze_stm (A.If (e, s1, s2)) ext = (analyze_stm s1 ext; analyze_stm s2 ext)
+    | analyze_stm (A.If (e, s1, s2)) ext =
+        (analyze_stm s1 ext; analyze_stm s2 ext)
     | analyze_stm (A.While (e, s)) ext = analyze_stm s ext
-    | analyze_stm (A.Seq (s1, s2)) ext = (analyze_stm s1 ext; analyze_stm s2 ext)
+    | analyze_stm (A.Seq (s1, s2)) ext =
+        (analyze_stm s1 ext; analyze_stm s2 ext)
     | analyze_stm (A.For (_, _, _, _)) _ = raise Fail "No for loops!"
-    | analyze_stm (A.Markeds mark) _ = analyze_stm (Mark.data mark) (Mark.ext mark)
+    | analyze_stm (A.Markeds mark) _ =
+        analyze_stm (Mark.data mark) (Mark.ext mark)
     | analyze_stm _ _ = ()
 
   (* analyze_adecl : A.gdecl -> unit
