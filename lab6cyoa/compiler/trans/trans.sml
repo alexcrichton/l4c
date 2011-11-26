@@ -429,6 +429,7 @@ struct
       in
         SOME (Label.intfunc (Symbol.name name), trans_typ typ, targs, graph_rec)
       end
+    | translate_fun env (A.Markedg data) = translate_fun env (Mark.data data)
     | translate_fun _ _ = NONE
 
   (* translate : Ast.program -> T.program
@@ -444,6 +445,7 @@ struct
           | build_funs (A.Fun (t, id, L, _), s) =
               Symbol.bind s (id, (false, trans_typ t,
                                   map trans_typ (#1 (ListPair.unzip L))))
+          | build_funs (A.Markedg data, s) = build_funs (Mark.data data, s)
           | build_funs (_, s) = s
         val funs = foldr build_funs Symbol.empty p
         fun field_size structs ((typ, id), (s, n)) = let
@@ -456,6 +458,7 @@ struct
             end
         fun build_struct (A.Struct (id, L), s) =
               Symbol.bind s (id, foldl (field_size s) (Symbol.empty, 0) L)
+          | build_struct (A.Markedg data, s) = build_struct (Mark.data data, s)
           | build_struct (_, s) = s
         val structs = foldl build_struct Symbol.empty p
       in List.mapPartial (translate_fun (funs, structs)) p end
