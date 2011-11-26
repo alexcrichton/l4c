@@ -1,0 +1,14 @@
+//test error
+// same field
+
+class Foo {
+  int bar;
+  int bar;
+  Foo();
+}
+
+Foo::Foo() {}
+
+int main() {
+  return 3;
+}
