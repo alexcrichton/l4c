@@ -232,7 +232,9 @@ struct
             end
 
         fun elaborate_gdecl _ (Markedg mark) =
-              elaborate_gdecl (Mark.ext mark) (Mark.data mark)
+              Markedg (Mark.mark' (elaborate_gdecl (Mark.ext mark)
+                                                   (Mark.data mark),
+                                   Mark.ext mark))
           | elaborate_gdecl ext (Fun (typ, id, params, body)) =
               (check_set_id "Function" (!efuns) ext id; check_id ext id;
                check_set_id "Function" (!funs) ext id;
@@ -429,7 +431,7 @@ struct
       | pp_exp (UnaryOp (oper, e)) = pp_unop oper ^ "(" ^ pp_exp e ^ ")"
       | pp_exp (Ternary (e1, e2, e3, _)) =
           "((" ^ pp_exp e1 ^ ") ? (" ^ pp_exp e2 ^ ") : (" ^ pp_exp e3 ^ "))"
-      | pp_exp (Invoke (e, id, E)) = pp_exp e ^ "->" ^ pp_exp (Call (id, E))
+      | pp_exp (Invoke (e, id, E)) = pp_exp e ^ "." ^ pp_exp (Call (id, E))
       | pp_exp (Allocate (id, E)) = "new " ^ pp_ident id ^ "(" ^
           String.concatWith ", " (map pp_exp E) ^ ")"
       | pp_exp (Marked marked_exp) = pp_exp (Mark.data marked_exp)
@@ -485,7 +487,8 @@ struct
       | pp_adecl (StrDecl s) = "struct " ^ pp_ident s ^ ";"
       | pp_adecl (Struct (s, F)) = "struct " ^ pp_ident s ^ " {\n" ^
           tab (String.concatWith "\n" (map pp_def F)) ^ "\n}"
-      | pp_adecl (Class (id, L, ext)) = "class " ^ pp_extends ext ^ " {\n" ^
+      | pp_adecl (Class (id, L, ext)) = "class " ^ pp_ident id ^ " " ^
+          pp_extends ext ^ " {\n" ^
           tab (String.concatWith "\n" (map pp_cdecl L)) ^ "\n}"
 
     fun pp_program prog = foldl (fn (d, s) => s ^ pp_adecl d ^ "\n") "" prog

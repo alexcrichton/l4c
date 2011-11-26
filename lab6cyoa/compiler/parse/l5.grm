@@ -279,8 +279,10 @@ expnostar  : IDENT                      (A.Var IDENT)
            | ALLOC LPAREN typ RPAREN    (A.Alloc typ)
            | ALLOCARR LPAREN typ COMMA exp RPAREN (A.AllocArray (typ, exp))
            | exp LBRACKET exp RBRACKET (A.ArrSub (exp1, exp2, ref A.NULL))
-           | NEW IDENT arg_list        (A.Allocate (IDENT, arg_list))
-           | exp ARROW IDENT arg_list  (A.Invoke (exp, IDENT, arg_list))
+           | NEW CLASSNAME arg_list    (A.Allocate (CLASSNAME, arg_list))
+           | exp ARROW IDENT arg_list  (A.Invoke (A.Deref (exp, ref A.NULL),
+                                                  IDENT, arg_list))
+           | exp PERIOD IDENT arg_list (A.Invoke (exp, IDENT, arg_list))
 
 exp2       : PLUS exp         (SOME(A.PLUS), exp, NONE, expright)
            | MINUS exp        (SOME(A.MINUS), exp, NONE, expright)
