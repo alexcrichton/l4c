@@ -121,6 +121,19 @@ struct
            | NONE => (ErrorMsg.error ext ("Unknown field " ^ Symbol.name field);
                       raise ErrorMsg.Error)
       end
+
+  (* resolve_classes : Mark.ext option -> 'a -> Symbol.symbol -> Symbol.symbol
+   *                                   -> typ
+   *
+   * @param ext the extents of the current expression
+   * @param classes a table of known classes
+   * @param id the name of the struct to look up
+   * @param field the name of the field to look up
+   *
+   * @return the type of the field, if it exists
+   * @raise ErrorMsg.Error if the struct does not exist, is not defined, or
+   *        the field does not exist
+   *)
   and resolve_class ext classes id field = let
         val (fields, _) = Symbol.look' classes id
       in
@@ -141,11 +154,8 @@ struct
               Symbol.equal (c1, id) andalso Symbol.equal (c1, c2)
           | sameclass _ = false
         val (_, funs) = Symbol.look' classes id
-      in
-        case List.find sameclass (Symbol.elemsi funs)
-          of SOME f => #2 (#2 f)
-           | NONE   => raise Fail "No constructor"
-      end
+        val (_, (_, types)) = valOf (List.find sameclass (Symbol.elemsi funs))
+      in types end
 
   (* tc_ensure : A.typ Symbol.table -> A.exp * A.typ -> Mark.ext option -> unit
    *
@@ -218,7 +228,7 @@ struct
                                      resolve_struct ext structs id field)
             | (t as A.CLASS id) => (tr := t;
                                      resolve_class ext classes id field)
-            | _ => (ErrorMsg.error ext "Should have a struct type";
+            | _ => (ErrorMsg.error ext "Should have a struct or class type";
                     raise ErrorMsg.Error))
     | tc_exp env (A.ArrSub (e1, e2, r)) ext =
         (tc_ensure env (e2, A.INT) ext;
