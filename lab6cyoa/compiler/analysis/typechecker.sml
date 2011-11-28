@@ -218,10 +218,18 @@ struct
     | tc_exp _ (A.Bool _) _ = A.BOOL
     | tc_exp _ (A.Const _) _ = A.INT
     | tc_exp _ A.Null _ = A.NULL
-    | tc_exp env (A.Alloc typ) ext = (ensure_typ_defined ext env typ; A.PTR typ)
+    | tc_exp env (A.Alloc typ) ext =
+        (case typ
+           of A.CLASS _ => (ErrorMsg.error ext "Allocate a class with 'new'";
+                            raise ErrorMsg.Error)
+            | _ => (ensure_typ_defined ext env typ; A.PTR typ))
     | tc_exp env (A.AllocArray (typ, e)) ext =
-        (tc_ensure env (e, A.INT) ext; ensure_typ_defined ext env typ;
-         A.ARRAY typ)
+        (case typ
+           of A.CLASS _ => (ErrorMsg.error ext ("Cannot allocate arrays of " ^
+                                                "classes, use pointers");
+                            raise ErrorMsg.Error)
+            | _ => (tc_ensure env (e, A.INT) ext;
+                    ensure_typ_defined ext env typ; A.ARRAY typ))
     | tc_exp (env as (_, structs, _, classes)) (A.Field (e, field, tr)) ext =
         (case tc_exp env e ext
            of (t as A.STRUCT id) => (tr := t;
