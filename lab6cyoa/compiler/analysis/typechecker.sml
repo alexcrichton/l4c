@@ -39,7 +39,7 @@ struct
    *
    * @return true if the given type is a small type
    *)
-  fun type_small (A.STRUCT _) = false
+  fun type_small (A.STRUCT _ | A.CLASS _) = false
     | type_small _ = true
 
   (* is_lvalue : A.exp -> bool
