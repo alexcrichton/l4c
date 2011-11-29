@@ -93,6 +93,7 @@ fun genptrinc (exp, oper) =
  | elseopt  of A.stm
  | typ      of A.typ
  | class    of A.gdecl
+ | classdef of A.ident
  | cdecls   of A.cdecl list
  | cdecl    of A.cdecl
  | classfun of A.gdecl
@@ -144,9 +145,10 @@ gdecl      : fdecl                      (markg (fdecl, (fdeclleft, fdeclright)))
            | classfun                   (markg (classfun,
                                                 (classfunleft, classfunright)))
 
-class      : CLASS IDENT extendsopt LBRACE cdecls RBRACE
-                                        (Symbol.addclass IDENT;
-                                         A.Class (IDENT, cdecls, extendsopt))
+classdef   : CLASS IDENT                (Symbol.addclass IDENT; IDENT)
+
+class      : classdef extendsopt LBRACE cdecls RBRACE
+                                        (A.Class (classdef, cdecls, extendsopt))
 
 extendsopt :                            (NONE)
            | EXTENDS CLASSNAME          (SOME CLASSNAME)
@@ -157,8 +159,8 @@ cdecls     :                            ([])
 
 cdecl      : typ IDENT SEMI             (A.CField (typ, IDENT))
            | typ IDENT param_list SEMI  (A.CFunDecl (typ, IDENT, param_list))
-           | IDENT param_list SEMI      (A.CFunDecl (A.PTR (A.CLASS IDENT),
-                                                     IDENT, param_list))
+           | CLASSNAME param_list SEMI  (A.CFunDecl (A.PTR (A.CLASS CLASSNAME),
+                                                     CLASSNAME, param_list))
 
 classfun   : typ CLASSNAME CONS IDENT param_list block
                                         (A.CFun (CLASSNAME, typ, IDENT,
