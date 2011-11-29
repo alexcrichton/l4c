@@ -54,6 +54,7 @@ sig
    | AllocArray of typ * exp
    | Allocate of ident * exp list
    | Null
+   | Self
    | Marked of exp Mark.marked
   and stm =
      Assign  of exp * binop option * exp
@@ -149,6 +150,7 @@ struct
    | AllocArray of typ * exp
    | Allocate of ident * exp list
    | Null
+   | Self
    | Marked of exp Mark.marked
   and stm =
      Assign  of exp * binop option * exp
@@ -322,7 +324,7 @@ struct
           Allocate (id, map (elaborate_exp env) E)
     | elaborate_exp env (Invoke (e, id, E)) =
         Invoke (elaborate_exp env e, id, map (elaborate_exp env) E)
-    | elaborate_exp _ (e as (Null | Const _ | Var _ | Bool _)) = e
+    | elaborate_exp _ (e as (Null | Const _ | Var _ | Bool _ | Self)) = e
 
   and elaborate_cdecl env _ (Markedc data) =
         Markedc (Mark.mark' (elaborate_cdecl env (Mark.ext data)
@@ -417,6 +419,7 @@ struct
     fun pp_exp (Var id) = pp_ident id
       | pp_exp (Const c) = Word32Signed.toString c
       | pp_exp (Bool b) = if b then "true" else "false"
+      | pp_exp Self = "self"
       | pp_exp Null = "NULL"
       | pp_exp (Deref (e, _)) = "*(" ^ pp_exp e ^ ")"
       | pp_exp (ArrSub (e1, e2, _)) = "(" ^ pp_exp e1 ^ "[" ^ pp_exp e2 ^ "])"

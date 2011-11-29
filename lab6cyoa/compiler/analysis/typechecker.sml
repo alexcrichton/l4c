@@ -73,7 +73,7 @@ struct
    * @param typ the type in question
    * @raise ErrorMsg.Error if the given type is not defined for allocation
    *)
-  fun ensure_typ_defined ext (_, structs, _, _) (A.STRUCT id) =
+  fun ensure_typ_defined ext (_, _, structs, _, _) (A.STRUCT id) =
         (case Symbol.look structs id
            of SOME(SOME _) => ()
             | _ => (ErrorMsg.error ext ("Struct not defined: " ^
@@ -200,12 +200,12 @@ struct
    * @raise ErrorMsg.Error if there is a typecheck error
    * @return the type of the expression if it is well formed
    *)
-  and tc_exp (env' as (_, _, env, _)) (A.Var id) ext =
+  and tc_exp (env' as (_, _, _, env, _)) (A.Var id) ext =
       (case Symbol.look env id
          of NONE => (ErrorMsg.error ext ("undeclared variable `" ^
                       Symbol.name id ^ "'"); raise ErrorMsg.Error)
           | SOME t => t)
-    | tc_exp (env' as (funs, _, env, _)) (A.Call (id, args)) ext =
+    | tc_exp (env' as (_, funs, _, env, _)) (A.Call (id, args)) ext =
       (case Symbol.look env id
          of SOME _ => (ErrorMsg.error ext ("'" ^ Symbol.name id ^ "' is not" ^
                                            " a function!");
@@ -218,6 +218,10 @@ struct
     | tc_exp _ (A.Bool _) _ = A.BOOL
     | tc_exp _ (A.Const _) _ = A.INT
     | tc_exp _ A.Null _ = A.NULL
+    | tc_exp (SOME class, _, _, _, _) A.Self _ = A.PTR (A.CLASS class)
+    | tc_exp _ A.Self ext =
+        (ErrorMsg.error ext "Cannot use 'self' outside of a class";
+         raise ErrorMsg.Error)
     | tc_exp env (A.Alloc typ) ext =
         (case typ
            of A.CLASS _ => (ErrorMsg.error ext "Allocate a class with 'new'";
@@ -230,7 +234,7 @@ struct
                             raise ErrorMsg.Error)
             | _ => (tc_ensure env (e, A.INT) ext;
                     ensure_typ_defined ext env typ; A.ARRAY typ))
-    | tc_exp (env as (_, structs, _, classes)) (A.Field (e, field, tr)) ext =
+    | tc_exp (env as (_, _, structs, _, classes)) (A.Field (e, field, tr)) ext =
         (case tc_exp env e ext
            of (t as A.STRUCT id) => (tr := t;
                                      resolve_struct ext structs id field)
@@ -270,7 +274,7 @@ struct
         tc_ensure env (e1, A.BOOL) ext; tc_ensure env (e3, t2) ext;
         tref := t2; t2
       end
-    | tc_exp (env as (_, _, _, classes)) (A.Invoke (e, id, E)) ext =
+    | tc_exp (env as (_, _, _, _, classes)) (A.Invoke (e, id, E)) ext =
        (case tc_exp env e ext
           of A.CLASS class => let
               val (_, funs) = Symbol.look' classes class
@@ -284,7 +288,7 @@ struct
             end
            | t => (ErrorMsg.error ext ("Cannot invoke method on " ^ typ_name t);
                    raise ErrorMsg.Error))
-    | tc_exp (env as (_, _, _, classes)) (A.Allocate (id, E)) ext = let
+    | tc_exp (env as (_, _, _, _, classes)) (A.Allocate (id, E)) ext = let
           val ctor = find_ctor classes id
           val _ = tc_args (ext, id, env) (E, ctor)
         in A.PTR (A.CLASS id) end
@@ -329,11 +333,11 @@ struct
     | tc_stm _ A.Nop _ _ = ()
     | tc_stm env (A.Seq (s1, s2)) ext lp =
         (tc_stm env s1 ext lp; tc_stm env s2 ext lp)
-    | tc_stm (funs, structs, env, classes) (A.Declare (id, t, s)) ext lp =
+    | tc_stm (c, funs, structs, env, classes) (A.Declare (id, t, s)) ext lp =
         (ensure_small ext t;
         case Symbol.look env id
-          of NONE   => tc_stm (funs, structs, Symbol.bind env (id, t), classes)
-                              s ext lp
+          of NONE   => tc_stm (c, funs, structs, Symbol.bind env (id, t),
+                               classes) s ext lp
            | SOME _ => (ErrorMsg.error ext ("Redeclared variable: " ^
                                              Symbol.name id);
                          raise ErrorMsg.Error))
@@ -470,8 +474,8 @@ struct
           | tc_gdecl ext (A.Struct s) = bind_struct ext s
           | tc_gdecl ext (A.Fun (typ, ident, args, stm)) =
              (funs := bind_fun (!funs) ext (typ, ident, args);
-              tc_stm (!funs, !structs, foldl (bind_arg ext) Symbol.empty args,
-                      !classes)
+              tc_stm (NONE, !funs, !structs,
+                      foldl (bind_arg ext) Symbol.empty args, !classes)
                      stm NONE (false, typ))
           | tc_gdecl ext (A.Class (id, decls, extends)) = let
               val class = munge_class (ext, decls, id)
@@ -489,8 +493,8 @@ struct
                      | SOME a => a
               val _ = bind_fun cfuns ext (typ, id, params)
             in
-              tc_stm (!funs, !structs, foldl (bind_arg ext) cfields params,
-                      !classes)
+              tc_stm (SOME class, !funs, !structs,
+                      foldl (bind_arg ext) cfields params, !classes)
                      body ext (false, typ)
             end
       in app (tc_gdecl NONE) L end
