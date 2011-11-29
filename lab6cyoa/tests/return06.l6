@@ -1,0 +1,17 @@
+//test return 10
+class Foo {
+  int bar;
+  Foo();
+};
+
+class Bar extends Foo {
+  Bar();
+};
+
+Foo::Foo() { bar = 10; }
+Bar::Bar() { super(); }
+
+int main() {
+  Foo *f = new Bar();
+  return f->bar;
+}

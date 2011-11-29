@@ -9,6 +9,10 @@ struct
   structure A = Ast
   structure LP = ListPair
 
+  type class_data = {parent: A.ident option,
+                     fields: A.typ Symbol.table,
+                     funs:   (A.typ * A.typ list) Symbol.table}
+
   (* typ_name : A.typ -> string
    * Helper method to get a string description of a type
    *)
@@ -21,19 +25,25 @@ struct
     | typ_name (A.TYPEDEF ident) = Symbol.name ident
     | typ_name (A.CLASS ident) = "class " ^ Symbol.name ident
 
-  (* typs_equal : A.typ * A.typ -> bool
+  (* typs_equal : class_data Symbol.table -> A.typ * A.typ -> bool
    *
    * @return true if the two types are the same
    *)
-  fun typs_equal (A.BOOL, A.BOOL) = true
-    | typs_equal (A.INT, A.INT)   = true
-    | typs_equal (A.NULL, A.NULL) = true
-    | typs_equal ((A.PTR _, A.NULL) | (A.NULL, A.PTR _)) = true
-    | typs_equal (A.PTR t1, A.PTR t2) = typs_equal (t1, t2)
-    | typs_equal (A.ARRAY t1, A.ARRAY t2) = typs_equal (t1, t2)
-    | typs_equal (A.STRUCT s1, A.STRUCT s2) = Symbol.equal (s1, s2)
-    | typs_equal (A.CLASS s1, A.CLASS s2) = Symbol.equal (s1, s2)
-    | typs_equal _ = false
+  fun typs_equal _ (A.BOOL, A.BOOL) = true
+    | typs_equal _ (A.INT, A.INT)   = true
+    | typs_equal _ (A.NULL, A.NULL) = true
+    | typs_equal _ ((A.PTR _, A.NULL) | (A.NULL, A.PTR _)) = true
+    | typs_equal c (A.PTR t1, A.PTR t2) = typs_equal c (t1, t2)
+    | typs_equal c (A.ARRAY t1, A.ARRAY t2) = typs_equal c (t1, t2)
+    | typs_equal _ (A.STRUCT s1, A.STRUCT s2) = Symbol.equal (s1, s2)
+    | typs_equal c (A.CLASS s1, A.CLASS s2) =
+        Symbol.equal (s1, s2) orelse
+         (case Symbol.look c s2
+            of SOME (d : class_data) =>
+                (case #parent d of NONE => false
+                    | SOME id => typs_equal c (A.CLASS s1, A.CLASS id))
+             | NONE => false)
+    | typs_equal _ _ = false
 
   (* type_small : A.typ -> bool
    *
@@ -88,7 +98,7 @@ struct
    *
    * @raise ErrorMsg.Error if the types are not equal
    *)
-  fun tc_equal (t1, t2) ext = if typs_equal (t1, t2) then () else (
+  fun tc_equal c (t1, t2) ext = if typs_equal c (t1, t2) then () else (
         ErrorMsg.error ext ("type mismatch, " ^ typ_name t1 ^ " != " ^
                             typ_name t2);
         raise ErrorMsg.Error)
@@ -135,9 +145,9 @@ struct
    *        the field does not exist
    *)
   and resolve_class ext classes id field = let
-        val (fields, _) = Symbol.look' classes id
+        val data = Symbol.look' classes id : class_data
       in
-        case Symbol.look fields field
+        case Symbol.look (#fields data) field
           of SOME typ => typ
            | NONE => (ErrorMsg.error ext ("Unknown field " ^ Symbol.name field);
                       raise ErrorMsg.Error)
@@ -153,8 +163,9 @@ struct
         fun sameclass (c1, (A.PTR (A.CLASS c2), _)) =
               Symbol.equal (c1, id) andalso Symbol.equal (c1, c2)
           | sameclass _ = false
-        val (_, funs) = Symbol.look' classes id
-        val (_, (_, types)) = valOf (List.find sameclass (Symbol.elemsi funs))
+        val data = Symbol.look' classes id : class_data
+        val (_, (_, types)) = valOf (List.find sameclass
+                                               (Symbol.elemsi (#funs data)))
       in types end
 
   (* tc_ensure : A.typ Symbol.table -> A.exp * A.typ -> Mark.ext option -> unit
@@ -170,7 +181,8 @@ struct
    *                       of the expected type
    * @return nothing if the expression is of the right type.
    *)
-  fun tc_ensure env (e, t) ext = tc_equal (t, tc_exp env e ext) ext
+  fun tc_ensure (env as (_, _, _, _, classes)) (e, t) ext =
+        tc_equal classes (t, tc_exp env e ext) ext
 
   (* tc_args : 'a -> (A.exp list * A.typ list) -> unit
    *
@@ -277,9 +289,9 @@ struct
     | tc_exp (env as (_, _, _, _, classes)) (A.Invoke (e, id, E)) ext =
        (case tc_exp env e ext
           of A.CLASS class => let
-              val (_, funs) = Symbol.look' classes class
+              val data = Symbol.look' classes class : class_data
             in
-              case Symbol.look funs id
+              case Symbol.look (#funs data) id
                 of SOME (ret, args) => (tc_args (ext, id, env) (E, args); ret)
                  | NONE => (ErrorMsg.error ext ("Unknown method '" ^
                                                 Symbol.name id ^ "' for class: "
@@ -397,8 +409,9 @@ struct
               case Symbol.look funs id
                 of NONE => Symbol.bind funs (id, (typ, types))
                  | SOME (t, T) =>
-                    (tc_equal (t, typ) ext;
-                     LP.appEq (fn ts => tc_equal ts ext) (types, T); funs)
+                    (tc_equal (!classes) (t, typ) ext;
+                     LP.appEq (fn ts => tc_equal (!classes) ts ext) (types, T);
+                     funs)
               handle UnequalLengths =>
                 (ErrorMsg.error ext ("Function '" ^ Symbol.name id ^ "' " ^
                                  "has a different number of args than before");
@@ -432,21 +445,25 @@ struct
                  | _ => structs := Symbol.bind (!structs) (id, SOME table)
             end
 
-        fun merge_class _ class NONE = class
+        fun merge_class _ (fields, funs) NONE =
+              {fields=fields, funs=funs, parent=NONE}
           | merge_class ext (fields, funs) (SOME parent) = let
               fun check_redefine _ NONE = ()
                 | check_redefine id (SOME _) =
                     (ErrorMsg.error ext ("Redefined field: " ^ Symbol.name id);
                      raise ErrorMsg.Error)
 
-              val (pfields, pfuns) = Symbol.look' (!classes) parent
+              val pdata = Symbol.look' (!classes) parent : class_data
+              val pfields = #fields pdata
+              val pfuns = #funs pdata
               val _ = app (fn k => check_redefine k (Symbol.look pfields k))
                           (Symbol.keys fields)
               val funs' = foldl (fn ((f, (t, types)), funs) =>
                                     bind_fun_types funs ext (t, f, types))
                                 funs (Symbol.elemsi pfuns)
             in
-              (Symbol.merge (fields, pfields), funs')
+              {fields=Symbol.merge (fields, pfields),
+               funs=funs', parent=(SOME parent)}
             end
 
         fun bind_arg ext ((typ, id), env) = (ensure_small ext typ;
@@ -484,17 +501,17 @@ struct
                                      (id, merge_class ext class extends)
             end
           | tc_gdecl ext (A.CFun (class, typ, id, params, body)) = let
-              val (cfields, cfuns) = Symbol.look' (!classes) class
+              val data = Symbol.look' (!classes) class : class_data
               val (ret, args) =
-                  case Symbol.look cfuns id
+                  case Symbol.look (#funs data) id
                     of NONE => (ErrorMsg.error ext (Symbol.name id ^
                                                     " not defined for class");
                                 raise ErrorMsg.Error)
                      | SOME a => a
-              val _ = bind_fun cfuns ext (typ, id, params)
+              val _ = bind_fun (#funs data) ext (typ, id, params)
             in
               tc_stm (SOME class, !funs, !structs,
-                      foldl (bind_arg ext) cfields params, !classes)
+                      foldl (bind_arg ext) (#fields data) params, !classes)
                      body ext (false, typ)
             end
       in app (tc_gdecl NONE) L end
