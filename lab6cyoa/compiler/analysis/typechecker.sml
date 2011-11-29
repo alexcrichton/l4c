@@ -227,8 +227,8 @@ struct
     | tc_exp _ (A.Bool _) _ = A.BOOL
     | tc_exp _ (A.Const _) _ = A.INT
     | tc_exp _ A.Null _ = A.NULL
-    | tc_exp (SOME class, _, _, _, _) A.Self _ = A.PTR (A.CLASS class)
-    | tc_exp _ A.Self ext =
+    | tc_exp (SOME class, _, _, _, _) A.This _ = A.PTR (A.CLASS class)
+    | tc_exp _ A.This ext =
         (ErrorMsg.error ext "Cannot use 'self' outside of a class";
          raise ErrorMsg.Error)
     | tc_exp env (A.Alloc typ) ext =

@@ -35,7 +35,7 @@ fun genptrinc (exp, oper) =
  | IDENT     of Symbol.symbol
  | TYPE      of Symbol.symbol
  | CLASSNAME of Symbol.symbol
- | TRUE | FALSE | NULL | ALLOC | ALLOCARR | NEW | SELF
+ | TRUE | FALSE | NULL | ALLOC | ALLOCARR | NEW | THIS
  | INT | BOOL | STRUCT | CLASS | EXTENDS
  | PLUS | MINUS | STAR | SLASH | PERCENT
  | PLUSPLUS | MINUSMINUS
@@ -270,7 +270,7 @@ expnostar  : IDENT                      (A.Var IDENT)
            | TRUE                       (A.Bool true)
            | FALSE                      (A.Bool false)
            | NULL                       (A.Null)
-           | SELF                      (A.Self)
+           | THIS                       (A.This)
            | unop exp %prec UNARY       (A.UnaryOp(unop, exp))
            | exp exp2                   (convert_exp2 (exp, expleft) exp2)
            | IDENT arg_list             (A.Call (IDENT, arg_list))

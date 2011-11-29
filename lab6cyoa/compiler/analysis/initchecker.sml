@@ -29,7 +29,7 @@ struct
     | exp_uses sym (A.Allocate (_, E) | A.Call (_, E)) =
         foldl (fn (e, u) => u orelse exp_uses sym e) false E
     | exp_uses sym (A.Marked mark) = exp_uses sym (Mark.data mark)
-    | exp_uses _ (A.Null | A.Alloc _ | A.Bool _ | A.Const _ | A.Self) = false
+    | exp_uses _ (A.Null | A.Alloc _ | A.Bool _ | A.Const _ | A.This) = false
 
   (* defines : Symbol.symbol -> A.stm -> bool
    *

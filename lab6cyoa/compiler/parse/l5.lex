@@ -137,7 +137,7 @@ ws = [\ \t\011\013\012];
 <INITIAL> "class"       => (Tokens.CLASS (yypos, yypos + size yytext));
 <INITIAL> "new"         => (Tokens.NEW (yypos, yypos + size yytext));
 <INITIAL> "extends"     => (Tokens.EXTENDS (yypos, yypos + size yytext));
-<INITIAL> "this"        => (Tokens.SELF (yypos, yypos + size yytext));
+<INITIAL> "this"        => (Tokens.THIS (yypos, yypos + size yytext));
 
 <INITIAL> {decnum}    => (number Word32Signed.fromString (yytext, yypos));
 <INITIAL> {hexnum}    => (number Word32Signed.fromHexString (yytext, yypos));
