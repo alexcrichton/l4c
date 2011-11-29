@@ -38,11 +38,8 @@ struct
     | typs_equal _ (A.STRUCT s1, A.STRUCT s2) = Symbol.equal (s1, s2)
     | typs_equal c (A.CLASS s1, A.CLASS s2) =
         Symbol.equal (s1, s2) orelse
-         (case Symbol.look c s2
-            of SOME (d : class_data) =>
-                (case #parent d of NONE => false
-                    | SOME id => typs_equal c (A.CLASS s1, A.CLASS id))
-             | NONE => false)
+         (case #parent (Symbol.look' c s2 : class_data) of NONE => false
+             | SOME id => typs_equal c (A.CLASS s1, A.CLASS id))
     | typs_equal _ _ = false
 
   (* type_small : A.typ -> bool
