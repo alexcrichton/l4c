@@ -1,0 +1,48 @@
+//test return 10
+
+class Foo {
+  int foo;
+  int foo();
+  int same();
+  Foo();
+};
+
+int Foo::foo() { return foo; }
+int Foo::same() { return foo + 100; }
+
+class Bar extends Foo {
+  int bar;
+  int bar();
+  Bar();
+};
+
+int Bar::bar() { return this->foo() + bar; }
+
+class Baz extends Bar {
+  int baz;
+  int baz();
+  int same();
+  Baz();
+};
+
+int Baz::baz() { return this->bar() + baz; }
+int Baz::same() { return baz; }
+
+int main() {
+  Baz *b1 = new Baz();
+  Bar *b2 = b1;
+  Foo *b3 = b1;
+  b1->baz = 10;
+  b1->bar = 9;
+  b1->foo = 8;
+  if (b3->foo() != 8) return 0;
+  if (b2->bar() != 17) return 1;
+  if (b1->baz() != 17) return 2;
+  if (b3->foo != 8) return 3;
+  if (b2->bar != 9) return 4;
+  if (b1->baz != 10) return 5;
+  if (b3->same() != 10) return 6;
+  if (b2->same() != 10) return 7;
+  if (b1->same() != 10) return 8;
+  return 10;
+}
