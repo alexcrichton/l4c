@@ -1,0 +1,4 @@
+clarify private semantics:
+  - can subclass access parent private fields?
+protected semantics?
+  - does protected just mean that a subclass can access parent protected fields?
