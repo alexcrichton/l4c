@@ -467,7 +467,13 @@ struct
               fun merge_funs ((f, (t, types, p)), funs) =
                     case Symbol.look funs f
                       of NONE => Symbol.bind funs (f, (t, types, p))
-                       | SOME (t', types', p') => raise Fail "fo"
+                       | SOME (t', types', p') =>
+                          if p' = A.PRIVATE andalso p = A.PUBLIC then
+                            (ErrorMsg.error ext ("Cannot make public method " ^
+                                                 "private: " ^ Symbol.name f);
+                             raise ErrorMsg.Error)
+                          else
+                            Symbol.bind funs (f, (t, types, p))
 
               val pdata = Symbol.look' (!classes) parent : class_data
               val pfields = #fields pdata
