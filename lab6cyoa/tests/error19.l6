@@ -1,0 +1,12 @@
+//test error
+// functions are private by default
+class Foo {
+  Foo();
+};
+
+Foo::Foo() {}
+
+int main() {
+  Foo *f = new Foo();
+  return 3;
+}

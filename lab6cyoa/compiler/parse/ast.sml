@@ -11,6 +11,8 @@ sig
   datatype typ = INT | BOOL | TYPEDEF of ident | PTR of typ | ARRAY of typ
                | STRUCT of ident | NULL | CLASS of ident
 
+  datatype access = PUBLIC | PRIVATE
+
   datatype unop =
      NEGATIVE
    | INVERT
@@ -74,6 +76,7 @@ sig
      CFunDecl of typ * ident * param list
    | CField   of typ * ident
    | Markedc  of cdecl Mark.marked
+   | Public | Private
 
   datatype gdecl =
      Fun     of typ * ident * param list * stm
@@ -108,6 +111,8 @@ struct
   datatype typ = INT | BOOL | TYPEDEF of ident | PTR of typ | ARRAY of typ
                | STRUCT of ident | NULL | CLASS of ident
 
+  datatype access = PUBLIC | PRIVATE
+
   datatype unop =
      NEGATIVE
    | INVERT
@@ -171,6 +176,7 @@ struct
      CFunDecl of typ * ident * param list
    | CField   of typ * ident
    | Markedc  of cdecl Mark.marked
+   | Public | Private
 
   datatype gdecl =
      Fun     of typ * ident * param list * stm
@@ -343,6 +349,7 @@ struct
     | elaborate_cdecl env ext (CFunDecl (typ, id, L)) =
         CFunDecl (resolve_typ (ref env) ext typ, id,
                   map (fn (t, i) => (resolve_typ (ref env) ext t, i)) L)
+    | elaborate_cdecl _ _ (c as (Private | Public)) = c
 
   (* elaborate_external : program -> program
    *
@@ -395,11 +402,11 @@ struct
     fun pp_typ BOOL = "bool"
       | pp_typ INT  = "int"
       | pp_typ NULL = "(null)"
-      | pp_typ (PTR t)  = pp_typ t ^ "*"
-      | pp_typ (STRUCT id)  = "struct " ^ pp_ident id
-      | pp_typ (ARRAY t)  = pp_typ t ^ "[]"
-      | pp_typ (TYPEDEF id)  = pp_ident id
-      | pp_typ (CLASS id)  = pp_ident id
+      | pp_typ (PTR t) = pp_typ t ^ "*"
+      | pp_typ (STRUCT id) = "struct " ^ pp_ident id
+      | pp_typ (ARRAY t) = pp_typ t ^ "[]"
+      | pp_typ (TYPEDEF id) = pp_ident id
+      | pp_typ (CLASS id) = "class " ^ pp_ident id
 
     fun pp_unop NEGATIVE = "-"
       | pp_unop INVERT   = "~"
@@ -481,6 +488,8 @@ struct
     fun pp_cdecl (Markedc data) = pp_cdecl (Mark.data data)
       | pp_cdecl (CField (typ, id)) = pp_typ typ ^ " " ^ pp_ident id ^ ";"
       | pp_cdecl (CFunDecl d) = pp_adecl (IntDecl d)
+      | pp_cdecl Public = "public"
+      | pp_cdecl Private = "private"
 
     and pp_adecl (Typedef (id, typ)) =
           "typedef " ^ Symbol.name id ^ " " ^ pp_typ typ

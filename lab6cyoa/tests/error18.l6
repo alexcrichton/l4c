@@ -1,0 +1,14 @@
+//test error
+// fields are private by default
+class Foo {
+  int foo;
+ public:
+  Foo();
+};
+
+Foo::Foo() {}
+
+int main() {
+  Foo *f = new Foo();
+  return f->foo;
+}

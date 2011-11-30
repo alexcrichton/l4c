@@ -10,8 +10,8 @@ struct
   structure LP = ListPair
 
   type class_data = {parent: A.ident option,
-                     fields: A.typ Symbol.table,
-                     funs:   (A.typ * A.typ list) Symbol.table}
+                     fields: (A.typ * A.access) Symbol.table,
+                     funs:   (A.typ * A.typ list * A.access) Symbol.table}
 
   val typ_name = A.Print.pp_typ
 
@@ -119,10 +119,11 @@ struct
                       raise ErrorMsg.Error)
       end
 
-  (* resolve_classes : Mark.ext option -> 'a -> Symbol.symbol -> Symbol.symbol
-   *                                   -> typ
+  (* resolve_class : (Mark.ext option * A.ident option) -> 'a -> Symbol.symbol
+   *                      -> Symbol.symbol -> typ
    *
-   * @param ext the extents of the current expression
+   * @param (ext, opt) the extents of the current expression and the option
+   *                   of whether we're in a class function or not
    * @param classes a table of known classes
    * @param id the name of the struct to look up
    * @param field the name of the field to look up
@@ -131,29 +132,43 @@ struct
    * @raise ErrorMsg.Error if the struct does not exist, is not defined, or
    *        the field does not exist
    *)
-  and resolve_class ext classes id field = let
+  and resolve_class (ext, opt) classes id field = let
         val data = Symbol.look' classes id : class_data
+        val (typ, priv) = case Symbol.look (#fields data) field
+                            of SOME a => a
+                             | NONE => (ErrorMsg.error ext ("Unknown field " ^
+                                                            Symbol.name field);
+                                        raise ErrorMsg.Error)
       in
-        case Symbol.look (#fields data) field
-          of SOME typ => typ
-           | NONE => (ErrorMsg.error ext ("Unknown field " ^ Symbol.name field);
-                      raise ErrorMsg.Error)
+        resolve_access (ext, "Accessing private field:" ^ Symbol.name field)
+                       (opt, id) priv; typ
       end
+  and resolve_access _ _ A.PUBLIC = ()
+    | resolve_access (ext, msg) (opt, class) A.PRIVATE = (let
+        val class' = valOf opt
+      in
+        if Symbol.equal (class, class') then ()
+        else raise Option
+      end handle Option => (ErrorMsg.error ext msg; raise ErrorMsg.Error))
 
-  (* find_ctor : classes -> Symbol.symbol
+  (* find_ctor : classes -> Symbol.symbol -> A.typ list
    *
    * Finds the constructor for a class in the classes table.
    * @return types - the types of the arguments for the constructor for this
    *         specified class
    *)
-  fun find_ctor classes id = let
-        fun sameclass (c1, (A.PTR (A.CLASS c2), _)) =
+  fun find_ctor (ext, opt) classes id = let
+        fun sameclass (c1, (A.PTR (A.CLASS c2), _, _)) =
               Symbol.equal (c1, id) andalso Symbol.equal (c1, c2)
           | sameclass _ = false
         val data = Symbol.look' classes id : class_data
-        val (_, (_, types)) = valOf (List.find sameclass
-                                               (Symbol.elemsi (#funs data)))
-      in types end
+        val (_, (_, types, p)) = valOf (List.find sameclass
+                                                 (Symbol.elemsi (#funs data)))
+      in
+        resolve_access (ext, "Cannot call private constructor")
+                       (opt, id) p;
+        types
+      end
 
   (* tc_ensure : A.typ Symbol.table -> A.exp * A.typ -> Mark.ext option -> unit
    *
@@ -233,12 +248,12 @@ struct
                             raise ErrorMsg.Error)
             | _ => (tc_ensure env (e, A.INT) ext;
                     ensure_typ_defined ext env typ; A.ARRAY typ))
-    | tc_exp (env as (_, _, structs, _, classes)) (A.Field (e, field, tr)) ext =
+    | tc_exp (env as (c, _, structs, _, classes)) (A.Field (e, field, tr)) ext =
         (case tc_exp env e ext
            of (t as A.STRUCT id) => (tr := t;
                                      resolve_struct ext structs id field)
             | (t as A.CLASS id) => (tr := t;
-                                     resolve_class ext classes id field)
+                                     resolve_class (ext, c) classes id field)
             | _ => (ErrorMsg.error ext "Should have a struct or class type";
                     raise ErrorMsg.Error))
     | tc_exp env (A.ArrSub (e1, e2, r)) ext =
@@ -273,13 +288,16 @@ struct
         tc_ensure env (e1, A.BOOL) ext; tc_ensure env (e3, t2) ext;
         tref := t2; t2
       end
-    | tc_exp (env as (_, _, _, _, classes)) (A.Invoke (e, id, E)) ext =
+    | tc_exp (env as (opt, _, _, _, classes)) (A.Invoke (e, id, E)) ext =
        (case tc_exp env e ext
           of A.CLASS class => let
               val data = Symbol.look' classes class : class_data
             in
               case Symbol.look (#funs data) id
-                of SOME (ret, args) => (tc_args (ext, id, env) (E, args); ret)
+                of SOME (ret, args, p) =>
+                      (resolve_access (ext, "Cannot call private function")
+                                      (opt, class) p;
+                       tc_args (ext, id, env) (E, args); ret)
                  | NONE => (ErrorMsg.error ext ("Unknown method '" ^
                                                 Symbol.name id ^ "' for class: "
                                                 ^ Symbol.name class);
@@ -287,8 +305,8 @@ struct
             end
            | t => (ErrorMsg.error ext ("Cannot invoke method on " ^ typ_name t);
                    raise ErrorMsg.Error))
-    | tc_exp (env as (_, _, _, _, classes)) (A.Allocate (id, E)) ext = let
-          val ctor = find_ctor classes id
+    | tc_exp (env as (opt, _, _, _, classes)) (A.Allocate (id, E)) ext = let
+          val ctor = find_ctor (ext, opt) classes id
           val _ = tc_args (ext, id, env) (E, ctor)
         in A.PTR (A.CLASS id) end
     | tc_exp env (A.Marked marked_exp) _ =
@@ -355,6 +373,7 @@ struct
    * @raise ErrorMsg.Error if there's a problem with the declartions
    *)
   fun munge_class (ext, decls, class) = let
+        val cur_priv = ref A.PRIVATE
         fun add_decl _ (A.Markedc data, env) =
               add_decl (Mark.ext data) (Mark.data data, env)
           | add_decl ext (A.CField (t, id), (fields, funs)) =
@@ -362,14 +381,18 @@ struct
                 of SOME _ => (ErrorMsg.error ext ("Duplicate field: " ^
                                                   Symbol.name id);
                               raise ErrorMsg.Error)
-                 | NONE => (Symbol.bind fields (id, t), funs))
+                 | NONE => (Symbol.bind fields (id, (t, !cur_priv)), funs))
           | add_decl ext (A.CFunDecl (t, id, params), (fields, funs)) =
-              case Symbol.look funs id
+             (case Symbol.look funs id
                 of SOME _ => (ErrorMsg.error ext ("Duplicate method: " ^
                                                   Symbol.name id);
                               raise ErrorMsg.Error)
                  | NONE => (fields,
-                            Symbol.bind funs (id, (t, #1 (LP.unzip params))))
+                            Symbol.bind funs (id, (t, #1 (LP.unzip params),
+                                                   !cur_priv)))
+             )
+          | add_decl _ (A.Private, class) = (cur_priv := A.PRIVATE; class)
+          | add_decl _ (A.Public, class) = (cur_priv := A.PUBLIC; class)
       in
         foldl (add_decl ext) (Symbol.empty, Symbol.empty) decls
       end
@@ -390,15 +413,17 @@ struct
            table, raising an error if necessary *)
         fun bind_fun funs ext (typ, id, params) =
               bind_fun_types funs ext (typ, id, #1 (LP.unzip params))
-        and bind_fun_types funs ext (typ, id, types) = let
-              val _ = app (ensure_small ext) (typ::types)
-            in
+        and bind_fun_types funs ext (typ, id, types) =
               case Symbol.look funs id
                 of NONE => Symbol.bind funs (id, (typ, types))
-                 | SOME (t, T) =>
-                    (tc_equal (!classes) (t, typ) ext;
-                     LP.appEq (fn ts => tc_equal (!classes) ts ext) (types, T);
-                     funs)
+                 | SOME (t, T) => (check_fun_types ext id (typ, types) (t, T);
+                                   funs)
+        and check_fun_types ext id (typ, types) (t, T) = let
+              val _ = app (ensure_small ext) (typ::types)
+            in
+              (tc_equal (!classes) (t, typ) ext;
+               LP.appEq (fn ts => tc_equal (!classes) ts ext) (types, T);
+               funs)
               handle UnequalLengths =>
                 (ErrorMsg.error ext ("Function '" ^ Symbol.name id ^ "' " ^
                                  "has a different number of args than before");
@@ -439,14 +464,17 @@ struct
                 | check_redefine id (SOME _) =
                     (ErrorMsg.error ext ("Redefined field: " ^ Symbol.name id);
                      raise ErrorMsg.Error)
+              fun merge_funs ((f, (t, types, p)), funs) =
+                    case Symbol.look funs f
+                      of NONE => Symbol.bind funs (f, (t, types, p))
+                       | SOME (t', types', p') => raise Fail "fo"
 
               val pdata = Symbol.look' (!classes) parent : class_data
               val pfields = #fields pdata
               val pfuns = #funs pdata
               val _ = app (fn k => check_redefine k (Symbol.look pfields k))
                           (Symbol.keys fields)
-              val funs' = foldl (fn ((f, (t, types)), funs) =>
-                                    bind_fun_types funs ext (t, f, types))
+              val funs' = foldl merge_funs
                                 funs (Symbol.elemsi pfuns)
             in
               {fields=Symbol.merge (fields, pfields),
@@ -489,16 +517,19 @@ struct
             end
           | tc_gdecl ext (A.CFun (class, typ, id, params, body)) = let
               val data = Symbol.look' (!classes) class : class_data
-              val (ret, args) =
+              val (ret, args, p) =
                   case Symbol.look (#funs data) id
                     of NONE => (ErrorMsg.error ext (Symbol.name id ^
                                                     " not defined for class");
                                 raise ErrorMsg.Error)
                      | SOME a => a
-              val _ = bind_fun (#funs data) ext (typ, id, params)
+              val _ = check_fun_types ext id (typ, #1 (LP.unzip params))
+                                             (ret, args)
+              val fields = foldl (fn ((f, (t, _)), m) => Symbol.bind m (f, t))
+                                 Symbol.empty (Symbol.elemsi (#fields data))
             in
               tc_stm (SOME class, !funs, !structs,
-                      foldl (bind_arg ext) (#fields data) params, !classes)
+                      foldl (bind_arg ext) fields params, !classes)
                      body ext (false, typ)
             end
       in app (tc_gdecl NONE) L end
