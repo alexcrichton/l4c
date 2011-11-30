@@ -13,17 +13,7 @@ struct
                      fields: A.typ Symbol.table,
                      funs:   (A.typ * A.typ list) Symbol.table}
 
-  (* typ_name : A.typ -> string
-   * Helper method to get a string description of a type
-   *)
-  fun typ_name A.BOOL = "bool"
-    | typ_name A.INT  = "int"
-    | typ_name A.NULL = "(null)"
-    | typ_name (A.PTR typ) = (typ_name typ) ^ "*"
-    | typ_name (A.ARRAY typ) = (typ_name typ) ^ "[]"
-    | typ_name (A.STRUCT ident) = "struct " ^ Symbol.name ident
-    | typ_name (A.TYPEDEF ident) = Symbol.name ident
-    | typ_name (A.CLASS ident) = "class " ^ Symbol.name ident
+  val typ_name = A.Print.pp_typ
 
   (* typs_equal : class_data Symbol.table -> A.typ * A.typ -> bool
    *

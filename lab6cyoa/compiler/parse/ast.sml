@@ -91,6 +91,7 @@ sig
   (* print as source, with redundant parentheses *)
   structure Print :
   sig
+    val pp_typ : typ -> string
     val pp_program : program -> string
   end
 
