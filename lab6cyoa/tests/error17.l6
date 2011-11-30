@@ -1,0 +1,8 @@
+//test error
+class Foo { Foo(); };
+Foo::Foo() {}
+Foo::Foo() {}
+
+int main() {
+  return 3;
+}

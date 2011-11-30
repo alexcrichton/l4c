@@ -209,6 +209,7 @@ struct
         val funs    = ref Symbol.null
         val structs = ref Symbol.null
         val types   = ref Symbol.empty
+        val classes = ref Symbol.empty
 
         val resolve = resolve_typ types
 
@@ -262,10 +263,16 @@ struct
               structs := Symbol.add (!structs) id; s
             end
           | elaborate_gdecl ext (Class (id, decls, extends)) =
-              Class (id, map (elaborate_cdecl (!types) ext) decls, extends)
-          | elaborate_gdecl ext (CFun (class, typ, id, params, body)) =
+              (classes := Symbol.bind (!classes) (id, Symbol.null);
+               Class (id, map (elaborate_cdecl (!types) ext) decls, extends))
+          | elaborate_gdecl ext (CFun (class, typ, id, params, body)) = let
+              val set = Symbol.look' (!classes) class
+            in
+              check_set_id "Class function" set ext id;
+              classes := Symbol.bind (!classes) (class, Symbol.add set id);
               CFun (class, resolve ext typ, id, check_params ext params,
                     elaborate_stm (!types, ext) body)
+            end
       in map (elaborate_gdecl NONE) prog end
 
   and elaborate_stm env (Markeds mark) =
