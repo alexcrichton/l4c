@@ -1,6 +1,7 @@
 //test return 10
 
 class Foo {
+ public:
   int foo;
   int foo();
   int same();
@@ -11,6 +12,7 @@ int Foo::foo() { return foo; }
 int Foo::same() { return foo + 100; }
 
 class Bar extends Foo {
+ public:
   int bar;
   int bar();
   Bar();
@@ -19,6 +21,7 @@ class Bar extends Foo {
 int Bar::bar() { return this->foo() + bar; }
 
 class Baz extends Bar {
+ public:
   int baz;
   int baz();
   int same();

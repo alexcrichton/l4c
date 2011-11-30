@@ -1,6 +1,7 @@
 //test return 8
 
 class String {
+ public:
   int length;
   int[] bytes;
 

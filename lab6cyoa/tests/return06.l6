@@ -1,10 +1,12 @@
 //test return 10
 class Foo {
+ public:
   int bar;
   Foo();
 };
 
 class Bar extends Foo {
+ public:
   Bar();
 };
 

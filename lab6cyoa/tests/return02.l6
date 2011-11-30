@@ -1,5 +1,6 @@
 //test return 10
 class String {
+ public:
   // instance variables
   int[] chars;
   int length;
@@ -16,6 +17,7 @@ int String::length() { return length; }
 bool String::print() { }
 
 class Foo extends String {
+ public:
   Foo();
   // stuff...
 };

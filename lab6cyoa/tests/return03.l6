@@ -1,6 +1,7 @@
 //test return 3
 
 class Foo {
+ public:
   int foo;
   int z;
   int bar();
