@@ -325,13 +325,21 @@ struct
       in
         (change_state (state', T.MOVE (result, call)), result)
       end
-    | trans_exp (e, g, s) (A.Allocate (c, args)) a = let
+    | trans_exp (e as (_, funs, _, _), g, s) (A.Allocate (c, args)) a = let
         val (s', e') = trans_exp (e, g, s) (A.Alloc (A.CLASS c)) a
         val s'' = change_state (s', T.MOVE (T.MEM (e', T.QUAD),
                     T.ELABEL (Label.literal (Symbol.name c ^ "_vtable"))))
-        val (st, _) = trans_exp (e, g, s'') (A.Call (scoped (c, c), args)) a
+
+        fun trans_args (d, (s, dests)) = let
+              val (s', result) = trans_exp (e, g, s) d false
+            in (s', dests @ [result]) end
+        val (state', args) = foldl trans_args (s'', [e']) args
+        val (_, rettyp, argtyps) = Symbol.look' funs (scoped (c, c))
+        val label = scopedl (c, c)
+        val result = T.TEMP ((Temp.new(), ref ~1), rettyp)
+        val call = T.CALL (T.ELABEL label, rettyp, ListPair.zip (args, argtyps))
       in
-        (st, e')
+        (change_state (state', T.MOVE (result, call)), e')
       end
     | trans_exp env A.This a = trans_exp env (A.Var (Symbol.symbol "this")) a
     | trans_exp env (A.Marked data) a = trans_exp env (Mark.data data) a
