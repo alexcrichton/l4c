@@ -341,7 +341,7 @@ struct
    * Converts the IR vtable into assembly format so it can be output into raw
    * assembly.
    *)
-  fun extract_vtable (table : int Symbol.table Symbol.table) = let
+  fun extract_vtable table = let
         fun build_vtable ((class_sym, funs), prev) = let
               val class = Symbol.name class_sym
               val elems = Symbol.elemsi funs
