@@ -328,7 +328,7 @@ struct
     | trans_exp (e as (_, funs, _, _), g, s) (A.Allocate (c, args)) a = let
         val (s', e') = trans_exp (e, g, s) (A.Alloc (A.CLASS c)) a
         val s'' = change_state (s', T.MOVE (T.MEM (e', T.QUAD),
-                    T.ELABEL (Label.literal (Symbol.name c ^ "_vtable"))))
+                    T.ELABEL (Label.vtable (Symbol.name c))))
 
         fun trans_args (d, (s, dests)) = let
               val (s', result) = trans_exp (e, g, s) d false
