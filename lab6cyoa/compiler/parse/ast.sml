@@ -488,8 +488,8 @@ struct
     fun pp_cdecl (Markedc data) = pp_cdecl (Mark.data data)
       | pp_cdecl (CField (typ, id)) = pp_typ typ ^ " " ^ pp_ident id ^ ";"
       | pp_cdecl (CFunDecl d) = pp_adecl (IntDecl d)
-      | pp_cdecl Public = "public"
-      | pp_cdecl Private = "private"
+      | pp_cdecl Public = "public:"
+      | pp_cdecl Private = "private:"
 
     and pp_adecl (Typedef (id, typ)) =
           "typedef " ^ Symbol.name id ^ " " ^ pp_typ typ

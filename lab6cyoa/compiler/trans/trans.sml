@@ -18,10 +18,12 @@ struct
   structure DG = DirectedGraph(DynArray)
   structure HT = HashTable
 
+  type class_table = (int Symbol.table) Symbol.table
   type func_table = (bool * Tree.typ * Tree.typ list) Symbol.table
   type struct_table = ((int * T.typ) Symbol.table * int) Symbol.table
   type temp_table = (Temp.temp * Tree.typ) Symbol.table
-  type env = func_table * struct_table * temp_table
+  type env = (class_table * Symbol.symbol option) * func_table *
+              struct_table * temp_table
   type state = T.stm list * (Graph.node_id * T.edge) list * Graph.node_id
 
   (* typ_size : 'a -> A.typ -> int
@@ -36,6 +38,7 @@ struct
     | typ_size _ (A.PTR _) = 8
     | typ_size _ (A.ARRAY _) = 8
     | typ_size (s : struct_table) (A.STRUCT id) = #2 (Symbol.look' s id)
+    | typ_size s (A.CLASS id) = #2 (Symbol.look' s id) + 8
     | typ_size _ _ = raise Fail "Invalid type"
 
   (* struct_off : 'a * 'b * 'c -> A.typ -> Symbol.symbol -> int
@@ -47,7 +50,7 @@ struct
    * @param field the name of the field to find the offset for
    * @return the offset of the field into the struct.
    *)
-  fun struct_off (_, s : struct_table, _) (A.STRUCT id) field =
+  fun struct_off (_, _, s : struct_table, _) (A.STRUCT id |A.CLASS id) field =
         Symbol.look' (#1 (Symbol.look' s id)) field
     | struct_off _ _ _ = raise Fail "Invalid struct"
 
@@ -57,6 +60,13 @@ struct
    *)
   fun const n = T.CONST (Word32.fromInt n, T.WORD)
   fun constq n = T.CONST (Word32.fromInt n, T.QUAD)
+
+  (* scopedl? : symbol * symbol -> symbol/label
+   *
+   * Concatenates the symbols into an appropriate label for scoped functions
+   *)
+  fun scoped (s1, s2) = Symbol.symbol (Symbol.name s1 ^ "^_^" ^ Symbol.name s2)
+  fun scopedl (s1, s2) = Label.scoped_func (Symbol.name s1, Symbol.name s2)
 
   (* change_state : state * T.stm -> state
    *
@@ -168,12 +178,21 @@ struct
    *         expression returned is a pure one with no side effects when
    *         evaluated, and hence can be safely thrown away.
    *)
-  fun trans_exp ((_, _, env) : env, _ : T.cfgraph, state : state)
-                (A.Var id) _ = let
-        val (temp, typ) = Symbol.look' env id
+  fun trans_exp (ev as (envi as ((_, c), _, structs, env) : env,
+                _ : T.cfgraph, state : state)) (A.Var id) a = (let
+        (* Look up the variable in the environment, then in the class *)
+        exception ClassVar
+        val (temp, typ) = case Symbol.look env id
+                            of SOME t => t
+                             | NONE   => raise ClassVar
       in
         (state, T.TEMP ((temp, ref ~1), typ))
-      end
+      end handle ClassVar => let
+        val (s', this) = trans_exp ev A.This false
+        val (off, size) = struct_off envi (A.CLASS (valOf c)) id
+      in
+        (s', T.MEM (T.BINOP (T.ADD, this, constq off), size))
+      end)
     | trans_exp (_, _, s) (A.Bool b) _ = (s, const (if b then 1 else 0))
     | trans_exp (_, _, s) (A.Const w) _ = (s, T.CONST (w, T.WORD))
     | trans_exp (_, _, s) (A.UnaryOp (A.NEGATIVE, A.Const w)) _ =
@@ -218,7 +237,7 @@ struct
       in
         (([], [(id2, T.ALWAYS), (id3, T.ALWAYS)], new_id g), tmp t)
       end
-    | trans_exp ((e as (funs, _, _)), g, state) (A.Call (name, EL)) _ = let
+    | trans_exp ((e as (_, funs, _, _)), g, state) (A.Call (name, EL)) _ = let
         fun ev (d, (s, dests)) = let
               val (s', result) = trans_exp (e, g, s) d false
             in (s', dests @ [result]) end
@@ -233,7 +252,7 @@ struct
         (change_state (state', T.MOVE (result, call)), result)
       end
     | trans_exp (_, _, state) A.Null _ = (state, constq 0)
-    | trans_exp ((e as (_, structs, _)), g, state) (A.AllocArray (typ, exp)) _ =
+    | trans_exp ((e as (_, _, structs, _)), g, state) (A.AllocArray (typ, exp)) _ =
       let
         val (state', e') = trans_exp (e, g, state) exp false
         val func = Label.extfunc (if safe () then "salloc_array" else "calloc")
@@ -244,7 +263,7 @@ struct
       in
         (change_state (state', T.MOVE (temp, call)), temp)
       end
-    | trans_exp ((_, structs, _), _, state) (A.Alloc typ) _ = let
+    | trans_exp ((_, _, structs, _), _, state) (A.Alloc typ) _ = let
         val func = Label.extfunc (if safe () then "salloc" else "calloc")
         val temp = T.TEMP ((Temp.new(), ref ~1), T.QUAD)
         val call = T.CALL (T.ELABEL func, T.QUAD,
@@ -256,7 +275,7 @@ struct
     | trans_exp (e, g, s) (A.ArrSub (e1, e2, ref typ)) a = let
         val (s', e1')  = trans_exp (e, g, s) e1 false
         val (s'', e2') = trans_exp (e, g, s') e2 false
-        val (_, structs, _) = e
+        val (_, _, structs, _) = e
         val offset = T.BINOP (T.MUL, e2', const (typ_size structs typ))
         val addr = T.BINOP (T.ADD, e1', offset)
         val dest = T.MEM (addr, trans_typ typ)
@@ -280,7 +299,7 @@ struct
     | trans_exp (env as (e, _, _)) (A.Field (exp, id, ref typ)) a = let
         val (s', exp') = trans_exp env exp true
         val (off, size) = struct_off e typ id
-        val addr = T.BINOP (T.ADD, exp', const off)
+        val addr = T.BINOP (T.ADD, exp', constq off)
         val dest = T.MEM (addr, size)
       in
         if a then (s', addr)
@@ -288,6 +307,33 @@ struct
           (change_state (s', T.MOVE (t, dest)), t)
         end
       end
+    | trans_exp (env as ((cs, _), funs, _, _), g, s)
+                (A.Invoke (e, (ref class, method), args)) a = let
+        val (s', e') = trans_exp (env, g, s) e true
+        (* calculate the address of the function *)
+        val index = Symbol.look' (Symbol.look' cs class) method
+        val addr = T.MEM (T.BINOP (T.ADD, T.MEM (e', T.QUAD),
+                                   constq (index * 8)), T.QUAD)
+        (* setup the function call *)
+        fun trans_args (d, (s, dests)) = let
+              val (s', result) = trans_exp (env, g, s) d false
+            in (s', dests @ [result]) end
+        val (state', args) = foldl trans_args (s', []) args
+        val (_, rettyp, argtyps) = Symbol.look' funs (scoped (class, method))
+        val result = T.TEMP ((Temp.new(), ref ~1), rettyp)
+        val call = T.CALL (addr, rettyp, ListPair.zip (args, argtyps))
+      in
+        (change_state (state', T.MOVE (result, call)), result)
+      end
+    | trans_exp (e, g, s) (A.Allocate (c, args)) a = let
+        val (s', e') = trans_exp (e, g, s) (A.Alloc (A.CLASS c)) a
+        val s'' = change_state (s', T.MOVE (T.MEM (e', T.QUAD),
+                    T.ELABEL (Label.literal (Symbol.name c ^ "_vtable"))))
+        val (st, _) = trans_exp (e, g, s'') (A.Call (scoped (c, c), args)) a
+      in
+        (st, e')
+      end
+    | trans_exp env A.This a = trans_exp env (A.Var (Symbol.symbol "this")) a
     | trans_exp env (A.Marked data) a = trans_exp env (Mark.data data) a
 
   (* trans_conditional : env * (id * T.edge) * (id * T.edge) -> T.exp -> unit
@@ -392,12 +438,12 @@ struct
         val (state, e') = trans_exp env e false
         val _ = commit g (change_state (state, T.RETURN e'))
       in ([], [], new_id g) end
-    | trans_stm (env as (f, g, _)) (A.Seq (s1, s2)) lp = let
+    | trans_stm (env as (e, g, _)) (A.Seq (s1, s2)) lp = let
         val state = trans_stm env s1 lp
-      in trans_stm (f, g, state) s2 lp end
-    | trans_stm ((f, s, e), g, state) (A.Declare (id, typ, stm)) lp = let
+      in trans_stm (e, g, state) s2 lp end
+    | trans_stm ((c, f, s, e), g, state) (A.Declare (id, typ, stm)) lp = let
         val e' = Symbol.bind e (id, (Temp.new (), trans_typ typ))
-      in trans_stm ((f, s, e'), g, state) stm lp end
+      in trans_stm ((c, f, s, e'), g, state) stm lp end
     | trans_stm env (A.Express e) _ = let
         val t = T.TEMP ((Temp.new(), ref ~1), T.QUAD)
         val (state, e') = trans_exp env e false
@@ -413,22 +459,31 @@ struct
    * @param prog the AST program
    * @return a list of statements in the intermediate language.
    *)
-  fun translate_fun (funs, structs) (A.Fun (typ, name, args, body)) = let
+  fun trans_fun (cs, funs, structs) (typ, name, args, body) = let
         fun bind ((typ, id), e) =
               Symbol.bind e (id, (Temp.new (), trans_typ typ))
         val e = foldr bind Symbol.empty args
-        val graph_rec = DG.graph (Symbol.name name,
+        val graph_rec = DG.graph (Label.name name,
                                   DynArray.array (10, ~1), 10)
         val G.GRAPH g = graph_rec
         val id = new_id graph_rec
-        val _ = trans_stm ((funs, structs, e), graph_rec, ([], [], id))
-                          (A.remove_for body A.Nop)
-                          (ref [], ~1)
+        val state = trans_stm ((cs, funs, structs, e), graph_rec, ([], [], id))
+                              (A.remove_for body A.Nop)
+                              (ref [], ~1)
+        val _ = commit graph_rec (change_state (state, T.RETURN (constq 0)))
         val _ = #set_entries g [id]
         val targs = map (fn (_, id) => Symbol.look' e id) args
       in
-        SOME (Label.intfunc (Symbol.name name), trans_typ typ, targs, graph_rec)
+        SOME (name, trans_typ typ, targs, graph_rec)
       end
+  and translate_fun env (A.Fun (typ, name, args, body)) =
+        trans_fun env (typ, Label.intfunc (Symbol.name name), args, body)
+    | translate_fun ((cs, _), funs, structs)
+                    (A.CFun (class, typ, name, args, body)) =
+        let val this = (A.PTR (A.CLASS class), Symbol.symbol "this") in
+          trans_fun ((cs, SOME class), funs, structs)
+                    (typ, scopedl (class, name), this::args, body)
+        end
     | translate_fun env (A.Markedg data) = translate_fun env (Mark.data data)
     | translate_fun _ _ = NONE
 
@@ -445,9 +500,14 @@ struct
           | build_funs (A.Fun (t, id, L, _), s) =
               Symbol.bind s (id, (false, trans_typ t,
                                   map trans_typ (#1 (ListPair.unzip L))))
+          | build_funs (A.CFun (c, t, id, L, b), s) =
+              let val this = (A.PTR (A.CLASS c), Symbol.symbol "this") in
+                build_funs (A.Fun (t, scoped (c, id), this::L, b), s)
+              end
           | build_funs (A.Markedg data, s) = build_funs (Mark.data data, s)
           | build_funs (_, s) = s
         val funs = foldr build_funs Symbol.empty p
+
         fun field_size structs ((typ, id), (s, n)) = let
               val size = typ_size structs typ
               val pad = if size = 0 orelse n mod size = 0 then 0
@@ -456,11 +516,40 @@ struct
             in
               (Symbol.bind s (id, (n + pad, typ')), n + pad + size)
             end
+        fun cfield_size structs (A.CField f, fs) = field_size structs (f, fs)
+          | cfield_size structs (A.Markedc data, fs) =
+              cfield_size structs (Mark.data data, fs)
+          | cfield_size structs (_, fs) = fs
         fun build_struct (A.Struct (id, L), s) =
               Symbol.bind s (id, foldl (field_size s) (Symbol.empty, 0) L)
+          | build_struct (A.Class (id, L, parent), s) = let
+              val base = case parent
+                           of NONE     => (Symbol.empty, 8)
+                            | SOME ext => Symbol.look' s ext
+              in
+                Symbol.bind s (id, foldl (cfield_size s) base L)
+              end
           | build_struct (A.Markedg data, s) = build_struct (Mark.data data, s)
           | build_struct (_, s) = s
         val structs = foldl build_struct Symbol.empty p
-      in List.mapPartial (translate_fun (funs, structs)) p end
+
+        fun cfun_idx classes (A.CFunDecl (_, id, _), s) =
+              Symbol.bind s (id, Symbol.count s)
+          | cfun_idx classes (A.Markedc data, s) =
+              cfun_idx classes (Mark.data data, s)
+          | cfun_idx _ (_, s) = s
+        fun build_classes (A.Class (id, L, parent), c) = let
+              val base = case parent
+                           of NONE     => Symbol.empty
+                            | SOME ext => Symbol.look' c ext
+              in
+                Symbol.bind c (id, foldl (cfun_idx c) base L)
+              end
+          | build_classes (A.Markedg data, c) =
+              build_classes (Mark.data data, c)
+          | build_classes (_, c) = c
+        val classes = foldl build_classes Symbol.empty p
+      in List.mapPartial (translate_fun ((classes, NONE), funs, structs)) p end
+      (* TODO - also need to generate the v-tables *)
 
 end
