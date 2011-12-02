@@ -78,7 +78,7 @@ struct
     | fold_exp tbl (T.CALL (l, t, P)) = let
         fun map_params (e, t) = (folde tbl e, t)
       in
-        (T.CALL (l, t, map map_params P), false)
+        (T.CALL (folde tbl l, t, map map_params P), false)
       end
     | fold_exp tbl (T.BINOP (oper, e1, e2)) = let
         val (e1', p1) = fold_exp tbl e1

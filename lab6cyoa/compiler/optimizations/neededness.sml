@@ -40,7 +40,7 @@ struct
     | rulegen_exp (T.MEM (e, _)) = let
         val (U, N, s) = rulegen_exp e
       in (U, U, true) end
-    | rulegen_exp (T.CALL (_, _, L)) = let
+    | rulegen_exp (T.CALL (e, _, L)) = let
         fun merge ((e, _), (U, _, s)) = let
               val (U', _, s') = rulegen_exp e
               val U'' = U @ U'
@@ -48,7 +48,7 @@ struct
               (U'', U'', true)
             end
       in
-        foldr merge ([], [], true) L
+        foldr merge (rulegen_exp e) L
       end
     | rulegen_exp (T.PHI _) = raise Fail "No phis in neededness"
 

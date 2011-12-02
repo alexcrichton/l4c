@@ -37,8 +37,8 @@ struct
     | map_exp m (T.PHI L) = T.PHI (map (map_tmp m) L)
     | map_exp m (T.BINOP (oper, e1, e2)) =
         T.BINOP (oper, map_exp m e1, map_exp m e2)
-    | map_exp m (T.CALL (l, typ, L)) =
-        T.CALL (l, typ, map (fn (e, typ) => (map_exp m e, typ)) L)
+    | map_exp m (T.CALL (e, typ, L)) =
+        T.CALL (map_exp m e, typ, map (fn (e, typ) => (map_exp m e, typ)) L)
     | map_exp m (T.MEM (e, t)) = T.MEM (map_exp m e, t)
     | map_exp _ e = e
 

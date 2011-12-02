@@ -23,8 +23,8 @@ struct
     (*| mape tbl (T.PHI L) = T.PHI (map (mape tbl) L)*) (* TODO *)
     | mape tbl (T.BINOP (oper, e1, e2)) =
         T.BINOP (oper, mape tbl e1, mape tbl e2)
-    | mape tbl (T.CALL (l, typ, args)) =
-        T.CALL (l, typ, map (fn (e, t) => (mape tbl e, typ)) args)
+    | mape tbl (T.CALL (e, typ, args)) =
+        T.CALL (mape tbl e, typ, map (fn (e, t) => (mape tbl e, typ)) args)
     | mape tbl (T.MEM (e, typ)) = T.MEM (mape tbl e, typ)
     | mape _ e = e
 
