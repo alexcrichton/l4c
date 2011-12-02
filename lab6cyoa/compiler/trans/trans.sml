@@ -332,7 +332,7 @@ struct
         val (state', args) = foldl (trans_args (env, g)) (s', []) args
         val (_, rettyp, argtyps) = Symbol.look' funs (scoped (class, method))
         val result = T.TEMP ((Temp.new(), ref ~1), rettyp)
-        val call = T.CALL (addr, rettyp, ListPair.zip (args, argtyps))
+        val call = T.CALL (addr, rettyp, ListPair.zipEq (e' :: args, argtyps))
       in
         (change_state (state', T.MOVE (result, call)), result)
       end
