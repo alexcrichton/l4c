@@ -171,6 +171,7 @@ struct
               AS.BINOP (oper, map_op op1, map_op op2)
           | map_instr (AS.MOV (op1, op2)) = AS.MOV (map_op op1, map_op op2)
           | map_instr (AS.MOVFLAG (op1, c)) = AS.MOVFLAG (map_op op1, c)
+          | map_instr (AS.CALL (oper, n)) = AS.CALL (map_op oper, n)
           | map_instr i = i
       in
         map map_instr L

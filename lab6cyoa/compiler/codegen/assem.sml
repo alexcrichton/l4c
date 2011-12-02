@@ -211,7 +211,7 @@ struct
                                        else format_reg64 r) ^ format_size size
     | format_operand (MEM (r, size))  = "(" ^ format_operand r ^ ")"
                                       ^ format_size size
-    | format_operand (LABELOP l) = Label.name l
+    | format_operand (LABELOP l) = "$" ^ Label.name l
 
   (* format_operand8 : operand -> string
    *
@@ -265,7 +265,8 @@ struct
         "movzbq " ^ format_operand8 d ^ ", " ^ format_operand d
     | format_instr (MOVFLAG (d, _)) =
         "movzbl " ^ format_operand8 d ^ ", " ^ format_operand d
-    | format_instr (CALL (oper, _)) = "callq " ^ format_operand oper
+    | format_instr (CALL (LABELOP l, _)) = "callq " ^ Label.name l
+    | format_instr (CALL (oper, _)) = "callq *" ^ format_operand oper
     | format_instr (ASM str) = str
     | format_instr (DIRECTIVE str) = str
     | format_instr (LABEL l) = Label.name l ^ ":"

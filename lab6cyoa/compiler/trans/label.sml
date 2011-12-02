@@ -53,10 +53,11 @@ struct
   fun name (s, GENERIC i) = "." ^ s ^ Int.toString i
     | name (s, LITERAL) = "." ^ s
     | name (s, INTFUNC) = extprefix ^ "_c0_" ^ s
-    | name (s, SCOPED scope)  = extprefix ^ "_c0" ^ scope ^ "_" ^ s
+    | name (s, SCOPED scope)  = extprefix ^ "_c0_" ^ scope ^ "$$" ^ s
     | name (s, EXTFUNC) = extprefix ^ s
 
-  fun str (s, _) = s
+  fun str (s, SCOPED scope) = scope ^ "$$" ^ s
+    | str (s, _) = s
   fun isfunc (_, (EXTFUNC | INTFUNC)) = true
     | isfunc _ = false
   fun hash label = HashString.hashString (name label)
