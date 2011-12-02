@@ -16,6 +16,8 @@ int Foo::bar() {
   return foo;
 }
 
+int bar() { return 4; }
+
 int main() {
   Foo *f = new Foo();
   return f->bar();
