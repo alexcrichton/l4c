@@ -30,13 +30,14 @@ sig
     | RETURN of exp
     | NOP
 
+  type vtables = (int Symbol.table) Symbol.table
   type block = stm list
   type cfgraph = (block, edge, int DynArray.array) Graph.graph
   type cfg_func = Label.label * typ * (Temp.temp * typ) list * cfgraph
-  type cfg = cfg_func list
+  type cfg = cfg_func list * vtables
 
   type func = Label.label * typ * (Temp.temp * typ) list * stm list
-  type program = func list
+  type program = func list * vtables
 
   val commutative : binop -> bool
   val associative : binop -> bool
@@ -80,13 +81,14 @@ struct
     | RETURN of exp
     | NOP
 
+  type vtables = (int Symbol.table) Symbol.table
   type block = stm list
   type cfgraph = (block, edge, int DynArray.array) Graph.graph
   type cfg_func = Label.label * typ * (Temp.temp * typ) list * cfgraph
-  type cfg = cfg_func list
+  type cfg = cfg_func list * vtables
 
   type func = Label.label * typ * (Temp.temp * typ) list * stm list
-  type program = func list
+  type program = func list * vtables
 
   fun commutative ADD = true
     | commutative SUB = false
@@ -192,7 +194,7 @@ struct
                           tab (String.concatWith "\n" (map pp_stm stms)) ^
                           "\n\n"
 
-    and pp_program [] = ""
-      | pp_program (func::funcs) = pp_func func ^ pp_program funcs
+    and pp_program ([], _) = ""
+      | pp_program (func::funcs, c) = pp_func func ^ pp_program (funcs, c)
   end
 end

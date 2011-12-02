@@ -1,7 +1,7 @@
 signature SSA =
 sig
-  val ssa : Tree.cfg -> unit
-  val dessa : Tree.cfg -> Tree.program
+  val ssa : Tree.cfg_func list -> unit
+  val dessa : Tree.cfg_func list -> Tree.func list
 end
 
 structure SSA :> SSA =

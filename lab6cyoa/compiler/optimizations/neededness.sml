@@ -163,7 +163,7 @@ struct
    *
    * Eliminates unneeded code from the given program
    *)
-  fun eliminate prog = map eliminate_stms prog
+  fun eliminate (prog, vt) = (map eliminate_stms prog, vt)
   and eliminate_stms (id, typ, args, L) = let
         val labels = HT.mkTable (Label.hash, Label.equal)
                                 (32, Fail "Label not found")

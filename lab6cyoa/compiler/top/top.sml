@@ -171,7 +171,7 @@ struct
 
     (* IR translation/Optimizations *)
     val _ = Flag.guard O.flag_verbose say "Translating..."
-    val cfg = P.time ("Translating", fn () => Trans.translate ast)
+    val (cfg, vtables) = P.time ("Translating", fn () => Trans.translate ast)
     val _ = Flag.guard O.flag_dotcfg (fn () => app (pretty "non-ssa") cfg) ()
 
     val _ = P.time ("SSA", fn () => SSA.ssa cfg)
@@ -215,7 +215,8 @@ struct
                   func   = CFGCoalesce.optimize
                 }]
 
-    val ir = P.time ("Flatten", fn () => SSA.dessa cfg')
+    val funs = P.time ("Flatten", fn () => SSA.dessa cfg')
+    val ir = (funs, vtables)
 
     val ir' = if not (O.opt_on 0) then ir
               else P.time ("Neededness", fn () => Neededness.eliminate ir)

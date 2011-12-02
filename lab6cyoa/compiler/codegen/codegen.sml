@@ -367,10 +367,10 @@ struct
    * @param stmts a list of statements in the intermediate language
    * @return a list of instructions with allocated registers
    *)
-  fun codegen program = let
+  fun codegen (program, vtables) = let
         fun geni (id, t, T, L) = (AS.LABEL id) :: munch_function (id, t, T, L)
       in
-        foldr (op @) [] (map geni program)
+        (foldr (op @) [] (map geni program)) @ extract_vtable vtables
       end
 
 end

@@ -557,7 +557,9 @@ struct
               build_classes (Mark.data data, c)
           | build_classes (_, c) = c
         val classes = foldl build_classes Symbol.empty p
-      in List.mapPartial (translate_fun ((classes, NONE), funs, structs)) p end
-      (* TODO - also need to generate the v-tables *)
+      in
+        (List.mapPartial (translate_fun ((classes, NONE), funs, structs)) p,
+         classes)
+      end
 
 end

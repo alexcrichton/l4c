@@ -6,9 +6,9 @@
 
 signature CFG =
 sig
-  val map_stms : (Tree.stm -> Tree.stm) -> Tree.cfg -> unit
+  val map_stms : (Tree.stm -> Tree.stm) -> Tree.cfg_func list -> unit
 
-  val app_block : (Tree.cfgraph * int -> unit) -> Tree.cfg -> unit
+  val app_block : (Tree.cfgraph * int -> unit) -> Tree.cfg_func list -> unit
 
   val rev_postorder : Tree.cfgraph -> (int list * int array)
 
@@ -72,7 +72,7 @@ struct
    * graph is not changed. The only exception to this rule is that the
    * function may delete nodes from the graph.
    *)
-  fun app_block f (L : Tree.cfg) = let
+  fun app_block f (L : Tree.cfg_func list) = let
         fun appg (_, _, _, G.GRAPH g) =
               app (fn nid => if #has_node g nid then f (G.GRAPH g, nid) else ())
                   (#1 (rev_postorder (G.GRAPH g)))
