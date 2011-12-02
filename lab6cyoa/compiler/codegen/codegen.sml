@@ -354,8 +354,8 @@ struct
                 map (fn l => AS.ASM (".quad " ^ Label.name l)) labels @ prev
             end
       in
-        AS.ASM ".rodata" ::
-          foldl build_vtable [] (Symbol.elemsi table)
+        (* TODO: put this in rodata... *)
+        foldl build_vtable [] (Symbol.elemsi table)
       end
 
   (* codegen : T.program -> AS.instr list

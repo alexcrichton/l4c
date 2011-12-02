@@ -14,8 +14,8 @@ use vars qw($LAB $COMPILER $COMPILER_EXEC $COMPILER_ARGS @LEXTS $GCC $RUNTIME
             $REF_COMPILER $REF_COMPILER_ARGS $MAKE_TIMEOUT $COMPILER_TIMEOUT
             $GCC_TIMEOUT $RUN_TIMEOUT $TEST_SUITES_PATH $MAX_VALIDATE_SCORE
             $MIN_TESTS &tests_grade $CMPL_GRADE
-			$BENCH_LINK @BENCH_FLAGS @BENCH_SAFES $BENCH_RUN_TIMEOUT
-			$BENCH_EPSILON $BENCH_OUTLYING $BENCH_SUITE $BENCH_LEXT);
+      $BENCH_LINK @BENCH_FLAGS @BENCH_SAFES $BENCH_RUN_TIMEOUT
+      $BENCH_EPSILON $BENCH_OUTLYING $BENCH_SUITE $BENCH_LEXT);
 
 our $LAB             = 4;
 
@@ -26,7 +26,7 @@ our $COMPILER_EXEC  = "bin/$COMPILER";                  # compiler executable
 our $COMPILER_ARGS  = "-l $rt_stem.h0";
 our @LEXTS          = reverse map {"l$_"} (1 .. $LAB);  # source filename extensions
 
-our $GCC            = "gcc -m64";       # gcc executable and default flags
+our $GCC            = "gcc -m64 -Wl,-no_pie"; # gcc executable and default flags
 our $RUNTIME        = "$rt_stem.c";   # runtime system for linking against asm file
 
 my $c0_level = 6 - $LAB;
@@ -53,7 +53,6 @@ our $BENCH_OUTLYING = 2.0;
 
 our $BENCH_LEXT = "l4";
 our $BENCH_SUITE = "bench";
-
 
 our $MAX_VALIDATE_SCORE = 20;    # maximal score for test case validation
 our $MIN_TESTS          = 14;    # minimum number of tests to submit
