@@ -27,7 +27,7 @@ struct
   type stmrule = temp list * temp option * label list * temp list * bool
 
   fun rulegen_exp (T.TEMP (t, _)) = ([t], [], false)
-    | rulegen_exp (T.CONST _) = ([], [], false)
+    | rulegen_exp (T.CONST _ | T.ELABEL _) = ([], [], false)
     | rulegen_exp (T.BINOP (oper, e1, e2)) = let
         val (U1, N1, s1) = rulegen_exp e1
         val (U2, N2, s2) = rulegen_exp e2

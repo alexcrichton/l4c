@@ -21,6 +21,7 @@ sig
     | BINOP of binop * exp * exp
     | CALL of Label.label * typ * (exp * typ) list
     | MEM of exp * typ
+    | ELABEL of Label.label
   and stm =
       MOVE of exp * exp
     | LABEL of Label.label
@@ -70,6 +71,7 @@ struct
     | BINOP of binop * exp * exp
     | CALL of Label.label * typ * (exp * typ) list
     | MEM of exp * typ
+    | ELABEL of Label.label
   and stm =
       MOVE of exp * exp
     | LABEL of Label.label
@@ -172,6 +174,7 @@ struct
           Label.name l ^ "(" ^ args ^ ")"
         end
       | pp_exp (MEM (e, t)) = "M[" ^ pp_exp e ^ "]" ^ pp_typ t
+      | pp_exp (ELABEL l) = Label.name l
 
     fun pp_stm (MOVE (e1,e2)) = pp_exp e1 ^ " = " ^ pp_exp e2
       | pp_stm (COND e) = "if (" ^ pp_exp e ^ ") ..."

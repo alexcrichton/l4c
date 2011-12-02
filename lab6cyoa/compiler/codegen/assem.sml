@@ -18,6 +18,7 @@ sig
    | REG of reg * size
    | TEMP of Temp.temp * size
    | MEM of operand * size
+   | LABELOP of Label.label
 
   datatype operation = ADD | SUB | MUL | DIV | MOD | CMP
                      | AND | OR  | XOR | LSH | RSH
@@ -66,6 +67,7 @@ struct
    | REG of reg * size
    | TEMP of Temp.temp * size
    | MEM of operand * size
+   | LABELOP of Label.label
 
   datatype operation = ADD | SUB | MUL | DIV | MOD | CMP
                      | AND | OR  | XOR | LSH | RSH
@@ -96,6 +98,7 @@ struct
 
   fun size (MEM (_, t) | REG (_, t) |
             TEMP (_, t) | IMM(_, t)) = t
+    | size (LABELOP _) = QUAD
 
   (* format_reg : reg -> string
    *
@@ -208,6 +211,7 @@ struct
                                        else format_reg64 r) ^ format_size size
     | format_operand (MEM (r, size))  = "(" ^ format_operand r ^ ")"
                                       ^ format_size size
+    | format_operand (LABELOP l) = Label.name l
 
   (* format_operand8 : operand -> string
    *
@@ -473,6 +477,8 @@ struct
     | compare (_, TEMP _) = GREATER
     | compare (MEM _, _) = LESS
     | compare (_, MEM _) = GREATER
+    | compare (LABELOP _, _) = LESS
+    | compare (_, LABELOP _) = GREATER
 
   (* oper_equal : operand * operand -> bool
    *
@@ -484,10 +490,9 @@ struct
    *
    * Hashes an operand
    *)
-  fun oper_hash (IMM _) = Word.fromInt ~1
+  fun oper_hash (IMM _ | MEM _ | LABELOP _) = Word.fromInt ~1
     | oper_hash (REG (r, _)) = Word.fromInt (reg_num r)
     | oper_hash (TEMP (t, _)) = (Temp.hash t) + (Word.fromInt 15)
-    | oper_hash (MEM oper) = Word.fromInt ~1
 
 end
 

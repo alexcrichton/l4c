@@ -113,7 +113,7 @@ struct
                                    fn () => exp_compare (e12, e22)))
     | exp_compare (T.BINOP _, _) = LESS
     | exp_compare (_, T.BINOP _) = GREATER
-    | exp_compare (_, (T.PHI _ | T.MEM _ | T.CALL _)) = GREATER
+    | exp_compare (_, (T.PHI _ | T.MEM _ | T.CALL _ | T.ELABEL _)) = GREATER
 
   structure ET = BinaryMapFn(struct
                                type ord_key = T.exp

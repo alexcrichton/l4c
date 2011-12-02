@@ -55,7 +55,8 @@ struct
    *)
   fun munch_exp ts d (T.CONST (n, typ)) = [AS.MOV(d, AS.IMM (n, munch_typ typ))]
     | munch_exp ts d (T.TEMP (t, typ)) = [AS.MOV (d, munch_temp ts (t, typ))]
-    | munch_exp ts d (T.BINOP (binop, e1, e2)) = munch_binop ts d (binop, e1, e2)
+    | munch_exp ts d (T.BINOP (binop, e1, e2)) =
+        munch_binop ts d (binop, e1, e2)
     | munch_exp ts d (T.MEM (a, typ)) = let
         val t = AS.TEMP (Temp.new(), AS.QUAD)
         val instrs = munch_exp ts t a
@@ -80,7 +81,8 @@ struct
         in
           I @ moves @ [AS.CALL (l, length L), AS.MOV (d, ret)]
         end
-    | munch_exp _ _ _ = raise Fail "Invalid expression"
+    | munch_exp ts d (T.ELABEL l) = [AS.MOV (d, AS.LABELOP l)]
+    | munch_exp _ _ (T.PHI _) = raise Fail "Invalid expression"
 
   (* munch_half : T.typ -> AS.binop -> T.exp -> (AS.operand * AS.instr list)
    *
