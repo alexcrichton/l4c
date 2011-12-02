@@ -469,8 +469,9 @@ struct
    *)
   fun compare (REG (r1, _), REG (r2, _)) = Int.compare (reg_num r1, reg_num r2)
     | compare (TEMP (t1, _), TEMP (t2, _)) = Temp.compare (t1, t2)
-    | compare (IMM w1, IMM w2) = EQUAL
-    | compare (MEM m1, MEM m2) = EQUAL
+    | compare (IMM _, IMM _) = EQUAL
+    | compare (MEM _, MEM _) = EQUAL
+    | compare (LABELOP _, LABELOP _) = EQUAL
     | compare (IMM _, _)  = LESS
     | compare (_, IMM _)  = GREATER
     | compare (TEMP _, _) = LESS
