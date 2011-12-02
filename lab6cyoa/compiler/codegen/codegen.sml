@@ -336,6 +336,28 @@ struct
         add_rsp (~offset) :: foldr (alter_ret [add_rsp offset]) [] assem'
       end
 
+  (* extract_vtable : T.vtable -> AS.instr list
+   *
+   * Converts the IR vtable into assembly format so it can be output into raw
+   * assembly.
+   *)
+  fun extract_vtable (table : int Symbol.table Symbol.table) = let
+        fun build_vtable ((class_sym, funs), prev) = let
+              val class = Symbol.name class_sym
+              val elems = Symbol.elemsi funs
+              val elems' = ListMergeSort.sort (fn ((_, a), (_, b)) => a < b)
+                                              elems
+              val labels = map (fn (f, _) =>
+                                Label.scoped_func (class, Symbol.name f)) elems'
+            in
+              AS.LABEL (Label.vtable class) ::
+                map (fn l => AS.ASM (".quad " ^ Label.name l)) labels @ prev
+            end
+      in
+        AS.ASM ".rodata" ::
+          foldl build_vtable [] (Symbol.elemsi table)
+      end
+
   (* codegen : T.program -> AS.instr list
    *
    * Performs code generation on a list of statements of the intermediate
