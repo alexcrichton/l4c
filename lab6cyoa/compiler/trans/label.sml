@@ -12,6 +12,7 @@ sig
   val literal : string -> label
   val extfunc : string -> label
   val intfunc : string -> label
+  val scoped_func : string * string -> label
   val name : label -> string
   val str : label -> string
   val hash : label -> word
@@ -22,7 +23,7 @@ end
 
 structure Label :> LABEL =
 struct
-  datatype typ = EXTFUNC | INTFUNC | LITERAL | GENERIC of int
+  datatype typ = EXTFUNC | INTFUNC | LITERAL | SCOPED of string | GENERIC of int
   type label = string * typ
 
   local
@@ -45,13 +46,15 @@ struct
 
   fun extfunc str = (str, EXTFUNC)
   fun intfunc str = (str, INTFUNC)
+  fun scoped_func (scope, str) = (str, SCOPED scope)
 
   val extprefix = if SMLofNJ.SysInfo.getOSName () = "Darwin" then "_" else ""
 
   fun name (s, GENERIC i) = "." ^ s ^ Int.toString i
     | name (s, LITERAL) = "." ^ s
     | name (s, INTFUNC) = extprefix ^ "_c0_" ^ s
-    | name (s, _) = extprefix ^ s
+    | name (s, SCOPED scope)  = extprefix ^ "_c0" ^ scope ^ "_" ^ s
+    | name (s, EXTFUNC) = extprefix ^ s
 
   fun str (s, _) = s
   fun isfunc (_, (EXTFUNC | INTFUNC)) = true
