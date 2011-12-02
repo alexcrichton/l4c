@@ -288,7 +288,7 @@ struct
         tc_ensure env (e1, A.BOOL) ext; tc_ensure env (e3, t2) ext;
         tref := t2; t2
       end
-    | tc_exp (env as (opt, _, _, _, classes)) (A.Invoke (e, id, E)) ext =
+    | tc_exp (env as (opt, _, _, _, classes)) (A.Invoke (e, (c, id), E)) ext =
        (case tc_exp env e ext
           of A.CLASS class => let
               val data = Symbol.look' classes class : class_data
@@ -297,7 +297,7 @@ struct
                 of SOME (ret, args, p) =>
                       (resolve_access (ext, "Cannot call private function")
                                       (opt, class) p;
-                       tc_args (ext, id, env) (E, args); ret)
+                       c := class; tc_args (ext, id, env) (E, args); ret)
                  | NONE => (ErrorMsg.error ext ("Unknown method '" ^
                                                 Symbol.name id ^ "' for class: "
                                                 ^ Symbol.name class);

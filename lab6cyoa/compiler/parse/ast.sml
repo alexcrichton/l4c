@@ -50,7 +50,7 @@ sig
    | Call of ident * exp list
    | Deref of exp * typ ref
    | Field of exp * ident * typ ref
-   | Invoke of exp * ident * exp list
+   | Invoke of exp * (ident ref * ident) * exp list
    | ArrSub of exp * exp * typ ref
    | Alloc of typ
    | AllocArray of typ * exp
@@ -148,7 +148,7 @@ struct
    | UnaryOp of unop * exp
    | Ternary of exp * exp * exp * typ ref
    | Call of ident * exp list
-   | Invoke of exp * ident * exp list
+   | Invoke of exp * (ident ref * ident) * exp list
    | Deref of exp * typ ref
    | Field of exp * ident * typ ref
    | ArrSub of exp * exp * typ ref
@@ -449,7 +449,7 @@ struct
       | pp_exp (UnaryOp (oper, e)) = pp_unop oper ^ "(" ^ pp_exp e ^ ")"
       | pp_exp (Ternary (e1, e2, e3, _)) =
           "((" ^ pp_exp e1 ^ ") ? (" ^ pp_exp e2 ^ ") : (" ^ pp_exp e3 ^ "))"
-      | pp_exp (Invoke (e, id, E)) = pp_exp e ^ "." ^ pp_exp (Call (id, E))
+      | pp_exp (Invoke (e, (_, id), E)) = pp_exp e ^ "." ^ pp_exp (Call (id, E))
       | pp_exp (Allocate (id, E)) = "new " ^ pp_ident id ^ "(" ^
           String.concatWith ", " (map pp_exp E) ^ ")"
       | pp_exp (Marked marked_exp) = pp_exp (Mark.data marked_exp)
