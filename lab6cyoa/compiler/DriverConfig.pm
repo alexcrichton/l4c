@@ -26,7 +26,11 @@ our $COMPILER_EXEC  = "bin/$COMPILER";                  # compiler executable
 our $COMPILER_ARGS  = "-l $rt_stem.h0";
 our @LEXTS          = reverse map {"l$_"} (1 .. $LAB);  # source filename extensions
 
-our $GCC            = "gcc -m64 -Wl,-no_pie"; # gcc executable and default flags
+if (`uname` eq "Darwin\n") {
+  our $GCC            = "gcc -m64 -Wl,-no_pie"; # gcc executable and default flags
+} else {
+  our $GCC            = "gcc -m64"; # gcc executable and default flags
+}
 our $RUNTIME        = "$rt_stem.c";   # runtime system for linking against asm file
 
 my $c0_level = 6 - $LAB;
