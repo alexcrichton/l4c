@@ -345,7 +345,7 @@ struct
         fun build_vtable ((class_sym, funs), prev) = let
               val class = Symbol.name class_sym
               val elems = Symbol.elemsi funs
-              val elems' = ListMergeSort.sort (fn ((_, a), (_, b)) => a < b)
+              val elems' = ListMergeSort.sort (fn ((_, a), (_, b)) => a > b)
                                               elems
               val labels = map (fn (f, _) =>
                                 Label.scoped_func (class, Symbol.name f)) elems'
