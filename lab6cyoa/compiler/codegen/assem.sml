@@ -211,7 +211,7 @@ struct
                                        else format_reg64 r) ^ format_size size
     | format_operand (MEM (r, size))  = "(" ^ format_operand r ^ ")"
                                       ^ format_size size
-    | format_operand (LABELOP l) = "$" ^ Label.name l
+    | format_operand (LABELOP l) = Label.name l ^ "(%rip)"
 
   (* format_operand8 : operand -> string
    *
@@ -293,8 +293,8 @@ struct
       in
         (rinstrs @ [MOV (swapr size, MEM (r', size))], swapr size)
       end
-    | findr (s as REG (STACK _, size)) =
-        ([MOV (swapr size, s)], swapr size)
+    | findr (s as REG (STACK _, size)) = ([MOV (swapr size, s)], swapr size)
+    | findr (s as LABELOP _) = ([MOV (swapr QUAD, s)], swapr QUAD)
     | findr r = ([], r)
 
   (* resolve_mem : operand * operand -> (instr list * operand * operand)
