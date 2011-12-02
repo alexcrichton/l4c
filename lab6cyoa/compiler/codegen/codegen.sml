@@ -72,6 +72,15 @@ struct
           fun eval ((e, t), (i, T, I)) = let val d = argdest t i in
                                            (i - 1, d::T, (munch_exp ts d e) @ I)
                                          end
+
+          val (instrs, callable) = case l
+                                     of (T.ELABEL lbl) => ([], AS.LABELOP lbl)
+                                      | _ => let
+                                               val tmp = AS.TEMP (Temp.new(),
+                                                                  AS.QUAD)
+                                             in
+                                               (munch_exp ts tmp l, tmp)
+                                             end
           val (_, T, I) = foldr eval (length L - 1, [], []) L
           fun mv (s as (AS.TEMP (_, typ)), (i, L)) =
                 (i - 1, AS.MOV(AS.REG(AS.arg_reg i, typ), s)::L)
@@ -79,7 +88,7 @@ struct
           val (_, moves) = foldr mv (length T - 1, []) T
           val ret = AS.REG (AS.EAX, munch_typ t)
         in
-          I @ moves @ [AS.CALL (l, length L), AS.MOV (d, ret)]
+          instrs @ I @ moves @ [AS.CALL (callable, length L), AS.MOV (d, ret)]
         end
     | munch_exp ts d (T.ELABEL l) = [AS.MOV (d, AS.LABELOP l)]
     | munch_exp _ _ (T.PHI _) = raise Fail "Invalid expression"

@@ -54,9 +54,14 @@ struct
     | rulegen f (l, A.COMMENT _) = ([], [], [l + 1])
     | rulegen f (l, A.RET) = ([eax], [], [])
     | rulegen f (l, A.LABEL _) = ([], [], [l + 1])
-    | rulegen f (l, A.CALL (_, n)) =
-        (List.tabulate (abs n, mkreg o A.arg_reg), [eax],
+    | rulegen f (l, A.CALL (callable, n)) = let
+        val use = case callable
+                    of A.MEM (m, _) => m
+                     | c => c
+      in
+        (use :: List.tabulate (abs n, mkreg o A.arg_reg), [eax],
          if n < 0 then [] else [l + 1])
+      end
     | rulegen f (l, A.ASM s) = ([], [], [l + 1])
 
   (* add_uses : OS.set -> OS.set ref -> bool

@@ -19,7 +19,7 @@ sig
     | PHI of tmp list
     | CONST of Word32.word * typ
     | BINOP of binop * exp * exp
-    | CALL of Label.label * typ * (exp * typ) list
+    | CALL of exp * typ * (exp * typ) list
     | MEM of exp * typ
     | ELABEL of Label.label
   and stm =
@@ -69,7 +69,7 @@ struct
     | PHI of tmp list
     | CONST of Word32.word * typ
     | BINOP of binop * exp * exp
-    | CALL of Label.label * typ * (exp * typ) list
+    | CALL of exp * typ * (exp * typ) list
     | MEM of exp * typ
     | ELABEL of Label.label
   and stm =
@@ -163,15 +163,15 @@ struct
     fun pp_typ WORD = ":w"
       | pp_typ QUAD = ":q"
 
-    fun pp_exp (CONST (x, typ)) = Word32Signed.toString x ^ pp_typ typ
+    and pp_exp (CONST (x, typ)) = Word32Signed.toString x ^ pp_typ typ
       | pp_exp (TEMP (t, typ)) = pp_tmp t ^ pp_typ typ
       | pp_exp (PHI L) = "PHI(" ^ String.concatWith "," (map pp_tmp L) ^ ")"
       | pp_exp (BINOP (binop, e1, e2)) =
           "(" ^ pp_exp e1 ^ " " ^ pp_binop binop ^ " " ^ pp_exp e2 ^ ")"
-      | pp_exp (CALL (l, _, L)) = let
+      | pp_exp (CALL (e, _, L)) = let
           val args = String.concatWith ", " (map (fn (e, _) => pp_exp e) L)
         in
-          Label.name l ^ "(" ^ args ^ ")"
+          pp_exp e ^ "(" ^ args ^ ")"
         end
       | pp_exp (MEM (e, t)) = "M[" ^ pp_exp e ^ "]" ^ pp_typ t
       | pp_exp (ELABEL l) = Label.name l

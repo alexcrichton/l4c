@@ -31,7 +31,7 @@ sig
    | MOVFLAG of operand * condition
    | JMP of Label.label * condition option
    | RET
-   | CALL of Label.label * int
+   | CALL of operand * int
    | ASM of string
    | LABEL of Label.label
    | DIRECTIVE of string
@@ -80,7 +80,7 @@ struct
    | MOVFLAG of operand * condition
    | JMP of Label.label * condition option
    | RET
-   | CALL of Label.label * int
+   | CALL of operand * int
    | ASM of string
    | LABEL of Label.label
    | DIRECTIVE of string
@@ -265,7 +265,7 @@ struct
         "movzbq " ^ format_operand8 d ^ ", " ^ format_operand d
     | format_instr (MOVFLAG (d, _)) =
         "movzbl " ^ format_operand8 d ^ ", " ^ format_operand d
-    | format_instr (CALL (l, _)) = "callq " ^ Label.name l
+    | format_instr (CALL (oper, _)) = "callq " ^ format_operand oper
     | format_instr (ASM str) = str
     | format_instr (DIRECTIVE str) = str
     | format_instr (LABEL l) = Label.name l ^ ":"
@@ -374,9 +374,9 @@ struct
       in
         instrs @ [MOV (d, s)]
       end
-    | instr_expand (CALL (l, n)) =
+    | instr_expand (CALL (LABELOP l, n)) =
         (* tail-recursive calls are encoded with negative argument numbers *)
-        if n >= 0 then [CALL (l, n)]
+        if n >= 0 then [CALL (LABELOP l, n)]
         else [JMP (Label.literal (Label.str l ^ "_start"), NONE)]
     | instr_expand i = [i]
 

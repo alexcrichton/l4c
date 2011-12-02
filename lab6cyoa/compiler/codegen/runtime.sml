@@ -23,7 +23,7 @@ struct
     (* salloc, safe allocate a block of memory *)
     LABEL (Label.extfunc "salloc"),
     sub8,
-    CALL (Label.extfunc "calloc", 2),
+    CALL (LABELOP (Label.extfunc "calloc"), 2),
     BINOP (CMP, eaxq, null),
     JMP (Label.extfunc "raise_segv", SOME EQ),
     add8,
@@ -37,7 +37,7 @@ struct
     BINOP (MUL, arg0, REG (arg_reg 1, QUAD)),
     BINOP (ADD, arg0, immq 8),
     MOV (REG (arg_reg 1, QUAD), immq 1),
-    CALL (Label.extfunc "calloc", 2),
+    CALL (LABELOP (Label.extfunc "calloc"), 2),
     BINOP (CMP, eaxq, null),
     JMP (Label.extfunc "raise_segv", SOME EQ),
     ASM ("popq " ^ format_operand arg0),

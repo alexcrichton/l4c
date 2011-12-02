@@ -228,7 +228,7 @@ struct
           if isext then Label.extfunc (Symbol.name name)
           else Label.intfunc (Symbol.name name)
         val result = T.TEMP ((Temp.new(), ref ~1), rettyp)
-        val call = T.CALL (label, rettyp, ListPair.zip (args, argtyps))
+        val call = T.CALL (T.ELABEL label, rettyp, ListPair.zip (args, argtyps))
       in
         (change_state (state', T.MOVE (result, call)), result)
       end
@@ -238,7 +238,7 @@ struct
         val (state', e') = trans_exp (e, g, state) exp false
         val func = Label.extfunc (if safe () then "salloc_array" else "calloc")
         val temp = T.TEMP ((Temp.new(), ref ~1), T.QUAD)
-        val call = T.CALL (func, T.QUAD,
+        val call = T.CALL (T.ELABEL func, T.QUAD,
                            [(e', T.QUAD),
                             (constq (typ_size structs typ), T.QUAD)])
       in
@@ -247,7 +247,7 @@ struct
     | trans_exp ((_, structs, _), _, state) (A.Alloc typ) _ = let
         val func = Label.extfunc (if safe () then "salloc" else "calloc")
         val temp = T.TEMP ((Temp.new(), ref ~1), T.QUAD)
-        val call = T.CALL (func, T.QUAD,
+        val call = T.CALL (T.ELABEL func, T.QUAD,
                            [(constq 1, T.QUAD),
                            (constq (typ_size structs typ), T.QUAD)])
       in

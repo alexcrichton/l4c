@@ -93,9 +93,11 @@ struct
     | peep l (L, A.BINOP (CMP, d as A.IMM _, s) ::
                   (j as A.JMP (_, SOME (A.EQ | A.NEQ))) :: R) =
         peep l (j :: A.BINOP (CMP, s, d) :: L, R)
-    | peep l (L, (c as A.CALL (l', n)) :: R) = let val (ret, R') = isret R in
+    | peep l (L, (c as A.CALL (A.LABELOP l', n)) :: R) = let
+        val (ret, R') = isret R
+      in
         if Label.equal (l, l') andalso ret then
-          peep l (A.CALL (l', ~n) :: fixargs L, R')
+          peep l (A.CALL (A.LABELOP l', ~n) :: fixargs L, R')
         else peep l (c :: L, R)
       end
     | peep l (L, i :: R) = peep l (i :: L, R)
