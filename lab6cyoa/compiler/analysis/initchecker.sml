@@ -23,13 +23,12 @@ struct
         exp_uses sym e1 orelse exp_uses sym e2 orelse exp_uses sym e3
     | exp_uses sym (A.Field (e, _, _) | A.Deref (e, _) | A.AllocArray (_, e)) =
         exp_uses sym e
-    | exp_uses sym (A.Invoke (e, _, E)) =
-        exp_uses sym e orelse
-          foldl (fn (e, u) => u orelse exp_uses sym e) false E
-    | exp_uses sym (A.Allocate (_, E) | A.Call (_, E)) =
-        foldl (fn (e, u) => u orelse exp_uses sym e) false E
+    | exp_uses sym (A.Invoke (e, _, E)) = exp_uses sym e orelse args_use sym E
+    | exp_uses sym (A.Allocate (_, E) | A.Call (_, E) | A.Super (_, E)) =
+        args_use sym E
     | exp_uses sym (A.Marked mark) = exp_uses sym (Mark.data mark)
     | exp_uses _ (A.Null | A.Alloc _ | A.Bool _ | A.Const _ | A.This) = false
+  and args_use sym E = foldl (fn (e, u) => u orelse exp_uses sym e) false E
 
   (* defines : Symbol.symbol -> A.stm -> bool
    *

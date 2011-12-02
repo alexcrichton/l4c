@@ -45,7 +45,7 @@ struct
              raise ErrorMsg.Error)
           else ()
         else if returns f then ()
-        else (ErrorMsg.error NONE ("Function " ^ Symbol.name name ^
+        else (ErrorMsg.error ext ("Function " ^ Symbol.name name ^
                                    " does not return");
               raise ErrorMsg.Error)
     | analyze_gdecl _ (A.Markedg data) =

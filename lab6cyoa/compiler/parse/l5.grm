@@ -48,7 +48,7 @@ fun genptrinc (exp, oper) =
  | LPAREN | RPAREN
  | COMMA | PERIOD | ARROW | LBRACKET | RBRACKET
  | IF | ELSE | WHILE | FOR | CONTINUE | BREAK | RETURN | TYPEDEF
- | QUESTION | COLON | CONS | PUBLIC | PRIVATE
+ | QUESTION | COLON | CONS | PUBLIC | PRIVATE | SUPER
  | UNARY | ASNOP
 (* UNARY and ASNOP are dummy terminals.
  * We need dummy terminals if we wish to assign a precedence
@@ -289,6 +289,8 @@ expnostar  : IDENT                      (A.Var IDENT)
                                                   (ref IDENT, IDENT), arg_list))
            | exp PERIOD IDENT arg_list (A.Invoke (exp, (ref IDENT, IDENT),
                                                   arg_list))
+           | SUPER arg_list             (A.Super (NONE, arg_list))
+           | SUPER ARROW IDENT arg_list (A.Super (SOME IDENT, arg_list))
 
 exp2       : PLUS exp         (SOME(A.PLUS), exp, NONE, expright)
            | MINUS exp        (SOME(A.MINUS), exp, NONE, expright)

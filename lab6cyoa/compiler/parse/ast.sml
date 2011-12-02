@@ -57,6 +57,7 @@ sig
    | Allocate of ident * exp list
    | Null
    | This
+   | Super of ident option * exp list
    | Marked of exp Mark.marked
   and stm =
      Assign  of exp * binop option * exp
@@ -157,6 +158,7 @@ struct
    | Allocate of ident * exp list
    | Null
    | This
+   | Super of ident option * exp list
    | Marked of exp Mark.marked
   and stm =
      Assign  of exp * binop option * exp
@@ -338,6 +340,8 @@ struct
           Allocate (id, map (elaborate_exp env) E)
     | elaborate_exp env (Invoke (e, id, E)) =
         Invoke (elaborate_exp env e, id, map (elaborate_exp env) E)
+    | elaborate_exp env (Super (id, E)) =
+        Super (id, map (elaborate_exp env) E)
     | elaborate_exp _ (e as (Null | Const _ | Var _ | Bool _ | This)) = e
 
   and elaborate_cdecl env _ (Markedc data) =
@@ -431,7 +435,9 @@ struct
       | pp_oper LSHIFT    = "<<"
       | pp_oper RSHIFT    = ">>"
 
-    fun pp_exp (Var id) = pp_ident id
+    fun pp_args E = "(" ^ String.concatWith ", " (map pp_exp E) ^ ")"
+
+    and pp_exp (Var id) = pp_ident id
       | pp_exp (Const c) = Word32Signed.toString c
       | pp_exp (Bool b) = if b then "true" else "false"
       | pp_exp This = "this"
@@ -442,16 +448,16 @@ struct
       | pp_exp (Alloc t) = "alloc(" ^ pp_typ t ^ ")"
       | pp_exp (AllocArray (t, e)) =
           "alloc_array(" ^ pp_typ t ^ "," ^ pp_exp e ^ ")"
-      | pp_exp (Call (id, E)) =
-          pp_ident id ^ "(" ^ String.concatWith ", " (map pp_exp E) ^ ")"
+      | pp_exp (Call (id, E)) = pp_ident id ^ pp_args E
       | pp_exp (BinaryOp (oper, e1, e2)) =
           "(" ^ pp_exp e1 ^ " " ^ pp_oper oper ^ " " ^ pp_exp e2 ^ ")"
       | pp_exp (UnaryOp (oper, e)) = pp_unop oper ^ "(" ^ pp_exp e ^ ")"
       | pp_exp (Ternary (e1, e2, e3, _)) =
           "((" ^ pp_exp e1 ^ ") ? (" ^ pp_exp e2 ^ ") : (" ^ pp_exp e3 ^ "))"
       | pp_exp (Invoke (e, (_, id), E)) = pp_exp e ^ "." ^ pp_exp (Call (id, E))
-      | pp_exp (Allocate (id, E)) = "new " ^ pp_ident id ^ "(" ^
-          String.concatWith ", " (map pp_exp E) ^ ")"
+      | pp_exp (Allocate (id, E)) = "new " ^ pp_ident id ^ pp_args E
+      | pp_exp (Super (NONE, L)) = "super" ^ pp_args L
+      | pp_exp (Super (SOME id, L)) = "super->" ^ pp_ident id ^ pp_args L
       | pp_exp (Marked marked_exp) = pp_exp (Mark.data marked_exp)
 
     fun tab str = "  " ^ (String.translate

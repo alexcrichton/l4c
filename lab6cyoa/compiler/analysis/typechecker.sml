@@ -232,7 +232,7 @@ struct
     | tc_exp _ (A.Bool _) _ = A.BOOL
     | tc_exp _ (A.Const _) _ = A.INT
     | tc_exp _ A.Null _ = A.NULL
-    | tc_exp (SOME class, _, _, _, _) A.This _ = A.PTR (A.CLASS class)
+    | tc_exp ((SOME class, _), _, _, _, _) A.This _ = A.PTR (A.CLASS class)
     | tc_exp _ A.This ext =
         (ErrorMsg.error ext "Cannot use 'self' outside of a class";
          raise ErrorMsg.Error)
@@ -248,7 +248,8 @@ struct
                             raise ErrorMsg.Error)
             | _ => (tc_ensure env (e, A.INT) ext;
                     ensure_typ_defined ext env typ; A.ARRAY typ))
-    | tc_exp (env as (c, _, structs, _, classes)) (A.Field (e, field, tr)) ext =
+    | tc_exp (env as ((c, _), _, structs, _, classes))
+             (A.Field (e, field, tr)) ext =
         (case tc_exp env e ext
            of (t as A.STRUCT id) => (tr := t;
                                      resolve_struct ext structs id field)
@@ -288,7 +289,8 @@ struct
         tc_ensure env (e1, A.BOOL) ext; tc_ensure env (e3, t2) ext;
         tref := t2; t2
       end
-    | tc_exp (env as (opt, _, _, _, classes)) (A.Invoke (e, (c, id), E)) ext =
+    | tc_exp (env as ((opt, _), _, _, _, classes))
+             (A.Invoke (e, (c, id), E)) ext =
        (case tc_exp env e ext
           of A.CLASS class => let
               val data = Symbol.look' classes class : class_data
@@ -305,10 +307,35 @@ struct
             end
            | t => (ErrorMsg.error ext ("Cannot invoke method on " ^ typ_name t);
                    raise ErrorMsg.Error))
-    | tc_exp (env as (opt, _, _, _, classes)) (A.Allocate (id, E)) ext = let
+    | tc_exp (env as ((opt, _), _, _, _, classes)) (A.Allocate (id, E)) ext =
+      let
           val ctor = find_ctor (ext, opt) classes id
           val _ = tc_args (ext, id, env) (E, ctor)
         in A.PTR (A.CLASS id) end
+    | tc_exp ((NONE, _), _, _, _, _) (A.Super _) ext =
+        (ErrorMsg.error ext "Cannot use 'super' when not in a class";
+         raise ErrorMsg.Error)
+    | tc_exp (env as ((SOME id, f), _, _, _, c)) (A.Super (sup, E)) ext = let
+        val data = Symbol.look' c id
+        val parent = case #parent data
+                       of SOME parent => parent
+                        | NONE => (ErrorMsg.error ext ("Can't call super" ^
+                                            " if there is no parent class");
+                                   raise ErrorMsg.Error)
+        val parfun = case sup
+                       of SOME f => f
+                        | NONE => if Symbol.equal (f, id) then parent else f
+        val pardata = Symbol.look' c parent
+      in
+        case Symbol.look (#funs pardata) parfun
+          of NONE => (ErrorMsg.error ext ("No parent function: " ^
+                                          Symbol.name parfun);
+                      raise ErrorMsg.Error)
+           | SOME (typ, args, access) =>
+              (resolve_access (ext, "Cannot call private function")
+                              (SOME id, parent) access;
+               tc_args (ext, parfun, env) (E, args); typ)
+      end
     | tc_exp env (A.Marked marked_exp) _ =
         tc_exp env (Mark.data marked_exp) (Mark.ext marked_exp)
 
@@ -480,8 +507,7 @@ struct
               val pfuns = #funs pdata
               val _ = app (fn k => check_redefine k (Symbol.look pfields k))
                           (Symbol.keys fields)
-              val funs' = foldl merge_funs
-                                funs (Symbol.elemsi pfuns)
+              val funs' = foldl merge_funs funs (Symbol.elemsi pfuns)
             in
               {fields=Symbol.merge (fields, pfields),
                funs=funs', parent=(SOME parent)}
@@ -512,7 +538,7 @@ struct
           | tc_gdecl ext (A.Struct s) = bind_struct ext s
           | tc_gdecl ext (A.Fun (typ, ident, args, stm)) =
              (funs := bind_fun (!funs) ext (typ, ident, args);
-              tc_stm (NONE, !funs, !structs,
+              tc_stm ((NONE, ident), !funs, !structs,
                       foldl (bind_arg ext) Symbol.empty args, !classes)
                      stm NONE (false, typ))
           | tc_gdecl ext (A.Class (id, decls, extends)) = let
@@ -534,7 +560,7 @@ struct
               val fields = foldl (fn ((f, (t, _)), m) => Symbol.bind m (f, t))
                                  Symbol.empty (Symbol.elemsi (#fields data))
             in
-              tc_stm (SOME class, !funs, !structs,
+              tc_stm ((SOME class, id), !funs, !structs,
                       foldl (bind_arg ext) fields params, !classes)
                      body ext (false, typ)
             end
