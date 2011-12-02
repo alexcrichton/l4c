@@ -252,6 +252,8 @@ struct
          format_operand8 s else format_operand s) ^
       (if oper = DIV orelse oper = MOD then "" else ", " ^ format_operand d)
     (* unallocated temp, but instruction needs to happen for memory access*)
+    | format_instr (MOV (d, s as LABELOP _)) =
+        "leaq " ^ format_operand s ^ ", " ^ format_operand d
     | format_instr (MOV (TEMP _, s as MEM _)) = "cmpl $0, " ^ format_operand s
     | format_instr (MOV (d as (REG (STACK _, QUAD) | MEM (_, QUAD)),
                          s as REG (sr as _, WORD))) =
