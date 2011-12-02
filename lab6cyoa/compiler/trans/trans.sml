@@ -18,7 +18,7 @@ struct
   structure DG = DirectedGraph(DynArray)
   structure HT = HashTable
 
-  type class_table = (int Symbol.table * A.ident option) Symbol.table
+  type class_table = ((int * A.ident)Symbol.table * A.ident option) Symbol.table
   type func_table = (bool * Tree.typ * Tree.typ list) Symbol.table
   type struct_table = ((int * T.typ) Symbol.table * int) Symbol.table
   type temp_table = (Temp.temp * Tree.typ) Symbol.table
@@ -325,7 +325,7 @@ struct
                 (A.Invoke (e, (ref class, method), args)) a = let
         val (s', e') = trans_exp (env, g, s) e true
         (* calculate the address of the function *)
-        val index = Symbol.look' (#1 (Symbol.look' classes class)) method
+        val (index, _) = Symbol.look' (#1 (Symbol.look' classes class)) method
         val addr = T.MEM (T.BINOP (T.ADD, T.MEM (e', T.QUAD),
                                    constq (index * 8)), T.QUAD)
         (* setup the function call *)
@@ -570,18 +570,24 @@ struct
           | build_struct (_, s) = s
         val structs = foldl build_struct Symbol.empty p
 
-        fun cfun_idx classes (A.CFunDecl (_, id, _), s) =
-              Symbol.bind s (id, Symbol.count s)
-          | cfun_idx classes (A.Markedc data, s) =
-              cfun_idx classes (Mark.data data, s)
+        fun cfun_idx class (A.CFunDecl (_, id, _), s) =
+              Symbol.bind s (id, (Symbol.count s, class))
+          | cfun_idx class (A.Markedc data, s) =
+              cfun_idx class (Mark.data data, s)
           | cfun_idx _ (_, s) = s
         fun build_classes (A.Class (id, L, parent), c) = let
               val base = case parent
                            of NONE     => Symbol.empty
                             | SOME ext => #1 (Symbol.look' c ext)
               in
-                Symbol.bind c (id, (foldl (cfun_idx c) base L, parent))
+                Symbol.bind c (id, (foldl (cfun_idx id) base L, parent))
               end
+          | build_classes (A.CFun (class, _, id, _, _), c) = let
+              val (funs, par) = Symbol.look' c class
+              val (idx, _) = Symbol.look' funs id
+            in
+              Symbol.bind c (class, (Symbol.bind funs (id, (idx, class)), par))
+            end
           | build_classes (A.Markedg data, c) =
               build_classes (Mark.data data, c)
           | build_classes (_, c) = c

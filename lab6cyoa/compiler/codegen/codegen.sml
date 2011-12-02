@@ -342,15 +342,17 @@ struct
    * assembly.
    *)
   fun extract_vtable table = let
-        fun build_vtable ((class_sym, funs), prev) = let
-              val class = Symbol.name class_sym
+        fun build_vtable ((class, funs), prev) = let
               val elems = Symbol.elemsi funs
-              val elems' = ListMergeSort.sort (fn ((_, a), (_, b)) => a > b)
-                                              elems
-              val labels = map (fn (f, _) =>
-                                Label.scoped_func (class, Symbol.name f)) elems'
+
+              fun cmp ((_, (a, _)), (_, (b, _))) = a > b
+              val elems' = ListMergeSort.sort cmp elems
+              val labels = map (fn (f, (_, class)) =>
+                                Label.scoped_func (Symbol.name class,
+                                                   Symbol.name f))
+                               elems'
             in
-              AS.LABEL (Label.vtable class) ::
+              AS.LABEL (Label.vtable (Symbol.name class)) ::
                 map (fn l => AS.ASM (".quad " ^ Label.name l)) labels @ prev
             end
       in

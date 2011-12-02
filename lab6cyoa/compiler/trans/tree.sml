@@ -30,7 +30,7 @@ sig
     | RETURN of exp
     | NOP
 
-  type vtables = (int Symbol.table) Symbol.table
+  type vtables = ((int * ident) Symbol.table) Symbol.table
   type block = stm list
   type cfgraph = (block, edge, int DynArray.array) Graph.graph
   type cfg_func = Label.label * typ * (Temp.temp * typ) list * cfgraph
@@ -81,7 +81,7 @@ struct
     | RETURN of exp
     | NOP
 
-  type vtables = (int Symbol.table) Symbol.table
+  type vtables = ((int * ident) Symbol.table) Symbol.table
   type block = stm list
   type cfgraph = (block, edge, int DynArray.array) Graph.graph
   type cfg_func = Label.label * typ * (Temp.temp * typ) list * cfgraph

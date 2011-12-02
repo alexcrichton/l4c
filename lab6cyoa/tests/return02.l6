@@ -1,4 +1,4 @@
-//test return 10
+//test return 51
 class String {
  public:
   // instance variables
@@ -14,7 +14,7 @@ String::String(int len) {
   length = len;
 }
 int String::length() { return length; }
-bool String::print() { return false; }
+bool String::print() { return true; }
 
 class Foo extends String {
  public:
@@ -27,13 +27,12 @@ Foo::Foo() {
   // stuff...
 }
 bool Foo::print() {
-  this->print();
-  // do nothing
+  if (!super->print()) 1/0;
   return false;
 }
 
 int main() {
   String *str = new Foo(); // sub-typing
-  str->print(); // calls Foo's print
+  if (str->print()) 1/0; // calls Foo's print
   return str->length();
 }
