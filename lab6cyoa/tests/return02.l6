@@ -14,7 +14,7 @@ String::String(int len) {
   length = len;
 }
 int String::length() { return length; }
-bool String::print() { }
+bool String::print() { return false; }
 
 class Foo extends String {
  public:
@@ -27,7 +27,9 @@ Foo::Foo() {
   // stuff...
 }
 bool Foo::print() {
+  this->print();
   // do nothing
+  return false;
 }
 
 int main() {
