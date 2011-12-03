@@ -1,16 +1,20 @@
-//test return 10
+//test return 100
 
 class Foo {
  public:
   int foo;
   int foo();
   int same();
+  int duplicate();
+  int duplicate2(int k);
   Foo();
 };
 
 Foo::Foo() {}
 int Foo::foo() { return foo; }
 int Foo::same() { return foo + 100; }
+int Foo::duplicate() { return foo; }
+int Foo::duplicate2(int k) { return k * k; }
 
 class Bar extends Foo {
  public:
@@ -21,6 +25,8 @@ class Bar extends Foo {
 
 Bar::Bar() {}
 int Bar::bar() { return this->foo() + bar; }
+int Bar::duplicate() { return super() + bar; }
+int Bar::duplicate2(int k) { return super(k) + k; }
 
 class Baz extends Bar {
  public:
@@ -33,6 +39,8 @@ class Baz extends Bar {
 Baz::Baz() {}
 int Baz::baz() { return this->bar() + baz; }
 int Baz::same() { return baz; }
+int Baz::duplicate() { return super() + baz; }
+int Baz::duplicate2(int k) { return super(k) + 10; }
 
 int main() {
   Baz *b1 = new Baz();
@@ -50,5 +58,11 @@ int main() {
   if (b3->same() != 10) return 6;
   if (b2->same() != 10) return 7;
   if (b1->same() != 10) return 8;
-  return 10;
+  if (b3->duplicate() != 27) return 9;
+  if (b2->duplicate() != 27) return 10;
+  if (b1->duplicate() != 27) return 11;
+  if (b3->duplicate2(4) != 30) return 12;
+  if (b2->duplicate2(5) != 40) return 13;
+  if (b1->duplicate2(6) != 52) return 14;
+  return 100;
 }
