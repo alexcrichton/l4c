@@ -17,7 +17,7 @@ String* clone(String *src, int newlen) {
   String *other = new String();
   other->length = newlen;
   other->bytes  = alloc_array(int, newlen);
-  for (int i = 0; i < newlen; i++) {
+  for (int i = 0; i < src->length; i++) {
     other->bytes[i] = src->bytes[i];
   }
   return other;
