@@ -620,6 +620,12 @@ struct
               in
                 Symbol.bind c (id, (foldl (cfun_idx id) base L, parent))
               end
+          | build_classes (A.CFun (class, _, id, _, _), c) = let
+              val (funs, par) = Symbol.look' c class
+              val (idx, _) = Symbol.look' funs id
+            in
+              Symbol.bind c (class, (Symbol.bind funs (id, (idx, class)), par))
+            end
           | build_classes (A.Markedg data, c) =
               build_classes (Mark.data data, c)
           | build_classes (_, c) = c
