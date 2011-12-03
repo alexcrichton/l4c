@@ -1,0 +1,22 @@
+//test error
+// bad overriding
+class Foo {
+ public:
+  Foo();
+  int foo(int b);
+};
+
+class Bar extends Foo {
+ public:
+  Bar();
+  int foo();
+};
+
+Foo::Foo() {}
+int Foo::foo(int k) { return k; }
+Bar::Bar() {}
+int Bar::foo() { return super(10); }
+
+int main() {
+  return 3;
+}

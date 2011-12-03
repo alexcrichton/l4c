@@ -1,0 +1,20 @@
+//test error
+// nothing to super to
+class Foo {
+ public:
+  Foo();
+};
+
+class Bar extends Foo {
+ public:
+  Bar();
+  int foo();
+};
+
+Foo::Foo() {}
+Bar::Bar() {}
+int Bar::foo() { return super(); }
+
+int main() {
+  return 3;
+}
