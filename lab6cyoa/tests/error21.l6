@@ -1,0 +1,19 @@
+//test error
+// declared but undefined function
+
+class Foo {
+private:
+    int num;
+public:
+    Foo(int n);
+    int getNum();
+};
+
+Foo::Foo(int n) {
+    num = n;
+}
+
+int main() {
+    Foo *f = new Foo(5);
+    return f->getNum();
+}
