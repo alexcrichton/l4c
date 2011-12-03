@@ -170,6 +170,17 @@ struct
         val _ = #add_node g (id, [])
       in id end
 
+  (* class_table * func_table -> symbol * symbol -> ? * typ * typ list
+   *
+   * Looks up the function in the specified class or in its parents.
+   *)
+  fun lookup_fun (classes : class_table, funs) (class, method) =
+      case Symbol.look funs (scoped (class, method))
+        of SOME info => info
+         | NONE => let val parent = valOf (#2 (Symbol.look' classes class)) in
+              lookup_fun (classes, funs) (parent, method)
+            end
+
   (* trans_args : env * graph -> (A.exp * (state * T.exp list)) ->
    *                             state * T.exp list
    *
@@ -330,7 +341,7 @@ struct
                                    constq (index * 8)), T.QUAD)
         (* setup the function call *)
         val (state', args) = foldl (trans_args (env, g)) (s', []) args
-        val (_, rettyp, argtyps) = Symbol.look' funs (scoped (class, method))
+        val (_, rettyp, argtyps) = lookup_fun (classes, funs) (class, method)
         val result = T.TEMP ((Temp.new(), ref ~1), rettyp)
         val call = T.CALL (addr, rettyp, ListPair.zipEq (e' :: args, argtyps))
       in
