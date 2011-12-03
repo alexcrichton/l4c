@@ -8,9 +8,7 @@ class Foo {
   Foo();
 };
 
-Foo::Foo() {
-  foo = 2;
-}
+Foo::Foo() {}
 int Foo::foo() { return foo; }
 int Foo::same() { return foo + 100; }
 
@@ -45,7 +43,7 @@ int main() {
   b1->foo = 8;
   if (b3->foo() != 8) return 0;
   if (b2->bar() != 17) return 1;
-  if (b1->baz() != 17) return 2;
+  if (b1->baz() != 27) return 2;
   if (b3->foo != 8) return 3;
   if (b2->bar != 9) return 4;
   if (b1->baz != 10) return 5;
