@@ -32,6 +32,32 @@ struct
 
   type state = T.stm list * (Graph.node_id * T.edge) list * Graph.node_id
 
+  fun dump_classes c = let
+        fun dump_funs cfuns fname =
+            let val (idx, from) = Symbol.look' cfuns fname in
+              print ("  " ^ Symbol.name fname ^ "\t=> " ^ Int.toString idx ^
+                     ", " ^ Symbol.name from ^ "\n")
+            end
+        fun dump_class cname =
+            let val (ftables, extends) = Symbol.look' c cname in
+              print ("class " ^ Symbol.name cname);
+              case extends
+                of SOME parent => print (" extends " ^ Symbol.name parent)
+                | NONE => ();
+              print "\n";
+              app (dump_funs ftables) (Symbol.keys ftables)
+            end
+      in
+        print "Class table:\n";
+        app dump_class (Symbol.keys c);
+        print "\n"
+      end
+
+  fun dump_funs f = (
+      print "Funs table:\n";
+      app (fn s => print ("  " ^ Symbol.name s ^ "\n")) (Symbol.keys f);
+      print "\n")
+
   (* typ_size : 'a -> A.typ -> int
    *
    * Calculates the size of a type
@@ -170,16 +196,14 @@ struct
         val _ = #add_node g (id, [])
       in id end
 
-  (* class_table * func_table -> symbol * symbol -> ? * typ * typ list
+  (* class_table * func_table -> symbol * symbol -> bool * typ * typ list
    *
    * Looks up the function in the specified class or in its parents.
    *)
-  fun lookup_fun (classes : class_table, funs) (class, method) =
-      case Symbol.look funs (scoped (class, method))
-        of SOME info => info
-         | NONE => let val parent = valOf (#2 (Symbol.look' classes class)) in
-              lookup_fun (classes, funs) (parent, method)
-            end
+  fun lookup_fun (ctable : class_table, funs) (class, method) =
+      let val (_, loc) = Symbol.look' (#1 (Symbol.look' ctable class)) method in
+        Symbol.look' funs (scoped (loc, method))
+      end
 
   (* trans_args : env * graph -> (A.exp * (state * T.exp list)) ->
    *                             state * T.exp list
@@ -581,8 +605,11 @@ struct
           | build_struct (_, s) = s
         val structs = foldl build_struct Symbol.empty p
 
-        fun cfun_idx class (A.CFunDecl (_, id, _), s) =
-              Symbol.bind s (id, (Symbol.count s, class))
+        fun cfun_idx class (A.CFunDecl (_, id, _), s) = let
+              val idx = case Symbol.look s id
+                          of SOME (idx, _) => idx
+                           | NONE => Symbol.count s
+            in Symbol.bind s (id, (idx, class)) end
           | cfun_idx class (A.Markedc data, s) =
               cfun_idx class (Mark.data data, s)
           | cfun_idx _ (_, s) = s
@@ -593,16 +620,13 @@ struct
               in
                 Symbol.bind c (id, (foldl (cfun_idx id) base L, parent))
               end
-          | build_classes (A.CFun (class, _, id, _, _), c) = let
-              val (funs, par) = Symbol.look' c class
-              val (idx, _) = Symbol.look' funs id
-            in
-              Symbol.bind c (class, (Symbol.bind funs (id, (idx, class)), par))
-            end
           | build_classes (A.Markedg data, c) =
               build_classes (Mark.data data, c)
           | build_classes (_, c) = c
         val classes = foldl build_classes Symbol.empty p
+
+        (*val _ = dump_classes classes
+        val _ = dump_funs funs*)
 
         fun get_vtable ((class, (tbl, _)), map) = Symbol.bind map (class, tbl)
         val vtable  = foldl get_vtable Symbol.empty (Symbol.elemsi classes)
