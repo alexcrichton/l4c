@@ -1,0 +1,29 @@
+//test error
+// you can't extend yourself
+class Foo {
+private:
+  int n;
+public:
+  Foo(int nm);
+  int num();
+};
+
+class Baz extends Baz {
+  Baz(int nm);
+};
+
+Foo::Foo(int nm) {
+  n = nm;
+}
+int Foo::num() {
+  return n;
+}
+
+Baz::Baz(int nm) {
+  super(nm + 5);
+}
+
+int main() {
+  Foo bar = new Baz(5);
+  return bar->num();
+}
