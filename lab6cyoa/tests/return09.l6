@@ -55,7 +55,7 @@ int Base::delta() {
 }
 
 int Base::result() {
-  return start();
+  return this->start();
 }
 
 Sum::Sum(int start, int delta) {
@@ -76,12 +76,12 @@ int Product::result() {
          num5 * num6 * num7 * num8 * num9;
 }
 
-int stuff(Base b1, Base b2) {
-  return b2.result() / b1.result() / (b2.delta() - b1.delta());
+int stuff(Base *b1, Base *b2) {
+  return b2->result() / b1->result() / (b2->delta() - b1->delta());
 }
 
 int main() {
-  Base sum = new Sum(10, 5);
-  Base prod = new Product(5, 10);
+  Base *sum = new Sum(10, 5);
+  Base *prod = new Product(5, 10);
   return stuff(sum, prod);
 }
