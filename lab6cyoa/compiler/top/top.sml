@@ -69,7 +69,10 @@ struct
         help="unsafe compilation with no memory checks"},
        {short = "O", long=["optimize"],
         desc=G.ReqArg (fn s => Flag.sets (O.flag_opt, s), "0"),
-        help="level of optimizations to perform"}
+        help="level of optimizations to perform"},
+       {short = "o", long=["output"],
+        desc=G.ReqArg (fn s => Flag.sets (O.flag_output, s), ""),
+        help="where to place the output assembly"}
       ]
 
   fun stem s = let
@@ -100,12 +103,10 @@ struct
                   options = options,
                   errFn = errfn} args
 
-    val source =
+    val sources =
         case files
           of [] => errfn "Error: no input file"
-           | [filename] => filename
-           | _ => errfn "Error: more than one input file"
-    val _ = O.set_filename source
+           | _  => files
 
     val _ = Flag.guard O.flag_profile P.enable ()
     val _ = P.startTimer "Compiling"
@@ -119,23 +120,27 @@ struct
                          Flag.branch O.flag_header (parse_header, fn () => [])
                                      ())
 
+    fun parse_source [] = []
+      | parse_source (s :: L) =
+          (Flag.guard O.flag_verbose say ("Parsing... " ^ s);
+           P.time ("Parsing " ^ s, fn () => Parse.parse s) @ parse_source L)
+
     (* Parsing / elaboration *)
-    val _ = Flag.guard O.flag_verbose say ("Parsing... " ^ source)
-    val ast = header @ P.time ("Parsing   ", fn () => Parse.parse source)
-    val _ = Flag.guard O.flag_verbose say ("Elaborating... " ^ source)
+    val ast = header @ parse_source sources
+    val _ = Flag.guard O.flag_verbose say ("Elaborating... ")
     val ast = P.time ("Elaborating", fn () => Ast.elaborate ast)
     val _ = Flag.guard O.flag_ast
         (fn () => say (Ast.Print.pp_program ast)) ()
 
     (* Static Analysis *)
     val _ = P.startTimer "Analyzing..."
-    val _ = Flag.guard O.flag_verbose say ("Typechecking... " ^ source)
+    val _ = Flag.guard O.flag_verbose say ("Typechecking... ")
     val _ = P.time ("Typechecking", fn () => TypeChecker.analyze ast)
-    val _ = Flag.guard O.flag_verbose say ("Returns... " ^ source)
+    val _ = Flag.guard O.flag_verbose say ("Returns... ")
     val _ = P.time ("Returns", fn () => ReturnChecker.analyze ast)
-    val _ = Flag.guard O.flag_verbose say ("Main... " ^ source)
+    val _ = Flag.guard O.flag_verbose say ("Main... ")
     val _ = P.time ("Main", fn () => MainChecker.analyze ast)
-    val _ = Flag.guard O.flag_verbose say ("Initialization... " ^ source)
+    val _ = Flag.guard O.flag_verbose say ("Initialization... ")
     val _ = P.time ("Initialization",
                     fn () => InitializationChecker.analyze ast)
     val _ = P.stopTimer ()
@@ -228,8 +233,7 @@ struct
     val _ = Flag.guard O.flag_assem
         (fn () => List.app (TextIO.print o Assem.format) assem) ()
 
-    val assem = [Assem.DIRECTIVE(".file\t\"" ^ source ^ "\""),
-                 Assem.DIRECTIVE(".globl " ^
+    val assem = [Assem.DIRECTIVE(".globl " ^
                                  Label.name (Label.extfunc "_c0_main"))]
           @ assem
           @ [Assem.DIRECTIVE ".ident\t\"15-411 L5 reference compiler\""]
@@ -237,7 +241,8 @@ struct
     val code = P.time ("Formatting",
                        fn () => String.concat (List.map (Assem.format) assem))
 
-    val afname = stem source ^ ".s"
+    val out = Flag.svalue O.flag_output
+    val afname = if out = "" then stem (hd sources) ^ ".s" else out
     val _ = Flag.guard O.flag_verbose say ("Writing assembly to " ^ afname ^
                                            " ...")
     val _ = SafeIO.withOpenOut afname (fn afstream =>

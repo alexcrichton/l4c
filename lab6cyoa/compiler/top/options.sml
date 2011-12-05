@@ -12,6 +12,7 @@ sig
   val flag_safe : Flag.flag
   val flag_unsafe : Flag.flag
   val flag_opt : Flag.flag
+  val flag_output : Flag.flag
 
   val filename : unit -> string
   val set_filename : string -> unit
@@ -34,6 +35,7 @@ struct
   val flag_safe     = Flag.flag "safe"
   val flag_unsafe   = Flag.flag "unsafe"
   val flag_opt      = Flag.flag "optimize"
+  val flag_output   = Flag.flag "output"
 
   val fname = ref "output"
   fun filename () = !fname
