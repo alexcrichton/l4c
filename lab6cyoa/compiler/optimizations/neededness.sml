@@ -47,8 +47,9 @@ struct
             in
               (U'', U'', true)
             end
+        val (U, N, _) = foldr merge (rulegen_exp e) L
       in
-        foldr merge (rulegen_exp e) L
+        (U, N, true)
       end
     | rulegen_exp (T.PHI _) = raise Fail "No phis in neededness"
 
