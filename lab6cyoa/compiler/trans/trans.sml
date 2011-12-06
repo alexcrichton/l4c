@@ -202,7 +202,10 @@ struct
    *)
   fun lookup_fun (ctable : class_table, funs) (class, method) =
       let val (_, loc) = Symbol.look' (#1 (Symbol.look' ctable class)) method in
-        Symbol.look' funs (scoped (loc, method))
+        case Symbol.look funs (scoped (loc, method))
+          of SOME f => f
+           | NONE => raise Fail ("Function " ^ Symbol.name (scoped(loc, method))
+                                 ^ " declared but not defined")
       end
 
   (* trans_args : env * graph -> (A.exp * (state * T.exp list)) ->
