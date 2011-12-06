@@ -1,0 +1,48 @@
+\documentclass{article}
+% \usepackage{graphs}
+\usepackage{fullpage}
+\usepackage{array}
+\usepackage{setspace}
+\newcommand{\wild}{\mbox{\tt\char"5F}}
+
+\title{Assignment 6\\ Object-oriented C0}
+\author{15-411: Compiler Design\\
+Alex Crichton (acrichto) and Robbie McElrath (rmcelrat)}
+
+\begin{document}
+\maketitle
+\doublespacing
+
+\section{Introduction}
+
+We decided to add object-oriented features to to C0 for our lab 6. We strove to
+maintain compatibility as much as possible with \emph{L4}, while supporting the
+major features of OO programming that one would expect when working with a
+language like C++ or Java.
+
+Our compiler supports the basics of object oriented programming: classes,
+single-class inheritance, method overriding, constructors, protected/private
+access to fields/methods, and \texttt{super} invocation of parent methods.
+
+\section{Specification}
+
+FANCY INFERENCE RULES (and a lot of other equations?)
+
+\section{Implementation}
+
+\section{Testing}
+
+\section{Analysis}
+
+We included many features of object oriented languages, but we still lacked some
+major features like static methods/fields, method overloading, implicit
+constructors, <ADD MORE HERE>.
+
+After adding object oriented features, we realized that our generated assembly
+has a lot of room for improvement. Because our IR only minimally changed, all of
+our previous optimizations still worked in place, but adding these new features
+introduced a whole new class of generated assembly which could be much better
+optimized. Optimizations like memory aliasing and address arithmetic are much
+more relevant with this language extension than they were before.
+
+\end{document}

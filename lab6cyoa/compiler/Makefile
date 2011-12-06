@@ -46,3 +46,6 @@ TAGS: clean
 	bin/create-tags *.cm *.sml */*.lex */*.grm */*.sml
 
 FORCE: 
+
+pdf:
+	pdflatex README.tex
