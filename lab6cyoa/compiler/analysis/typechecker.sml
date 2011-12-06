@@ -442,7 +442,8 @@ struct
               bind_fun_types funs ext (typ, id, #1 (LP.unzip params))
         and bind_fun_types funs ext (typ, id, types) =
               case Symbol.look funs id
-                of NONE => Symbol.bind funs (id, (typ, types))
+                of NONE => (app (ensure_small ext) (typ::types);
+                            Symbol.bind funs (id, (typ, types)))
                  | SOME (t, T) => (check_fun_types ext id (typ, types) (t, T);
                                    funs)
         and check_fun_types ext id (typ, types) (t, T) = let
