@@ -5,6 +5,20 @@
 \usepackage{setspace}
 \newcommand{\wild}{\mbox{\tt\char"5F}}
 
+\newcommand{\nonterm}[1]{$\langle${#1}$\rangle$}
+\newcommand{\tok}[1]{$\langle$\emph{#1}$\rangle$}
+\newcommand{\term}[1]{\textbf {#1}}
+\newcommand{\OR}{\ensuremath{\ | \ \ }}
+
+\newcommand{\proves}{\vdash}
+
+\newcommand{\G}{\Gamma}
+\newcommand{\cons}[2]{#1, \, #2}
+\newcommand{\typed}[2]{#1 : #2}
+\newcommand{\valid}[1]{#1 \; \mathit{valid}}
+\newcommand{\typof}[3]{{#1} \proves \typed{#2}{#3}}
+
+
 \title{Assignment 6\\ Object-oriented C0}
 \author{15-411: Compiler Design\\
 Alex Crichton (acrichto) and Robbie McElrath (rmcelrat)}
@@ -26,7 +40,27 @@ access to fields/methods, and \texttt{super} invocation of parent methods.
 
 \section{Specification}
 
-FANCY INFERENCE RULES (and a lot of other equations?)
+\subsection{Grammar}
+%\begin{figure}
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{lcl}
+  \nonterm{gdecl}      & ::= & $\cdots$ \OR \nonterm{cdecl} \OR \nonterm{mdef} \\
+  \nonterm{cdecl}      & ::= & \term{class} \term{ident} \nonterm{ext-opt} \term{\{} \nonterm{citem-list} \term{\}} \term{;} \\
+  \nonterm{ext-opt}    & ::= & $\epsilon$ \OR \term{extends} \term{ident} \\
+  \nonterm{citem-list} & ::= & $\epsilon$ \OR \nonterm{citem} \nonterm{citem-list} \\
+  \nonterm{citem}      & ::= & \nonterm{field} \OR \nonterm{fdecl} \OR \term{public:} \OR \term{private:} \\
+  \nonterm{mdef}       & ::= & \term{ident}::\term{ident} \nonterm{param-list} \nonterm{block} \\
+                       & \OR & \nonterm{type} \term{ident}::\term{ident} \nonterm{param-list} \nonterm{block} \\
+  \nonterm{exp}        & ::= & $\cdots$ \OR \term{new} \term{ident} \nonterm{arg-list} \\
+                       & \OR & \term{super}  \nonterm{arg-list} \OR \term{super} \verb"->" \term{ident} \nonterm{arg-list} \\
+\end{tabular}
+%\label{fig:grammar}
+%\end{figure}
+
+\subsection{Static Semantics}
+
+\subsection{Dynamic Semantics}
+
 
 \section{Implementation}
 
