@@ -25,7 +25,7 @@ Alex Crichton (acrichto) and Robbie McElrath (rmcelrat)}
 
 \begin{document}
 \maketitle
-\doublespacing
+\renewcommand{\baselinestretch}{1.0}
 
 \section{Introduction}
 
@@ -39,6 +39,8 @@ single-class inheritance, method overriding, constructors, protected/private
 access to fields/methods, and \texttt{super} invocation of parent methods.
 
 \section{Specification}
+The following are the changes/additions to the \emph{L5} specification. Any part
+of the specification not addressed here is unchanged.
 
 \subsection{Grammar}
 \renewcommand{\arraystretch}{1.4}
@@ -56,6 +58,37 @@ access to fields/methods, and \texttt{super} invocation of parent methods.
 \end{tabular}
 
 \subsection{Static Semantics}
+\subsubsection{Classes}
+\begin{itemize}
+\item Classes follow the same lexical scoping rules as other gdecls (they are
+      only available after their declaration).
+\item Class declarations and definitions \emph{cannot} appear in external files.
+\item Classes can be declared multiple times as long as the declarations are
+      consistent, but their methods can be defined only once. Declared methods
+      are not required to be defined.
+\item Class names are types, and their names are in the type namespace.
+\item Methods within classes form their own namespace, and can only be accessed
+      via the object they belong to.
+\item Functions that are not methods of a given class can only access the public
+      fields and functions of that class.
+\item Methods can access all fields and methods (both public and private) of any
+      object that are the same type or a subtype of the class the method belongs to.
+\item Subclasses do not get access to their parent's private fields or methods.
+\item Fields within classes are in the same namespace as local variables within
+      methods of that class (they can be referenced directly by name, but only
+      by methods of the class they belong to).
+\item Local variables are allowed to shadow class fields.
+\item \term{super} may only be used within methods of a class $\alpha$ that
+      extends some class $\beta$. \term{super} resolves to $\beta$ in this
+      case. Subclasses can only access their direct parent via \term{super}.
+\item Non-constructors cannot call their own constructor or their parent's.
+      Constructors are the only method allowed to call the parent constructor.
+\end{itemize}
+
+\subsubsection{Typechecking}
+\begin{itemize}
+\item 
+\end{itemize}
 
 \subsection{Dynamic Semantics}
 
