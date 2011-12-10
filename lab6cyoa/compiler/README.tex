@@ -41,7 +41,6 @@ access to fields/methods, and \texttt{super} invocation of parent methods.
 \section{Specification}
 
 \subsection{Grammar}
-%\begin{figure}
 \renewcommand{\arraystretch}{1.4}
 \begin{tabular}{lcl}
   \nonterm{gdecl}      & ::= & $\cdots$ \OR \nonterm{cdecl} \OR \nonterm{mdef} \\
@@ -53,9 +52,8 @@ access to fields/methods, and \texttt{super} invocation of parent methods.
                        & \OR & \nonterm{type} \term{ident}::\term{ident} \nonterm{param-list} \nonterm{block} \\
   \nonterm{exp}        & ::= & $\cdots$ \OR \term{new} \term{ident} \nonterm{arg-list} \\
                        & \OR & \term{super}  \nonterm{arg-list} \OR \term{super} \verb"->" \term{ident} \nonterm{arg-list} \\
+                       & \OR & \term{this} \verb"->" \term{ident} \OR \term{this} \verb"->" \term{ident} \nonterm{arg-list} \\
 \end{tabular}
-%\label{fig:grammar}
-%\end{figure}
 
 \subsection{Static Semantics}
 
