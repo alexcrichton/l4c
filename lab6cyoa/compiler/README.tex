@@ -122,10 +122,44 @@ variables at the beginning of the function.
       this means method invocation cannot be determined statically - it depends
       on the type the object was constructed as (which may differ from the
       declared type due to subtyping).
-\item The dynamic semantics are the same as they were in L5 in all other aspects.
+\item The dynamic semantics are the same as they were in L5 in all other
+      aspects.
 \end{itemize}
 
 \section{Implementation}
+
+\subsection{Front End}
+
+For the front-end grammar, one of the major problems was that once a class was
+defined, an \texttt{IDENT} could be considered a type. This runs into the same
+problem as with \texttt{typedef}s, so we employed a similar solution. As soon
+as the declaration ``\texttt{class Foo}'' is seen, \texttt{Foo} is immediately
+added as a type to our tables, so further tokens named \texttt{Foo} will return
+a \texttt{TYPE} token instead of an \texttt{IDENT} token.
+
+A huge benefit of using this type of parsing, was that it was impossible to
+call \texttt{new} with a class name that isn't a class, because it's
+grammatically invalid. This can cause some odd error messages, but the first
+line of the error is normally fairly indicative of what the error is.
+Furthermore, elaboration was much simpler, only having to check for validity
+of method names as opposed to methods and classes.
+
+Other static analyses, initialization checking, return checking, and checking
+for main all remained virtually untouched. The analysis which changed the most
+was typechecking. It turned out that typechecking and translation into the IR
+were the two largest changes we had to make, but both changes were very similar.
+In addition to the previous environment information, we had to have information
+about classes.
+
+\subsection{Back End}
+
+One of the major goals of our implementation was to modify our IR as little as
+possible. We knew we were going to have to change the front-end of our compiler
+drastically, but we were hoping to reduce all of the object-oriented semantics
+to the same IR we had for L4. We largely succeeded in this goal, but we had to
+add the ability to indirectly call a function instead of just by label.
+Otherwise, nothing in our IR changed, so we were able to retain the benefit of
+all our previous optimizations with little effort.
 
 Each method needs to know which object it was called on, so we insert a
 parameter in every method that will store a pointer to ``\texttt{this}''.
@@ -212,16 +246,16 @@ example, the following two class declarations result in the following vtables:
 \end{tabular}
 \end{center}
 
-When a \texttt{Bar} is cast to a \texttt{Foo}, the same instructions
-can be used to call \texttt{Bar}'s \texttt{fun2} as opposed to \texttt{Foo}'s.
-We had two options of where to put the vtables. They could either be included in
-every object, or they could be located in the data section of the executable.
-Placing a vtable copy in every object would eliminate one memory access per
-method invocation, but it could dramatically increase the size of objects.
-We decided to just have a single copy of each vtable, and have each object store
-a pointer to its corresponding vtable.
-This pointer is the first field in the struct (it's 8 bytes), and all other
-instance variables come after the vtable.
+When a \texttt{Bar} is cast to a \texttt{Foo}, the same instructions can be used
+to call \texttt{Bar}'s \texttt{fun2} as opposed to \texttt{Foo}'s.  We had two
+options of where to put the vtables. They could either be included in every
+object, or they could be located in the data section of the executable.  Placing
+a vtable copy in every object would eliminate one memory access per method
+invocation, but it could dramatically increase the size of objects.  We decided
+to just have a single copy of each vtable, and have each object store a pointer
+to its corresponding vtable.  This pointer is the first field in the struct
+(it's 8 bytes), and all other instance variables come after the vtable. The
+vtables themselves are output in the assembly in the \texttt{.data} section.
 
 Instance fields are laid out in an object's struct in a similar fashion to
 vtables. A child class inherits the same order of fields from its parent, and
