@@ -1,5 +1,4 @@
 \documentclass{article}
-% \usepackage{graphs}
 \usepackage{fullpage}
 \usepackage{array}
 \usepackage{setspace}
@@ -60,17 +59,17 @@ of the specification not addressed here is unchanged.
 \subsection{Static Semantics}
 \subsubsection{Classes}
 \begin{itemize}
-\item Classes follow the same lexical scoping rules as other gdecls (they are
-      only available after their declaration).
+\item Classes follow the same lexical scoping rules as other gdecls (only
+      available after their declaration).
 \item Class declarations and definitions \emph{cannot} appear in external files.
 \item Classes can be declared multiple times as long as the declarations are
       consistent, but their methods can be defined only once. Declared methods
       are not required to be defined.
-\item Class names are types, and their names are in the type namespace.
+\item Class names are types, and are thus in the type namespace.
 \item Methods within classes form their own namespace, and can only be accessed
       via the object they belong to.
 \item Functions that are not methods of a given class can only access the public
-      fields and functions of that class.
+      fields and methods of that class.
 \item Methods can access all fields and methods (both public and private) of any
       object that are the same type or a subtype of the class the method belongs to.
 \item Subclasses do not get access to their parent's private fields or methods.
@@ -98,24 +97,25 @@ true iff $\tau = \tau'$ or if $\tau'$ was a direct ancestor of $\tau$ in the
 tree. \\
 
 Type equality checks were substitued with subtype checks throughout the
-typechecker, so any variable of type \texttt{Foo} can be assigned any value that
-is a subtype of \texttt{Foo} (including parameters). The only exception to this
-rule are arrays of objects. A \texttt{Foo array} is not a subtype of a
-\texttt{Bar array} even if \texttt{Foo} is a subtype of \texttt{Bar}. The only
-other modification to the L5 typechecker is that methods have \texttt{this} and
-the fields of their class bound as local variables at the beginning of the
-function.
+typechecker, so any variable (including parameters) of type $\alpha$ can carry
+a value that is a subtype of $\alpha$. The only exception to this
+rule are arrays of objects. An \texttt{$\alpha$ array} is not a subtype of a
+\texttt{$\beta$ array} even if \texttt{$\alpha$} is a subtype of
+\texttt{$\beta$}. The only other modification to the L5 typechecker is that
+methods have \texttt{this} and the fields of their class bound as local
+variables at the beginning of the function.
 
 \subsection{Dynamic Semantics}
 \begin{itemize}
-\item After allocation, all class fields will be initialized to \texttt{0},
+\item After object allocation, all class fields will be initialized to \texttt{0},
       \texttt{false}, or \texttt{null}. The required constructor will
       automatically be called after allocation of the object with \texttt{this}
       bound to the address of the object or \texttt{null} if it could not be
       allocated.
-\item When invoking a method, the method will be resolved relative to the
-      class the object was constructed as. For example, when invoking method
-      \texttt{dostuff()} on an object of type \texttt{Bar} that extends
+\item When invoking a method on an object, the method will be resolved by
+      walking up the inheritance tree starting at the class the object was
+      constructed as. For example, when invoking
+      method \texttt{dostuff()} on an object of type \texttt{Bar} that extends
       \texttt{Foo}, \texttt{dostuff} will resolve to the implementation provided
       by \texttt{Bar}, \emph{not} that of \texttt{Foo} unless \texttt{Bar} does
       not override \texttt{Foo}'s implementation of \texttt{dostuff}. Note that
@@ -213,12 +213,14 @@ inherits the same order of fields from its parent, and then adds its own fields
 to the end of the struct created. This is for similar reasons that the vtable
 has the same layout.
 
-The next thing we have to do is make sure that when you're calling an object's
-method, the object knows who it is. To accomplish this, we implicitly made
-the first argument of every function on a class to be \texttt{this}. Whenever
-a function call is made on an object, the object itself is passed along to the
-function. References to fields or \texttt{this} then use this first argument
-to perform address arithmetic, etc.
+Each method also needs to know which object it was called on, so we insert a
+parameter in every method that will store a pointer to ``\texttt{this}''.
+All object field accesses are elaborated from \texttt{\emph{name}} to
+\texttt{this->\emph{name}}. \texttt{this} is implemented as a struct containing
+a pointer to a vtable (discussed later), followed by all the fields within the
+class. Because we convert \texttt{this} to a struct pointer and store the
+object's fields in the struct, we did not need to modify the IR or code
+generation to support this aspect of objects.
 
 \section{Testing}
 
