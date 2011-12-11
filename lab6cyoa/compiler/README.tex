@@ -19,7 +19,6 @@
 \newcommand{\valid}[1]{#1 \; \mathit{valid}}
 \newcommand{\typof}[3]{{#1} \proves \typed{#2}{#3}}
 
-
 \title{Assignment 6\\ Object-oriented C0}
 \author{15-411: Compiler Design\\
 Alex Crichton (acrichto) and Robbie McElrath (rmcelrat)}
@@ -116,7 +115,7 @@ function.
       allocated.
 \item When invoking a method, the method will be resolved relative to the
       class the object was constructed as. For example, when invoking method
-      \texttt{dostuff()} on an object of type \texttt{Bar} that extends 
+      \texttt{dostuff()} on an object of type \texttt{Bar} that extends
       \texttt{Foo}, \texttt{dostuff} will resolve to the implementation provided
       by \texttt{Bar}, \emph{not} that of \texttt{Foo} unless \texttt{Bar} does
       not override \texttt{Foo}'s implementation of \texttt{dostuff}. Note that
@@ -126,16 +125,127 @@ function.
 \item The dynamic semantics are the same as they were in L5 in all other aspects.
 \end{itemize}
 
-
 \section{Implementation}
 
+As explained in the dynamic semantics, we couldn't statically resolve all
+function calls, so objects had to had an attribute called a vtable added to
+them. The vtable is just a table of function pointers. The order of the
+functions in the table for any one class doesn't matter, but all subclasses
+of a particular class inherit the same table. For example, the following two
+declarations result in the following two vtables:
+
+\begin{center}
+\begin{tabular}{|m{2.3in}|m{2in}|}
+  \hline
+    \begin{verbatim}
+    class Foo {
+      int a; int b;
+      int fun1(); int fun2();
+    }
+    \end{verbatim}
+    &
+    \begin{verbatim}
+    class Bar extends Foo {
+      int c;
+      int fun3();
+    }
+    int Bar::fun1() { ... }
+    \end{verbatim}
+  \\ \hline
+
+    \begin{center}
+      \begin{tabular}{cc}
+
+        \begin{tabular}{|c|c|}
+          \multicolumn{1}{c}{vtable} \\ \hline
+          \texttt{Foo::fun1} \\ \hline
+          \texttt{Foo::fun2} \\ \hline
+        \end{tabular}
+
+        &
+
+        \begin{tabular}{|c|c|}
+          \multicolumn{1}{c}{struct} \\ \hline
+          \texttt{Foo::a} \\ \hline
+          \texttt{Foo::b} \\ \hline
+        \end{tabular}
+      \end{tabular}
+    \end{center}
+
+    &
+
+    \begin{center}
+      \begin{tabular}{cc}
+
+        \begin{tabular}{|c|c|}
+          \multicolumn{1}{c}{vtable} \\ \hline
+          \texttt{Foo::fun1} \\ \hline
+          \texttt{Bar::fun2} \\ \hline
+          \texttt{Bar::fun3} \\ \hline
+        \end{tabular}
+
+        &
+
+        \begin{tabular}{|c|c|}
+          \multicolumn{1}{c}{struct} \\ \hline
+          \texttt{Foo::a} \\ \hline
+          \texttt{Foo::b} \\ \hline
+          \texttt{Bar::b} \\ \hline
+        \end{tabular}
+      \end{tabular}
+    \end{center}
+
+  \\ \hline
+\end{tabular}
+\end{center}
+
+This way, when a \texttt{Bar} is casted to a \texttt{Foo}, the same instructions
+can be used to call \texttt{Bar}'s \texttt{fun2} as opposed to \texttt{Foo}'s.
+We had two options of where to put the vtables. They could either be part of
+every object, or they could be located in the data section of the executable.
+We decided that to reduce the overhead of each object, each object would have
+a pointer to its vtable instead of the vtable being cloned all over the place.
+This pointer is the first field in the struct (it's 8 bytes), and all other
+instance variables come after the vtable.
+
+Instance fields are laid out in a similar fashion as vtables are. A child class
+inherits the same order of fields from its parent, and then adds its own fields
+to the end of the struct created. This is for similar reasons that the vtable
+has the same layout.
+
+The next thing we have to do is make sure that when you're calling an object's
+method, the object knows who it is. To accomplish this, we implicitly made
+the first argument of every function on a class to be \texttt{this}. Whenever
+a function call is made on an object, the object itself is passed along to the
+function. References to fields or \texttt{this} then use this first argument
+to perform address arithmetic, etc.
+
 \section{Testing}
+
+Our testing strategy for our compiler was fairly straightforward. Our first
+consideration was to make sure that we didn't break any features of L4, so we
+made sure our compiler passed all previous tests. The only exceptions to this
+were those which used our new keywords like \texttt{this} or \texttt{new} as
+variable names.
+
+Otherwise, we made sure to write a fair number of tests which exercise different
+functionality for each of the features in our language. We first collected a
+large set of error test cases to make sure we rejected the programs. These
+included most of the negative cases of the static semantics laid out from
+above.
+
+Afterwards, we started to write some code with our new extension to the
+language. We quickly realized there were some features we really wanted, so we
+decided to add them to the language (\texttt{super}, not declaring a function
+override, etc.). After creating a \texttt{String} library, we were satisfied
+with how the object orientation was working, and we started to write some tests
+which leveraged the library.
 
 \section{Analysis}
 
 We included many features of object oriented languages, but we still lacked some
-major features like static methods/fields, method overloading, implicit
-constructors, <ADD MORE HERE>.
+major features like static methods/fields, method overloading, and implicit
+constructors to name a few.
 
 After adding object oriented features, we realized that our generated assembly
 has a lot of room for improvement. Because our IR only minimally changed, all of
