@@ -3,6 +3,7 @@
 \usepackage{fullpage}
 \usepackage{array}
 \usepackage{setspace}
+\usepackage{proof}
 \newcommand{\wild}{\mbox{\tt\char"5F}}
 
 \newcommand{\nonterm}[1]{$\langle${#1}$\rangle$}
@@ -25,7 +26,7 @@ Alex Crichton (acrichto) and Robbie McElrath (rmcelrat)}
 
 \begin{document}
 \maketitle
-\renewcommand{\baselinestretch}{1.0}
+\renewcommand{\baselinestretch}{1.5}
 
 \section{Introduction}
 
@@ -81,16 +82,49 @@ of the specification not addressed here is unchanged.
 \item \term{super} may only be used within methods of a class $\alpha$ that
       extends some class $\beta$. \term{super} resolves to $\beta$ in this
       case. Subclasses can only access their direct parent via \term{super}.
+\item Subclasses do not need to redeclare a method that they will override.
+\item Subclasses cannot change the type of a function they are overriding.
+\item A class must define a constructor.
 \item Non-constructors cannot call their own constructor or their parent's.
       Constructors are the only method allowed to call the parent constructor.
 \end{itemize}
 
 \subsubsection{Typechecking}
-\begin{itemize}
-\item 
-\end{itemize}
+We will define $\tau \subseteq \tau'$ to mean $\tau$ is a subtype of $\tau'$.
+Any $\tau$ is a subtype of itself, and $\tau$ is a subtype of $\tau'$ if and only
+if $\tau$ is a class that extends class $\tau'$, either directly or indirectly.
+In other words, if you were to construct an inheritance tree, where each class
+was a child node of the class it extended, then $\tau \subseteq \tau'$ would be
+true iff $\tau = \tau'$ or if $\tau'$ was a direct ancestor of $\tau$ in the
+tree. \\
+
+Type equality checks were substitued with subtype checks throughout the
+typechecker, so any variable of type \texttt{Foo} can be assigned any value that
+is a subtype of \texttt{Foo} (including parameters). The only exception to this
+rule are arrays of objects. A \texttt{Foo array} is not a subtype of a
+\texttt{Bar array} even if \texttt{Foo} is a subtype of \texttt{Bar}. The only
+other modification to the L5 typechecker is that methods have \texttt{this} and
+the fields of their class bound as local variables at the beginning of the
+function.
 
 \subsection{Dynamic Semantics}
+\begin{itemize}
+\item After allocation, all class fields will be initialized to \texttt{0},
+      \texttt{false}, or \texttt{null}. The required constructor will
+      automatically be called after allocation of the object with \texttt{this}
+      bound to the address of the object or \texttt{null} if it could not be
+      allocated.
+\item When invoking a method, the method will be resolved relative to the
+      class the object was constructed as. For example, when invoking method
+      \texttt{dostuff()} on an object of type \texttt{Bar} that extends 
+      \texttt{Foo}, \texttt{dostuff} will resolve to the implementation provided
+      by \texttt{Bar}, \emph{not} that of \texttt{Foo} unless \texttt{Bar} does
+      not override \texttt{Foo}'s implementation of \texttt{dostuff}. Note that
+      this means method invocation cannot be determined statically - it depends
+      on the type the object was constructed as (which may differ from the
+      declared type due to subtyping).
+\item The dynamic semantics are the same as they were in L5 in all other aspects.
+\end{itemize}
 
 
 \section{Implementation}
