@@ -276,7 +276,8 @@ The testing strategy for our compiler was fairly straightforward. Our first
 consideration was to make sure that we didn't break any features of L4, so we
 made sure our compiler passed all previous tests. The only exceptions to this
 were those which used our new keywords like \texttt{this} or \texttt{new} as
-variable names.
+variable names. Because we weren't changing L4 in any fundamental ways, we were
+able to use the same driver as before along with the same syntax for tests.
 
 We wrote a fair number of tests which exercise different
 functionality for each of the features in our language. We first collected a
