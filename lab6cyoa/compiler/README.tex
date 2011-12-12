@@ -56,6 +56,7 @@ of the specification not addressed here is unchanged.
                        & \OR & \term{this} \verb"->" \term{ident} \OR \term{this} \verb"->" \term{ident} \nonterm{arg-list} \\
 \end{tabular}
 
+\newpage
 \subsection{Static Semantics}
 \subsubsection{Classes}
 \begin{itemize}
@@ -122,6 +123,11 @@ variables at the beginning of the function.
       this means method invocation cannot be determined statically - it depends
       on the type the object was constructed as (which may differ from the
       declared type due to subtyping).
+\item With respect to memory safety, initial allocations of objects raises
+      \texttt{SIGSEGV} if the allocation fails. Whenever a method is invoked
+      on an object, \texttt{SIGSEGV} is raised when the object is NULL.
+      Otherwise, all field accesses in a method do not need to be checked
+      because it is guaranteed that \texttt{this} is a valid pointer.
 \item The dynamic semantics are the same as they were in L5 in all other
       aspects.
 \end{itemize}
@@ -145,11 +151,12 @@ Furthermore, elaboration was much simpler, only having to check for validity
 of method names as opposed to methods and classes.
 
 Other static analyses, initialization checking, return checking, and checking
-for main all remained virtually untouched. The analysis which changed the most
+for main, all remained virtually untouched. The analysis which changed the most
 was typechecking. It turned out that typechecking and translation into the IR
 were the two largest changes we had to make, but both changes were very similar.
 In addition to the previous environment information, we had to have information
-about classes.
+about classes. This class information included public/private access, methods,
+fields, and the parent class.
 
 \subsection{Back End}
 
@@ -159,7 +166,8 @@ drastically, but we were hoping to reduce all of the object-oriented semantics
 to the same IR we had for L4. We largely succeeded in this goal, but we had to
 add the ability to indirectly call a function instead of just by label.
 Otherwise, nothing in our IR changed, so we were able to retain the benefit of
-all our previous optimizations with little effort.
+all our previous optimizations with little effort. In the end, our
+optimizations directory had only 19 insertions and 16 deletions.
 
 Each method needs to know which object it was called on, so we insert a
 parameter in every method that will store a pointer to ``\texttt{this}''.
@@ -281,6 +289,12 @@ decided to add them to the language (\texttt{super}, not declaring a function
 override, etc.). After creating a \texttt{String} library, we were satisfied
 with how the object orientation was working, and we started to write some tests
 which leveraged the library.
+
+Our end result was 33 tests, 24 of which were error tests. This is not close to
+an exhaustive test suite, and crowd-sourced tests would most likely expose some
+pitfalls of our implementation. After writing these tests and exhibiting as much
+functionality of the object oriented features that we could, we decided that
+we had enough.
 
 \section{Analysis}
 
