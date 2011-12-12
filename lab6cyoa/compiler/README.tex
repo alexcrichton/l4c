@@ -311,7 +311,10 @@ has a lot of room for improvement. Because our IR only minimally changed, all of
 our previous optimizations still worked in place, but adding these new features
 introduced a whole new class of generated assembly which could be much better
 optimized. Optimizations like memory aliasing and address arithmetic are much
-more relevant with this language extension than they were before.
+more relevant with this language extension than they were before. As of L5,
+we also didn't have any optimizations in instruction selection to take advantage
+of Intel's memory addressing syntax, but these instructions would not only make
+the generated assembly far more readable, but also much quicker.
 
 Furthermore, garbage collection didn't seem particularly useful in L5 because
 a program didn't look very nice if there were a bunch of allocations all over
@@ -321,5 +324,11 @@ would probably be created. After implementing just a \texttt{String} class, we
 realized that we were calling \texttt{malloc} left and right all over the place.
 These leaks can certainly become a serious issue, especially in a long running
 program.
+
+A possible extension to our compiler would be to make it not only compatible
+with other C code, but also other C++ code. In theory, C++ headers could be
+translated to C0 headers, and the same ABI could be used between the two
+compilers. We were not familiar enough with the C++ ABI, however, so we did
+not consider this as a possible course of action for this compiler.
 
 \end{document}
