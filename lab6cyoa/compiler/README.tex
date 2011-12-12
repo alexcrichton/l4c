@@ -321,14 +321,27 @@ a program didn't look very nice if there were a bunch of allocations all over
 the place, so this probably wouldn't happen too often. With OO features, it's
 much more natural to create objects with \texttt{new}, so many more objects
 would probably be created. After implementing just a \texttt{String} class, we
-realized that we were calling \texttt{malloc} left and right all over the place.
-These leaks can certainly become a serious issue, especially in a long running
-program.
+realized that we were calling \texttt{malloc} left and right. These leaks can
+certainly become a serious issue, especially in a long running program.
 
 A possible extension to our compiler would be to make it not only compatible
 with other C code, but also other C++ code. In theory, C++ headers could be
 translated to C0 headers, and the same ABI could be used between the two
 compilers. We were not familiar enough with the C++ ABI, however, so we did
 not consider this as a possible course of action for this compiler.
+
+While outputting object files and linking against C++ code would certainly be
+useful, the absence of this feature allows us to add some optimizations that
+aren't possible in C++ (though we don't currently implement them). We are in
+a ``closed world'' when compiling C0 because we know exactly what code will be
+running at compile time. Given that we have all the code that makes up the
+program, we could optimize out many of the vtable look ups for most programs.
+If the String class is never extended and the \texttt{toUpperCase()} function is
+called on a string, then we know at compile time which function should be called
+because there is only one \texttt{toUpperCase()} implementation defined. This
+optimization would eliminate both memory accesses for method invocation, which
+could have a major impact on performance. While this optimization would
+certainly result in better code and bring the object oriented performance to the
+level of regular C0, we did not have time to implement it.
 
 \end{document}
