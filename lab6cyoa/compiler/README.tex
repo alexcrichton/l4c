@@ -83,7 +83,7 @@ of the specification not addressed here is unchanged.
       case. Subclasses can only access their direct parent via \term{super}.
 \item Subclasses do not need to redeclare a method that they will override.
 \item Subclasses cannot change the type of a function they are overriding.
-\item A class must define a constructor.
+\item Every class must define a constructor.
 \item Non-constructors cannot call their own constructor or their parent's.
       Constructors are the only method allowed to call the parent constructor.
 \end{itemize}
@@ -176,11 +176,11 @@ All object field accesses are elaborated from \texttt{\emph{name}} to
 a pointer to a vtable (discussed later), followed by all the fields within the
 class. Because we convert \texttt{this} to a struct pointer and store the
 object's fields in the struct, we did not need to modify the IR or code
-generation to support this aspect of objects.
+generation to support field accesses in objects.
 
 As explained in the dynamic semantics, we can't statically resolve method
 invocations because of subtyping, so we add a virtual function table, or vtable
-to the struct representing an object. The vtable is an array of function
+to the struct representing an object. The vtable is an table of function
 pointers, and each method is assigned a fixed location in the table. When a
 class is extended, the parent class's vtable is copied and new methods are
 added to the end of the table. This allows method invocation to work properly
@@ -196,14 +196,14 @@ example, the following two class declarations result in the following vtables:
     class Foo {
       int a; int b;
       int fun1(); int fun2();
-    }
+    };
     \end{verbatim}
     &
     \begin{verbatim}
     class Bar extends Foo {
       int c;
       int fun3();
-    }
+    };
     int Bar::fun1() { ... }\end{verbatim}
   \\
 
