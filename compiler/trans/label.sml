@@ -12,6 +12,8 @@ sig
   val literal : string -> label
   val extfunc : string -> label
   val intfunc : string -> label
+  val scoped_func : string * string -> label
+  val vtable : string -> label
   val name : label -> string
   val str : label -> string
   val hash : label -> word
@@ -22,7 +24,8 @@ end
 
 structure Label :> LABEL =
 struct
-  datatype typ = EXTFUNC | INTFUNC | LITERAL | GENERIC of int
+  datatype typ = EXTFUNC | INTFUNC | LITERAL | SCOPED of string | GENERIC of int
+                         | VTABLE
   type label = string * typ
 
   local
@@ -45,15 +48,20 @@ struct
 
   fun extfunc str = (str, EXTFUNC)
   fun intfunc str = (str, INTFUNC)
+  fun scoped_func (scope, str) = (str, SCOPED scope)
+  fun vtable str = (str, VTABLE)
 
   val extprefix = if SMLofNJ.SysInfo.getOSName () = "Darwin" then "_" else ""
 
   fun name (s, GENERIC i) = "." ^ s ^ Int.toString i
     | name (s, LITERAL) = "." ^ s
     | name (s, INTFUNC) = extprefix ^ "_c0_" ^ s
-    | name (s, _) = extprefix ^ s
+    | name (s, SCOPED scope)  = extprefix ^ "_c0_" ^ scope ^ "$$" ^ s
+    | name (s, EXTFUNC) = extprefix ^ s
+    | name (s, VTABLE) = extprefix ^ "_c0_vtable$" ^ s
 
-  fun str (s, _) = s
+  fun str (s, SCOPED scope) = scope ^ "$$" ^ s
+    | str (s, _) = s
   fun isfunc (_, (EXTFUNC | INTFUNC)) = true
     | isfunc _ = false
   fun hash label = HashString.hashString (name label)

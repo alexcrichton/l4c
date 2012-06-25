@@ -18,6 +18,7 @@ sig
    | REG of reg * size
    | TEMP of Temp.temp * size
    | MEM of operand * size
+   | LABELOP of Label.label
 
   datatype operation = ADD | SUB | MUL | DIV | MOD | CMP
                      | AND | OR  | XOR | LSH | RSH
@@ -30,7 +31,7 @@ sig
    | MOVFLAG of operand * condition
    | JMP of Label.label * condition option
    | RET
-   | CALL of Label.label * int
+   | CALL of operand * int
    | ASM of string
    | LABEL of Label.label
    | DIRECTIVE of string
@@ -66,6 +67,7 @@ struct
    | REG of reg * size
    | TEMP of Temp.temp * size
    | MEM of operand * size
+   | LABELOP of Label.label
 
   datatype operation = ADD | SUB | MUL | DIV | MOD | CMP
                      | AND | OR  | XOR | LSH | RSH
@@ -78,7 +80,7 @@ struct
    | MOVFLAG of operand * condition
    | JMP of Label.label * condition option
    | RET
-   | CALL of Label.label * int
+   | CALL of operand * int
    | ASM of string
    | LABEL of Label.label
    | DIRECTIVE of string
@@ -96,6 +98,7 @@ struct
 
   fun size (MEM (_, t) | REG (_, t) |
             TEMP (_, t) | IMM(_, t)) = t
+    | size (LABELOP _) = QUAD
 
   (* format_reg : reg -> string
    *
@@ -208,6 +211,7 @@ struct
                                        else format_reg64 r) ^ format_size size
     | format_operand (MEM (r, size))  = "(" ^ format_operand r ^ ")"
                                       ^ format_size size
+    | format_operand (LABELOP l) = Label.name l ^ "(%rip)"
 
   (* format_operand8 : operand -> string
    *
@@ -248,6 +252,8 @@ struct
          format_operand8 s else format_operand s) ^
       (if oper = DIV orelse oper = MOD then "" else ", " ^ format_operand d)
     (* unallocated temp, but instruction needs to happen for memory access*)
+    | format_instr (MOV (d, s as LABELOP _)) =
+        "leaq " ^ format_operand s ^ ", " ^ format_operand d
     | format_instr (MOV (TEMP _, s as MEM _)) = "cmpl $0, " ^ format_operand s
     | format_instr (MOV (d as (REG (STACK _, QUAD) | MEM (_, QUAD)),
                          s as REG (sr as _, WORD))) =
@@ -261,7 +267,8 @@ struct
         "movzbq " ^ format_operand8 d ^ ", " ^ format_operand d
     | format_instr (MOVFLAG (d, _)) =
         "movzbl " ^ format_operand8 d ^ ", " ^ format_operand d
-    | format_instr (CALL (l, _)) = "callq " ^ Label.name l
+    | format_instr (CALL (LABELOP l, _)) = "callq " ^ Label.name l
+    | format_instr (CALL (oper, _)) = "callq *" ^ format_operand oper
     | format_instr (ASM str) = str
     | format_instr (DIRECTIVE str) = str
     | format_instr (LABEL l) = Label.name l ^ ":"
@@ -288,8 +295,8 @@ struct
       in
         (rinstrs @ [MOV (swapr size, MEM (r', size))], swapr size)
       end
-    | findr (s as REG (STACK _, size)) =
-        ([MOV (swapr size, s)], swapr size)
+    | findr (s as REG (STACK _, size)) = ([MOV (swapr size, s)], swapr size)
+    | findr (s as LABELOP _) = ([MOV (swapr QUAD, s)], swapr QUAD)
     | findr r = ([], r)
 
   (* resolve_mem : operand * operand -> (instr list * operand * operand)
@@ -370,9 +377,9 @@ struct
       in
         instrs @ [MOV (d, s)]
       end
-    | instr_expand (CALL (l, n)) =
+    | instr_expand (CALL (LABELOP l, n)) =
         (* tail-recursive calls are encoded with negative argument numbers *)
-        if n >= 0 then [CALL (l, n)]
+        if n >= 0 then [CALL (LABELOP l, n)]
         else [JMP (Label.literal (Label.str l ^ "_start"), NONE)]
     | instr_expand i = [i]
 
@@ -465,14 +472,17 @@ struct
    *)
   fun compare (REG (r1, _), REG (r2, _)) = Int.compare (reg_num r1, reg_num r2)
     | compare (TEMP (t1, _), TEMP (t2, _)) = Temp.compare (t1, t2)
-    | compare (IMM w1, IMM w2) = EQUAL
-    | compare (MEM m1, MEM m2) = EQUAL
+    | compare (IMM _, IMM _) = EQUAL
+    | compare (MEM _, MEM _) = EQUAL
+    | compare (LABELOP _, LABELOP _) = EQUAL
     | compare (IMM _, _)  = LESS
     | compare (_, IMM _)  = GREATER
     | compare (TEMP _, _) = LESS
     | compare (_, TEMP _) = GREATER
     | compare (MEM _, _) = LESS
     | compare (_, MEM _) = GREATER
+    | compare (LABELOP _, _) = LESS
+    | compare (_, LABELOP _) = GREATER
 
   (* oper_equal : operand * operand -> bool
    *
@@ -484,10 +494,9 @@ struct
    *
    * Hashes an operand
    *)
-  fun oper_hash (IMM _) = Word.fromInt ~1
+  fun oper_hash (IMM _ | MEM _ | LABELOP _) = Word.fromInt ~1
     | oper_hash (REG (r, _)) = Word.fromInt (reg_num r)
     | oper_hash (TEMP (t, _)) = (Temp.hash t) + (Word.fromInt 15)
-    | oper_hash (MEM oper) = Word.fromInt ~1
 
 end
 

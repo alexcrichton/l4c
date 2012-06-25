@@ -5,7 +5,7 @@
  *)
 signature CFG_OPTIMIZATION =
 sig
-  val optimize : Tree.cfg -> Tree.cfg
+  val optimize : Tree.cfg_func list -> Tree.cfg_func list
 end
 
 signature CODEGEN_OPTIMIZATION =

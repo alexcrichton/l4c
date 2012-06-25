@@ -55,7 +55,8 @@ struct
    *)
   fun munch_exp ts d (T.CONST (n, typ)) = [AS.MOV(d, AS.IMM (n, munch_typ typ))]
     | munch_exp ts d (T.TEMP (t, typ)) = [AS.MOV (d, munch_temp ts (t, typ))]
-    | munch_exp ts d (T.BINOP (binop, e1, e2)) = munch_binop ts d (binop, e1, e2)
+    | munch_exp ts d (T.BINOP (binop, e1, e2)) =
+        munch_binop ts d (binop, e1, e2)
     | munch_exp ts d (T.MEM (a, typ)) = let
         val t = AS.TEMP (Temp.new(), AS.QUAD)
         val instrs = munch_exp ts t a
@@ -71,6 +72,15 @@ struct
           fun eval ((e, t), (i, T, I)) = let val d = argdest t i in
                                            (i - 1, d::T, (munch_exp ts d e) @ I)
                                          end
+
+          val (instrs, callable) = case l
+                                     of (T.ELABEL lbl) => ([], AS.LABELOP lbl)
+                                      | _ => let
+                                               val tmp = AS.TEMP (Temp.new(),
+                                                                  AS.QUAD)
+                                             in
+                                               (munch_exp ts tmp l, tmp)
+                                             end
           val (_, T, I) = foldr eval (length L - 1, [], []) L
           fun mv (s as (AS.TEMP (_, typ)), (i, L)) =
                 (i - 1, AS.MOV(AS.REG(AS.arg_reg i, typ), s)::L)
@@ -78,9 +88,10 @@ struct
           val (_, moves) = foldr mv (length T - 1, []) T
           val ret = AS.REG (AS.EAX, munch_typ t)
         in
-          I @ moves @ [AS.CALL (l, length L), AS.MOV (d, ret)]
+          instrs @ I @ moves @ [AS.CALL (callable, length L), AS.MOV (d, ret)]
         end
-    | munch_exp _ _ _ = raise Fail "Invalid expression"
+    | munch_exp ts d (T.ELABEL l) = [AS.MOV (d, AS.LABELOP l)]
+    | munch_exp _ _ (T.PHI _) = raise Fail "Invalid expression"
 
   (* munch_half : T.typ -> AS.binop -> T.exp -> (AS.operand * AS.instr list)
    *
@@ -337,7 +348,7 @@ struct
   fun codegen program = let
         fun geni (id, t, T, L) = (AS.LABEL id) :: munch_function (id, t, T, L)
       in
-        foldr (op @) [] (map geni program)
+        (foldr (op @) [] (map geni program))
       end
 
 end

@@ -1,7 +1,7 @@
 signature SSA =
 sig
-  val ssa : Tree.cfg -> unit
-  val dessa : Tree.cfg -> Tree.program
+  val ssa : Tree.cfg_func list -> unit
+  val dessa : Tree.cfg_func list -> Tree.func list
 end
 
 structure SSA :> SSA =
@@ -258,8 +258,9 @@ struct
                     (n := valOf (TM.find (map, t)))
                 | process_exp (T.BINOP (_, e1, e2), map) =
                     (process_exp (e1, map); process_exp (e2, map))
-                | process_exp (T.CALL (_, _, L), m) =
-                    app (fn (e, _) => process_exp (e, m)) L
+                | process_exp (T.CALL (e, _, L), m) =
+                    (process_exp (e, m);
+                     app (fn (e, _) => process_exp (e, m)) L)
                 | process_exp (T.MEM (e, _), map) = process_exp (e, map)
                 | process_exp _ = () (* PHI and CONST *)
 

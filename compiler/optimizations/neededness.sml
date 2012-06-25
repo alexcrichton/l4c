@@ -27,7 +27,7 @@ struct
   type stmrule = temp list * temp option * label list * temp list * bool
 
   fun rulegen_exp (T.TEMP (t, _)) = ([t], [], false)
-    | rulegen_exp (T.CONST _) = ([], [], false)
+    | rulegen_exp (T.CONST _ | T.ELABEL _) = ([], [], false)
     | rulegen_exp (T.BINOP (oper, e1, e2)) = let
         val (U1, N1, s1) = rulegen_exp e1
         val (U2, N2, s2) = rulegen_exp e2
@@ -40,15 +40,16 @@ struct
     | rulegen_exp (T.MEM (e, _)) = let
         val (U, N, s) = rulegen_exp e
       in (U, U, true) end
-    | rulegen_exp (T.CALL (_, _, L)) = let
+    | rulegen_exp (T.CALL (e, _, L)) = let
         fun merge ((e, _), (U, _, s)) = let
               val (U', _, s') = rulegen_exp e
               val U'' = U @ U'
             in
               (U'', U'', true)
             end
+        val (U, N, _) = foldr merge (rulegen_exp e) L
       in
-        foldr merge ([], [], true) L
+        (U, N, true)
       end
     | rulegen_exp (T.PHI _) = raise Fail "No phis in neededness"
 

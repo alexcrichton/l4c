@@ -55,8 +55,8 @@ struct
     | order_exp (T.BINOP (oper, e1, e2)) =
         T.BINOP (oper, order_exp e1, order_exp e2)
     | order_exp (T.MEM (e, t)) = T.MEM (order_exp e, t)
-    | order_exp (T.CALL (id, t, L)) =
-        T.CALL (id, t, map (fn (e, t) => (order_exp e, t)) L)
+    | order_exp (T.CALL (e, t, L)) =
+        T.CALL (order_exp e, t, map (fn (e, t) => (order_exp e, t)) L)
     | order_exp e = e
 
   (* order_stm : T.stm -> T.stm
@@ -113,7 +113,7 @@ struct
                                    fn () => exp_compare (e12, e22)))
     | exp_compare (T.BINOP _, _) = LESS
     | exp_compare (_, T.BINOP _) = GREATER
-    | exp_compare (_, (T.PHI _ | T.MEM _ | T.CALL _)) = GREATER
+    | exp_compare (_, (T.PHI _ | T.MEM _ | T.CALL _ | T.ELABEL _)) = GREATER
 
   structure ET = BinaryMapFn(struct
                                type ord_key = T.exp
@@ -140,7 +140,7 @@ struct
   and mape tbl g (T.BINOP (oper, e1, e2)) =
         T.BINOP (oper, lookup tbl g e1, lookup tbl g e2)
     | mape tbl g (T.CALL (l, t, args)) =
-        T.CALL (l, t, map (fn (e, t) => (lookup tbl g e, t)) args)
+        T.CALL (lookup tbl g l, t, map (fn (e, t) => (lookup tbl g e, t)) args)
     | mape tbl g (T.MEM (e, t)) = (T.MEM (lookup tbl g e, t))
     | mape _ _ e = e
 
