@@ -1,4 +1,4 @@
-#test return 17300
+//test return 17300
 
 struct foo_t{
     int a;
@@ -16,7 +16,7 @@ struct bar_t{
 typedef struct bar_t bar;
 
 int main(){
-    foo[] f = alloc_array(struct foo_t, 100); 
+    foo[] f = alloc_array(struct foo_t, 100);
     int i;
     int ans;
 

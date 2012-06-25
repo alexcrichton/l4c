@@ -1,4 +1,4 @@
-#test exception 14
+//test return 0
 /* This test ensures proper struct alignment. */
 
 struct bar {
@@ -19,7 +19,7 @@ struct foo {
 int spin(struct foo *foo)
 {
 	int i;
-	for (i = 1; i != (253<<21); i++);
+	for (i = 1; i != (253<<21); i++) {}
 	return 0;
 }
 
@@ -27,7 +27,7 @@ int spin(struct foo *foo)
 int spin2(struct foo *foo)
 {
 	int i;
-	for (i = 1; i != 0; i++);
+	for (i = 1; i != 0; i++) {}
 	return 0;
 }
 
@@ -43,6 +43,6 @@ int main()
 	coolface[11] = 0;
 	coolface[13] = 0;
 	foo->innocent_bystander = 1 / foo->bar.some_poor_noob;
-	spin2(foo);
+	//spin2(foo);
 	return foo->innocent_bystander;
 }
