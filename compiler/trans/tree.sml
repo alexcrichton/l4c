@@ -10,7 +10,7 @@ sig
 
   datatype binop = ADD | SUB | MUL | DIV | MOD | LT | LTE | GT | GTE
                  | EQ | NEQ | AND | OR  | XOR | LSH | RSH
-  datatype typ = WORD | QUAD
+  datatype typ = PTR | INT
   datatype edge = ALWAYS | TRUE | FALSE | BRANCH | TBRANCH | FBRANCH
   type tmp = Temp.temp * int ref
 
@@ -60,7 +60,7 @@ struct
 
   datatype binop = ADD | SUB | MUL | DIV | MOD | LT | LTE | GT | GTE
                  | EQ | NEQ | AND | OR  | XOR | LSH | RSH
-  datatype typ = WORD | QUAD
+  datatype typ = INT | PTR
   datatype edge = ALWAYS | TRUE | FALSE | BRANCH | TBRANCH | FBRANCH
   type tmp = Temp.temp * int ref
 
@@ -123,8 +123,8 @@ struct
     | negate (BINOP (XOR, _, e2)) = e2
     | negate (BINOP _) = raise Fail "Invalid binop in negate"
     | negate (CONST (c, typ)) = if Word32.compare (c, zero) = EQUAL
-                                then CONST (one, WORD) else CONST (zero, WORD)
-    | negate e = BINOP (XOR, CONST (one, WORD), e)
+                                then CONST (one, INT) else CONST (zero, INT)
+    | negate e = BINOP (XOR, CONST (one, INT), e)
 
   fun tmphash (t, ref n) = Word.fromInt (17 * n) + Temp.hash t
   fun tmpcompare ((t1, ref n1), (t2, ref n2)) = let
@@ -160,8 +160,8 @@ struct
       | pp_binop LSH = "<<"
       | pp_binop RSH = ">>"
 
-    fun pp_typ WORD = ":w"
-      | pp_typ QUAD = ":q"
+    fun pp_typ INT = ":i"
+      | pp_typ PTR = ":p"
 
     and pp_exp (CONST (x, typ)) = Word32Signed.toString x ^ pp_typ typ
       | pp_exp (TEMP (t, typ)) = pp_tmp t ^ pp_typ typ

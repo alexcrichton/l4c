@@ -30,8 +30,8 @@ struct
     | munch_op T.RSH = AS.RSH
     | munch_op _     = AS.CMP (* LT, LTE, EQ, NEQ *)
 
-  fun munch_typ T.WORD = AS.WORD
-    | munch_typ T.QUAD = AS.QUAD
+  fun munch_typ T.INT = AS.WORD
+    | munch_typ T.PTR = AS.QUAD
 
   (* Returns true if the operator evaluates to a bool *)
   fun eval_bool (T.LT | T.LTE | T.GT | T.GTE | T.EQ | T.NEQ) = true
@@ -191,10 +191,10 @@ struct
    * @param exp  the expression to evaluate
    * @return the instructions necessary to perform this conditional
    *)
-  and munch_conditional _ dest (T.CONST (w, T.WORD)) =
+  and munch_conditional _ dest (T.CONST (w, T.INT)) =
         if Word32Signed.ZERO = w then [] else [AS.JMP(dest, NONE)]
-    | munch_conditional ts dest (T.TEMP (n, T.WORD)) =
-        [AS.BINOP (AS.CMP, munch_temp ts (n, T.WORD),
+    | munch_conditional ts dest (T.TEMP (n, T.INT)) =
+        [AS.BINOP (AS.CMP, munch_temp ts (n, T.INT),
          AS.IMM (Word32Signed.ZERO, AS.WORD)), AS.JMP(dest, SOME(AS.NEQ))]
     | munch_conditional ts dest (f as T.CALL _) = let val t = Temp.new() in
         munch_exp ts (AS.TEMP (t, AS.WORD)) f @
@@ -214,7 +214,7 @@ struct
         t1instrs @ t2instrs @
           [AS.BINOP (AS.CMP, t1, t2), AS.JMP(dest, SOME cond)]
       end
-    | munch_conditional ts dest (T.MEM (a, T.WORD)) = let
+    | munch_conditional ts dest (T.MEM (a, T.INT)) = let
         val (t, tinstrs) = munch_half ts a
       in
         [AS.BINOP (AS.CMP, t, AS.IMM (Word32Signed.ZERO, AS.size t)),

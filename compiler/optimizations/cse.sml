@@ -16,8 +16,8 @@ struct
   (* typ_hash : T.typ -> W.word
    * Completely arbitrary type hash function
    *)
-  fun typ_hash T.WORD = W.fromInt 5
-    | typ_hash T.QUAD = W.fromInt 11
+  fun typ_hash T.INT = W.fromInt 5
+    | typ_hash T.PTR = W.fromInt 11
 
   (* oper_hash : T.binop -> W.word
    * Completely arbitrary binop hash function

@@ -15,9 +15,9 @@ struct
 
   (* Fold a binop with two constant parameters *)
   fun fold_binop_const (oper, c1 as (w1, t1), c2 as (w2, t2)) = let
-        fun conv_bool true  = (T.CONST (one, T.WORD), true)
-          | conv_bool false = (T.CONST (zero, T.WORD), true)
-        val t = if t1 = T.QUAD orelse t2 = T.QUAD then T.QUAD else T.WORD
+        fun conv_bool true  = (T.CONST (one, T.INT), true)
+          | conv_bool false = (T.CONST (zero, T.INT), true)
+        val t = if t1 = T.PTR orelse t2 = T.PTR then T.PTR else T.INT
       in case oper
            of T.ADD => (T.CONST  (W32S.add_ (w1, w2), t), true)
             | T.SUB => (T.CONST  (W32S.sub_ (w1, w2), t), true)

@@ -65,8 +65,8 @@ struct
    *
    * Helper function to quickly go from an integer to a constant expression
    *)
-  fun const n = T.CONST (Word32.fromInt n, T.WORD)
-  fun constq n = T.CONST (Word32.fromInt n, T.QUAD)
+  fun const n = T.CONST (Word32.fromInt n, T.INT)
+  fun constq n = T.CONST (Word32.fromInt n, T.PTR)
 
   (* scopedl? : symbol * symbol -> symbol/label
    *
@@ -113,7 +113,7 @@ struct
    *)
   fun protect_arr_access (arr_addr, state, arr_idx) = let
         val abrt = Label.extfunc "raise_segv"
-        val size = T.MEM (T.BINOP (T.SUB, arr_addr, constq 8), T.WORD)
+        val size = T.MEM (T.BINOP (T.SUB, arr_addr, constq 8), T.INT)
         val check1 = T.BINOP (T.LT, arr_idx, const 0)
         val check2 = T.BINOP (T.LTE, size, arr_idx)
       in
@@ -125,8 +125,8 @@ struct
   (* trans_typ : A.typ -> T.typ
    * Translates types from AST types to Tree types
    *)
-  fun trans_typ (A.STRUCT _ | A.ARRAY _ | A.PTR _) = T.QUAD
-    | trans_typ _ = T.WORD
+  fun trans_typ (A.STRUCT _ | A.ARRAY _ | A.PTR _) = T.PTR
+    | trans_typ _ = T.INT
 
   (* trans_oper : A.binop -> T.binop
    *
@@ -205,9 +205,9 @@ struct
         (state, T.TEMP ((temp, ref ~1), typ))
       end
     | trans_exp (_, _, s) (A.Bool b) _ = (s, const (if b then 1 else 0))
-    | trans_exp (_, _, s) (A.Const w) _ = (s, T.CONST (w, T.WORD))
+    | trans_exp (_, _, s) (A.Const w) _ = (s, T.CONST (w, T.INT))
     | trans_exp (_, _, s) (A.UnaryOp (A.NEGATIVE, A.Const w)) _ =
-        (s, T.CONST(~w, T.WORD))
+        (s, T.CONST(~w, T.INT))
     | trans_exp env (A.UnaryOp (A.NEGATIVE, e)) a =
         trans_exp env (A.BinaryOp (A.MINUS, A.Const Word32Signed.ZERO, e)) a
     | trans_exp env (A.UnaryOp (A.INVERT, e)) a =
@@ -231,7 +231,7 @@ struct
         else
           (* Divides and mods can have side effects. Make sure that they always
              happen by moving the result of the operation into a temp *)
-          let val t = T.TEMP((Temp.new(), ref ~1), T.WORD) in
+          let val t = T.TEMP((Temp.new(), ref ~1), T.INT) in
             (change_state (s'', T.MOVE (t, result)), t)
           end
       end
@@ -264,19 +264,19 @@ struct
       let
         val (state', e') = trans_exp (e, g, state) exp false
         val func = Label.extfunc (if safe () then "salloc_array" else "calloc")
-        val temp = T.TEMP ((Temp.new(), ref ~1), T.QUAD)
-        val call = T.CALL (T.ELABEL func, T.QUAD,
-                           [(e', T.QUAD),
-                            (constq (typ_size structs typ), T.QUAD)])
+        val temp = T.TEMP ((Temp.new(), ref ~1), T.PTR)
+        val call = T.CALL (T.ELABEL func, T.PTR,
+                           [(e', T.PTR),
+                            (constq (typ_size structs typ), T.PTR)])
       in
         (change_state (state', T.MOVE (temp, call)), temp)
       end
     | trans_exp ({structs, ...}, _, state) (A.Alloc typ) _ = let
         val func = Label.extfunc (if safe () then "salloc" else "calloc")
-        val temp = T.TEMP ((Temp.new(), ref ~1), T.QUAD)
-        val call = T.CALL (T.ELABEL func, T.QUAD,
-                           [(constq 1, T.QUAD),
-                           (constq (typ_size structs typ), T.QUAD)])
+        val temp = T.TEMP ((Temp.new(), ref ~1), T.PTR)
+        val call = T.CALL (T.ELABEL func, T.PTR,
+                           [(constq 1, T.PTR),
+                           (constq (typ_size structs typ), T.PTR)])
       in
         (change_state (state, T.MOVE (temp, call)), temp)
       end
@@ -429,7 +429,7 @@ struct
                       structs=(#structs e)}
       in trans_stm (newenv, g, state) stm lp end
     | trans_stm env (A.Express e) _ = let
-        val t = T.TEMP ((Temp.new(), ref ~1), T.QUAD)
+        val t = T.TEMP ((Temp.new(), ref ~1), T.PTR)
         val (state, e') = trans_exp env e false
       in change_state (state, T.MOVE (t, e')) end
     | trans_stm (_, _, state) A.Nop _ = state
