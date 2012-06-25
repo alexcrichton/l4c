@@ -62,7 +62,7 @@ my $success = GetOptions (
     's|suite=s@'    => \@Opt_Suite,
     't|tests'       => \$Opt_Tests,
     'v|verbose+'    => \$Opt_Verbose,
-    'p|progress'    => \$Opt_Progress,
+    'r|progress'    => \$Opt_Progress,
     'j|parallel=i'  => \$Opt_Parallel,
 );
 $success or pod2usage();
