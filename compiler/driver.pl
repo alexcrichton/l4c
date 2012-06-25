@@ -21,6 +21,7 @@ use Getopt::Long;
 use Pod::Usage;
 
 use Term::ANSIColor;
+use POSIX ":sys_wait_h";
 
 ############################################################
 
@@ -34,9 +35,11 @@ our $Opt_Help           = 0;    # -h, help
 our $Opt_Make           = 1;    # -m, build compiler (on by default)
 our $Opt_Pass           = "";   # -p <args>, arguments to compiler
 our $Opt_Quiet          = 0;    # -q, quiet
-our @Opt_Suite          = ();   # -s <dir>, 
+our @Opt_Suite          = ();   # -s <dir>,
 our $Opt_Tests          = 0;    # -t, validate test files with ref.comp.
 our $Opt_Verbose        = 0;    # -v (stacks)
+our $Opt_Progress       = 0;    # -p, progress
+our $Opt_Parallel       = 1;    # -j, parallel
 our @Testfiles;                 # files... (default ../tests0)
 
 my $num_tried0      = 0;    # number of tests0 tried
@@ -59,6 +62,8 @@ my $success = GetOptions (
     's|suite=s@'    => \@Opt_Suite,
     't|tests'       => \$Opt_Tests,
     'v|verbose+'    => \$Opt_Verbose,
+    'p|progress'    => \$Opt_Progress,
+    'j|parallel=i'  => \$Opt_Parallel,
 );
 $success or pod2usage();
 
@@ -240,7 +245,7 @@ sub grade_compiler {
         }
     }
     printf("Total points on tested suites: $total / $maxtotal\n");
-    
+
     if ($results{tests0} && $results{tests1} && $results{tests2}) {
         my $result = join(':', @{$results{tests0}}, @{$results{tests1}},
                                @{$results{tests2}});
@@ -256,85 +261,185 @@ sub run_suite {
     my $tried = 0;
     my $succeeded =0;
     my @failed = ();
-    foreach my $test (@_) {
-        $tried++;
-        if (test($test)) {
-            $succeeded++;
+    my $total = @_;
+    my @workers = ();
+
+    ##
+    # Add some work to the queue (forking off and performing it
+    #   $addwork->($cmd, $timeout, $out, $err, $input, $cont, $test)
+    #
+    my $addwork = sub {
+      my ($cmd, $timeout, $out, $err, $input, $cont, $test) = @_;
+      my ($read, $write);
+      pipe($read, $write);
+
+      my $pid = fork();
+      if ($pid == 0) {
+        my $ret = system_with_timeout($timeout, $cmd, $out, $err, $input);
+        print $write $ret;
+        exit 0;
+      }
+      close $write;
+
+      push @workers, [$pid, $cont, $test, $read];
+    };
+
+    ##
+    # Wait for some work to be done, processing it after it's done. This can
+    # result in more work being generated possibly. Returns whether work should
+    # continue or work should cease.
+    #   $work->()
+    #
+    my $work = sub {
+        # All workers exit with 0, the work's exit status is written to a pipe
+        my $pid = wait;
+        if (!WIFEXITED($?) || WEXITSTATUS($?) != 0) { die "Worker died badly"; }
+        my $idx;
+        for ($idx = 0; $idx < scalar(@workers); $idx++) {
+          my $el = $workers[$idx];
+          last if @$el[0] == $pid;
         }
-        else {
+        if ($idx == scalar(@workers)) {
+          die "Reaped child that wasn't track of";
+        }
+        my $arr = splice @workers, $idx, 1;
+
+        # Grab the work's result and invoke the continuation with it
+        my ($_, $c, $test, $read) = @$arr;
+        my $status = <$read>;
+        close $read;
+        my ($cmd, @rest) = $c->($status);
+        if ($#rest > 0) {
+          $addwork->($cmd, @rest, $test);
+          return 1;
+        }
+
+        # If there is no more work for this test, then we can print a summary of
+        # what happened to it
+        my $worked = $cmd;
+        if ($Opt_Progress) {
+            progress($tried, $total);
+        }
+        if ($worked) {
+            $succeeded++;
+        } else {
             push @failed, $test;
             if ($Opt_FailFast) {
-                last;
+                return 0;
             }
         }
+        return 1;
+    };
+
+    my $continue = 1;
+    for my $test (@_) {
+        # Throttle the number of parallel processes running
+        $continue = $work->() while ($continue &&
+                                     scalar(@workers) >= $Opt_Parallel);
+        last if !$continue;
+        $tried++;
+        $addwork->(test($test), $test);
+    }
+    if (scalar(@workers) > 0) {
+      if (!$continue) {
+        printq(3, "Waiting for other processes to finish...\n");
+      }
+      $work->() while (scalar(@workers) > 0);
+    }
+
+    if ($Opt_Progress) {
+        print "\n";
     }
     return ($tried, $succeeded, @failed);
 }
 
 
 ###
-# $pass = test (<f>.$LEXT)
-# test compiler on given file
+# $pass = test (<f>.$LEXT, $ref_compiler)
+# test compiler on given file. All outputs are scoped to the name of the given
+# file but with 'log' prepended to the path components.
 #
 sub test {
     my $file = shift;
-    my ($directive, $expected, $valid, $error, $asm_file, $result, $line);
-    my $command;
-    my $ret;
-    my $timeout;
-    if (-e "a.out") { unlink "a.out" or die "could not remove a.out\n"; }
-    if (-e "a.result") { unlink "a.result" or die "could not remove a.result\n"; }
+    my $ref_compiler = shift;
+
+    # Munge on the path names and sanity check the state of the world
+    my $log_file = $file;
+    $log_file =~ s/(tests\d?)/log\/$1/g;
+    my $exe = $log_file;
+    my $output = $log_file;
+    $exe =~ s/\.(l\d)$/-$1/g;
+    $output =~ s/$/.result/g;
+    if (-e $exe) { unlink $exe or die "could not remove $exe\n"; }
+    if (-e $output) { unlink $output or die "could not remove $output\n"; }
+    system("mkdir -p `dirname $log_file`");
 
     my ($read, $write);
     if ($Opt_Quiet == 0) {
         open($write, ">&STDOUT");
-    }
-    else {
+    } else {
         pipe($read, $write);
     }
     my $p = [$read, $write];
 
     printq(2, "-- Testing file $file --\n", $write);
 
-    ($directive, $expected) = read_testdirective($file);
-    ($valid, $error) = test_directive_verify($directive, $expected);
+    my ($directive, $expected) = read_testdirective($file);
+    my ($valid, $error) = test_directive_verify($directive, $expected);
     if (!$valid) {
         return fail($error, $file, $p);
     }
 
-    $asm_file = asm_suffix($file);
-    if (-e $asm_file) {move($asm_file, $asm_file.".old")
-            or die "could not rename $asm_file from previous compilation\n";}
+    my $result;
+    my $callback = sub {
+        my $result = shift;
+        my $ret = grade_compilation($file, $result, $directive, $expected,
+                                    $ref_compiler, $p);
+        if (defined $ret) {
+            return $ret;
+        }
 
-    $command = "$COMPILER_EXEC $COMPILER_ARGS $file $Opt_Pass";
-    ($result, $timeout) = system_with_timeout($COMPILER_TIMEOUT, "$command",
-                                              $write, $write);
+        my $in_file = in_suffix($file);
+        if (-f $in_file) {
+            $in_file = "< $in_file";
+        } else {
+            $in_file = undef;
+        }
+        my $other = $log_file;
+        $other =~ s/$/.output/g;
+        return ($exe, $RUN_TIMEOUT, "> $output", "> $other", $in_file, sub {
+          my $result = shift;
+          return grade_execution($file, $result, $directive, $expected, $output,
+                                 $other, $p);
+        });
+    };
+    if ($ref_compiler) {
+        my $command = "$REF_COMPILER $REF_COMPILER_ARGS $file";
+        return ("$REF_COMPILER $REF_COMPILER_ARGS $file", $COMPILER_TIMEOUT,
+                $write, $write, undef, $callback);
+    } else {
+        my $asm_file = asm_suffix($file);
+        my $command = "$COMPILER_EXEC $COMPILER_ARGS $file $Opt_Pass";
 
-    if ($result == 0) {
-        $command = "$GCC $asm_file $RUNTIME";
-        ($result, $timeout) = system_with_timeout($GCC_TIMEOUT, $command,
-                                                  $write, $write);
-    }
+        return ("$COMPILER_EXEC $COMPILER_ARGS $file $Opt_Pass",
+                $COMPILER_TIMEOUT, $write, $write, undef, sub {
+            my $result = shift;
+            my $asm_dest = $asm_file;
+            $asm_dest =~ s/(tests\d?)/log\/$1/g;
+            if ($result != 0) {
+              return $callback->($result);
+            }
 
-    # the 0 means "this is not the reference compiler"
-    $ret = grade_compilation($file, $result, $timeout, $directive, $expected, 0, $p);
-    if (defined $ret) {
-        return $ret;
+            if (-e $asm_dest) {
+                move($asm_dest, $asm_dest.".old")
+                  or die "could not move $asm_dest from previous compilation\n";
+            }
+            move($asm_file, $asm_dest) or die "couldn't move $asm_file\n";
+            $command = "$GCC $asm_dest $RUNTIME -o $exe";
+            return ("$GCC $asm_dest $RUNTIME -o $exe", $GCC_TIMEOUT, $write,
+                    $write, undef, $callback);
+        });
     }
-
-    $command = "./a.out";
-    my $in_file = in_suffix($file);
-    if (-f $in_file) {
-        $in_file = "< $in_file";
-    }
-    else {
-        $in_file = undef;
-    }
-    ($result, $timeout) = system_with_timeout($RUN_TIMEOUT, $command,
-                                              "> a.result", "> a.output",
-                                              $in_file);
-    
-    return grade_execution($file, $result, $timeout, $directive, $expected, $p);
 }
 
 ###
@@ -342,61 +447,11 @@ sub test {
 # compile and test given file
 #
 sub validate {
-    my $file = shift;
-    my ($directive, $expected, $result, $valid, $error);
-    my ($command, $compiler_result, $res_known, $res_quarantine, $res_crash);
-    my $ret;
-    my $timeout;
-
-    if (-e "a.out") { unlink "a.out" or die "could not remove a.out\n"; }
-    if (-e "a.result") { unlink "a.result" or die "could not remove a.result\n"; }
-
-    my ($read, $write);
-    if ($Opt_Quiet == 0) {
-        open($write, ">&STDOUT");
-    }
-    else {
-        pipe($read, $write);
-    }
-    my $p = [$read, $write];
-
-    printq(2, "-- Testing file $file --\n", $write);
-
-    ($directive, $expected) = read_testdirective($file);
-    ($valid, $error) = test_directive_verify($directive, $expected);
-    if (!$valid) {
-        return fail($error, $file, $p);
-    }
-
-    $command = "$REF_COMPILER $REF_COMPILER_ARGS $file";
-    ($result, $timeout) = system_with_timeout($COMPILER_TIMEOUT, "$command",
-                                              $write, $write);
-
-    $result = ($result >> 8) & 0x7F; # shift because shell return code
-
-    # the 1 means "this is the reference compiler"
-    $ret = grade_compilation($file, $result, $timeout, $directive, $expected, 1, $p);
-    if (defined $ret) {
-        return $ret;
-    }
-
-    $command = "./a.out";
-    my $in_file = in_suffix($file);
-    if (-f $in_file) {
-        $in_file = "< $in_file";
-    }
-    else {
-        $in_file = undef;
-    }
-    ($result, $timeout) = system_with_timeout($RUN_TIMEOUT, $command,
-                                              "> a.result", "> a.output",
-                                              $in_file);
-
-    return grade_execution($file, $result, $timeout, $directive, $expected, $p);
+    return test(shift, 1);
 }
 
 ###
-# $ret = grade_compilation($file, $result, $timeout, $directive, $expected, $is_ref);
+# $ret = grade_compilation($file, $result, $directive, $expected, $is_ref);
 # if (defined $ret) {
 #     return $ret;
 # }
@@ -404,7 +459,6 @@ sub validate {
 sub grade_compilation {
     my $file = shift;
     my $result = shift;
-    my $timeout = shift;
     my $directive = shift;
     my $expected = shift;
     my $is_ref_compiler = shift;
@@ -438,7 +492,7 @@ sub grade_compilation {
     if ($result != 0) {
         ## build error, but we didn't have an error directive.
         ## bail now.
-        if (!$is_ref_compiler || $result == $res_known || $timeout) {
+        if (!$is_ref_compiler || $result == $res_known) {
             return fail("Compilation unexpectedly failed on $file.\n",
                         $file, $p);
         }
@@ -454,31 +508,31 @@ sub grade_compilation {
 }
 
 ###
-# return grade_execution($file, $result, $timeout, $directive, $expected);
+# return grade_execution($file, $result, $directive, $expected, $result_file,
+#                        $output_file, $pipes);
 #
 sub grade_execution {
     my $file = shift;
     my $result = shift;
-    my $timeout = shift;
     my $directive = shift;
     my $expected = shift;
+    my $result_file = shift;
+    my $output_file = shift;
     my $p = shift;
 
-    if ($result >= 128) {
-        $result = $result - 128; # killed by signal
-    }
-
     if ($directive eq "exception") {
-        if ($result == 0) {
+        if (WIFEXITED($result)) {
             return fail("Execution of binary unexpectedly succeeded.\n",
                         $file, $p);
         }
+        if (!WIFSIGNALED($result)) { die "WSTOPSIG?!"; }
+        $result = WTERMSIG($result);
         if (!defined $expected) {
             return pass("Execution of binary raised exception $result.\n",
                         $file, $p);
         }
         $expected = $expected+0;  # convert to integer, for sanity's sake
-        if ($result == $expected || $timeout == $expected) {
+        if ($result == $expected) {
             return pass("Execution of binary raised appropriate exception $result.\n",
                         $file, $p);
         }
@@ -486,19 +540,21 @@ sub grade_execution {
                     $file, $p);
     }
     elsif ($directive eq "return") {
-        if ($result != 0) {
+        if (WIFSIGNALED($result)) {
+            $result = WTERMSIG($result);
             return fail("Execution of binary unexpectedly failed with exception $result.\n",
                         $file, $p);
         }
+        $result = WEXITSTATUS($result);
         # if a.result does not exist, $all_of_file = ''
-        my $return = read_file("a.result");
+        my $return = read_file($result_file);
         chomp $return;
         if ($return eq $expected) {
             my $out_file = out_suffix($file);
             if (! -e $out_file) {
                 return pass("Correct result\n", $file, $p);
             }
-            my $output = read_file("a.output");
+            my $output = read_file($output_file);
             my $expected_output = read_file(out_suffix($file));
             if ($output eq $expected_output) {
                 return pass("Correct result\n", $file, $p);
@@ -524,7 +580,6 @@ sub grade_execution {
 sub make_compiler {
     my $result;
     my $write;
-    my $timeout;
 
     if ($Opt_Quiet < 4) {
         $write = undef;
@@ -533,8 +588,8 @@ sub make_compiler {
         $write = ">/dev/null";
     }
 
-    ($result, $timeout) = system_with_timeout($MAKE_TIMEOUT, "make $COMPILER",
-                                              $write, $write);
+    $result = system_with_timeout($MAKE_TIMEOUT, "make $COMPILER",
+                                  $write, $write);
     if ($result != 0) {
         die "make did not succeed\n";
     }
@@ -579,7 +634,7 @@ sub fail {
     close($w);
     if (defined $r) {
         while (my $line = <$r>) {
-            print $line;
+            printq(5, $line);
         }
         close($r);
     }
@@ -650,7 +705,7 @@ sub read_testdirective {
 
 ###
 # Check validity of the test directive
-# returns (1, undef) if valid, (0, errormessage) otherwise 
+# returns (1, undef) if valid, (0, errormessage) otherwise
 #
 sub test_directive_verify {
     my $directive = shift;
@@ -753,6 +808,16 @@ Quiet mode. Pass multiple times for quieter grading:
 =item -qqqq silences building the compiler
 
 =back
+
+=item -p, --progress
+
+Output a progress bar of percentage of tests run of total tests left to run.
+
+=item -j <n>, --parallel <n>
+
+Run up to n process simultaneously. Beware, may lead to false negatives if a
+test fails due to a timeout because it could be in contention with other tests
+running concurrently.
 
 =item -s <suite>, --suite <suite>
 

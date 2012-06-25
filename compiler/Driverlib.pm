@@ -1,7 +1,7 @@
 ###############################################################################
 # 15-411 Driverlib.pm
 # A package of helper functions for the 15-411 Autolab driver
-# 
+#
 # Based on the original Driverlib.pm Copyright (c) 2005 David R. O'Hallaron.
 ###############################################################################
 
@@ -13,19 +13,24 @@ package Driverlib;
 use File::Copy;
 use File::Basename;
 use FileHandle;
+use Term::ReadKey;
 use POSIX ":sys_wait_h";
 use POSIX qw(setpgid);
 use POSIX ":signal_h";
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT = qw(&report_result &system_with_timeout &printd &printq &read_file $DEBUG $QUIET);
+our @EXPORT = qw(&report_result &system_with_timeout &printd &printq &progress &read_file $DEBUG $QUIET);
 
 our $DEBUG = 0;
 our $QUIET = 0;
+our $PROGRESS = 0;
+our ($LAST_CURRENT, $LAST_TOTAL) = (0, 0);
+my ($wchar, $hchar, $wpixels, $hpixels) = GetTerminalSize();
+our $TERM_WIDTH = $wchar;
 
 #
-# report_result - This is the routine that the driver calls when 
+# report_result - This is the routine that the driver calls when
 #    it is time to output the autoresult string
 #
 sub report_result ($$) {
@@ -66,7 +71,7 @@ sub system_with_timeout {
 
     printd(2, "%% executing $command\n");
     my $p = fork();
-    if ( $p == 0 ) { 
+    if ( $p == 0 ) {
         # child
 
         # redirect output
@@ -102,7 +107,7 @@ sub system_with_timeout {
         exec("${command}");
         # I think the below comment is a little bit full of lies
         #
-        # we need to do this because somehow sml manages to 
+        # we need to do this because somehow sml manages to
         # fork a second internal process that ignores direct
         # kills of the child.  instead we create a new process
         # group and then send an INT process to the direct child
@@ -128,7 +133,7 @@ sub system_with_timeout {
 
     if (!$@) {                   # check whether "eval" died
         printd(2, "%% process $p returned normally\n");
-        return ($result, 0);
+        return $result;
     }
 
     if ($@ !~ /^alarm/) {
@@ -145,7 +150,7 @@ sub system_with_timeout {
         }
     }
     printd(2, "%% reaped all children\n");
-    return (-1, 14);              # return SIGALRM to signal timeout
+    return 128 + 14;              # return SIGALRM to signal timeout
 }
 
 ###
@@ -162,7 +167,13 @@ sub printd {
     }
 
     if ($DEBUG >= $level) {
+        if ($PROGRESS) {
+          print (' ' x $TERM_WIDTH. "\r");
+        }
         print $fh $msg;
+        if ($PROGRESS) {
+            progress($LAST_CURRENT, $LAST_TOTAL);
+        }
     }
 }
 
@@ -180,8 +191,31 @@ sub printq {
     }
 
     if ($QUIET <= $level) {
+        if ($PROGRESS) {
+          print ("\r" . ' ' x $TERM_WIDTH . "\r");
+        }
         print $fh $msg;
+        if ($PROGRESS) {
+            progress($LAST_CURRENT, $LAST_TOTAL);
+        }
     }
+}
+
+###
+# progress($current, $total, $width)
+# prints a progress bar with the parameters given
+#
+sub progress {
+    my $current = shift;
+    my $total = shift;
+    my $width = $TERM_WIDTH - 25;
+
+    my $pct = $current/$total;
+    printf "|%-${width}s| %5.1f%% (%d/%d)\r",
+           '=' x ($pct * $width - 1) . '>',
+           $pct * 100, $current, $total;
+    $PROGRESS = 1;
+    ($LAST_CURRENT, $LAST_TOTAL) = ($current, $total);
 }
 
 ###
