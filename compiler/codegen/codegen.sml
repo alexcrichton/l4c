@@ -37,13 +37,13 @@ struct
   fun eval_bool (T.LT | T.LTE | T.GT | T.GTE | T.EQ | T.NEQ) = true
     | eval_bool _  = false
 
-  fun munch_temp ts (t, typ) = let
-        val t' = case HT.find ts t
-                   of SOME t' => t'
-                    | NONE => let val t' = Temp.new () in
-                                HT.insert ts (t, t'); t'
-                              end
-      in AS.TEMP (t', munch_typ typ) end
+  fun munch_temp ts (t, typ) =
+        case HT.find ts t
+          of NONE => let val oper = AS.TEMP (Temp.new(), munch_typ typ) in
+                       HT.insert ts (t, oper); oper
+                     end
+           | SOME oper => if AS.size oper = munch_typ typ then oper
+                          else raise Fail "differing sizes of temps"
 
   (* munch_exp : AS.operand -> T.exp -> AS.instr list
    *
@@ -310,17 +310,28 @@ struct
   fun munch_function (id, t, T, L) = let
         fun alter_ret post (AS.RET, L) = post @ AS.RET :: L
           | alter_ret _ (i, L) = i :: L
-        (* Move the arguments to the function from their specified registers
-           into the temps of the arguments *)
-        fun mkargs i [] = []
-          | mkargs i ((_, typ)::L) =
-              AS.REG (AS.arg_reg i, munch_typ typ) :: mkargs (i + 1) L
-        val srcs     = mkargs 0 T
-        val dests    = map (fn (t, typ) => AS.TEMP (t, munch_typ typ)) T
-        val argmvs   = ListPair.map (fn t => AS.MOV t) (dests, srcs)
-
+        (* Initialize the mapping of temps to operands with the arguments to
+         * this function. If the argument comes from a register, then actually
+         * move it into a temp and record the temp. Otherwise, just leave it on
+         * the stack and reference the stack location to avoid unnecessary
+         * creation of temps. *)
         val ts = HT.mkTable (T.tmphash, T.tmpequals) (97, Fail "Temp bug")
-        val _  = app (fn (t, _) => HT.insert ts ((t, ref 0), t)) T
+        fun mkargs i [] = []
+          | mkargs i ((t, typ)::L) = let
+              val reg = AS.arg_reg i
+              val (instrs, oper) =
+                    case reg
+                      of AS.STACKARG _ => ([], AS.REG (reg, munch_typ typ))
+                       | _ => let val dst = AS.TEMP (t, munch_typ typ) in
+                                ([AS.MOV (dst, AS.REG (reg, munch_typ typ))],
+                                 dst)
+                              end
+            in
+              HT.insert ts ((t, ref 0), oper);
+              instrs @ mkargs (i + 1) L
+            end
+        val argmvs = mkargs 0 T
+
         val L' = P.time ("Munching", fn () => munch_stmts ts (munch_typ t) L)
         val L'' = if not (Options.opt_on 1) then L'
                   else P.time ("Peephole", fn() => Peephole.optimize id L')
