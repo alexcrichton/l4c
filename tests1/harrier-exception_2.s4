@@ -13,7 +13,7 @@ int *myptr()
 
 int main()
 {
-    int *myptr = myptr();
-    *myptr = 5;
+    int *a = myptr();
+    *a = 5;
     return 3;
 }
