@@ -1,9 +1,0 @@
-//test error
-
-//we don't allow implicit treatment of ints as bools
-int main ()
-{
-  int i;
-  for (i = 0; 0; i++);
-  return 0;
-}

@@ -1,8 +1,0 @@
-//test error
-// reserved keyword: alloc
-
-int main()
-{
-    int alloc;
-    return alloc;
-}

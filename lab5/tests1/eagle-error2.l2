@@ -1,7 +1,0 @@
-//test error
-int main() {
-  int a = 3;
-  bool b = true;
-  a = b;
-  return a;
-}

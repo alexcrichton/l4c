@@ -1,9 +1,0 @@
-//test error
-// test l-values
-
-int main ()
-{
-    *(alloc(int)) = 0;
-    (alloc_array(int, 100))[0] = 100;
-    return -1;
-}

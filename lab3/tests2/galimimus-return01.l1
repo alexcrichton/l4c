@@ -1,5 +1,0 @@
-//test return 0
-// no declrations
-int main() {
-  return 0;
-}

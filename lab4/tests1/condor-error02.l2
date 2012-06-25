@@ -1,7 +1,0 @@
-//test error
-
-int main()
-{
-  int x = x;
-  return x;
-}

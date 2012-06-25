@@ -1,9 +1,0 @@
-//test exception
-/* Don't access null ! */
-
-typedef int * Int;
-
-int main () {
-  Int x = NULL;
-  return *x;
-}

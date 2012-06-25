@@ -1,9 +1,0 @@
-//test return 1
-struct a {
-  int foo;
-};
-
-int main() {
-  struct a* bar = NULL;
-  return 1;
-}

@@ -1,8 +1,0 @@
-//test return 6
-int main() {
-  int a;
-  int b;
-  a = 6;
-  b = 2;
-  return a;
-}

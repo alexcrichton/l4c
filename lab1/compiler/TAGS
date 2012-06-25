@@ -1,40 +1,0 @@
-
-sources.cm,0
-
-compile-l1c.sml,0
-
-parse/l1.lex,0
-
-parse/l1.grm,0
-
-codegen/assem.sml,0
-
-codegen/codegen.sml,0
-
-parse/ast.sml,0
-
-parse/parse.sml,0
-
-parse/parsestate.sml,0
-
-top/top.sml,0
-
-trans/temp.sml,0
-
-trans/trans.sml,0
-
-trans/tree.sml,0
-
-type/typechecker.sml,0
-
-util/errormsg.sml,0
-
-util/flag.sml,0
-
-util/mark.sml,0
-
-util/safe-io.sml,0
-
-util/symbol.sml,0
-
-util/word32.sml,0

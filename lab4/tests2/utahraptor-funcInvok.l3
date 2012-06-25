@@ -1,9 +1,0 @@
-//test error
-int f(int x)
-{
-	return x;
-}
-int main()
-{
-	return f(true);
-}

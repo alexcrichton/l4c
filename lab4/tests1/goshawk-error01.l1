@@ -1,6 +1,0 @@
-//test error
-// test two semicolons in a row
-int main()
-{
-    return 1;;
-}

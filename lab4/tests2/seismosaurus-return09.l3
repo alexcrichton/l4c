@@ -1,9 +1,0 @@
-//test return 15151
-bool returnBool() { return true; }
-
-int main() {
-	if (returnBool())
-		return 15151;
-	return 0;
-}
-

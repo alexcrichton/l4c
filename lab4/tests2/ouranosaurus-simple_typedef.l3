@@ -1,7 +1,0 @@
-//test return 0
-
-typedef int my_int;
-
-my_int main() {
-    return 0;
-}

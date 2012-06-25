@@ -1,8 +1,0 @@
-//test error
-struct list {
-	struct list a;
-};
-
-int main(){
-	return 0;
-}

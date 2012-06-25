@@ -1,7 +1,0 @@
-//test error
-
-int main () {
-	bool * null = NULL;
-	int * y = bool;
-	return 0;
-}

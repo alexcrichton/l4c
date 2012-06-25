@@ -1,7 +1,0 @@
-//test error
-
-typedef foo bar;
-
-int main() {
-  return 0;
-}

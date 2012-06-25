@@ -1,4 +1,0 @@
-//test error
-int main() {
-  return 2147483649;
-}

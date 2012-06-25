@@ -1,7 +1,0 @@
-//test error
-
-typedef int main;
-
-int main() {
-  return 0;
-}

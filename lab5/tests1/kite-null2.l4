@@ -1,7 +1,0 @@
-//test exception 11
-
-int main() {
-    int* a = alloc(int);
-    a = NULL;
-    return *a;
-}

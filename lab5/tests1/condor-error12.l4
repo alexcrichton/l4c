@@ -1,6 +1,0 @@
-//test error
-
-int main () {
-   int * car = alloc( int [10]);
-   return car[0];
-}

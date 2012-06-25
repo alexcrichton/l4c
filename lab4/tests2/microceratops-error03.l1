@@ -1,9 +1,0 @@
-//test error
-// Attempting to read a variable before assigning
-
-int main()
-{
-	int x;
-
-	return x;
-}

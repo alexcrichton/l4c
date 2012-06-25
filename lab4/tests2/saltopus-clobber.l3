@@ -1,8 +1,0 @@
-//test return 524288
-int f(int rdi, int rsi, int rdx, int rcx, int r8, int r9, int stack) {
-	return (rdx / rcx) << rsi + stack << r8;
-}
-
-int main() {
-	return f(10,9,8,7,6,5,4);
-}

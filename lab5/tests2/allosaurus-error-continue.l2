@@ -1,8 +1,0 @@
-//test error
-
-/* continue must occur only in a for or while block */
-int main(){
-  int x = 1;
-  continue;
-  return x;
-}

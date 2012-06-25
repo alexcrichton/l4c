@@ -1,9 +1,0 @@
-//test error
-
-typedef bool foo;
-typedef int foo;
-
-int main() {
-  foo x = 0;
-  return 0;
-}

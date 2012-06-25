@@ -1,3 +1,0 @@
-//test return 0
-int lol ();
-int main () {return 0;}

@@ -1,8 +1,0 @@
-//test return 0
-int main() {
-	while(!eof()) {
-		printchar(readchar());
-	}
-	return 0;
-}
-

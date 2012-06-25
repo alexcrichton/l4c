@@ -1,9 +1,0 @@
-//test error
-
-class Foo { Foo(); };
-Foo::Foo() {}
-
-int main() {
-  Foo *a = alloc(Foo);
-  return 3;
-}

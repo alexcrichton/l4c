@@ -1,8 +1,0 @@
-//test error
-// reserved keyword: for
-
-int main()
-{
-    int for;
-    return for;
-}

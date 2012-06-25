@@ -1,8 +1,0 @@
-//test error
-// reserved keyword: typedef
-
-int main()
-{
-    int typedef;
-    return typedef;
-}

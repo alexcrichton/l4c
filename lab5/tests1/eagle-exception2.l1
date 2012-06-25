@@ -1,8 +1,0 @@
-//test exception 8
-
-int main() {
-  int a = 4;
-  int b = 8;
-  int c = b - (2 * a);
-  return a / c;
-}

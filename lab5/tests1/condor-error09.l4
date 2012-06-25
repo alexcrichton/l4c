@@ -1,9 +1,0 @@
-//test error
-
-struct Hey {
-   int cat;
-} // test that structs parse correctly.
-int main () {
-      
-   return 0;
-}

@@ -1,9 +1,0 @@
-//test error
-
-int main ()
-{
-  while (true) break;
-  if(false)
-    break;
-  else return 0;
-}

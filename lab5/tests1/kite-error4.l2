@@ -1,9 +1,0 @@
-//test error
-// continue not in a loop
-
-int main()
-{
-  int x=0;
-  continue;
-  return x;
-}

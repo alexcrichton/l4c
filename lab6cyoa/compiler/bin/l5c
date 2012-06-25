@@ -1,1 +1,0 @@
-sml @SMLcmdname=$0 @SMLload=`dirname $0`/l5c.heap.x86-`uname | tr A-Z a-z` $*

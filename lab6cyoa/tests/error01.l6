@@ -1,7 +1,0 @@
-//test error
-// bad syntax
-
-class Foo;
-int main() {
-  return 1;
-}

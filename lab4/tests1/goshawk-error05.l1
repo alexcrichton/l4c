@@ -1,8 +1,0 @@
-//test error
-// integer constant too small
-int main()
-{
-    int x;
-    x = -314159265358979;
-    return x;
-}

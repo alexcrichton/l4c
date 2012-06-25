@@ -1,7 +1,0 @@
-//test exception
-
-// why in god's name would you...
-
-int main() {
-    return 0 / 0 % 0;
-}

@@ -1,9 +1,0 @@
-//test error
-/* need to have a main function declared */
-
-int main();
-
-int work(bool stop){
-    printhex(0x4321);
-    return 100000;
-}

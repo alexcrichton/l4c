@@ -1,9 +1,0 @@
-//test return 1
-int main() {
-  int TMAX = 2147483647;
-  int TMIN = -2147483648;
-  int foo = TMAX + TMIN;
-  TMAX = foo + 0xffffffff + 0xf;
-  foo += 0xdeadbeef;
-  return 1;
-}

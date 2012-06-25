@@ -1,8 +1,0 @@
-//test error
-// not a variable on left
-int main()
-{
-  int x;
-  -x = 4294967295;
-  return x;
-}

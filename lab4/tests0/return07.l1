@@ -1,9 +1,0 @@
-//test return 0
-// return not last statement
-int main()
-{
-  int x;
-  x = 0;
-  return x;
-  return 1;
-}

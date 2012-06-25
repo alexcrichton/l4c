@@ -1,7 +1,0 @@
-#test exception 8
-
-int main() {
-  int[] foo = alloc_array(int, 3);
-  foo[-1] = 1/0; // LHS destination evaluated before RHS
-  return 0;
-}

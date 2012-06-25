@@ -1,9 +1,0 @@
-//test return 2
-
-int inc(int n) {
-  return n + 1;
-}
-
-int main() {
-  return inc(1);
-}

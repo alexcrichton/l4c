@@ -1,9 +1,0 @@
-//test error
-
-// Differing fdecls
-
-int foo(int i, int j);
-int foo(int i, bool j);
-
-int main() { return 0; } 
-

@@ -1,8 +1,0 @@
-//test error
-// Test when a reserved keyword is used as a variable name
-
-int main() {
-  int struct;
-  struct = 4;
-  return struct;
-}

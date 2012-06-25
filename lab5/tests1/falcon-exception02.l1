@@ -1,8 +1,0 @@
-//test exception
-//division by 0
-
-int main()
-{
-    int x = 5 / 0;
-    return x;
-}
