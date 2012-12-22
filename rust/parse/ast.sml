@@ -386,6 +386,7 @@ struct
             of NONE => f (Mark.data m)
              | SOME (l, r, file) =>
                 pp_hash [("typ", "mark"), ("l", pp_pair l), ("r", pp_pair r),
+                         ("f", q ^ file ^ q),
                          ("d", f (Mark.data m))]
 
     fun pp_exp (Var id) =
