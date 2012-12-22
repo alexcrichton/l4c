@@ -1,0 +1,2 @@
+extern mod std;
+use std::json;
