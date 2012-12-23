@@ -1,3 +1,5 @@
+use syntax::*;
+
 fn main() {
   let a = os::args();
   if a.len() == 1 {
@@ -5,14 +7,12 @@ fn main() {
   }
 
   let file = copy a[1];
-  let {status, out, _} = run::program_output("parse/parser", [file]);
+  let {status, out, _} = prof(~"JSON",
+                              || run::program_output("parse/parser", [file]));
   if status != 0 {
     io::print(out);
     fail(~"Failed to parse the given file");
   }
 
-  match json::from_str(out) {
-    result::Ok(_) => io::print("woohoo"),
-    result::Err(e) => io::print(fmt!("JSON parse error: %?", e.msg))
-  }
+  prof(~"AST", || parse::from_str(out));
 }

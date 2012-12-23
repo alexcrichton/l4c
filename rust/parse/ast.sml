@@ -82,10 +82,6 @@ sig
     val pp_program : program -> string
   end
 
-  val elaborate  : program -> program
-  val elaborate_external : program -> program
-  val remove_for : stm -> stm -> stm
-
 end
 
 structure Ast :> AST =
@@ -160,179 +156,6 @@ struct
 
   type program = gdecl list
 
-  fun resolve_typ types ext (TYPEDEF id) =
-       (case Symbol.look (!types) id
-          of SOME t => t
-           | NONE   => (ErrorMsg.error ext ("Undefined type: " ^
-                        Symbol.name id); raise ErrorMsg.Error))
-    | resolve_typ types ext (PTR typ) = PTR (resolve_typ types ext typ)
-    | resolve_typ types ext (ARRAY typ) = ARRAY (resolve_typ types ext typ)
-    | resolve_typ _ _ typ = typ
-
-  (* elaborate : program -> program
-   *
-   * @param program the raw AST of the parser, a program which has not yet
-   *                been elaborated
-   *
-   * @return an elaborated version of the AST which fixes structure the parser
-   *         would have trouble knowing about
-   * @raise ErrorMsg.Error if the AST is invalid. Possible examples are
-   *        that any function/variables is called the same as a typdef
-   *        declaration, typedef declarations can't be resolved, etc.
-   *)
-  fun elaborate prog = let
-        val efuns   = ref Symbol.null
-        val funs    = ref Symbol.null
-        val structs = ref Symbol.null
-        val types   = ref Symbol.empty
-
-        val resolve = resolve_typ types
-
-        fun check_id ext id = case Symbol.look (!types) id
-              of SOME _ => (ErrorMsg.error ext ("'" ^ Symbol.name id ^
-                            "' already a type"); raise ErrorMsg.Error)
-               | NONE   => ()
-        and check_set_id str set ext id =
-            if Symbol.member set id then
-              (ErrorMsg.error ext (str ^ " '" ^ Symbol.name id ^
-               "' already defined"); raise ErrorMsg.Error)
-            else ()
-        and check_params ext L = let
-              fun validate ((t, id), (L, s)) =
-                if Symbol.member s id then
-                  (ErrorMsg.error ext ("Duplicate argument parameter: '" ^
-                                       Symbol.name id ^ "'");
-                   raise ErrorMsg.Error)
-                else (check_id ext id;
-                      ((resolve ext t, id)::L, Symbol.add s id))
-            in
-              rev (#1 (foldl validate ([], Symbol.null) L))
-            end
-
-        fun elaborate_gdecl _ (Markedg mark) =
-              elaborate_gdecl (Mark.ext mark) (Mark.data mark)
-          | elaborate_gdecl ext (Fun (typ, id, params, body)) =
-              (check_set_id "Function" (!efuns) ext id; check_id ext id;
-               check_set_id "Function" (!funs) ext id;
-               funs := Symbol.add (!funs) id;
-               Fun (resolve ext typ, id, check_params ext params,
-                    elaborate_stm (!types) body))
-          | elaborate_gdecl ext (p as Typedef (id, typ)) =
-              (check_id ext id; check_set_id "Function" (!efuns) ext id;
-               check_set_id "Function" (!funs) ext id;
-               types := Symbol.bind (!types) (id, resolve ext typ); p)
-          | elaborate_gdecl ext (ExtDecl (typ, id, params)) =
-              (check_id ext id; efuns := Symbol.add (!efuns) id;
-               ExtDecl (resolve ext typ, id, check_params ext params))
-          | elaborate_gdecl ext (IntDecl (typ, id, params)) =
-              (check_id ext id;
-               IntDecl (resolve ext typ, id, check_params ext params))
-          | elaborate_gdecl ext (StrDecl id) = StrDecl id
-          | elaborate_gdecl ext (Struct (id, fields)) = let
-              val _ = (check_set_id "Struct" (!structs) ext id)
-              val s = Struct (id, map (fn (t, f) => (resolve_typ types ext t, f)) fields);
-            in
-              structs := Symbol.add (!structs) id; s
-            end
-      in map (elaborate_gdecl NONE) prog end
-  and elaborate_stm env (Markeds mark) =
-        Markeds (Mark.mark' (elaborate_stm env (Mark.data mark), Mark.ext mark))
-    | elaborate_stm env (Declare (id, typ, stm)) =
-        (* TODO: extent information *)
-        (case Symbol.look env id
-           of SOME t => (ErrorMsg.error NONE ("Variable name is a type: " ^
-                         Symbol.name id); raise ErrorMsg.Error)
-            | NONE => let val t = resolve_typ (ref env) NONE typ in
-                        Declare (id, t, elaborate_stm env stm)
-                      end)
-    | elaborate_stm env (For (Declare(id, typ, s1), e, s2, s3)) =
-        elaborate_stm env (Declare (id, typ, For (s1, e, s2, s3)))
-    | elaborate_stm env (For (Markeds mark, e, s2, s3)) =
-        elaborate_stm env (For (Mark.data mark, e, s2, s3))
-    | elaborate_stm env (For (s1, e, s2, s3)) =
-        For (elaborate_stm env s1, elaborate_exp env e, elaborate_stm env s2,
-             elaborate_stm env s3)
-    | elaborate_stm env (If (e, s1, s2)) =
-        If (elaborate_exp env e, elaborate_stm env s1, elaborate_stm env s2)
-    | elaborate_stm env (While (e, s)) =
-        While (elaborate_exp env e, elaborate_stm env s)
-    | elaborate_stm env (Seq (Declare (id, typ, s1), s2)) =
-        elaborate_stm env (Declare (id, typ, Seq (s1, s2)))
-    | elaborate_stm env (Seq (Markeds mark, s2)) =
-        Markeds (Mark.mark' (elaborate_stm env (Seq (Mark.data mark, s2)),
-                             Mark.ext mark))
-    | elaborate_stm env (Seq (s1, s2)) =
-        Seq (elaborate_stm env s1, elaborate_stm env s2)
-    | elaborate_stm env (Express e) = Express (elaborate_exp env e)
-    | elaborate_stm env (Return e) = Return (elaborate_exp env e)
-    | elaborate_stm env (Assign (Marked mark, s, e2)) =
-        elaborate_stm env (Assign (Mark.data mark, s, e2))
-    | elaborate_stm env (Assign (Var id, SOME oper, e2)) =
-        elaborate_stm env (Assign (Var id, NONE, BinaryOp (oper, Var id, e2)))
-    | elaborate_stm env (Assign (e1, s, e2)) =
-        Assign (elaborate_exp env e1, s, elaborate_exp env e2)
-    | elaborate_stm _ stm = stm
-
-  and elaborate_exp env (Marked mark) =
-        Marked (Mark.mark' (elaborate_exp env (Mark.data mark), Mark.ext mark))
-    | elaborate_exp env (BinaryOp (b, e1, e2)) =
-        BinaryOp (b, elaborate_exp env e1, elaborate_exp env e2)
-    | elaborate_exp env (UnaryOp (b, e)) = UnaryOp (b, elaborate_exp env e)
-    | elaborate_exp env (Ternary (e1, e2, e3, t)) =
-        Ternary (elaborate_exp env e1, elaborate_exp env e2,
-                 elaborate_exp env e3, t)
-    | elaborate_exp env (Call (l, L)) = Call (l, map (elaborate_exp env) L)
-    | elaborate_exp env (Deref (e, t)) = Deref (elaborate_exp env e, t)
-    | elaborate_exp env (Field (e, i, t)) = Field (elaborate_exp env e, i, t)
-    | elaborate_exp env (ArrSub (e1, e2, t)) =
-        ArrSub (elaborate_exp env e1, elaborate_exp env e2, t)
-    | elaborate_exp env (Alloc typ) = Alloc (resolve_typ (ref env) NONE typ)
-    | elaborate_exp env (AllocArray (typ, e)) =
-        AllocArray (resolve_typ (ref env) NONE typ, elaborate_exp env e)
-    | elaborate_exp _ e = e
-
-  (* elaborate_external : program -> program
-   *
-   * Elaborates a parsed external file. This is meant to be called on parsed
-   * header files. It's not allowed for headers to define functions.
-   *
-   * @param prog the program to elaborate. All instances of an IntDecl are
-   *        converted to an ExtDecl
-   * @raise ErrorMsg.Error if the header defines any functions
-   *)
-  fun elaborate_external prog = map (elaborate_ext_gdecl NONE) prog
-  and elaborate_ext_gdecl _ (Markedg m) =
-        Markedg (Mark.mark' (elaborate_ext_gdecl (Mark.ext m) (Mark.data m),
-                             Mark.ext m))
-    | elaborate_ext_gdecl ext (Fun (_, _, _, _)) =
-        (ErrorMsg.error ext "Headers can't define functions!";
-         raise ErrorMsg.Error)
-    | elaborate_ext_gdecl _ (IntDecl (t, id, typs)) = ExtDecl (t, id, typs)
-    | elaborate_ext_gdecl _ (ExtDecl (_, _, _)) =
-        raise Fail "Invalid AST (elaborate_ext_gdecl)"
-    | elaborate_ext_gdecl _ gdecl = gdecl
-
-  (* remove_for : stm -> stm -> stm
-   *
-   * Transforms an AST to make it easier to perform analysis on.
-   * This involves changing for loops to while loops.
-   *
-   * @param stm the statement to transform
-   * @param stm what to replace Continues with (Nop if invoked the first time)
-   * @param an AST without any for loops (they're converted to while loops)
-   *)
-  fun remove_for (For (s1, e, s2, s3)) _ =
-        Seq (s1, While (e, Seq(remove_for s3 s2, s2)))
-    | remove_for (If (e, s1, s2)) rep =
-        If (e, remove_for s1 rep, remove_for s2 rep)
-    | remove_for (While (e, s)) _ = While (e, remove_for s Nop)
-    | remove_for Continue s = Seq (s, Continue)
-    | remove_for (Markeds mark) s =
-        Markeds (Mark.mark' (remove_for (Mark.data mark) s, Mark.ext mark))
-    | remove_for (Seq (s1, s2)) r = Seq (remove_for s1 r, remove_for s2 r)
-    | remove_for (Declare (id, typ, s)) r = Declare (id, typ, remove_for s r)
-    | remove_for s _ = s
-
   (* print programs and expressions in source form
    * using redundant parentheses to clarify precedence
    *)
@@ -394,15 +217,15 @@ struct
       | pp_exp (Const c) =
           pp_hash [("typ", "const"), ("val", Word32Signed.toString c)]
       | pp_exp (Bool b) =
-          pp_hash [("typ", "const"),
-                   ("val", q ^ (if b then "true" else "false") ^ q)]
+          pp_hash [("typ", "bool"),
+                   ("val", if b then "true" else "false")]
       | pp_exp Null = pp_hash [("typ", "null")]
       | pp_exp (Deref (e, _)) =
           pp_hash [("typ", "deref"), ("e", pp_exp e)]
       | pp_exp (ArrSub (e1, e2, _)) =
           pp_hash [("typ", "arrsub"), ("e1", pp_exp e1), ("e2", pp_exp e2)]
       | pp_exp (Field (e, f, _)) =
-          pp_hash [("typ", "arrsub"), ("e", pp_exp e),
+          pp_hash [("typ", "field"), ("e", pp_exp e),
                    ("field", pp_ident f)]
       | pp_exp (Alloc t) =
           pp_hash [("typ", "alloc"), ("type", pp_typ t)]

@@ -1,7 +1,7 @@
 all: l4c
 
 l4c: parse/parser
-	rustc -O l4c.rc
+	rustc l4c.rc
 .PHONY: l4c
 
 clean: parseclean

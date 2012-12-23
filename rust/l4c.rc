@@ -1,2 +1,21 @@
+#[link(name = "l4c")];
+
 extern mod std;
-use std::json;
+
+mod l4c;
+
+mod syntax {
+  mod ast;
+
+  #[allow(non_implicitly_copyable_typarams)]
+  mod parse;
+}
+mod util {
+  mod symbol;
+  mod mark;
+  mod profile;
+}
+
+use syntax::*;
+use util::*;
+use util::profile::*;
