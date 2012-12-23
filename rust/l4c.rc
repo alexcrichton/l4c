@@ -6,8 +6,6 @@ mod l4c;
 
 mod syntax {
   mod ast;
-
-  #[allow(non_implicitly_copyable_typarams)]
   mod parse;
 }
 mod util {
