@@ -1,4 +1,5 @@
 #[link(name = "l4c")];
+#[deny(implicit_copies)];
 
 extern mod std;
 
