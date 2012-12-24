@@ -27,3 +27,19 @@ pub fn new(t : Symtab, s : ~str) -> @Symbol {
     }
   }
 }
+
+#[test]
+fn test_coalesces () {
+  let tab = Symtab();
+  let a = new(tab, ~"a");
+  let b = new(tab, ~"a");
+  assert managed::ptr_eq(a, b)
+}
+
+#[test]
+fn test_different() {
+  let tab = Symtab();
+  let a = new(tab, ~"a");
+  let b = new(tab, ~"b");
+  assert !managed::ptr_eq(a, b)
+}

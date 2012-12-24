@@ -7,4 +7,8 @@ l4c: parse/parser
 clean: parseclean
 	rm -rf *.dSYM l4c
 
+test:
+	rustc l4c.rc --test -o l4c-test
+	./l4c-test
+
 -include parse/parse.mk
