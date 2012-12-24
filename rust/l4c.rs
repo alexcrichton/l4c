@@ -14,5 +14,6 @@ fn main() {
     fail(~"Failed to parse the given file");
   }
 
-  prof(~"AST", || parse::from_str(out));
+  let ast = prof(~"AST", || parse::from_str(out));
+  io::print(ast.pp() + ~"\n");
 }

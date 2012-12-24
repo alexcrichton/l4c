@@ -7,6 +7,7 @@ mod l4c;
 
 mod syntax {
   mod ast;
+  mod pp;
   mod parse;
 }
 mod util {

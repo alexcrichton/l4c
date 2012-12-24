@@ -3,7 +3,7 @@ use std::json::*;
 
 pub fn from_str(s : ~str) -> ast::Program {
   match prof(~"parse json", || json::from_str(s)) {
-    result::Ok(List(data)) => data.map(|x| *to_gdecl(x)),
+    result::Ok(List(data)) => ast::Program{decls: data.map(|x| *to_gdecl(x))},
     result::Ok(_)          => fail(~"expected JSON list"),
     result::Err(e)         => fail(fmt!("JSON parse error: %?", e.msg))
   }
@@ -29,7 +29,7 @@ fn to_mark<T>(o : &~Object, f : fn(j : &Json) -> ~T) -> mark::Mark<~T> {
   let left  = to_coord(o.get_ref(&~"l"));
   let right = to_coord(o.get_ref(&~"r"));
   let data  = f(o.get_ref(&~"d"));
-  mark::make(data, (left, right, src))
+  mark::make(data, mark::Coords(left, right, src))
 }
 
 fn to_coord(j : &Json) -> (int, int) {

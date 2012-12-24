@@ -1,4 +1,6 @@
-pub type Program = ~[GDecl];
+pub struct Program {
+  decls: ~[GDecl]
+}
 pub type Ident = ~str;
 
 pub enum GDecl {
