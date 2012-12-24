@@ -1,5 +1,6 @@
 #[link(name = "l4c")];
 #[deny(implicit_copies)];
+#[deny(non_implicitly_copyable_typarams)];
 
 extern mod std;
 
@@ -9,9 +10,9 @@ mod syntax {
   mod ast;
   mod pp;
   mod parse;
+  mod symbol;
 }
 mod util {
-  mod symbol;
   mod mark;
   mod profile;
 }

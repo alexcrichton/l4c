@@ -44,10 +44,10 @@ impl Type {
     match self {
       Int            => ~"int",
       Bool           => ~"bool",
-      Alias(copy s)  => s,
+      Alias(s)       => copy s.val,
       Pointer(ref t) => ~"*" + t.pp(),
       Array(ref t)   => t.pp() + ~"[]",
-      Struct(copy s) => s,
+      Struct(s)      => copy s.val,
       Nullp          => ~"(null)"
     }
   }
@@ -56,23 +56,23 @@ impl Type {
 impl Expression {
   pure fn pp() -> ~str {
     match self {
-      Var(copy s)            => s,
+      Var(s)                 => copy s.val,
       Boolean(b)             => b.to_str(),
       Const(i)               => i.to_str(),
       UnaryOp(ref o, ref e)  => o.pp() + ~"(" + e.pp() + ~")",
       Deref(ref e)           => ~"*(" + e.pp() + ~")",
-      Field(ref e, copy f)   => e.pp() + ~"." + f,
+      Field(ref e, f)        => e.pp() + ~"." + f.val,
       ArrSub(ref e1, ref e2) => e1.pp() + ~"[" + e2.pp() + ~"]",
       Alloc(ref t)           => ~"alloc(" + t.pp() + ~")",
       Null                   => ~"NULL",
       Marked(ref m)          => m.data.pp(),
       AllocArray(ref t, ref e) =>
         ~"alloc_array(" + t.pp() + ~", " + e.pp() + ~")",
-      Call(copy id, ref E) =>
-        id + ~"(" + str::connect(E.map(|e| e.pp()), ~", ") + ~")",
+      Call(id, ref E) =>
+        copy id.val + ~"(" + str::connect(E.map(|e| e.pp()), ~", ") + ~")",
       BinaryOp(ref o, ref e1, ref e2) =>
         ~"(" + e1.pp() + ~" " + o.pp() + ~" " + e2.pp() + ~")",
-      Ternary(ref e1, ref e2, ref e3) =>
+      Ternary(e1, e2, e3) =>
         ~"((" + e1.pp() + ~") ? (" + e2.pp() +
         ~") : (" + e3.pp() + ~"))"
     }
@@ -85,11 +85,10 @@ impl Statement {
       Continue => ~"continue",
       Break => ~"break",
       Nop => ~"",
-      Seq(~Nop, ~Nop) => ~"",
       Return(ref e) => ~"return " + e.pp(),
       Express(ref e) => e.pp(),
-      Declare(copy v, ref t, ref s) =>
-        t.pp() + ~" " + v + ~"\n" + tab(s.pp()),
+      Declare(v, ref t, ref s) =>
+        t.pp() + ~" " + v.val + ~"\n" + tab(s.pp()),
       Markeds(ref m) => m.data.pp(),
       While(ref e, ref s) =>
         ~"while (" + e.pp() + ~") {\n" + tab(s.pp()) + ~"\n}",
@@ -103,40 +102,32 @@ impl Statement {
         e1.pp() +
         match *o { None => ~" = ", Some(o) => ~" " + o.pp() + ~"= " } +
         e2.pp(),
-      Seq(~Nop, ref s) | Seq(ref s, ~Nop) => s.pp(),
+      Seq(@Nop, ref s) | Seq(ref s, @Nop) => s.pp(),
       Seq(ref s1, ref s2) => s1.pp() + ~"\n" + s2.pp()
     }
   }
 }
 
-pure fn ppair(p : &(Ident, ~Type)) -> ~str {
-  match *p {
-    (copy id, ref typ) => typ.pp() + ~" " + id
-  }
+pure fn ppair(p : &(Ident, @Type)) -> ~str {
+  match *p { (id, typ) => typ.pp() + ~" " + id.val }
 }
 
-pure fn pfun(t : &~Type, i : ~str, p : &~[(Ident, ~Type)]) -> ~str {
-  t.pp() + ~" " + i + ~"(" + str::connect(p.map(ppair), ~", ") + ~")"
+pure fn pfun(t : @Type, i : Ident, p : &~[(Ident, @Type)]) -> ~str {
+  t.pp() + ~" " + i.val + ~"(" + str::connect(p.map(ppair), ~", ") + ~")"
 }
 
 impl GDecl {
   pure fn pp() -> ~str {
     match self {
       Markedg(ref m) => m.data.pp(),
-      Typedef(copy s, ref t) => ~"typedef " + t.pp() + ~" " + s,
-      StructDecl(copy s) => ~"struct " + s,
-      StructDef(copy s, ref L) =>
-        ~"struct " + s + "{\n" + str::connect(L.map(ppair), "\n") + "\n}",
-      FunIDecl(ref t, copy s, ref args) => pfun(t, s, args),
-      FunEDecl(ref t, copy s, ref args) => ~"extern " + pfun(t, s, args),
-      Function(ref t, copy s, ref args, ref body) =>
+      Typedef(s, t) => ~"typedef " + t.pp() + ~" " + s.val,
+      StructDecl(s) => ~"struct " + s.val,
+      StructDef(s, ref L) =>
+        ~"struct " + s.val + "{\n" + str::connect(L.map(ppair), "\n") + "\n}",
+      FunIDecl(t, s, ref args) => pfun(t, s, args),
+      FunEDecl(t, s, ref args) => ~"extern " + pfun(t, s, args),
+      Function(t, s, ref args, body) =>
         pfun(t, s, args) + ~" {\n" + tab(body.pp()) + ~"\n}"
     }
-  }
-}
-
-impl &Program {
-  pure fn pp() -> ~str {
-    str::connect(self.decls.map(|d| d.pp()), "\n")
   }
 }
