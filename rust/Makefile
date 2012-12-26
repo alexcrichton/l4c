@@ -5,7 +5,7 @@ l4c: parse/parser
 .PHONY: l4c
 
 clean: parseclean
-	rm -rf *.dSYM l4c
+	rm -rf *.dSYM l4c l4c-test
 
 test:
 	rustc l4c.rc --test -o l4c-test
