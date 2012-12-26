@@ -7,11 +7,9 @@ struct Parser {
 
 pub fn from_str(s : ~str) -> ast::Program {
   let parser = Parser{syms: symbol::Symtab()};
-  do prof(~"parse json") {
-    match json::from_str(s) {
-      result::Ok(j) => parser.parse(j),
-      result::Err(e) => fail(fmt!("JSON parse error: %?", e.msg))
-    }
+  match json::from_str(s) {
+    result::Ok(j) => parser.parse(j),
+    result::Err(e) => fail(fmt!("JSON parse error: %?", e.msg))
   }
 }
 

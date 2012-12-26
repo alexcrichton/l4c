@@ -4,12 +4,11 @@
 
 extern mod std;
 
-use syntax::*;
+use front::*;
+use middle::*;
 use core::util::*;
-use util::*;
-use util::profile::*;
 
-mod syntax {
+mod front {
   mod ast;
   mod pp;
   mod parse;
@@ -17,14 +16,16 @@ mod syntax {
   mod error;
   mod mark;
 }
-mod util {
-  mod profile;
-}
 mod analysis {
   mod initcheck;
   mod maincheck;
   mod returncheck;
   mod typecheck;
+}
+mod middle {
+  mod ir;
+  mod trans;
+  mod temp;
 }
 
 fn main() {
@@ -34,19 +35,19 @@ fn main() {
   }
 
   let file = copy a[1];
-  let {status, out, _} = prof(~"JSON",
-                              || run::program_output("parse/parser", [file]));
+  let {status, out, _} = run::program_output("parse/parser", [file]);
   if status != 0 {
     io::print(out);
     fail(~"Failed to parse the given file");
   }
 
-  let ast = prof(~"AST", || parse::from_str(out)).elaborate();
+  let ast = parse::from_str(out).elaborate();
 
   analysis::typecheck::check(&ast);
   analysis::returncheck::check(&ast);
   analysis::maincheck::check(&ast);
   analysis::initcheck::check(&ast);
 
-  io::print(ast.pp() + ~"\n");
+  let ir = trans::translate(ast);
+  ignore(ir);
 }
