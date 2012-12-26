@@ -22,6 +22,7 @@ mod util {
 }
 mod analysis {
   mod typecheck;
+  mod returncheck;
 }
 
 fn main() {
@@ -42,6 +43,7 @@ fn main() {
   ast.elaborate();
 
   analysis::typecheck::check(&ast);
+  analysis::returncheck::check(&ast);
 
   io::print(ast.pp() + ~"\n");
 }
