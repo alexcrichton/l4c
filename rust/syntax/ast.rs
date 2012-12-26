@@ -2,12 +2,11 @@ use symbol::*;
 use std::map;
 
 pub struct Program {
-  priv decls:   ~[mut @GDecl],
+  decls: ~[mut @GDecl],
   priv efuns:   map::Set<Ident>,
   priv funs:    map::Set<Ident>,
   priv structs: map::Set<Ident>,
   priv types:   map::HashMap<Ident, @Type>,
-  priv mut coords: Option<@mark::Coords>,
   priv err:     ~error::List
 }
 
@@ -74,7 +73,6 @@ pub fn new(g : ~[@GDecl]) -> Program {
           funs:    map::HashMap(),
           structs: map::HashMap(),
           types:   map::HashMap(),
-          coords:  None,
           err:     error::new()}
 }
 
@@ -98,7 +96,7 @@ impl Program {
         @FunIDecl(self.resolve(typ), id, self.resolve_pairs(args))
       },
       @StructDecl(_) => g,
-      @Markedg(ref m) => { self.mark(m, |x| self.elaborate_gdecl(x)); g },
+      @Markedg(ref m) => self.err.with(m, |x| self.elaborate_gdecl(x)) ,
       @Typedef(id, typ) => {
         self.check_id(id);
         self.check_set(&self.efuns, id, ~"function");
@@ -124,7 +122,7 @@ impl Program {
 
   priv fn elaborate_stm(s : @Statement) -> @Statement {
     match s {
-      @Markeds(ref m) => { self.mark(m, |x| self.elaborate_stm(x)); s },
+      @Markeds(ref m) => self.err.with(m, |x| self.elaborate_stm(x)) ,
       @Continue | @Break | @Nop => s,
       @Declare(id, typ, rest) => {
         self.check_id(id);
@@ -167,7 +165,7 @@ impl Program {
 
   priv fn elaborate_exp(e : @Expression) -> @Expression {
     match e {
-      @Marked(ref m) => { self.mark(m, |x| self.elaborate_exp(x)); e },
+      @Marked(ref m) => self.err.with(m, |x| self.elaborate_exp(x)),
       @Var(_) | @Boolean(_) | @Const(_) | @Null => e,
       @UnaryOp(o, e) =>
         @UnaryOp(o, self.elaborate_exp(e)),
@@ -188,13 +186,13 @@ impl Program {
 
   priv fn check_id(s : Ident) {
     if self.types.contains_key(s) {
-      self.err.add(self.coords, fmt!("'%s' already a type", s.val));
+      self.err.add(fmt!("'%s' already a type", s.val));
     }
   }
 
   priv fn check_set(h : &map::Set<Ident>, s : Ident, typ : ~str) {
     if h.contains_key(s) {
-      self.err.add(self.coords, fmt!("'%s' already a %s", s.val, typ));
+      self.err.add(fmt!("'%s' already a %s", s.val, typ));
     }
   }
 
@@ -207,7 +205,7 @@ impl Program {
         match self.types.find(sym) {
           Some(t) => t,
           None    => {
-            self.err.add(self.coords, fmt!("'%s' is undefined", sym.val));
+            self.err.add(fmt!("'%s' is undefined", sym.val));
             t
           }
         }
@@ -216,13 +214,6 @@ impl Program {
 
   priv fn resolve_pairs(pairs : &~[(Ident, @Type)]) -> ~[(Ident, @Type)] {
     pairs.map(|&(id, typ)| (id, self.resolve(typ)))
-  }
-
-  priv fn mark<T>(m : &~mark::Mark<T>, f : fn(t : @T) -> @T) {
-    let prev = self.coords;
-    self.coords = Some(m.pos);
-    m.data = f(m.data);
-    self.coords = prev;
   }
 
   pure fn pp() -> ~str {

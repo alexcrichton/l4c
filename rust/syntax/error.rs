@@ -1,16 +1,17 @@
 use io::WriterUtil;
 
 pub struct List {
+  priv mut coords: Option<@mark::Coords>,
   priv errs: dvec::DVec<(Option<@mark::Coords>, ~str)>
 }
 
 pub fn new() -> ~List {
-  ~List{errs: dvec::DVec()}
+  ~List{errs: dvec::DVec(), coords: None}
 }
 
 impl List {
-  fn add(c : Option<@mark::Coords>, s : ~str) {
-    self.errs.push((c, s))
+  fn add(s : ~str) {
+    self.errs.push((self.coords, s))
   }
 
   fn check() {
@@ -26,5 +27,13 @@ impl List {
       }
       libc::exit(1);
     }
+  }
+
+  fn with<T, U>(m : &~mark::Mark<T>, f : fn(t : @T) -> U) -> U {
+    let prev = self.coords;
+    self.coords = Some(m.pos);
+    let ret = f(m.data);
+    self.coords = prev;
+    ret
   }
 }
