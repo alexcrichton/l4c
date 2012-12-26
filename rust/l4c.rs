@@ -15,5 +15,6 @@ fn main() {
   }
 
   let ast = prof(~"AST", || parse::from_str(out));
+  ast.elaborate();
   io::print(ast.pp() + ~"\n");
 }

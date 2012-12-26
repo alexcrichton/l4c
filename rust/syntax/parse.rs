@@ -49,7 +49,7 @@ impl Parser {
     let left  = self.to_coord(o.get_ref(&~"l"));
     let right = self.to_coord(o.get_ref(&~"r"));
     let data  = f(o.get_ref(&~"d"));
-    mark::make(data, mark::Coords(left, right, src))
+    mark::make(data, @mark::Coords(left, right, src))
   }
 
   fn to_coord(j : &Json) -> (int, int) {

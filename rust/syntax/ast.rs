@@ -1,8 +1,16 @@
 use symbol::*;
+use std::map;
 
 pub struct Program {
-  priv decls:     ~[mut @GDecl]
+  priv decls:   ~[mut @GDecl],
+  priv efuns:   map::Set<Ident>,
+  priv funs:    map::Set<Ident>,
+  priv structs: map::Set<Ident>,
+  priv types:   map::HashMap<Ident, @Type>,
+  priv mut coords: Option<@mark::Coords>,
+  priv err:     ~error::List
 }
+
 pub type Ident = @Symbol;
 
 pub enum GDecl {
@@ -61,24 +69,161 @@ pub enum Unop {
 }
 
 pub fn new(g : ~[@GDecl]) -> Program {
-  Program{decls: vec::to_mut(g)}
+  Program{decls: vec::to_mut(g),
+          efuns:   map::HashMap(),
+          funs:    map::HashMap(),
+          structs: map::HashMap(),
+          types:   map::HashMap(),
+          coords:  None,
+          err:     error::new()}
 }
 
 impl Program {
   fn elaborate() {
-    /*for vec::each_mut(self.decls) |x| {*/
-    /*  self.elaborate_gdecl(x)*/
-    /*}*/
+    for vec::each_mut(self.decls) |x| {
+      *x = self.elaborate_gdecl(*x)
+    }
+    self.err.check();
   }
 
-  /*priv fn elaborate_gdecl(g : &mut ~GDecl) {*/
-  /*}*/
-  /*priv fn elaborate_gdecl2(g : &mut @GDecl) {*/
-  /*  *g = match *g {*/
-  /*    @Typedef(id, typ) => *g,*/
-  /*    t => t*/
-  /*  }*/
-  /*}*/
+  priv fn elaborate_gdecl(g : @GDecl) -> @GDecl {
+    match g {
+      @FunEDecl(typ, id, ref args) => {
+        self.check_id(id);
+        map::set_add(self.efuns, id);
+        @FunEDecl(self.resolve(typ), id, self.resolve_pairs(args))
+      },
+      @FunIDecl(typ, id, ref args) => {
+        self.check_id(id);
+        @FunIDecl(self.resolve(typ), id, self.resolve_pairs(args))
+      },
+      @StructDecl(_) => g,
+      @Markedg(ref m) => { self.mark(m, |x| self.elaborate_gdecl(x)); g },
+      @Typedef(id, typ) => {
+        self.check_id(id);
+        self.check_set(&self.efuns, id, ~"function");
+        self.check_set(&self.funs, id, ~"function");
+        self.types.insert(id, self.resolve(typ));
+        g
+      },
+      @StructDef(id, ref fields) => {
+        self.check_set(&self.structs, id, ~"struct");
+        map::set_add(self.structs, id);
+        @StructDef(id, self.resolve_pairs(fields))
+      },
+      @Function(ret, id, ref args, body) => {
+        self.check_id(id);
+        self.check_set(&self.efuns, id, ~"function");
+        self.check_set(&self.funs, id, ~"function");
+        map::set_add(self.funs, id);
+        @Function(self.resolve(ret), id, self.resolve_pairs(args),
+                  self.elaborate_stm(body))
+      }
+    }
+  }
+
+  priv fn elaborate_stm(s : @Statement) -> @Statement {
+    match s {
+      @Markeds(ref m) => { self.mark(m, |x| self.elaborate_stm(x)); s },
+      @Continue | @Break | @Nop => s,
+      @Declare(id, typ, rest) => {
+        self.check_id(id);
+        @Declare(id, self.resolve(typ), self.elaborate_stm(rest))
+      },
+      @For(@Declare(id, typ, s1), e1, s2, s3) =>
+        self.elaborate_stm(@Declare(id, typ, @For(s1, e1, s2, s3))),
+      @For(@Markeds(ref m), e1, s2, s3) =>
+        self.elaborate_stm(@For(m.data, e1, s2, s3)),
+      @For(s1, e1, s2, s3) =>
+        @For(self.elaborate_stm(s1), self.elaborate_exp(e1),
+             self.elaborate_stm(s2), self.elaborate_stm(s3)),
+      @If(e, s1, s2) =>
+        @If(self.elaborate_exp(e), self.elaborate_stm(s1),
+            self.elaborate_stm(s2)),
+      @While(e, s) => @While(self.elaborate_exp(e), self.elaborate_stm(s)),
+      @Return(e) => @Return(self.elaborate_exp(e)),
+      @Express(e) => @Express(self.elaborate_exp(e)),
+      @Seq(s1, s2) => {
+        match s1 {
+          @Declare(id, typ, s1) =>
+            self.elaborate_stm(@Declare(id, typ, @Seq(s1, s2))),
+          @Markeds(ref m) => {
+            m.data = @Seq(m.data, s2);
+            self.elaborate_stm(s1)
+          },
+          _ => @Seq(self.elaborate_stm(s1), self.elaborate_stm(s2)),
+        }
+      },
+      @Assign(e1, o, e2) => {
+        match (e1, o) {
+          (@Marked(ref m), _) => self.elaborate_stm(@Assign(m.data, o, e2)),
+          (@Var(id), Some(o)) =>
+            self.elaborate_stm(@Assign(@Var(id), None, @BinaryOp(o, e1, e2))),
+          _ => @Assign(self.elaborate_exp(e1), o, self.elaborate_exp(e2))
+        }
+      }
+    }
+  }
+
+  priv fn elaborate_exp(e : @Expression) -> @Expression {
+    match e {
+      @Marked(ref m) => { self.mark(m, |x| self.elaborate_exp(x)); e },
+      @Var(_) | @Boolean(_) | @Const(_) | @Null => e,
+      @UnaryOp(o, e) =>
+        @UnaryOp(o, self.elaborate_exp(e)),
+      @BinaryOp(o, e1, e2) =>
+        @BinaryOp(o, self.elaborate_exp(e1), self.elaborate_exp(e2)),
+      @Ternary(e1, e2, e3) =>
+        @Ternary(self.elaborate_exp(e1), self.elaborate_exp(e2),
+                 self.elaborate_exp(e3)),
+      @Call(id, ref L) => @Call(id, L.map(|x| self.elaborate_exp(*x))),
+      @Deref(e) => @Deref(self.elaborate_exp(e)),
+      @Field(e, id) => @Field(self.elaborate_exp(e), id),
+      @ArrSub(e1, e2) =>
+        @ArrSub(self.elaborate_exp(e1), self.elaborate_exp(e2)),
+      @Alloc(t) => @Alloc(self.resolve(t)),
+      @AllocArray(t, e) => @AllocArray(self.resolve(t), self.elaborate_exp(e))
+    }
+  }
+
+  priv fn check_id(s : Ident) {
+    if self.types.contains_key(s) {
+      self.err.add(self.coords, fmt!("'%s' already a type", s.val));
+    }
+  }
+
+  priv fn check_set(h : &map::Set<Ident>, s : Ident, typ : ~str) {
+    if h.contains_key(s) {
+      self.err.add(self.coords, fmt!("'%s' already a %s", s.val, typ));
+    }
+  }
+
+  priv fn resolve(t : @Type) -> @Type {
+    match t {
+      @Int | @Bool | @Nullp | @Struct(_) => t,
+      @Pointer(t) => @Pointer(self.resolve(t)),
+      @Array(t) => @Array(self.resolve(t)),
+      @Alias(sym) =>
+        match self.types.find(sym) {
+          Some(t) => t,
+          None    => {
+            self.err.add(self.coords, fmt!("'%s' is undefined", sym.val));
+            t
+          }
+        }
+    }
+  }
+
+  priv fn resolve_pairs(pairs : &~[(Ident, @Type)]) -> ~[(Ident, @Type)] {
+    pairs.map(|&(id, typ)| (id, self.resolve(typ)))
+  }
+
+  priv fn mark<T>(m : &~mark::Mark<T>, f : fn(t : @T) -> @T) {
+    let prev = self.coords;
+    self.coords = Some(m.pos);
+    m.data = f(m.data);
+    self.coords = prev;
+  }
 
   pure fn pp() -> ~str {
     str::connect(self.decls.map(|d| d.pp()), "\n")

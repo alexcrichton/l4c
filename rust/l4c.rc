@@ -6,17 +6,18 @@ extern mod std;
 
 mod l4c;
 
+use syntax::*;
+use util::*;
+use util::profile::*;
+
 mod syntax {
   mod ast;
   mod pp;
   mod parse;
   mod symbol;
+  mod error;
+  mod mark;
 }
 mod util {
-  mod mark;
   mod profile;
 }
-
-use syntax::*;
-use util::*;
-use util::profile::*;

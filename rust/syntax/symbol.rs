@@ -12,6 +12,12 @@ impl Symbol : cmp::Eq {
   pure fn ne(&self, other : &Symbol) -> bool { self.id.ne(&other.id) }
 }
 
+impl Symbol : to_bytes::IterBytes {
+  pure fn iter_bytes(&self, lsb0 : bool, f : to_bytes::Cb) {
+    self.id.iter_bytes(lsb0, f)
+  }
+}
+
 pub fn Symtab() -> Symtab {
   map::HashMap()
 }
