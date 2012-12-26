@@ -2,7 +2,10 @@ use symbol::*;
 use std::map;
 
 pub struct Program {
-  priv mut decls: @~[@GDecl], // TODO: wut?
+  decls: ~[@GDecl],
+}
+
+struct Elaborator {
   priv efuns:   map::Set<Ident>,
   priv funs:    map::Set<Ident>,
   priv structs: map::Set<Ident>,
@@ -68,25 +71,28 @@ pub enum Unop {
 }
 
 pub fn new(g : ~[@GDecl]) -> Program {
-  Program{decls: @g,
-          efuns:   map::HashMap(),
-          funs:    map::HashMap(),
-          structs: map::HashMap(),
-          types:   map::HashMap(),
-          err:     error::new()}
+  Program{decls: g}
 }
 
 impl Program {
-  fn elaborate() {
-    self.decls = @self.decls.map(|x| self.elaborate_gdecl(*x));
-    self.err.check();
+  fn elaborate() -> Program {
+    let e = Elaborator{ efuns:   map::HashMap(),
+                        funs:    map::HashMap(),
+                        structs: map::HashMap(),
+                        types:   map::HashMap(),
+                        err:     error::new() };
+    let prog = new(self.decls.map(|x| e.elaborate(*x)));
+    e.err.check();
+    prog
   }
 
-  fn decls() -> @~[@GDecl] {
-    self.decls
+  pure fn pp() -> ~str {
+    str::connect(self.decls.map(|d| d.pp()), "\n")
   }
+}
 
-  priv fn elaborate_gdecl(g : @GDecl) -> @GDecl {
+impl Elaborator {
+  fn elaborate(g : @GDecl) -> @GDecl {
     match g {
       @FunEDecl(typ, id, ref args) => {
         self.check_id(id);
@@ -98,7 +104,7 @@ impl Program {
         @FunIDecl(self.resolve(typ), id, self.resolve_pairs(args))
       },
       @StructDecl(_) => g,
-      @Markedg(ref m) => self.err.with(m, |x| self.elaborate_gdecl(x)) ,
+      @Markedg(ref m) => self.err.with(m, |x| self.elaborate(x)) ,
       @Typedef(id, typ) => {
         self.check_id(id);
         self.check_set(&self.efuns, id, ~"function");
@@ -216,10 +222,6 @@ impl Program {
 
   priv fn resolve_pairs(pairs : &~[(Ident, @Type)]) -> ~[(Ident, @Type)] {
     pairs.map(|&(id, typ)| (id, self.resolve(typ)))
-  }
-
-  pure fn pp() -> ~str {
-    str::connect(self.decls.map(|d| d.pp()), "\n")
   }
 }
 

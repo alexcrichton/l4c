@@ -12,7 +12,7 @@ pub fn check(a : &Program) {
 
 impl MainChecker {
   fn check(a : &Program) {
-    if !vec::any(*a.decls(), |x| self.ismain(*x)) {
+    if !vec::any(a.decls, |x| self.ismain(*x)) {
       self.err.add(~"No main function was found");
     }
   }

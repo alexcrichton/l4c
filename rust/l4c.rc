@@ -21,9 +21,10 @@ mod util {
   mod profile;
 }
 mod analysis {
-  mod typecheck;
-  mod returncheck;
+  mod initcheck;
   mod maincheck;
+  mod returncheck;
+  mod typecheck;
 }
 
 fn main() {
@@ -40,12 +41,12 @@ fn main() {
     fail(~"Failed to parse the given file");
   }
 
-  let ast = prof(~"AST", || parse::from_str(out));
-  ast.elaborate();
+  let ast = prof(~"AST", || parse::from_str(out)).elaborate();
 
   analysis::typecheck::check(&ast);
   analysis::returncheck::check(&ast);
   analysis::maincheck::check(&ast);
+  analysis::initcheck::check(&ast);
 
   io::print(ast.pp() + ~"\n");
 }

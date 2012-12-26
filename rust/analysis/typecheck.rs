@@ -23,7 +23,7 @@ pub fn check(a : &Program) {
 
 impl Typechecker {
   fn check(a : &Program) {
-    for a.decls().each |x| {
+    for a.decls.each |x| {
       self.tc_gdecl(*x)
     }
   }

@@ -12,8 +12,8 @@ pub fn check(a : &Program) {
 
 impl ReturnChecker {
   fn check(a : &Program) {
-    for a.decls().each |x| {
-      self.rc_gdecl(*x)
+    for a.decls.each |x| {
+      self.rc_gdecl(*x);
     }
   }
 
