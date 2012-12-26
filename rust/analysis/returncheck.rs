@@ -12,7 +12,7 @@ pub fn check(a : &Program) {
 
 impl ReturnChecker {
   fn check(a : &Program) {
-    for vec::each_mut(a.decls) |x| { // TODO: why each_mut?
+    for a.decls().each |x| {
       self.rc_gdecl(*x)
     }
   }

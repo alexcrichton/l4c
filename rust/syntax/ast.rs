@@ -2,7 +2,7 @@ use symbol::*;
 use std::map;
 
 pub struct Program {
-  decls: ~[mut @GDecl],
+  priv mut decls: @~[@GDecl], // TODO: wut?
   priv efuns:   map::Set<Ident>,
   priv funs:    map::Set<Ident>,
   priv structs: map::Set<Ident>,
@@ -68,7 +68,7 @@ pub enum Unop {
 }
 
 pub fn new(g : ~[@GDecl]) -> Program {
-  Program{decls: vec::to_mut(g),
+  Program{decls: @g,
           efuns:   map::HashMap(),
           funs:    map::HashMap(),
           structs: map::HashMap(),
@@ -78,10 +78,12 @@ pub fn new(g : ~[@GDecl]) -> Program {
 
 impl Program {
   fn elaborate() {
-    for vec::each_mut(self.decls) |x| {
-      *x = self.elaborate_gdecl(*x)
-    }
+    self.decls = @self.decls.map(|x| self.elaborate_gdecl(*x));
     self.err.check();
+  }
+
+  fn decls() -> @~[@GDecl] {
+    self.decls
   }
 
   priv fn elaborate_gdecl(g : @GDecl) -> @GDecl {

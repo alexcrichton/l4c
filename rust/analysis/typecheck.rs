@@ -23,7 +23,7 @@ pub fn check(a : &Program) {
 
 impl Typechecker {
   fn check(a : &Program) {
-    for vec::each_mut(a.decls) |x| { // TODO: why each_mut?
+    for a.decls().each |x| {
       self.tc_gdecl(*x)
     }
   }

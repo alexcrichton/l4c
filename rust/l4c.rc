@@ -23,6 +23,7 @@ mod util {
 mod analysis {
   mod typecheck;
   mod returncheck;
+  mod maincheck;
 }
 
 fn main() {
@@ -44,6 +45,7 @@ fn main() {
 
   analysis::typecheck::check(&ast);
   analysis::returncheck::check(&ast);
+  analysis::maincheck::check(&ast);
 
   io::print(ast.pp() + ~"\n");
 }
