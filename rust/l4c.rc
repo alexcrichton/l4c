@@ -4,9 +4,8 @@
 
 extern mod std;
 
-mod l4c;
-
 use syntax::*;
+use core::util::*;
 use util::*;
 use util::profile::*;
 

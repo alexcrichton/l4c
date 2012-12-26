@@ -14,6 +14,10 @@ impl List {
     self.errs.push((self.coords, s))
   }
 
+  pure fn size() -> uint {
+    self.errs.len()
+  }
+
   fn check() {
     if (self.errs.len() > 0) {
       let out = io::stderr();
@@ -29,11 +33,15 @@ impl List {
     }
   }
 
+  fn die(s : ~str) -> ! {
+    self.add(s);
+    self.check();
+    unreachable();
+  }
+
   fn with<T, U>(m : &~mark::Mark<T>, f : fn(t : @T) -> U) -> U {
-    let prev = self.coords;
-    self.coords = Some(m.pos);
-    let ret = f(m.data);
-    self.coords = prev;
-    ret
+    do with(&mut self.coords, Some(m.pos)) {
+      f(m.data)
+    }
   }
 }

@@ -220,3 +220,40 @@ impl Program {
     str::connect(self.decls.map(|d| d.pp()), "\n")
   }
 }
+
+impl Expression {
+  pure fn lvalue() -> bool {
+    match self {
+      Var(_)        => true,
+      Field(e, _)   => e.lvalue(),
+      Deref(e)      => e.lvalue(),
+      ArrSub(e, _)  => e.lvalue(),
+      Marked(ref m) => m.data.lvalue(),
+      _             => false
+    }
+  }
+}
+
+impl Type {
+  pure fn small() -> bool {
+    match self {
+      Struct(_) => false,
+      _ => true
+    }
+  }
+}
+
+impl Type : cmp::Eq {
+  pure fn eq(&self, other : &Type) -> bool {
+    match (self, other) {
+      (&Bool, &Bool) | (&Int, &Int) | (&Nullp, &Nullp) => true,
+      (&Nullp, &Pointer(_)) | (&Pointer(_), &Nullp) => true,
+      (&Pointer(ref t1), &Pointer(ref t2)) => t1.eq(t2),
+      (&Array(ref t1), &Array(ref t2)) => t1.eq(t2),
+      (&Struct(ref s1), &Struct(ref s2)) => s1.eq(s2),
+      _ => false
+    }
+  }
+
+  pure fn ne(&self, other : &Type) -> bool { !self.eq(other) }
+}
