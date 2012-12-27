@@ -1,4 +1,5 @@
-use front::*;
+use std::map;
+use front::ast;
 
 struct Translator {
   f : int

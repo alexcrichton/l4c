@@ -6,11 +6,11 @@ extern mod std;
 use core::util::*;
 
 mod front {
-  mod ast;
+  pub mod ast;
   mod pp;
   mod parse;
   mod symbol;
-  mod error;
+  pub mod error;
   mod mark;
 }
 mod analysis {
@@ -43,7 +43,6 @@ fn main() {
   }
 
   let ast = parse::from_str(out).elaborate();
-
   analysis::typecheck::check(&ast);
   analysis::returncheck::check(&ast);
   analysis::maincheck::check(&ast);

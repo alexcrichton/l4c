@@ -1,4 +1,4 @@
-use front::*;
+use front::error;
 use front::ast::*;
 
 struct MainChecker {
