@@ -6,12 +6,12 @@ extern mod std;
 use core::util::*;
 
 mod front {
-  pub mod ast;
-  mod pp;
-  mod parse;
-  mod symbol;
-  pub mod error;
   mod mark;
+  mod parse;
+  mod pp;
+  mod symbol;
+  pub mod ast;
+  pub mod error;
 }
 mod analysis {
   mod initcheck;
@@ -20,10 +20,11 @@ mod analysis {
   mod typecheck;
 }
 mod middle {
+  mod graph;
   mod ir;
-  mod trans;
-  mod temp;
   mod label;
+  mod temp;
+  mod trans;
 }
 
 fn main() {

@@ -4,6 +4,10 @@ pub struct Allocator {
   priv mut next : uint
 }
 
+pub fn new() -> Allocator {
+  Allocator{ next: 0 }
+}
+
 impl Allocator {
   fn new() -> Temp {
     let ret = self.next;

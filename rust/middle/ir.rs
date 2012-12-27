@@ -23,6 +23,11 @@ pub enum Binop {
   Add, Sub, Mul, Div, Mod, Lt, Lte, Gt, Gte, Eq, Neq, And, Or, Xor, Lsh, Rsh
 }
 
+pub enum Edge {
+  Always, True, False,      /* fall through if condition holds */
+  Branch, TBranch, FBranch  /* branch if condition holds */
+}
+
 impl Binop {
   fn associative() -> bool {
     match self {
