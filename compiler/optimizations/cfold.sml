@@ -74,7 +74,7 @@ struct
         (case HT.find tbl temp
            of SOME c => (T.CONST c, true)
             | NONE   => (T.TEMP (temp, typ), true))
-    | fold_exp tbl (T.MEM (e, t)) = (T.MEM (folde tbl e, t), false)
+    | fold_exp tbl (T.LOAD (e, t)) = (T.LOAD (folde tbl e, t), false)
     | fold_exp tbl (T.CALL (l, t, P)) = let
         fun map_params (e, t) = (folde tbl e, t)
       in
@@ -98,14 +98,15 @@ struct
 
   and folde tbl e = #1 (fold_exp tbl e)
 
-  fun folds tbl (T.MOVE (e1, e2)) = let
-        val es = (folde tbl e1, folde tbl e2)
+  fun folds tbl (T.MOVE (tmp, t, e2)) = let
+        val e2' = folde tbl e2
       in
-        case es
-          of (T.TEMP (temp, _), T.CONST c) => HT.insert tbl (temp, c)
+        case e2'
+          of (T.CONST c) => HT.insert tbl (tmp, c)
            | _ => ();
-        T.MOVE es
+        T.MOVE (tmp, t, e2')
       end
+    | folds tbl (T.STORE (e1, t, e2)) = T.STORE (folde tbl e1, t, folde tbl e2)
     | folds tbl (T.GOTO (l, SOME e)) = T.GOTO (l, SOME (folde tbl e))
     | folds tbl (T.COND e) = T.COND (folde tbl e)
     | folds tbl (T.RETURN e) = T.RETURN (folde tbl e)

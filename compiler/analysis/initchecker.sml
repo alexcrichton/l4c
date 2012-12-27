@@ -27,6 +27,8 @@ struct
         exp_uses sym e1 orelse exp_uses sym e2
     | exp_uses sym (A.Marked mark) = exp_uses sym (Mark.data mark)
     | exp_uses _ _ = false
+  and exp_uses2 _ NONE = false
+    | exp_uses2 sym (SOME e) = exp_uses sym e
 
   (* defines : Symbol.symbol -> A.stm -> bool
    *
@@ -37,13 +39,16 @@ struct
    * @param stm the statement to test against
    * @return true if the given statement will define sym when executed
    *)
-  fun defines sym (A.Declare (_, _, s)) = defines sym s
+  fun defines sym (A.Declare (id, _, SOME _, s)) =
+        Symbol.compare (sym, id) = EQUAL orelse defines sym s
+    | defines sym (A.Declare (_, _, _, s)) = defines sym s
     | defines sym (A.Assign (A.Marked m, a, b)) =
         defines sym (A.Assign (Mark.data m, a, b))
     | defines sym (A.Assign (A.Var id, _, _)) = Symbol.compare (sym, id) = EQUAL
     | defines sym (A.Assign _) = false
     | defines sym (A.If (_, s1, s2)) = defines sym s1 andalso defines sym s2
     | defines _ (A.While (e, s)) = false
+    | defines _ (A.DoWhile (e, s)) = false
     | defines _ A.Break = true
     | defines _ A.Continue = true
     | defines _ A.Nop = false
@@ -62,14 +67,16 @@ struct
    * @param stm the statement to test against
    * @return true if the symbol is live in the given statement
    *)
-  fun live sym (A.Declare (id, _, s)) =
-        Symbol.compare (sym, id) <> EQUAL andalso live sym s
+  fun live sym (A.Declare (id, _, exp, s)) =
+        Symbol.compare (sym, id) <> EQUAL andalso
+          (live sym s orelse exp_uses2 sym exp)
     | live sym (A.Assign (e1, SOME _, e2)) =
         exp_uses sym e2 orelse exp_uses sym e1
     | live sym (A.Assign (e1, _, e2)) = exp_uses sym e2
     | live sym (A.If (e, s1, s2)) =
         exp_uses sym e orelse live sym s1 orelse live sym s2
     | live sym (A.While (e, s)) = exp_uses sym e orelse live sym s
+    | live sym (A.DoWhile (e, s)) = exp_uses sym e orelse live sym s
     | live _ A.Break = false
     | live _ A.Continue = false
     | live _ A.Nop = false
@@ -91,12 +98,14 @@ struct
    * @raise ErrorMsg.Error if there is any variable in stm which is used before
    *        it is initialized
    *)
-  fun analyze_stm (A.Declare (id, _, s)) ext =
+  fun analyze_stm (A.Declare (id, _, NONE, s)) ext =
         if not (live id s) then analyze_stm s ext
         else (ErrorMsg.error ext ("Uninitialized variable: " ^ Symbol.name id);
               raise ErrorMsg.Error)
+    | analyze_stm (A.Declare (_, _, _, s)) ext = analyze_stm s ext
     | analyze_stm (A.If (e, s1, s2)) ext = (analyze_stm s1 ext; analyze_stm s2 ext)
     | analyze_stm (A.While (e, s)) ext = analyze_stm s ext
+    | analyze_stm (A.DoWhile (e, s)) ext = analyze_stm s ext
     | analyze_stm (A.Seq (s1, s2)) ext = (analyze_stm s1 ext; analyze_stm s2 ext)
     | analyze_stm (A.For (_, _, _, _)) _ = raise Fail "No for loops!"
     | analyze_stm (A.Markeds mark) _ = analyze_stm (Mark.data mark) (Mark.ext mark)
@@ -108,7 +117,7 @@ struct
    * looks inside of function definitions.
    * @see same args/raise as #analyze_stm
    *)
-  fun analyze_adecl (A.Fun (_, _, _, body)) =
+  fun analyze_adecl (A.Fun (_, _, _, body, _)) =
         analyze_stm (A.remove_for body A.Nop) NONE
     | analyze_adecl _ = ()
 

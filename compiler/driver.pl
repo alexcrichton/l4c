@@ -2,7 +2,7 @@
 ##############################################################
 ## driver.pl - 15-411 Driver                                ##
 ##                                                          ##
-## Driver for CMU, 15-411 Compiler Design, Fall 2007-2011   ##
+## Driver for CMU, 15-411 Compiler Design, Fall 2007-2012   ##
 ## Functionality:  building compiler, compiling tests,      ##
 ##                 validating tests with reference compiler ##
 ##                 testing compiler                         ##
@@ -17,6 +17,7 @@ use Driverlib;
 use DriverConfig;
 
 use File::Copy;
+use File::Spec;
 use Getopt::Long;
 use Pod::Usage;
 
@@ -33,13 +34,16 @@ our $Opt_Color          = "auto"; # -c, color
 our $Opt_FailFast       = 0;    # -f, --fail-fast
 our $Opt_Help           = 0;    # -h, help
 our $Opt_Make           = 1;    # -m, build compiler (on by default)
-our $Opt_Pass           = "";   # -p <args>, arguments to compiler
+our @Opt_Pass           = ();   # -p <args>, arguments to compiler
 our $Opt_Quiet          = 0;    # -q, quiet
 our @Opt_Suite          = ();   # -s <dir>,
 our $Opt_Tests          = 0;    # -t, validate test files with ref.comp.
 our $Opt_Verbose        = 0;    # -v (stacks)
 our $Opt_Progress       = 0;    # -p, progress
 our $Opt_Parallel       = 1;    # -j, parallel
+our $Opt_FailureFile    = "";   # -w, failure file
+our $Opt_RerunFile      = "";   # -R, rerun file
+our $Opt_RunFile        = "";   # -r, run file
 our @Testfiles;                 # files... (default ../tests0)
 
 my $num_tried0      = 0;    # number of tests0 tried
@@ -52,22 +56,29 @@ my $result          = "";   # result string for Autolab server
 
 Getopt::Long::Configure ("bundling");
 my $success = GetOptions (
-    'A|autograde'   => \$Opt_Autograding,
-    'c|color=s'     => \$Opt_Color,
-    'f|fail-fast!'  => \$Opt_FailFast,
-    'h|help'        => \$Opt_Help,
-    'make!'         => \$Opt_Make,
-    'p|pass=s'      => \$Opt_Pass,
-    'q|quiet+'      => \$Opt_Quiet,
-    's|suite=s@'    => \@Opt_Suite,
-    't|tests'       => \$Opt_Tests,
-    'v|verbose+'    => \$Opt_Verbose,
-    'r|progress'    => \$Opt_Progress,
-    'j|parallel=i'  => \$Opt_Parallel,
+    'A|autograde'      => \$Opt_Autograding,
+    'c|color=s'        => \$Opt_Color,
+    'f|fail-fast!'     => \$Opt_FailFast,
+    'h'                => sub { $Opt_Help = 1 },
+    'help'             => sub { $Opt_Help = 2 },
+    'make!'            => \$Opt_Make,
+    'p|pass=s'         => \@Opt_Pass,
+    'q|quiet+'         => \$Opt_Quiet,
+    's|suite=s@'       => \@Opt_Suite,
+    't|tests'          => \$Opt_Tests,
+    'v|verbose+'       => \$Opt_Verbose,
+    'g|progress'       => \$Opt_Progress,
+    'j|parallel=i'     => \$Opt_Parallel,
+    'w|failure-file=s' => \$Opt_FailureFile,
+    'R|rerun-file=s'   => \$Opt_RerunFile,
+    'r|test-file=s'    => \$Opt_RunFile,
 );
-$success or pod2usage();
 
-pod2usage(1) if $Opt_Help;
+if (!$success || $Opt_Help == 1) {
+  pod2usage(-verbose => 99, -sections => "SYNOPSIS|SUMMARY");
+} elsif ($Opt_Help == 2) {
+  pod2usage(-verbose => 2) if $Opt_Help;
+}
 
 @Testfiles = @ARGV;
 $DEBUG = $Opt_Verbose;
@@ -76,17 +87,28 @@ $Opt_Quiet = 2 if $Opt_Autograding;
 $QUIET = $Opt_Quiet;
 
 if ($Opt_Color eq "auto") {
-	$Opt_Color = -t STDOUT;
+  $Opt_Color = -t STDOUT;
 }
 elsif ($Opt_Color eq "on") {
-	$Opt_Color = 1;
+  $Opt_Color = 1;
 }
 else {
-	$Opt_Color = 0;
+  $Opt_Color = 0;
 }
+
+$Opt_FailureFile = $Opt_RerunFile if !$Opt_FailureFile;
+$Opt_RunFile = $Opt_RerunFile if !$Opt_RunFile;
 
 if (@Opt_Suite && @ARGV) {
     die "Not allowed to specify a suite *and* individual tests!";
+}
+
+if ($Opt_RunFile && @Opt_Suite) {
+    die "Not allowed to specify a run file *and* a suite!";
+}
+
+if ($Opt_RunFile && @ARGV) {
+    die "Not allowed to specify a rerun file *and* individual tests!";
 }
 
 if ($Opt_Autograding && (@Opt_Suite || @ARGV)) {
@@ -96,6 +118,17 @@ if ($Opt_Autograding && (@Opt_Suite || @ARGV)) {
 foreach my $suite (@Opt_Suite) {
     -d "../$suite" or die "Bad suite: ../$suite not a folder";
 }
+
+if ($Opt_RunFile) {
+  open (TESTS, $Opt_RunFile);
+  while (my $line = <TESTS>) {
+    chomp $line;
+    push @Testfiles, $line;
+  }
+  close TESTS;
+}
+
+my $ref_compiler = 0;
 
 main();
 
@@ -109,8 +142,7 @@ sub main {
 
     if ($Opt_Tests) {
         grade_tests();
-    }
-    else {
+    } else {
         grade_compiler();
     }
 
@@ -122,7 +154,7 @@ sub main {
 #
 sub grade_tests {
     my $tried = 0;          # number of tests tried
-    my @failed = ();
+    my %failed = ();
     my $succeeded = 0;      # number of tests succeeded
     my $score = 0;              # total score
 
@@ -135,20 +167,17 @@ sub grade_tests {
         @Testfiles = glob "$TEST_SUITES_PATH/tests/*.l$LAB";
     }
 
-    foreach my $test (@Testfiles) {
-        $tried++;
-        if (validate($test)) {
-            $succeeded++;
-        } else {
-            push @failed, $test;
-        }
-    }
+    $ref_compiler = 1;
+    ($tried, $succeeded, %failed) = run_suite(@Testfiles);
 
     printf("\n-- Summary --\n");
 
-    if (@failed) {
-        printf("Tests failed:\n");
-        print map {"   $_\n"} @failed;
+    for my $type (keys %failed) {
+        my @failures = @{$failed{$type}};
+        if (@failures) {
+            print "$type failures:\n";
+            print map {"   $_\n"} @failures;
+        }
     }
 
     if (!$grading) {
@@ -167,11 +196,10 @@ sub grade_tests {
 #
 sub grade_compiler {
     my $tried = 0;
-    my @failed = ();
+    my %failed = ();
     my $succeeded = 0;
     my $score = 0;
-
-    my @failedhere;
+    my %results = ();
 
     if ($Opt_Make) {
         printf("-- Building compiler --\n");
@@ -180,77 +208,98 @@ sub grade_compiler {
 
     printf("-- Testing compiler --\n");
 
-    # individual tests
     if (@Testfiles) {
-        ($tried, $succeeded, @failed) = run_suite(@Testfiles);
-        if ($Opt_FailFast && @failed) {
-            printf("Not running remaining tests.\n");
-            return;
+        # individual tests
+        ($tried, $succeeded, %failed) = run_suite(@Testfiles);
+    } else {
+        # full test suites
+        if (!@Opt_Suite) {
+            @Opt_Suite = sort keys %$CMPL_GRADE;
+            push @Opt_Suite, "tests";
         }
-        printf("\n-- Summary --\n");
-        if (@failed) {
-            printf("Tests failed:\n");
-            print map {"   $_\n"} @failed;
+
+        foreach my $suite (@Opt_Suite) {
+            printf("-- Running $suite --\n");
+            my @files;
+            my %failedhere = ();
+            foreach my $lext (@LEXTS) {
+                push @files, glob "$TEST_SUITES_PATH/$suite/*.$lext";
+            }
+            ($tried, $succeeded, %failedhere) = run_suite(@files);
+            my $done = 0;
+            for my $type ( keys %failedhere ) {
+              if (@{$failedhere{$type}}) {
+                $done = $Opt_FailFast;
+              }
+              push @{$failed{$type}}, @{$failedhere{$type}}
+            }
+            if ($done) { last; }
+            $results{$suite} = [$tried, $succeeded];
         }
-        printf("Passed $succeeded / $tried specified tests\n");
-        return;
     }
 
-    # full test suites
-
-    if (!@Opt_Suite) {
-        @Opt_Suite = sort keys %$CMPL_GRADE;
-    }
-
-    my %results = ();
-    foreach my $suite (@Opt_Suite) {
-        printf("-- Running $suite --\n");
-        my @files;
-        foreach my $lext (@LEXTS) {
-            push @files, glob "$TEST_SUITES_PATH/$suite/*.$lext";
-        }
-        ($tried, $succeeded, @failedhere) = run_suite(@files);
-        push @failed, @failedhere;
-        if (@failed && $Opt_FailFast) {
-            last;
-        }
-        $results{$suite} = [$tried, $succeeded];
-    }
-
-    if ($Opt_FailFast && @failed) {
+    if ($Opt_FailFast && %failed) {
         printf("Not running remaining tests.\n");
         return;
     }
 
     printf("\n-- Summary --\n");
 
-    if (@failed) {
-        printf("Tests failed:\n");
-        print map {"   $_\n"} @failed;
-    }
-
-    my $total = 0;
-    my $maxtotal = 0;
-    foreach my $suite (sort keys %results) {
-        my ($tried, $succeeded) = @{$results{$suite}};
-        if ($CMPL_GRADE->{$suite}) {
-            my ($grade, $max) = &{$CMPL_GRADE->{$suite}}($tried, $succeeded);
-            $total += $grade;
-            $maxtotal += $max;
-            printf("$suite: passed $succeeded / $tried tests for a score of $grade / $max points\n");
-            $results{$suite} = [$tried, $succeeded, $grade];
-        }
-        else {
-            printf("$suite: passed $succeeded / $tried tests on unknown suite\n");
+    my $failedany = 0;
+    for my $type (keys %failed) {
+        my @failures = @{$failed{$type}};
+        if (@failures) {
+            print "$type failures:\n";
+            print map {"   $_\n"} @failures;
+            $failedany = 1;
         }
     }
-    printf("Total points on tested suites: $total / $maxtotal\n");
-
-    if ($results{tests0} && $results{tests1} && $results{tests2}) {
-        my $result = join(':', @{$results{tests0}}, @{$results{tests1}},
-                               @{$results{tests2}});
-        report_result($result, $Opt_Autograding);
+    if (!$failedany) {
+      print "All tests passed!\n";
     }
+    record_failures(\%failed);
+
+    if (@Opt_Suite) {
+        my $total = 0;
+        my $maxtotal = 0;
+        foreach my $suite (sort keys %results) {
+            my ($tried, $succeeded) = @{$results{$suite}};
+            if ($CMPL_GRADE->{$suite}) {
+                my ($grade, $max) = &{$CMPL_GRADE->{$suite}}($tried, $succeeded);
+                $total += $grade;
+                $maxtotal += $max;
+                printf("$suite: passed $succeeded / $tried tests for a score of $grade / $max points\n");
+                $results{$suite} = [$tried, $succeeded, $grade];
+            }
+            else {
+                printf("$suite: passed $succeeded / $tried tests on unknown suite\n");
+            }
+        }
+        printf("Total points on tested suites: $total / $maxtotal\n");
+
+        if ($results{tests0} && $results{tests1} && $results{tests2}) {
+            my $result = join(':', @{$results{tests0}}, @{$results{tests1}},
+                                   @{$results{tests2}});
+            report_result($result, $Opt_Autograding);
+        }
+    }
+}
+
+##
+# Record the failures if necessary
+#
+sub record_failures {
+  # woo I know how to write good perl!
+  my $_failures = shift;
+  my %failures = %{${_failures}};
+  if (!$Opt_FailureFile) { return; }
+  open(FAILURES, ">$Opt_FailureFile") or die "Couldn't open $Opt_FailureFile";
+  for my $type (keys %failures) {
+    for my $file ( @{$failures{$type}} ) {
+      print FAILURES "$file\n";
+    }
+  }
+  close FAILURES;
 }
 
 ###
@@ -260,16 +309,16 @@ sub grade_compiler {
 sub run_suite {
     my $tried = 0;
     my $succeeded =0;
-    my @failed = ();
+    my %failed = ( 'error' => [], 'return' => [], 'exception' => [] );
     my $total = @_;
     my @workers = ();
 
     ##
     # Add some work to the queue (forking off and performing it
-    #   $addwork->($cmd, $timeout, $out, $err, $input, $cont, $test)
+    #   $addwork->($test, $cmd, $timeout, $out, $err, $input, $cont, $type)
     #
     my $addwork = sub {
-      my ($cmd, $timeout, $out, $err, $input, $cont, $test) = @_;
+      my ($test, $cmd, $timeout, $out, $err, $input, $cont, $type) = @_;
       my ($read, $write);
       pipe($read, $write);
 
@@ -281,7 +330,7 @@ sub run_suite {
       }
       close $write;
 
-      push @workers, [$pid, $cont, $test, $read];
+      push @workers, [$pid, $cont, $test, $read, $type];
     };
 
     ##
@@ -305,12 +354,12 @@ sub run_suite {
         my $arr = splice @workers, $idx, 1;
 
         # Grab the work's result and invoke the continuation with it
-        my ($_, $c, $test, $read) = @$arr;
+        my ($_, $c, $test, $read, $type) = @$arr;
         my $status = <$read>;
         close $read;
         my ($cmd, @rest) = $c->($status);
         if ($#rest > 0) {
-          $addwork->($cmd, @rest, $test);
+          $addwork->($test, $cmd, @rest, $type);
           return 1;
         }
 
@@ -323,7 +372,7 @@ sub run_suite {
         if ($worked) {
             $succeeded++;
         } else {
-            push @failed, $test;
+            push @{$failed{$type}}, $test;
             if ($Opt_FailFast) {
                 return 0;
             }
@@ -338,7 +387,7 @@ sub run_suite {
                                      scalar(@workers) >= $Opt_Parallel);
         last if !$continue;
         $tried++;
-        $addwork->(test($test), $test);
+        $addwork->($test, test($test));
     }
     if (scalar(@workers) > 0) {
       if (!$continue) {
@@ -350,18 +399,16 @@ sub run_suite {
     if ($Opt_Progress) {
         print "\n";
     }
-    return ($tried, $succeeded, @failed);
+    return ($tried, $succeeded, %failed);
 }
 
-
 ###
-# $pass = test (<f>.$LEXT, $ref_compiler)
+# $pass = test (<f>.$LEXT)
 # test compiler on given file. All outputs are scoped to the name of the given
 # file but with 'log' prepended to the path components.
 #
 sub test {
     my $file = shift;
-    my $ref_compiler = shift;
 
     # Munge on the path names and sanity check the state of the world
     my $log_file = $file;
@@ -391,10 +438,11 @@ sub test {
     }
 
     my $result;
+    my $command;
     my $callback = sub {
         my $result = shift;
-        my $ret = grade_compilation($file, $result, $directive, $expected,
-                                    $ref_compiler, $p);
+        my $ret = grade_compilation($command, $file, $result, $directive,
+                                    $expected, $ref_compiler, $p);
         if (defined $ret) {
             return $ret;
         }
@@ -407,47 +455,45 @@ sub test {
         }
         my $other = $log_file;
         $other =~ s/$/.output/g;
-        return ($exe, $RUN_TIMEOUT, "> $output", "> $other", $in_file, sub {
+
+        # If $exe is just 'foo', then the file 'foo' in the current directory
+        # won't be executed, but rather it's looked up in $PATH. Hence we take
+        # the relative path and make it absolute here.
+        my $real_exe = File::Spec->rel2abs($exe);
+        return ($real_exe, $RUN_TIMEOUT, "> $output", "> $other", $in_file, sub {
           my $result = shift;
           return grade_execution($file, $result, $directive, $expected, $output,
                                  $other, $p);
-        });
+        }, $directive);
     };
     if ($ref_compiler) {
-        my $command = "$REF_COMPILER $REF_COMPILER_ARGS $file";
-        return ("$REF_COMPILER $REF_COMPILER_ARGS $file", $COMPILER_TIMEOUT,
-                $write, $write, undef, $callback);
+        my $compiler = $REF_COMPILER;
+        if ($Opt_Autograding) {
+          $compiler = $AUTOGRADE_REF_COMPILER;
+        }
+        $command = "$compiler $REF_COMPILER_ARGS $file -o $exe";
+        return ($command, $COMPILER_TIMEOUT, $write, $write, undef, $callback,
+                $directive);
     } else {
         my $asm_file = asm_suffix($file);
-        my $command = "$COMPILER_EXEC $COMPILER_ARGS $file $Opt_Pass";
+        $command = "$COMPILER_EXEC $COMPILER_ARGS $file @Opt_Pass";
 
-        return ("$COMPILER_EXEC $COMPILER_ARGS $file $Opt_Pass",
-                $COMPILER_TIMEOUT, $write, $write, undef, sub {
+        return ($command, $COMPILER_TIMEOUT, $write, $write, undef, sub {
             my $result = shift;
-            my $asm_dest = $asm_file;
-            $asm_dest =~ s/(tests\d?)/log\/$1/g;
-            if ($result != 0) {
-              return $callback->($result);
-            }
-
+            my $asm_dest = $exe . ".s";
             if (-e $asm_dest) {
                 move($asm_dest, $asm_dest.".old")
                   or die "could not move $asm_dest from previous compilation\n";
             }
+            if ($result != 0) {
+              return $callback->($result);
+            }
+
             move($asm_file, $asm_dest) or die "couldn't move $asm_file\n";
             $command = "$GCC $asm_dest $RUNTIME -o $exe";
-            return ("$GCC $asm_dest $RUNTIME -o $exe", $GCC_TIMEOUT, $write,
-                    $write, undef, $callback);
-        });
+            return ($command, $GCC_TIMEOUT, $write, $write, undef, $callback);
+        }, $directive);
     }
-}
-
-###
-# $p1ass = validate (<f>.$LEXT)
-# compile and test given file
-#
-sub validate {
-    return test(shift, 1);
 }
 
 ###
@@ -457,6 +503,7 @@ sub validate {
 # }
 #
 sub grade_compilation {
+    my $cmd = shift;
     my $file = shift;
     my $result = shift;
     my $directive = shift;
@@ -467,6 +514,11 @@ sub grade_compilation {
     my $res_known = 1;
     my $res_quarantine = 2;
     my $res_crash = 3;
+
+    if (WIFSIGNALED($result)) {
+      return fail("Failed cmd: $cmd\n", $file, $p);
+    }
+    $result = WEXITSTATUS($result);
 
     if ($is_ref_compiler && $result == $res_crash) {
         return fail("Compilation crashed: reference compiler bug!\n"
@@ -527,6 +579,7 @@ sub grade_execution {
         }
         if (!WIFSIGNALED($result)) { die "WSTOPSIG?!"; }
         $result = WTERMSIG($result);
+        if ($result == 10) { $result = 11; }
         if (!defined $expected) {
             return pass("Execution of binary raised exception $result.\n",
                         $file, $p);
@@ -669,12 +722,12 @@ sub asm_suffix {
 
 sub in_suffix {
     my $file = shift;
-	return "$file.in"
+  return "$file.in"
 }
 
 sub out_suffix {
     my $file = shift;
-	return "$file.out"
+  return "$file.out"
 }
 
 ###
@@ -747,8 +800,7 @@ driver.pl [options] [files]
 =head1 DESCRIPTION
 
 This directory contains the driver files for testing your compiler. These are
-identical to the files the Autolab server uses identical files to grade your
-code upon hand-in.
+identical to the files the Autolab server uses to grade your code upon hand-in.
 
 If you do not specify any tests, the default behaviour is:
 
@@ -763,6 +815,29 @@ Use the full grading suite when testing the compiler
 Run on all relevant tests when doing validation
 
 =back
+
+=head1 SUMMARY
+
+=head2 Running tests
+
+ -f --fail-fast       Stop running tests when one fails
+ -c --color           Specify colors [on|off|auto]
+ -p --pass            Specify arguments to pass to the compiler
+ -g --progress        Show a progress bar of tests to run
+ -j --parallel        Specify number of tasks to run in parallel
+ -t --tests           Validate tests in the "tests" directory
+
+ -w --failure-file    File to write failing test cases to
+ -r --test-file       File to read test cases from
+ -R --rerun-file      Rerun tests specified in this file
+
+=head2 Driver options
+
+ -h                   This help message
+ --help               Man page style help
+ --nomake             Don't run 'make' before running tests
+ -q --quiet           Suppress output from the driver
+ -v --verbose         Enable debug output of the driver
 
 =head1 OPTIONS
 
@@ -809,7 +884,7 @@ Quiet mode. Pass multiple times for quieter grading:
 
 =back
 
-=item -p, --progress
+=item -g, --progress
 
 Output a progress bar of percentage of tests run of total tests left to run.
 
@@ -831,6 +906,22 @@ Validate test files in "tests" suite using reference compiler.
 =item -v, --verbose
 
 Enable driver debugging output. Pass more times for more output.
+
+=item -w <file>, --failure-file <file>
+
+Once tests have finished running, all failed tests are written to this file. The
+file is overwritten and if there are no failures this will be an empty file.
+
+=item -r <file>, --tests-file <file>
+
+Run all tests specified in the given file. Each line is interpreted as a path to
+a test.
+
+=item -R <file>, --rerun-file <file>
+
+Re-runs the tests specified in this file. The file is rewritten after tests have
+finished running with all failing tests. This can be used between invocations of
+the driver as tests are fixed and the set of failing tests is whittled down.
 
 =back
 

@@ -53,8 +53,8 @@ struct
 
   val extprefix = if SMLofNJ.SysInfo.getOSName () = "Darwin" then "_" else ""
 
-  fun name (s, GENERIC i) = "." ^ s ^ Int.toString i
-    | name (s, LITERAL) = "." ^ s
+  fun name (s, GENERIC i) = "L" ^ s ^ Int.toString i
+    | name (s, LITERAL) = "L" ^ s
     | name (s, INTFUNC) = extprefix ^ "_c0_" ^ s
     | name (s, SCOPED scope)  = extprefix ^ "_c0_" ^ scope ^ "$$" ^ s
     | name (s, EXTFUNC) = extprefix ^ s

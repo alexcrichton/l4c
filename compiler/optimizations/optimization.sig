@@ -10,5 +10,6 @@ end
 
 signature CODEGEN_OPTIMIZATION =
 sig
+  structure Assem : ASSEM
   val optimize : Label.label -> Assem.instr list -> Assem.instr list
 end

@@ -161,7 +161,7 @@ struct
         val entry = List.hd (#entries g ())
         val defs = HT.mkTable (Temp.hash, Temp.equals)
                               (100, Fail "Temp not found")
-        fun process_stms id (T.MOVE (T.TEMP ((t, _), typ), _)) = let
+        fun process_stms id (T.MOVE ((t, _), typ, _)) = let
               val set = case HT.find defs t
                           of SOME (s, _) => s
                            | NONE        => S.singleton entry
@@ -216,7 +216,7 @@ struct
                         of SOME s => s
                          | NONE   => TM.empty
               fun create_phi (temp, size, L) =
-                    (T.MOVE (T.TEMP ((temp, ref ~1), size), T.PHI []))::L
+                    (T.MOVE ((temp, ref ~1), size, T.PHI []))::L
             in
               #add_node g (id, TM.foldli create_phi stms p)
             end
@@ -261,7 +261,7 @@ struct
                 | process_exp (T.CALL (e, _, L), m) =
                     (process_exp (e, m);
                      app (fn (e, _) => process_exp (e, m)) L)
-                | process_exp (T.MEM (e, _), map) = process_exp (e, map)
+                | process_exp (T.LOAD (e, _), map) = process_exp (e, map)
                 | process_exp _ = () (* PHI and CONST *)
 
               (* Process a statement, possibly altering the table of
@@ -270,11 +270,10 @@ struct
               fun process_stm ((T.GOTO (_, SOME e) | T.RETURN e |
                                 T.COND e), map) =
                     (process_exp (e, map); map)
-                | process_stm (T.MOVE (e1, e2), map) =
-                   (process_exp (e2, map);
-                    case e1
-                      of T.TEMP ((t, n), _) => update (t, n, map)
-                       | e => (process_exp (e, map); map))
+                | process_stm (T.MOVE ((t, n), _, e2), map) =
+                   (process_exp (e2, map); update (t, n, map))
+                | process_stm (T.STORE (e1, _, e2), map) =
+                   (process_exp (e2, map); process_exp (e1, map); map)
                 | process_stm (_, map) = map
 
               val stms = #node_info g nid
@@ -308,13 +307,14 @@ struct
    * arguments.
    *)
   fun fix_phis (G.GRAPH g, vmaps) = let
-        fun update_phi preds (T.MOVE (tmp as T.TEMP ((t, _), s), T.PHI _)) = let
+        fun update_phi preds (T.MOVE ((t, n), s, T.PHI _)) = let
               fun getnum pred = valOf (TM.find (A.sub (vmaps, pred), t))
               val nums = foldl (fn (pred, s) => (S.add (s, getnum pred)
                                                  handle Option => s))
                                S.empty preds
             in
-              T.MOVE (tmp, T.PHI (map (fn n => (t, ref n)) (S.listItems nums)))
+              T.MOVE ((t, n), s,
+                      T.PHI (map (fn n => (t, ref n)) (S.listItems nums)))
             end
           | update_phi _ stm = stm
         fun fix_node (node, stms) = let
@@ -343,8 +343,8 @@ struct
    * in place
    * @param P the CFG to modify
    *)
-  fun ssa P = app (fn (id, _, args, cfg) => (debug ("\n" ^ Label.name id);
-                                             ssa_graph (cfg, args))) P
+  fun ssa P = app (fn ((id, _), _, args, cfg) => (debug ("\n" ^ Label.name id);
+                                                  ssa_graph (cfg, args))) P
 
   (* build_temp_maps : graph * (Temp.temp * T.typ) -> (int * T.typ) TM.map array
    *
@@ -357,7 +357,7 @@ struct
         val arr = A.array (#capacity g (), TM.empty)
         val visited = A.array (#capacity g (), false)
 
-        fun update_map (T.MOVE (T.TEMP ((t, ref n), typ), _), m) =
+        fun update_map (T.MOVE ((t, ref n), typ, _), m) =
               TM.insert (m, t, (n, typ))
           | update_map (_, m) = m
 
@@ -384,10 +384,10 @@ struct
         val pred_stms = HT.mkTable (Word.fromInt, op =)
                                    (length preds, Subscript)
 
-        fun getphi (T.MOVE (T.TEMP (t, _), T.PHI _)) = SOME t
+        fun getphi (T.MOVE (t, _, T.PHI _)) = SOME t
           | getphi _ = NONE
 
-        fun isphi (T.MOVE (T.TEMP _, T.PHI _)) = true
+        fun isphi (T.MOVE (_, _, T.PHI _)) = true
           | isphi _ = false
 
         fun process_phi (phi as (tmp, n)) = let
@@ -395,8 +395,8 @@ struct
                     val set = A.sub (vmaps, id)
                     val L = case TM.find (set, tmp)
                               of SOME (m, typ) => if !n = m then [] else
-                                  [T.MOVE (T.TEMP (phi, typ),
-                                   T.TEMP ((tmp, ref m), typ))]
+                                  [T.MOVE (phi, typ,
+                                           T.TEMP ((tmp, ref m), typ))]
                                | NONE   => []
                     val LP = case HT.find pred_stms id
                                of SOME p => p

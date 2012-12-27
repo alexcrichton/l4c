@@ -63,24 +63,25 @@ struct
          if i <> j then H.insert (adj_ht j) (i, e) else ();
          edge_count := 1 + !edge_count)
 
-      fun set_edges (i, edges) = raise Fail "Set edges unimplemnted"
-      (*fun set_edges (i, edges) = let
-        val table = A.sub (adj, i)
+      (*fun set_edges (i, edges) = raise Fail "Set edges unimplemnted"*)
+      fun set_edges (i, edges) = let
+        val table = adj_ht i
       in
-        H.appi (fn (j,_) => (H.remove (A.sub(adj, j)) i; ())) table;
+        H.appi (fn (j,_) => (H.remove (adj_ht j) i; ())) table;
+        edge_count := !edge_count - H.numItems table;
         H.clear table;
-        app (fn (_,j,e) => add_edge (i,j,e)) edges
-        (* FIXME: update edge_count *)
-      end*)
+        app (fn (_,j,e) => add_edge (i,j,e)) edges;
+        edge_count := !edge_count + List.length edges
+      end
 
-      fun remove_node i = raise Fail "Remove node unimplemnted"
-      (*fun remove_node i =
+      (*fun remove_node i = raise Fail "Remove node unimplemnted"*)
+      fun remove_node i =
          case A.sub(nodes,i) of
             NONE => ()
-         |  SOME _ => (set_edges(i,[]);
+         |  SOME _ => (set_edges(i, []);
                        A.update(nodes,i,NONE);
                        node_count := !node_count - 1;
-                       garbage_nodes := i :: !garbage_nodes)*)
+                       garbage_nodes := i :: !garbage_nodes)
 
       fun remove_nodes ns = app remove_node ns
 

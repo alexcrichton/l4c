@@ -6,15 +6,16 @@
 
 signature LIVENESS =
 sig
-  val compute : Assem.instr list -> OperandSet.set list
+  structure Assem : ASSEM
+  val compute : Assem.instr list -> Assem.OperandSet.set list
 end
 
-structure Liveness :> LIVENESS =
+functor Liveness (A : ASSEM) :> LIVENESS where Assem = A =
 struct
-
-  structure A = Assem
-  structure HT = HashTable
-  structure OS = OperandSet
+  structure Assem = A
+  structure Arch  = A.Arch
+  structure HT    = HashTable
+  structure OS    = A.OperandSet
 
   type label = int
 
@@ -25,9 +26,11 @@ struct
    *)
   type rule = A.operand list * A.operand list * label list
 
-  fun mkreg r = A.REG (r, A.WORD)
-  val eax = A.REG (A.EAX, A.WORD)
-  val edx = A.REG (A.EDX, A.WORD)
+  fun reg r = A.REG (r, Arch.ptrsize)
+  fun regs (A.MEM (A.MOP d, _) :: L) = regs (d :: L)
+    | regs ((A.IMM _ | A.LABELOP _) :: L) = regs L
+    | regs (x :: L) = x :: regs L
+    | regs [] = []
 
   (* rulegen : (A.label -> label) -> (label * Assem.instr) -> rule
    *
@@ -35,33 +38,24 @@ struct
    * @param i the instruction to generate a rule for
    * @return a rule representing the current instruction
    *)
-  fun rulegen f (l, A.BINOP(_, A.MEM (d, _), A.MEM (s, _))) =
-        ([d, s], [], [l + 1])
-    | rulegen f (l, A.BINOP(_, A.MEM (d, _), s)) = ([d, s], [], [l + 1])
-    | rulegen f (l, A.BINOP(_, d, s)) = ([d, s], [d], [l + 1])
-    | rulegen f (l, A.MOV(A.MEM (d, _), A.MEM (s, _))) = ([d, s], [], [l + 1])
-    | rulegen f (l, A.MOV(A.MEM (d, _), s)) = ([s, d], [], [l + 1])
-    | rulegen f (l, A.MOV(d, A.MEM (s, _))) = ([s], [d], [l + 1])
-    | rulegen f (l, A.MOV(d, s)) = ([s], [d], [l + 1])
-    | rulegen f (l, A.MOVFLAG(d, _)) = ([], [d], [l + 1])
-    | rulegen f (l, A.JMP (lbl, SOME _)) =
-        if Label.isfunc lbl then ([], [], [l + 1])
-        else ([], [], [f lbl, l + 1])
+  fun rulegen f (l, A.BINOP(_, A.MEM (A.MOP d, _), s1, s2)) =
+        (regs [s1, s2, d], [], [l + 1]) : rule
+    | rulegen f (l, A.BINOP(_, d, s1, s2)) = (regs [s1, s2], [d], [l + 1])
+    | rulegen f (l, A.MOV(A.MEM (A.MOP d, _), s)) = (regs [s, d], [], [l + 1])
+    | rulegen f (l, A.MOV(d, s)) = (regs [s], [d], [l + 1])
+    | rulegen f (l, A.JMP (lbl, SOME (_, s1, s2))) =
+        if Label.isfunc lbl then (regs [s1, s2], [], [l + 1])
+        else (regs [s1, s2], [], [f lbl, l + 1])
     | rulegen f (l, A.JMP (lbl, NONE)) =
         if Label.isfunc lbl then ([], [], [])
         else ([], [], [f lbl])
-    | rulegen f (l, A.DIRECTIVE _) = ([], [], [l + 1])
-    | rulegen f (l, A.COMMENT _) = ([], [], [l + 1])
-    | rulegen f (l, A.RET) = ([eax], [], [])
-    | rulegen f (l, A.LABEL _) = ([], [], [l + 1])
-    | rulegen f (l, A.CALL (callable, n)) = let
-        val use = case callable
-                    of A.MEM (m, _) => m
-                     | c => c
-      in
-        (use :: List.tabulate (abs n, mkreg o A.arg_reg), [eax],
+    | rulegen _ (l, (A.DIRECTIVE _ | A.LABEL _ | A.COMMENT _)) = ([],[],[l + 1])
+    | rulegen f (l, A.RET) = ([reg Arch.ret_reg], [], [])
+    | rulegen f (l, A.CALL (callable, n)) =
+        (regs (callable :: List.tabulate (Int.min (abs n, Arch.arg_regs),
+                                          reg o Arch.arg_reg)),
+         [reg Arch.ret_reg],
          if n < 0 then [] else [l + 1])
-      end
     | rulegen f (l, A.ASM s) = ([], [], [l + 1])
 
   (* add_uses : OS.set -> OS.set ref -> bool
@@ -112,7 +106,7 @@ struct
    *         instruction
    *)
   fun process rules rule_fn = let
-        fun process_ruleset (((uses, def, succ), set), changed) = let
+        fun process_ruleset (((uses, def, succ) : rule, set), changed) = let
               val added_uses = add_uses (OS.fromList uses) set
               val added_succ = add_succ (def, rule_fn) succ set
             in
@@ -129,18 +123,6 @@ struct
     if Profile.time ("process", fn () => process rulesets f)
     then munge rulesets f
     else ()
-
-  (* precolor : A.instr * OS.set -> OS.set
-   *
-   * Adds precolored registers to the given set so that the registers are
-   * available during allocation.
-   *)
-  fun precolor (A.BINOP ((A.DIV | A.MOD), _, _), set) =
-        OS.add (OS.add (set, A.REG (A.EAX, A.QUAD)), A.REG (A.EDX, A.QUAD))
-    | precolor (A.BINOP ((A.RSH | A.LSH), _, A.IMM _), set) = set
-    | precolor (A.BINOP ((A.RSH | A.LSH), _, _), set) =
-        OS.add (set, A.REG (A.ECX, A.QUAD))
-    | precolor (_, set) = set
 
   (* compute : Assem.instr list -> OS.set list
    *
@@ -169,7 +151,7 @@ struct
     val _ = munge rules getsets
     val rulesets = Vector.foldr (fn ((_, ref s), L) => s::L) [] rules
   in
-    ListPair.mapEq precolor (L, rulesets)
+    ListPair.mapEq A.precolor (L, rulesets)
   end
 
 end

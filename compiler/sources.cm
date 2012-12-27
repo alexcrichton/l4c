@@ -1,4 +1,4 @@
-Group is  
+Group is
   $/basis.cm
   $/smlnj-lib.cm
   $/ml-yacc-lib.cm
@@ -25,11 +25,13 @@ Group is
   parse/l5.grm.sml
   parse/parse.sml
 
+  codegen/assem.sig
   codegen/assem.sml
   codegen/allocation.sml
   codegen/codegen.sml
   codegen/liveness.sml
   codegen/runtime.sml
+  codegen/x86.sml
 
   analysis/analysis.sig
   analysis/typechecker.sml
@@ -42,6 +44,7 @@ Group is
   trans/tree.sml
   trans/trans.sml
   trans/ssa.sml
+  trans/arch.sml
 
   optimizations/optimization.sig
   optimizations/simp_phis.sml

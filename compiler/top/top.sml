@@ -18,6 +18,33 @@ sig
   val test : string -> OS.Process.status
 end
 
+signature TOP_CODEGEN =
+sig
+  val codegen : Tree.program -> string
+end
+
+functor TopCodegen(C : CODEGEN) :> TOP_CODEGEN =
+struct
+  structure A = C.Assem
+  structure O = Options
+  structure P = Profile
+
+  fun codegen ir = let
+        val _ = Flag.guard O.flag_verbose Debug.info "Codegen..."
+        val assem = P.time ("Codegen   ", fn () => C.codegen ir)
+        val _ = Flag.guard O.flag_assem
+            (fn () => (TextIO.print o A.format) assem) ()
+
+        val assem = C.Runtime.instrs assem
+        val code = P.time ("Formatting", fn () => A.format assem)
+        val _ = P.stopTimer ()
+      in code end
+
+end
+
+structure X86TopCodegen = TopCodegen(X86Codegen)
+structure X64TopCodegen = TopCodegen(X64Codegen)
+
 structure Top :> TOP =
 struct
   structure G = GetOpt  (* from $/smlnj-lib/Util/getopt-sig.sml *)
@@ -46,9 +73,12 @@ struct
        {short = "", long=["dump-asm"],
         desc=G.NoArg (fn () => Flag.set O.flag_assem),
         help="pretty print the assembly before register allocaction"},
-       {short = "", long=["profile"],
+       {short = "p", long=["profile"],
         desc=G.NoArg (fn () => Flag.set O.flag_profile),
         help="profile the compiler"},
+       {short = "c", long=["object"],
+        desc=G.NoArg (fn () => Flag.set O.flag_object),
+        help="emit assembly for an object file instead of an executable"},
        {short = "l", long=["header"],
         desc=G.ReqArg (fn s => Flag.sets (O.flag_header, s), "foo"),
         help="header file for the program"},
@@ -69,7 +99,10 @@ struct
         help="unsafe compilation with no memory checks"},
        {short = "O", long=["optimize"],
         desc=G.ReqArg (fn s => Flag.sets (O.flag_opt, s), "0"),
-        help="level of optimizations to perform"}
+        help="level of optimizations to perform"},
+       {short = "m", long=["arch"],
+        desc=G.ReqArg (fn s => Flag.sets (O.flag_arch, s), "arch"),
+        help="architecture to emit ([x64] | x86)"}
       ]
 
   fun stem s = let
@@ -83,7 +116,6 @@ struct
 
   fun main (name, args) =
   let
-    val _ = Debug.set_level Debug.WARN
     val header = "Usage: compile [OPTION...] SOURCEFILE\nwhere OPTION is"
     val usageinfo = G.usageInfo {header = header, options = options}
     fun errfn msg = (say (msg ^ "\n" ^ usageinfo) ; raise EXIT)
@@ -106,6 +138,11 @@ struct
            | [filename] => filename
            | _ => errfn "Error: more than one input file"
     val _ = O.set_filename source
+
+    val arch = Flag.svalue O.flag_arch
+    val arch = if arch = "" then "x64" else arch
+    val translate = if arch = "x64" then Trans64.translate
+                    else Trans32.translate
 
     val _ = Flag.guard O.flag_profile P.enable ()
     val _ = P.startTimer "Compiling"
@@ -133,15 +170,16 @@ struct
     val _ = P.time ("Typechecking", fn () => TypeChecker.analyze ast)
     val _ = Flag.guard O.flag_verbose say ("Returns... " ^ source)
     val _ = P.time ("Returns", fn () => ReturnChecker.analyze ast)
-    val _ = Flag.guard O.flag_verbose say ("Main... " ^ source)
-    val _ = P.time ("Main", fn () => MainChecker.analyze ast)
+    val _ = if Flag.isset O.flag_object then ()
+            else (Flag.guard O.flag_verbose say ("Main... " ^ source);
+                  MainChecker.analyze ast)
     val _ = Flag.guard O.flag_verbose say ("Initialization... " ^ source)
     val _ = P.time ("Initialization",
                     fn () => InitializationChecker.analyze ast)
     val _ = P.stopTimer ()
 
     (* Pretty prints a control flow graph into a dot file *)
-    fun pretty key (id, _, _, cfg) = let
+    fun pretty key ((id, _), _, _, cfg) = let
           fun pp_node (nid, data) = "label=\"" ^ String.concatWith "\\n"
                                                   (map Tree.Print.pp_stm data) ^
                                     "\\n" ^ Int.toString nid^ "\" " ^
@@ -171,7 +209,7 @@ struct
 
     (* IR translation/Optimizations *)
     val _ = Flag.guard O.flag_verbose say "Translating..."
-    val cfg = P.time ("Translating", fn () => Trans.translate ast)
+    val cfg = P.time ("Translating", fn () => translate ast)
     val _ = Flag.guard O.flag_dotcfg (fn () => app (pretty "non-ssa") cfg) ()
 
     val _ = P.time ("SSA", fn () => SSA.ssa cfg)
@@ -222,26 +260,15 @@ struct
     val _ = Flag.guard O.flag_ir (fn () => say (Tree.Print.pp_program ir')) ()
 
     (* Codegen/Assembly generation*)
-    val _ = Flag.guard O.flag_verbose say "Codegen..."
-    val assem = P.time ("Codegen   ", fn () => Codegen.codegen ir')
-    val _ = Flag.guard O.flag_assem
-        (fn () => List.app (TextIO.print o Assem.format) assem) ()
-
-    val assem = [Assem.DIRECTIVE(".file\t\"" ^ source ^ "\""),
-                 Assem.DIRECTIVE(".globl " ^
-                                 Label.name (Label.extfunc "_c0_main"))]
-          @ assem
-          @ [Assem.DIRECTIVE ".ident\t\"15-411 L5 compiler\""]
-          @ Runtime.instrs
-    val code = P.time ("Formatting",
-                       fn () => String.concat (List.map (Assem.format) assem))
+    val code = if arch = "x86" then X86TopCodegen.codegen ir'
+               else if arch = "x64" then X64TopCodegen.codegen ir'
+               else raise Fail ("Unknown architecture: " ^ arch)
 
     val afname = stem source ^ ".s"
     val _ = Flag.guard O.flag_verbose say ("Writing assembly to " ^ afname ^
                                            " ...")
     val _ = SafeIO.withOpenOut afname (fn afstream =>
          TextIO.output (afstream, code))
-    val _ = P.stopTimer ()
     val _ = P.print ()
   in
     OS.Process.success

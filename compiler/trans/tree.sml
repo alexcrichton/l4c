@@ -20,10 +20,11 @@ sig
     | CONST of Word32.word * typ
     | BINOP of binop * exp * exp
     | CALL of exp * typ * (exp * typ) list
-    | MEM of exp * typ
+    | LOAD of exp * typ
     | ELABEL of Label.label
   and stm =
-      MOVE of exp * exp
+      MOVE  of tmp * typ * exp
+    | STORE of exp * typ * exp
     | LABEL of Label.label
     | GOTO  of Label.label * exp option
     | COND  of exp
@@ -32,10 +33,10 @@ sig
 
   type block = stm list
   type cfgraph = (block, edge, int DynArray.array) Graph.graph
-  type cfg_func = Label.label * typ * (Temp.temp * typ) list * cfgraph
+  type cfg_func = (Label.label * bool) * typ * (Temp.temp * typ) list * cfgraph
   type cfg = cfg_func list
 
-  type func = Label.label * typ * (Temp.temp * typ) list * stm list
+  type func = (Label.label * bool) * typ * (Temp.temp * typ) list * stm list
   type program = func list
 
   val commutative : binop -> bool
@@ -70,10 +71,11 @@ struct
     | CONST of Word32.word * typ
     | BINOP of binop * exp * exp
     | CALL of exp * typ * (exp * typ) list
-    | MEM of exp * typ
+    | LOAD of exp * typ
     | ELABEL of Label.label
   and stm =
-      MOVE of exp * exp
+      MOVE of tmp * typ * exp
+    | STORE of exp * typ * exp
     | LABEL of Label.label
     | GOTO  of Label.label * exp option
     | COND  of exp
@@ -82,10 +84,10 @@ struct
 
   type block = stm list
   type cfgraph = (block, edge, int DynArray.array) Graph.graph
-  type cfg_func = Label.label * typ * (Temp.temp * typ) list * cfgraph
+  type cfg_func = (Label.label * bool) * typ * (Temp.temp * typ) list * cfgraph
   type cfg = cfg_func list
 
-  type func = Label.label * typ * (Temp.temp * typ) list * stm list
+  type func = (Label.label * bool) * typ * (Temp.temp * typ) list * stm list
   type program = func list
 
   fun commutative ADD = true
@@ -173,10 +175,13 @@ struct
         in
           pp_exp e ^ "(" ^ args ^ ")"
         end
-      | pp_exp (MEM (e, t)) = "M[" ^ pp_exp e ^ "]" ^ pp_typ t
+      | pp_exp (LOAD (e, t)) = "M[" ^ pp_exp e ^ "]" ^ pp_typ t
       | pp_exp (ELABEL l) = Label.name l
 
-    fun pp_stm (MOVE (e1,e2)) = pp_exp e1 ^ " = " ^ pp_exp e2
+    fun pp_stm (MOVE (tmp, typ, e2)) = pp_tmp tmp ^ pp_typ typ ^ " = "
+                                                  ^ pp_exp e2
+      | pp_stm (STORE (e1, typ, e2)) = "M[" ^ pp_exp e1 ^ "]" ^ pp_typ typ
+                                            ^ " = " ^ pp_exp e2
       | pp_stm (COND e) = "if (" ^ pp_exp e ^ ") ..."
       | pp_stm (LABEL l) = Label.name l
       | pp_stm (GOTO (l, NONE)) = "goto " ^ Label.name l
@@ -185,7 +190,7 @@ struct
       | pp_stm (RETURN e) = "return " ^ pp_exp e
       | pp_stm NOP = "nop"
 
-    fun pp_func (l, _, args, stms) = Label.name l ^ "(" ^
+    fun pp_func ((l, _), _, args, stms) = Label.name l ^ "(" ^
                           String.concatWith ", "
                                   (map (fn (t, _) => pp_tmp (t, ref 0)) args) ^
                           "):\n" ^

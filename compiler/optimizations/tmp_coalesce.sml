@@ -25,14 +25,14 @@ struct
         T.BINOP (oper, mape tbl e1, mape tbl e2)
     | mape tbl (T.CALL (e, typ, args)) =
         T.CALL (mape tbl e, typ, map (fn (e, t) => (mape tbl e, typ)) args)
-    | mape tbl (T.MEM (e, typ)) = T.MEM (mape tbl e, typ)
+    | mape tbl (T.LOAD (e, typ)) = T.LOAD (mape tbl e, typ)
     | mape _ e = e
 
-  fun maps tbl (T.MOVE (e1 as (T.TEMP (t1, _)), e2 as (T.TEMP _))) =
+  fun maps tbl (T.MOVE (t1, t, e2 as (T.TEMP _))) =
         (case mape tbl e2
            of T.TEMP (t2, typ2) => (HT.insert tbl (t1, t2); T.NOP)
             | _ => raise Fail "Temp coalescing broken")
-    | maps tbl (T.MOVE (e1, e2)) = T.MOVE (mape tbl e1, mape tbl e2)
+    | maps tbl (T.STORE (e1, t, e2)) = T.STORE (mape tbl e1, t, mape tbl e2)
     | maps tbl (T.GOTO (l, SOME e)) = T.GOTO (l, SOME (mape tbl e))
     | maps tbl (T.COND e) = T.COND (mape tbl e)
     | maps tbl (T.RETURN e) = T.RETURN (mape tbl e)

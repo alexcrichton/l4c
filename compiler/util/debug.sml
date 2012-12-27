@@ -27,7 +27,7 @@ structure Debug :> DebugLogger =
 struct
   datatype level = VERBOSE | DEBUG | INFO | WARN | ERROR
 
-  val cur_level = ref VERBOSE
+  val cur_level = ref WARN
   fun set_level level = cur_level := level
 
   fun level_ord VERBOSE = 0

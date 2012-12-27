@@ -23,6 +23,15 @@ fun genpost (exp, oper) = A.Assign(exp, oper, A.Const(Word32.fromInt 1))
 fun genptrinc (exp, oper) =
   A.Seq (A.Express (A.Deref (exp, ref A.NULL)), genpost (exp, oper))
 
+fun gengdecl ((t, id, L), ext) st = markg ((A.IntDecl (t, id, L, st)), ext)
+fun gendef ((t, id, L, stm), ext) st = markg ((A.Fun (t, id, L, stm, st)), ext)
+
+fun typedef (typ, name) ext = (Symbol.addtype name;
+                               markg (A.Typedef (name, typ), ext))
+
+fun gendecl (typ, name) exp ext =
+      marks (A.Declare (name, typ, exp, A.Nop), ext)
+
 %%
 %header (functor L5LrValsFn (structure Token : TOKEN))
 
@@ -44,7 +53,7 @@ fun genptrinc (exp, oper) =
  | LBRACE | RBRACE
  | LPAREN | RPAREN
  | COMMA | PERIOD | ARROW | LBRACKET | RBRACKET
- | IF | ELSE | WHILE | FOR | CONTINUE | BREAK | RETURN | TYPEDEF
+ | IF | ELSE | WHILE | DO | FOR | CONTINUE | BREAK | RETURN | TYPEDEF | STATIC
  | QUESTION | COLON
  | UNARY | ASNOP
 (* UNARY and ASNOP are dummy terminals.
@@ -59,8 +68,8 @@ fun genptrinc (exp, oper) =
    program  of A.program
  | gdecls   of A.gdecl list
  | gdecl    of A.gdecl
- | fdecl    of A.gdecl
- | fdef     of A.gdecl
+ | fdecl    of (A.typ * A.ident * (A.typ * A.ident) list) * (int * int)
+ | fdef     of (A.typ * A.ident * (A.typ * A.ident) list * A.stm) * (int * int)
  | typedef  of A.gdecl
  | sdecl    of A.gdecl
  | sdef     of A.gdecl
@@ -89,6 +98,9 @@ fun genptrinc (exp, oper) =
  | simpopt  of A.stm
  | elseopt  of A.stm
  | typ      of A.typ
+ | typfun_list_follow of A.typ list
+ | typfun_list        of A.typ list
+ | typfun             of A.typ * A.ident
 
 %verbose       (* print summary of errors *)
 %pos int       (* positions *)
@@ -126,25 +138,27 @@ program    : gdecls                     (gdecls)
 gdecls     :                            ([])
            | gdecl gdecls               (gdecl::gdecls)
 
-gdecl      : fdecl                      (fdecl)
-           | fdef                       (fdef)
+gdecl      : fdecl                      (gengdecl fdecl false)
+           | STATIC fdecl               (gengdecl fdecl true)
+           | fdef                       (gendef fdef false)
+           | STATIC fdef                (gendef fdef true)
            | typedef SEMI               (typedef)
            | sdecl                      (sdecl)
            | sdef                       (sdef)
 
-fdecl      : typ IDENT param_list SEMI  (markg (A.IntDecl (typ, IDENT,
-                                                           param_list),
-                                               (typleft, SEMIright)))
+fdecl      : typ IDENT param_list SEMI  (((typ, IDENT, param_list),
+                                         (typleft, SEMIright)))
 
-fdef       : typ IDENT param_list block (markg (A.Fun (typ, IDENT, param_list,
-                                                       block),
-                                                (typleft, param_listright)))
+fdef       : typ IDENT param_list block (((typ, IDENT, param_list, block),
+                                          (typleft, param_listright)))
 
-typedef    : TYPEDEF typ IDENT          (Symbol.addtype IDENT;
-                                         markg (A.Typedef (IDENT, typ),
-                                                (TYPEDEFleft, typright)))
+typedef    : TYPEDEF typ IDENT          (typedef (typ, IDENT)
+                                                 (TYPEDEFleft, typright))
+           | TYPEDEF typfun             (typedef typfun
+                                                 (TYPEDEFleft, typfunright))
 
 param      : typ IDENT                  (typ, IDENT)
+           | typfun                     (typfun)
 
 param_list_follow :                                 ([])
                   | COMMA param param_list_follow   (param::param_list_follow)
@@ -164,8 +178,9 @@ sdef       : STRUCT IDENT LBRACE field_list RBRACE SEMI
                                         (markg (A.Struct (TYPE, field_list),
                                                (STRUCTleft, SEMIright)))
 
-field      : typ IDENT SEMI             ((typ, IDENT))
-           | typ TYPE SEMI              ((typ, TYPE))
+field      : typ IDENT SEMI             (typ, IDENT)
+           | typ TYPE SEMI              (typ, TYPE)
+           | typfun SEMI                (typfun)
 
 field_list :                            ([])
            | field field_list           (field :: field_list)
@@ -179,12 +194,27 @@ typ        : INT                        (A.INT)
            | typ LBRACKET RBRACKET      (A.ARRAY typ)
            | STRUCT IDENT               (A.STRUCT IDENT)
            | STRUCT TYPE                (A.STRUCT TYPE)
+           | typ LPAREN STAR RPAREN typfun_list (A.PTR (A.FUN (typ, typfun_list)))
 
-decl       : typ IDENT                  (marks (A.Declare (IDENT, typ, A.Nop),
-                                                (typleft, IDENTright)))
-           | typ IDENT ASSIGN exp       (marks (A.Declare (IDENT, typ,
-                                                  A.Assign(A.Var IDENT, NONE, exp)),
-                                                (typleft, expright)))
+typfun_list_follow :                              ([])
+                   | COMMA typ typfun_list_follow (typ :: typfun_list_follow)
+
+typfun_list : LPAREN RPAREN                        ([])
+            | LPAREN typ typfun_list_follow RPAREN (typ :: typfun_list_follow)
+
+typfun     : typ LPAREN STAR IDENT RPAREN typfun_list
+                                        (A.PTR (A.FUN (typ, typfun_list)), IDENT)
+           | typ LPAREN IDENT RPAREN typfun_list
+                                        (A.FUN (typ, typfun_list), IDENT)
+
+decl       : typ IDENT                  (gendecl (typ, IDENT) NONE
+                                                 (typleft, IDENTright))
+           | typfun                     (gendecl typfun NONE
+                                                 (typfunleft, typfunright))
+           | typ IDENT ASSIGN exp       (gendecl (typ, IDENT) (SOME exp)
+                                                 (typleft, expright))
+           | typfun ASSIGN exp          (gendecl typfun (SOME exp)
+                                                 (typfunleft, expright))
 
 stmts      :                                 (A.Nop)
            | stmt stmts                      (A.Seq (stmt, stmts))
@@ -217,6 +247,7 @@ elseopt    :                           (A.Nop)
 
 control    : IF LPAREN exp RPAREN stmt elseopt  (A.If(exp, stmt, elseopt))
            | WHILE LPAREN exp RPAREN stmt       (A.While (exp, stmt))
+           | DO stmt WHILE LPAREN exp RPAREN SEMI (A.DoWhile (exp, stmt))
            | FOR LPAREN simpopt SEMI exp SEMI step RPAREN stmt
                                       (A.For (simpopt, exp, step, stmt))
            | CONTINUE SEMI   (marks (A.Continue, (CONTINUEleft, CONTINUEright)))
@@ -246,10 +277,13 @@ expnostar  : IDENT                      (mark (A.Var IDENT,
            | unop exp %prec UNARY       (mark (A.UnaryOp(unop, exp),
                                                (unopleft, expright)))
            | exp exp2                   (convert_exp2 (exp, expleft) exp2)
-           | IDENT arg_list             (mark (A.Call (IDENT, arg_list),
-                                              (IDENTleft, arg_listright)))
+           | exp arg_list               (mark (A.Call (exp, arg_list,
+                                                       ref (A.NULL, [])),
+                                              (expleft, arg_listright)))
            | exp PERIOD IDENT           (mark (A.Field (exp, IDENT, ref A.NULL),
                                               (expleft, IDENTright)))
+           | exp PERIOD TYPE            (mark (A.Field (exp, TYPE, ref A.NULL),
+                                              (expleft, TYPEright)))
            | exp ARROW IDENT            (mark ((A.Field (A.Deref (exp,
                                                                   ref A.NULL),
                                                          IDENT,

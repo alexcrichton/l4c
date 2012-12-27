@@ -15,7 +15,7 @@ struct
     | eq_types (A.BOOL, A.BOOL) = true
     | eq_types _ = false
 
-  fun ismain (A.Fun (typ, id, args, _)) =
+  fun ismain (A.Fun (typ, id, args, _, _)) =
         if Symbol.name id <> "main" then false
         else if not (eq_types (A.INT, typ)) then
           (ErrorMsg.error NONE "main() does not return int";

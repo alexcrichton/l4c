@@ -20,7 +20,7 @@ struct
   fun remove_phis (G.GRAPH g) = let
         val table = HT.mkTable (T.tmphash, T.tmpequals)
                                (29, Fail "Remove phis failed")
-        fun filter_stm (T.MOVE (T.TEMP (t, _), T.PHI [t'])) =
+        fun filter_stm (T.MOVE (t, _, T.PHI [t'])) =
               (HT.insert table (t, t'); NONE)
           | filter_stm s = SOME s
       in
@@ -39,10 +39,11 @@ struct
         T.BINOP (oper, map_exp m e1, map_exp m e2)
     | map_exp m (T.CALL (e, typ, L)) =
         T.CALL (map_exp m e, typ, map (fn (e, typ) => (map_exp m e, typ)) L)
-    | map_exp m (T.MEM (e, t)) = T.MEM (map_exp m e, t)
+    | map_exp m (T.LOAD (e, t)) = T.LOAD (map_exp m e, t)
     | map_exp _ e = e
 
-  fun map_stm m (T.MOVE (e1, e2)) = T.MOVE (map_exp m e1, map_exp m e2)
+  fun map_stm m (T.MOVE (tmp, t, e2)) = T.MOVE (map_tmp m tmp, t, map_exp m e2)
+    | map_stm m (T.STORE (e1, t, e2)) = T.STORE (map_exp m e1, t, map_exp m e2)
     | map_stm m (T.GOTO (l, SOME e)) = T.GOTO (l, SOME (map_exp m e))
     | map_stm m (T.COND e) = T.COND (map_exp m e)
     | map_stm m (T.RETURN e) = T.RETURN (map_exp m e)

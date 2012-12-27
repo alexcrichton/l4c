@@ -13,7 +13,6 @@ package Driverlib;
 use File::Copy;
 use File::Basename;
 use FileHandle;
-use Term::ReadKey;
 use POSIX ":sys_wait_h";
 use POSIX qw(setpgid);
 use POSIX ":signal_h";
@@ -26,7 +25,13 @@ our $DEBUG = 0;
 our $QUIET = 0;
 our $PROGRESS = 0;
 our ($LAST_CURRENT, $LAST_TOTAL) = (0, 0);
-my ($wchar, $hchar, $wpixels, $hpixels) = GetTerminalSize();
+my ($wchar, $hchar, $wpixels, $hpixels);
+eval {
+  eval "use Term::ReadKey;";
+  ($wchar, $hchar, $wpixels, $hpixels) = GetTerminalSize();
+} or do {
+  ($wchar, $hchar, $wpixels, $hpixels) = (1, 1, 1, 1);
+};
 our $TERM_WIDTH = $wchar;
 
 #
@@ -141,7 +146,7 @@ sub system_with_timeout {
     }
 
     ## We had a timeout
-    printq(0, "%% Timeout after $secs seconds\n");
+    printq(2, "%% Timeout after $secs seconds\n");
     $kid = 0;
     while ($kid >= 0) {     # 0 means some children are still running
         $kid = waitpid(-1, WNOHANG); # reap all members of process group
@@ -232,4 +237,3 @@ sub read_file {
 
 # End module with a 1 so that loading it returns TRUE
 1;
-

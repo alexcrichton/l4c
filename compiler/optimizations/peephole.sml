@@ -3,10 +3,11 @@
  * Author: Alex Crichton <acrichto@andrew.cmu.edu>
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
-structure Peephole :> CODEGEN_OPTIMIZATION =
-struct
 
-  structure A = Assem
+functor Peephole (A : ASSEM) :> CODEGEN_OPTIMIZATION where Assem = A =
+struct
+  structure Assem = A
+  structure Arch = A.Arch.TArch
   structure W = Word32
 
   val two  = Word32.fromInt 2
@@ -60,10 +61,11 @@ struct
    * @return the list of registers with necessary STACK registers changed to
    *         a STACKARG register
    *)
-  fun fixargs (A.MOV (A.REG (A.STACK n, t), s) :: L) =
-        A.MOV (A.REG (A.STACKARG (n div 8), t), s) :: fixargs L
-    | fixargs (A.BINOP (oper, A.REG (A.STACK n, t), s) :: L) =
-        A.BINOP (oper, A.REG (A.STACKARG (n div 8), t), s) :: fixargs L
+  fun fixargs (A.MOV (A.MEM (A.STACK n, t), s) :: L) =
+        A.MOV (A.MEM (A.STACKARG (n div Arch.ptrsize), t), s) :: fixargs L
+    | fixargs (A.BINOP (oper, A.MEM (A.STACK n, t), s1, s2) :: L) =
+        A.BINOP (oper, A.MEM (A.STACKARG (n div Arch.ptrsize), t), s1, s2) ::
+          fixargs L
     | fixargs ((i as A.CALL _) :: L) = i :: L
     | fixargs (x :: L) = x :: fixargs L
     | fixargs [] = []
@@ -78,28 +80,27 @@ struct
    * @param R the instructions to optimize
    * @return the optimized instructions
    *)
-  fun peep l (L, (i as A.BINOP (A.MUL, oper, A.IMM (n, s))) :: R) =
+  fun peep l (L, (i as (A.BINOP (A.MUL, d, s1, A.IMM (n, s)) |
+                        A.BINOP (A.MUL, d, A.IMM (n, s), s1))) :: R) =
         if ispow2 n then
-          peep l (A.BINOP (A.LSH, oper, A.IMM (log2 n, s)) :: L, R)
+          peep l (A.BINOP (A.LSH, d, s1, A.IMM (log2 n, s)) :: L, R)
         else peep l (i :: L, R)
-    | peep l (L, (i as A.BINOP (A.DIV, oper, A.IMM (n, s))) :: R) =
+    | peep l (L, (i as A.BINOP (A.DIV, d, s1, A.IMM (n, s))) :: R) =
         if ispow2 n then
-          peep l (A.BINOP (A.RSH, oper, A.IMM (log2 n, s)) :: L, R)
+          peep l (A.BINOP (A.RSH, d, s1, A.IMM (log2 n, s)) :: L, R)
         else peep l (i :: L, R)
-    | peep l (L, (i as A.BINOP (A.MOD, oper, A.IMM (n, s))) :: R) =
+    | peep l (L, (i as A.BINOP (A.MOD, d, s1, A.IMM (n, s))) :: R) =
         if ispow2 n then
-          peep l (A.BINOP (A.AND, oper, A.IMM (n - one, s)) :: L, R)
+          peep l (A.BINOP (A.AND, d, s1, A.IMM (n - one, s)) :: L, R)
         else peep l (i :: L, R)
-    | peep l (L, A.BINOP (CMP, d as A.IMM _, s) ::
-                  (j as A.JMP (_, SOME (A.EQ | A.NEQ))) :: R) =
-        peep l (j :: A.BINOP (CMP, s, d) :: L, R)
-    | peep l (L, (c as A.CALL (A.LABELOP l', n)) :: R) = let
+    (* TODO: issue 21 *)
+    (*| peep l (L, (c as A.CALL (A.LABELOP l', n)) :: R) = let
         val (ret, R') = isret R
       in
         if Label.equal (l, l') andalso ret then
           peep l (A.CALL (A.LABELOP l', ~n) :: fixargs L, R')
         else peep l (c :: L, R)
-      end
+      end*)
     | peep l (L, i :: R) = peep l (i :: L, R)
     | peep _ (L, []) = rev L
 

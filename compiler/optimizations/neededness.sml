@@ -37,7 +37,7 @@ struct
           of (T.DIV|T.MOD) => (U', U', true)
            | _ => (U', N1 @ N2, s1 orelse s2)
       end
-    | rulegen_exp (T.MEM (e, _)) = let
+    | rulegen_exp (T.LOAD (e, _)) = let
         val (U, N, s) = rulegen_exp e
       in (U, U, true) end
     | rulegen_exp (T.CALL (e, _, L)) = let
@@ -53,11 +53,11 @@ struct
       end
     | rulegen_exp (T.PHI _) = raise Fail "No phis in neededness"
 
-  fun rulegen _ (l, T.MOVE (T.TEMP (t, _), e)) =
+  fun rulegen _ (l, T.MOVE (t, _, e)) =
       let val (U, N, s) = rulegen_exp e in
         (U, SOME t, [l + 1], N, s)
       end
-    | rulegen _ (l, T.MOVE (T.MEM (e1, _), e2)) = let
+    | rulegen _ (l, T.STORE (e1, _, e2)) = let
         val (U1, N1, s1) = rulegen_exp e1
         val (U2, N2, s2) = rulegen_exp e2
       in

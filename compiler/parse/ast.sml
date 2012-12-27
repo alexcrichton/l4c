@@ -9,32 +9,13 @@ sig
   type ident = Symbol.symbol
 
   datatype typ = INT | BOOL | TYPEDEF of ident | PTR of typ | ARRAY of typ
-               | STRUCT of ident | NULL
+               | STRUCT of ident | NULL | FUN of typ * typ list
 
-  datatype unop =
-     NEGATIVE
-   | INVERT
-   | BANG
+  datatype unop = NEGATIVE | INVERT | BANG
 
-  datatype binop =
-     PLUS
-   | MINUS
-   | TIMES
-   | DIVIDEDBY
-   | MODULO
-   | LESS
-   | LESSEQ
-   | GREATER
-   | GREATEREQ
-   | EQUALS
-   | NEQUALS
-   | LAND
-   | LOR
-   | BAND
-   | XOR
-   | BOR
-   | LSHIFT
-   | RSHIFT
+  datatype binop = PLUS | MINUS | TIMES | DIVIDEDBY | MODULO | LESS | LESSEQ
+                 | GREATER | GREATEREQ | EQUALS | NEQUALS | LAND | LOR | BAND
+                 | XOR | BOR | LSHIFT | RSHIFT
 
   datatype exp =
      Var of ident
@@ -43,7 +24,7 @@ sig
    | BinaryOp of binop * exp * exp
    | UnaryOp of unop * exp
    | Ternary of exp * exp * exp * typ ref
-   | Call of ident * exp list
+   | Call  of exp * exp list * (typ * typ list) ref
    | Deref of exp * typ ref
    | Field of exp * ident * typ ref
    | ArrSub of exp * exp * typ ref
@@ -55,6 +36,7 @@ sig
      Assign  of exp * binop option * exp
    | If      of exp * stm * stm
    | While   of exp * stm
+   | DoWhile of exp * stm
    | For     of stm * exp * stm * stm
    | Express of exp
    | Continue
@@ -62,13 +44,13 @@ sig
    | Return  of exp
    | Nop
    | Seq     of stm * stm
-   | Declare of ident * typ * stm
+   | Declare of ident * typ * exp option * stm
    | Markeds of stm Mark.marked
 
   datatype gdecl =
-     Fun of typ * ident * (typ * ident) list * stm
+     Fun of typ * ident * (typ * ident) list * stm * bool
    | ExtDecl of typ * ident * (typ * ident) list
-   | IntDecl of typ * ident * (typ * ident) list
+   | IntDecl of typ * ident * (typ * ident) list * bool
    | Typedef of ident * typ
    | Markedg of gdecl Mark.marked
    | StrDecl of ident
@@ -79,6 +61,7 @@ sig
   (* print as source, with redundant parentheses *)
   structure Print :
   sig
+    val pp_typ : typ -> string
     val pp_program : program -> string
   end
 
@@ -93,32 +76,13 @@ struct
   type ident = Symbol.symbol
 
   datatype typ = INT | BOOL | TYPEDEF of ident | PTR of typ | ARRAY of typ
-               | STRUCT of ident | NULL
+               | STRUCT of ident | NULL | FUN of typ * typ list
 
-  datatype unop =
-     NEGATIVE
-   | INVERT
-   | BANG
+  datatype unop = NEGATIVE | INVERT | BANG
 
-  datatype binop =
-     PLUS
-   | MINUS
-   | TIMES
-   | DIVIDEDBY
-   | MODULO
-   | LESS
-   | LESSEQ
-   | GREATER
-   | GREATEREQ
-   | EQUALS
-   | NEQUALS
-   | LAND
-   | LOR
-   | BAND
-   | XOR
-   | BOR
-   | LSHIFT
-   | RSHIFT
+  datatype binop = PLUS | MINUS | TIMES | DIVIDEDBY | MODULO | LESS | LESSEQ
+                 | GREATER | GREATEREQ | EQUALS | NEQUALS | LAND | LOR | BAND
+                 | XOR | BOR | LSHIFT | RSHIFT
 
   datatype exp =
      Var of ident
@@ -127,7 +91,7 @@ struct
    | BinaryOp of binop * exp * exp
    | UnaryOp of unop * exp
    | Ternary of exp * exp * exp * typ ref
-   | Call of ident * exp list
+   | Call  of exp * exp list * (typ * typ list) ref
    | Deref of exp * typ ref
    | Field of exp * ident * typ ref
    | ArrSub of exp * exp * typ ref
@@ -139,6 +103,7 @@ struct
      Assign  of exp * binop option * exp
    | If      of exp * stm * stm
    | While   of exp * stm
+   | DoWhile of exp * stm
    | For     of stm * exp * stm * stm
    | Express of exp
    | Continue
@@ -146,13 +111,13 @@ struct
    | Return  of exp
    | Nop
    | Seq     of stm * stm
-   | Declare of ident * typ * stm
+   | Declare of ident * typ * exp option * stm
    | Markeds of stm Mark.marked
 
   datatype gdecl =
-     Fun of typ * ident * (typ * ident) list * stm
+     Fun of typ * ident * (typ * ident) list * stm * bool
    | ExtDecl of typ * ident * (typ * ident) list
-   | IntDecl of typ * ident * (typ * ident) list
+   | IntDecl of typ * ident * (typ * ident) list * bool
    | Typedef of ident * typ
    | Markedg of gdecl Mark.marked
    | StrDecl of ident
@@ -167,6 +132,8 @@ struct
                         Symbol.name id); raise ErrorMsg.Error))
     | resolve_typ types ext (PTR typ) = PTR (resolve_typ types ext typ)
     | resolve_typ types ext (ARRAY typ) = ARRAY (resolve_typ types ext typ)
+    | resolve_typ types ext (FUN (t, L)) = FUN (resolve_typ types ext t,
+                                                map (resolve_typ types ext) L)
     | resolve_typ _ _ typ = typ
 
   (* elaborate : program -> program
@@ -211,12 +178,12 @@ struct
 
         fun elaborate_gdecl _ (Markedg mark) =
               elaborate_gdecl (Mark.ext mark) (Mark.data mark)
-          | elaborate_gdecl ext (Fun (typ, id, params, body)) =
+          | elaborate_gdecl ext (Fun (typ, id, params, body, st)) =
               (check_set_id "Function" (!efuns) ext id; check_id ext id;
                check_set_id "Function" (!funs) ext id;
                funs := Symbol.add (!funs) id;
                Fun (resolve ext typ, id, check_params ext params,
-                    elaborate_stm (!types) body))
+                    elaborate_stm (!types) body, st))
           | elaborate_gdecl ext (p as Typedef (id, typ)) =
               (check_id ext id; check_set_id "Function" (!efuns) ext id;
                check_set_id "Function" (!funs) ext id;
@@ -224,9 +191,9 @@ struct
           | elaborate_gdecl ext (ExtDecl (typ, id, params)) =
               (check_id ext id; efuns := Symbol.add (!efuns) id;
                ExtDecl (resolve ext typ, id, check_params ext params))
-          | elaborate_gdecl ext (IntDecl (typ, id, params)) =
+          | elaborate_gdecl ext (IntDecl (typ, id, params, st)) =
               (check_id ext id;
-               IntDecl (resolve ext typ, id, check_params ext params))
+               IntDecl (resolve ext typ, id, check_params ext params, st))
           | elaborate_gdecl ext (StrDecl id) = StrDecl id
           | elaborate_gdecl ext (Struct (id, fields)) = let
               val _ = (check_set_id "Struct" (!structs) ext id)
@@ -237,16 +204,19 @@ struct
       in map (elaborate_gdecl NONE) prog end
   and elaborate_stm env (Markeds mark) =
         Markeds (Mark.mark' (elaborate_stm env (Mark.data mark), Mark.ext mark))
-    | elaborate_stm env (Declare (id, typ, stm)) =
+    | elaborate_stm env (Declare (id, typ, exp, stm)) =
         (* TODO: extent information *)
         (case Symbol.look env id
            of SOME t => (ErrorMsg.error NONE ("Variable name is a type: " ^
                          Symbol.name id); raise ErrorMsg.Error)
             | NONE => let val t = resolve_typ (ref env) NONE typ in
-                        Declare (id, t, elaborate_stm env stm)
+                        Declare (id, t,
+                                 case exp of NONE => NONE
+                                    | SOME e => SOME (elaborate_exp env e),
+                                 elaborate_stm env stm)
                       end)
-    | elaborate_stm env (For (Declare(id, typ, s1), e, s2, s3)) =
-        elaborate_stm env (Declare (id, typ, For (s1, e, s2, s3)))
+    | elaborate_stm env (For (Declare(id, typ, exp, s1), e, s2, s3)) =
+        elaborate_stm env (Declare (id, typ, exp, For (s1, e, s2, s3)))
     | elaborate_stm env (For (Markeds mark, e, s2, s3)) =
         elaborate_stm env (For (Mark.data mark, e, s2, s3))
     | elaborate_stm env (For (s1, e, s2, s3)) =
@@ -256,8 +226,10 @@ struct
         If (elaborate_exp env e, elaborate_stm env s1, elaborate_stm env s2)
     | elaborate_stm env (While (e, s)) =
         While (elaborate_exp env e, elaborate_stm env s)
-    | elaborate_stm env (Seq (Declare (id, typ, s1), s2)) =
-        elaborate_stm env (Declare (id, typ, Seq (s1, s2)))
+    | elaborate_stm env (DoWhile (e, s)) =
+        DoWhile (elaborate_exp env e, elaborate_stm env s)
+    | elaborate_stm env (Seq (Declare (id, typ, exp, s1), s2)) =
+        elaborate_stm env (Declare (id, typ, exp, Seq (s1, s2)))
     | elaborate_stm env (Seq (Markeds mark, s2)) =
         Markeds (Mark.mark' (elaborate_stm env (Seq (Mark.data mark, s2)),
                              Mark.ext mark))
@@ -281,7 +253,8 @@ struct
     | elaborate_exp env (Ternary (e1, e2, e3, t)) =
         Ternary (elaborate_exp env e1, elaborate_exp env e2,
                  elaborate_exp env e3, t)
-    | elaborate_exp env (Call (l, L)) = Call (l, map (elaborate_exp env) L)
+    | elaborate_exp env (Call (e, L, t)) =
+        Call (elaborate_exp env e, map (elaborate_exp env) L, t)
     | elaborate_exp env (Deref (e, t)) = Deref (elaborate_exp env e, t)
     | elaborate_exp env (Field (e, i, t)) = Field (elaborate_exp env e, i, t)
     | elaborate_exp env (ArrSub (e1, e2, t)) =
@@ -304,10 +277,13 @@ struct
   and elaborate_ext_gdecl _ (Markedg m) =
         Markedg (Mark.mark' (elaborate_ext_gdecl (Mark.ext m) (Mark.data m),
                              Mark.ext m))
-    | elaborate_ext_gdecl ext (Fun (_, _, _, _)) =
+    | elaborate_ext_gdecl ext (Fun (_, _, _, _, _)) =
         (ErrorMsg.error ext "Headers can't define functions!";
          raise ErrorMsg.Error)
-    | elaborate_ext_gdecl _ (IntDecl (t, id, typs)) = ExtDecl (t, id, typs)
+    | elaborate_ext_gdecl ext (IntDecl (t, id, typs, s)) =
+        if s then (ErrorMsg.error ext "Can't have static in header";
+                   raise ErrorMsg.Error)
+        else ExtDecl (t, id, typs)
     | elaborate_ext_gdecl _ (ExtDecl (_, _, _)) =
         raise Fail "Invalid AST (elaborate_ext_gdecl)"
     | elaborate_ext_gdecl _ gdecl = gdecl
@@ -326,11 +302,13 @@ struct
     | remove_for (If (e, s1, s2)) rep =
         If (e, remove_for s1 rep, remove_for s2 rep)
     | remove_for (While (e, s)) _ = While (e, remove_for s Nop)
+    | remove_for (DoWhile (e, s)) _ = DoWhile (e, remove_for s Nop)
     | remove_for Continue s = Seq (s, Continue)
     | remove_for (Markeds mark) s =
         Markeds (Mark.mark' (remove_for (Mark.data mark) s, Mark.ext mark))
     | remove_for (Seq (s1, s2)) r = Seq (remove_for s1 r, remove_for s2 r)
-    | remove_for (Declare (id, typ, s)) r = Declare (id, typ, remove_for s r)
+    | remove_for (Declare (id, typ, e, s)) r =
+        Declare (id, typ, e, remove_for s r)
     | remove_for s _ = s
 
   (* print programs and expressions in source form
@@ -342,10 +320,12 @@ struct
     fun pp_typ BOOL = "bool"
       | pp_typ INT  = "int"
       | pp_typ NULL = "(null)"
-      | pp_typ (PTR t)  = pp_typ t ^ "*"
-      | pp_typ (STRUCT id)  = "struct " ^ pp_ident id
-      | pp_typ (ARRAY t)  = pp_typ t ^ "[]"
-      | pp_typ (TYPEDEF id)  = pp_ident id
+      | pp_typ (PTR t) = pp_typ t ^ "*"
+      | pp_typ (STRUCT id) = "struct " ^ pp_ident id
+      | pp_typ (ARRAY t) = pp_typ t ^ "[]"
+      | pp_typ (TYPEDEF id) = pp_ident id
+      | pp_typ (FUN (t, L)) = pp_typ t ^ "(" ^
+                              String.concatWith "," (map pp_typ L) ^ ")"
 
     fun pp_unop NEGATIVE = "-"
       | pp_unop INVERT   = "~"
@@ -380,8 +360,8 @@ struct
       | pp_exp (Alloc t) = "alloc(" ^ pp_typ t ^ ")"
       | pp_exp (AllocArray (t, e)) =
           "alloc_array(" ^ pp_typ t ^ "," ^ pp_exp e ^ ")"
-      | pp_exp (Call (id, E)) =
-          pp_ident id ^ "(" ^ String.concatWith ", " (map pp_exp E) ^ ")"
+      | pp_exp (Call (e, E, _)) =
+          pp_exp e ^ "(" ^ String.concatWith ", " (map pp_exp E) ^ ")"
       | pp_exp (BinaryOp (oper, e1, e2)) =
           "(" ^ pp_exp e1 ^ " " ^ pp_oper oper ^ " " ^ pp_exp e2 ^ ")"
       | pp_exp (UnaryOp (oper, e)) = pp_unop oper ^ "(" ^ pp_exp e ^ ")"
@@ -400,6 +380,8 @@ struct
           pp_stm s2 ^ "\n}"
       | pp_stm (While (e, s)) = "while (" ^ pp_exp e ^ ") {\n" ^
           tab (pp_stm s) ^ "\n}"
+      | pp_stm (DoWhile (e, s)) = "do {\n" ^ tab (pp_stm s) ^ "\n} while (" ^
+                                  pp_exp e ^ ")"
       | pp_stm (For (s1, e, s2, s3)) = "for (" ^ pp_stm s1 ^ "; " ^ pp_exp e ^
           "; " ^ pp_stm s2 ^ ") {\n" ^ tab(pp_stm s3) ^ "\n}"
       | pp_stm Continue = "continue"
@@ -411,7 +393,10 @@ struct
       | pp_stm (Seq (s, Nop)) = pp_stm s
       | pp_stm (Seq (s1, s2)) = pp_stm s1 ^ "\n" ^ pp_stm s2
       | pp_stm (Return e) = "return " ^ pp_exp e ^ ";"
-      | pp_stm (Declare (id, t, s)) = pp_typ t ^ " " ^ pp_ident id ^ "\n" ^
+      | pp_stm (Declare (id, t, NONE, s)) = pp_typ t ^ " " ^ pp_ident id ^ "\n" ^
+          tab(pp_stm s)
+      | pp_stm (Declare (id, t, SOME e, s)) =
+          pp_typ t ^ " " ^ pp_ident id ^ " = " ^ pp_exp e ^ "\n" ^
           tab(pp_stm s)
       | pp_stm (Markeds (marked_stm)) = pp_stm (Mark.data marked_stm)
 
@@ -420,12 +405,14 @@ struct
     fun pp_adecl (Typedef (id, typ)) =
           "typedef " ^ Symbol.name id ^ " " ^ pp_typ typ
       | pp_adecl (Markedg d) = pp_adecl (Mark.data d)
-      | pp_adecl (IntDecl (t, i, L)) =
+      | pp_adecl (IntDecl (t, i, L, st)) =
+          if st then "static " else "" ^
           pp_typ t ^ " " ^ pp_ident i ^ "(" ^
           String.concatWith ", " (map pp_def L) ^ ")"
-      | pp_adecl (ExtDecl t) = "extern " ^ pp_adecl (IntDecl t)
-      | pp_adecl (Fun (t, i, L, s)) =
-          pp_adecl (IntDecl (t, i, L)) ^ "{\n" ^ tab(pp_stm s) ^ "\n}"
+      | pp_adecl (ExtDecl (t, i, L)) =
+          "extern " ^ pp_adecl (IntDecl (t, i, L, false))
+      | pp_adecl (Fun (t, i, L, s, st)) =
+          pp_adecl (IntDecl (t, i, L, st)) ^ " {\n" ^ tab(pp_stm s) ^ "\n}"
       | pp_adecl (StrDecl s) = "struct " ^ pp_ident s ^ ";"
       | pp_adecl (Struct (s, F)) = "struct " ^ pp_ident s ^ " {\n" ^
           tab (String.concatWith "\n" (map pp_def F)) ^ "\n}"

@@ -5,24 +5,13 @@
  *)
 structure CSE :> CFG_OPTIMIZATION =
 struct
-  structure T  = Tree
-  structure W  = Word32
-
-  val zero = W.fromInt 0
-  val one  = W.fromInt 1
-  val prime1 = W.fromInt 17
-  val prime2 = W.fromInt 23
-
-  (* typ_hash : T.typ -> W.word
-   * Completely arbitrary type hash function
-   *)
-  fun typ_hash T.INT = W.fromInt 5
-    | typ_hash T.PTR = W.fromInt 11
+  structure T = Tree
+  structure W = Word32
 
   (* oper_hash : T.binop -> W.word
    * Completely arbitrary binop hash function
    *)
-  and oper_hash T.ADD = W.fromInt 2
+  fun oper_hash T.ADD = W.fromInt 2
     | oper_hash T.SUB = W.fromInt 3
     | oper_hash T.MUL = W.fromInt 5
     | oper_hash T.DIV = W.fromInt 7
@@ -54,7 +43,7 @@ struct
         else T.BINOP (oper, order_exp e1, e2)
     | order_exp (T.BINOP (oper, e1, e2)) =
         T.BINOP (oper, order_exp e1, order_exp e2)
-    | order_exp (T.MEM (e, t)) = T.MEM (order_exp e, t)
+    | order_exp (T.LOAD (e, t)) = T.LOAD (order_exp e, t)
     | order_exp (T.CALL (e, t, L)) =
         T.CALL (order_exp e, t, map (fn (e, t) => (order_exp e, t)) L)
     | order_exp e = e
@@ -62,28 +51,12 @@ struct
   (* order_stm : T.stm -> T.stm
    * Canonicalizes all of the expressions in the given statement.
    *)
-  fun order_stm (T.MOVE (e1, e2)) = T.MOVE (order_exp e1, order_exp e2)
+  fun order_stm (T.MOVE (tmp, t, e)) = T.MOVE (tmp, t, order_exp e)
+    | order_stm (T.STORE (e1, t, e2)) = T.STORE (order_exp e1, t, order_exp e2)
     | order_stm (T.GOTO (l, SOME e)) = T.GOTO (l, SOME (order_exp e))
     | order_stm (T.COND e) = T.COND (order_exp e)
     | order_stm (T.RETURN e) = T.RETURN (order_exp e)
     | order_stm s = s
-
-  (*fun exp_equal (T.TEMP (t1, typ1), T.TEMP (t2, typ2)) =
-        T.tmpequals (t1, t2) andalso typ1 = typ2
-    | exp_equal (T.CONST (w1, typ1), T.CONST (w2, typ2)) =
-        Word32Signed.eq_ (w1, w2) andalso typ1 = typ2
-    | exp_equal (T.BINOP (oper1, e11, e12), T.BINOP (oper2, e21, e22)) =
-        oper1 = oper2 andalso exp_equal (e11, e21) andalso exp_equal (e12, e22)
-    | exp_equal _ = false*)
-
-  (*fun exp_hash (T.TEMP (t, typ)) =
-        W.fromInt (Word.toInt (T.tmphash t)) * typ_hash typ
-    | exp_hash (T.PHI L) = zero
-    | exp_hash (T.CONST (w, typ)) = w * typ_hash typ
-    | exp_hash (T.BINOP (oper, e1, e2)) =
-        oper_hash oper + prime1 * exp_hash e1 + prime2 * exp_hash e2
-    | exp_hash (T.CALL (id, t, L)) = zero
-    | exp_hash (T.MEM (e, t)) = zero*)
 
   (* resolve : order * (unit -> order) -> order
    *
@@ -94,17 +67,24 @@ struct
   fun resolve (EQUAL, f) = f ()
     | resolve (order, _) = order
 
+  (* typ_compare : typ * typ -> order
+   *
+   * Compares two sizes, returning which is greater
+   *)
+  fun typ_compare (T.PTR, T.PTR) = EQUAL
+    | typ_compare (T.INT, T.INT) = EQUAL
+    | typ_compare (T.PTR, _) = GREATER
+    | typ_compare _ = LESS
+
   (* exp_compare : T.exp * T.exp -> order
    * Compares two expressions, assuming they are canonicalized
    *)
   fun exp_compare (T.TEMP (t1, typ1), T.TEMP (t2, typ2)) =
-        resolve (T.tmpcompare (t1, t2),
-                 fn () => W.compare (typ_hash typ1, typ_hash typ2))
+        resolve (T.tmpcompare (t1, t2), fn () => typ_compare (typ1, typ2))
     | exp_compare (T.TEMP _, _) = LESS
     | exp_compare (_, T.TEMP _) = GREATER
     | exp_compare (T.CONST (w1, t1), T.CONST (w2, t2)) =
-        resolve (W.compare (w1, w2),
-                 fn () => W.compare (typ_hash t1, typ_hash t2))
+        resolve (W.compare (w1, w2), fn () => typ_compare (t1, t2))
     | exp_compare (T.CONST _, _) = LESS
     | exp_compare (_, T.CONST _) = GREATER
     | exp_compare (T.BINOP (o1, e11, e12), T.BINOP (o2, e21, e22)) =
@@ -113,7 +93,7 @@ struct
                                    fn () => exp_compare (e12, e22)))
     | exp_compare (T.BINOP _, _) = LESS
     | exp_compare (_, T.BINOP _) = GREATER
-    | exp_compare (_, (T.PHI _ | T.MEM _ | T.CALL _ | T.ELABEL _)) = GREATER
+    | exp_compare (_, (T.PHI _ | T.LOAD _ | T.CALL _ | T.ELABEL _)) = GREATER
 
   structure ET = BinaryMapFn(struct
                                type ord_key = T.exp
@@ -141,7 +121,7 @@ struct
         T.BINOP (oper, lookup tbl g e1, lookup tbl g e2)
     | mape tbl g (T.CALL (l, t, args)) =
         T.CALL (lookup tbl g l, t, map (fn (e, t) => (lookup tbl g e, t)) args)
-    | mape tbl g (T.MEM (e, t)) = (T.MEM (lookup tbl g e, t))
+    | mape tbl g (T.LOAD (e, t)) = (T.LOAD (lookup tbl g e, t))
     | mape _ _ e = e
 
   (* maps : T.stm * (T.exp ET.table * T.stm list) ->
@@ -149,21 +129,21 @@ struct
    * Performs CSE on a statement, return the modified statement and updated
    * table if necessary.
    *)
-  fun maps (graph, id) (T.MOVE (e1 as T.TEMP _, e2), (tbl, stms)) = (let
+  fun maps (graph, id) (T.MOVE (tmp, typ, e2), (tbl, stms)) = (let
         val (e2', nid) = valOf (ET.find (tbl, lookup tbl (graph, id) e2))
         val _ = if CFG.dominates graph (nid, id) then () else raise Option
       in
-        (tbl, T.MOVE (e1, e2') :: stms)
+        (tbl, T.MOVE (tmp, typ, e2') :: stms)
       end handle Option => let
         val e2' = lookup tbl (graph, id) e2
         val (k, v) = case e2'
-                       of (T.TEMP _ | T.CONST _) => (e1, e2')
-                        | _ => (e2', e1)
+                       of (T.TEMP _ | T.CONST _) => (T.TEMP (tmp, typ), e2')
+                        | _ => (e2', T.TEMP (tmp, typ))
       in
-        (ET.insert (tbl, k, (v, id)), T.MOVE (e1, e2') :: stms)
+        (ET.insert (tbl, k, (v, id)), T.MOVE (tmp, typ, e2') :: stms)
       end)
-    | maps g (T.MOVE (e1, e2), (tbl, stms)) =
-        (tbl, T.MOVE (lookup tbl g e1, lookup tbl g e2) :: stms)
+    | maps g (T.STORE (e1, t, e2), (tbl, stms)) =
+        (tbl, T.STORE (lookup tbl g e1, t, lookup tbl g e2) :: stms)
     | maps g (T.GOTO (l, SOME e), (tbl, stms)) =
         (tbl, T.GOTO (l, SOME (lookup tbl g e)) :: stms)
     | maps g (T.COND e, (tbl, stms)) = (tbl, T.COND (lookup tbl g e) :: stms)

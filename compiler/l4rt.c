@@ -115,3 +115,25 @@ int main() {
   printf("%d\n", _c0_main());
   exit(0);
 }
+
+void raise_segv() {
+  *(int*)NULL = 0;
+}
+
+void *salloc(size_t elems, size_t bytes) {
+  void *ptr = calloc(elems, bytes);
+  if (ptr == NULL)
+    raise_segv();
+  return ptr;
+}
+
+void *salloc_array(ssize_t elems, size_t bytes) {
+  if (elems < 0)
+    raise_segv();
+  size_t s = elems * bytes;
+  size_t *ptr = calloc(1, s + sizeof(size_t));
+  if (ptr == NULL)
+    raise_segv();
+  *ptr = elems;
+  return ptr + 1;
+}
