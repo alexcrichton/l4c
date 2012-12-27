@@ -1,4 +1,5 @@
-use ast::*;
+use front::*;
+use front::ast::*;
 
 struct ReturnChecker {
   err : ~error::List,

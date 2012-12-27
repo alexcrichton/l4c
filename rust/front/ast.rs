@@ -1,4 +1,3 @@
-use symbol::*;
 use std::map;
 
 pub struct Program {
@@ -13,7 +12,7 @@ struct Elaborator {
   priv err:     ~error::List
 }
 
-pub type Ident = @Symbol;
+pub type Ident = @symbol::Symbol;
 
 pub enum GDecl {
   Markedg(~mark::Mark<GDecl>),
@@ -104,7 +103,10 @@ impl Elaborator {
         @FunIDecl(self.resolve(typ), id, self.resolve_pairs(args))
       },
       @StructDecl(_) => g,
-      @Markedg(ref m) => self.err.with(m, |x| self.elaborate(x)) ,
+      @Markedg(ref m) => {
+        m.data = self.err.with(m, |x| self.elaborate(x));
+        g
+      },
       @Typedef(id, typ) => {
         self.check_id(id);
         self.check_set(&self.efuns, id, ~"function");
@@ -130,7 +132,10 @@ impl Elaborator {
 
   priv fn elaborate_stm(s : @Statement) -> @Statement {
     match s {
-      @Markeds(ref m) => self.err.with(m, |x| self.elaborate_stm(x)) ,
+      @Markeds(ref m) => {
+        m.data = self.err.with(m, |x| self.elaborate_stm(x));
+        s
+      },
       @Continue | @Break | @Nop => s,
       @Declare(id, typ, rest) => {
         self.check_id(id);
@@ -173,7 +178,10 @@ impl Elaborator {
 
   priv fn elaborate_exp(e : @Expression) -> @Expression {
     match e {
-      @Marked(ref m) => self.err.with(m, |x| self.elaborate_exp(x)),
+      @Marked(ref m) => {
+        m.data = self.err.with(m, |x| self.elaborate_exp(x));
+        e
+      },
       @Var(_) | @Boolean(_) | @Const(_) | @Null => e,
       @UnaryOp(o, e) =>
         @UnaryOp(o, self.elaborate_exp(e)),
@@ -239,7 +247,7 @@ impl Expression {
 }
 
 impl Type {
-  pure fn small() -> bool {
+  fn small() -> bool {
     match self {
       Struct(_) => false,
       _ => true

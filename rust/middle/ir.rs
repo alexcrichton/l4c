@@ -1,9 +1,40 @@
 pub type Program = int;
 
-enum Statement {
+pub enum Statement {
+  Move(temp::Temp, Type, @Expression),
+  Store(@Expression, Type, @Expression),
+  Condition(@Expression),
+  Return(@Expression)
 }
-enum Expression {
+
+pub enum Expression {
+  Temp(temp::Temp, Type),
+  Phi(~[temp::Temp]),
+  Const(i32, Type),
+  BinaryOp(Binop, @Expression, @Expression),
+  Call(@Expression, Type, ~[(@Expression, Type)]),
+  Load(@Expression, Type),
+  LabelExp(label::Label)
 }
-enum Type {
-  Int, Pointer
+
+pub enum Type { Int, Pointer }
+
+pub enum Binop {
+  Add, Sub, Mul, Div, Mod, Lt, Lte, Gt, Gte, Eq, Neq, And, Or, Xor, Lsh, Rsh
+}
+
+impl Binop {
+  fn associative() -> bool {
+    match self {
+      Add | Mul | And | Or | Xor => true,
+      _ => false
+    }
+  }
+
+  fn commutative() -> bool {
+    match self {
+      Add | Mul | Eq | Neq | And | Or | Xor => true,
+      _ => false
+    }
+  }
 }

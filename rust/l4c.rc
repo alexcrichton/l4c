@@ -3,9 +3,6 @@
 #[deny(non_implicitly_copyable_typarams)];
 
 extern mod std;
-
-use front::*;
-use middle::*;
 use core::util::*;
 
 mod front {
@@ -26,9 +23,13 @@ mod middle {
   mod ir;
   mod trans;
   mod temp;
+  mod label;
 }
 
 fn main() {
+  use front::*;
+  use middle::*;
+
   let a = os::args();
   if a.len() == 1 {
     fail(~"need at least one file as an argument");
@@ -48,6 +49,6 @@ fn main() {
   analysis::maincheck::check(&ast);
   analysis::initcheck::check(&ast);
 
-  let ir = trans::translate(ast);
+  let ir = trans::translate(&ast);
   ignore(ir);
 }

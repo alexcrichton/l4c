@@ -1,4 +1,4 @@
-use ast::*;
+use front::ast::*;
 
 pure fn tab(s : ~str) -> ~str {
   ~"  " + str::replace(s, ~"\n", ~"\n  ")

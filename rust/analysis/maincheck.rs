@@ -1,4 +1,5 @@
-use ast::*;
+use front::*;
+use front::ast::*;
 
 struct MainChecker {
   err : ~error::List,
@@ -19,6 +20,7 @@ impl MainChecker {
 
   fn ismain(g : @GDecl) -> bool {
     match g {
+      @Markedg(ref m) => self.ismain(m.data),
       @Function(ret, id, ref args, _) => {
         if id.val == ~"main" {
           if ret != @Int {

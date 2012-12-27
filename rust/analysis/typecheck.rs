@@ -1,11 +1,12 @@
-use ast::*;
+use front::*;
+use front::ast::*;
 use std::map;
 
 struct Typechecker {
   err :     ~error::List,
-  funs :    map::HashMap<@Symbol, (@Type, @~[@Type])>, // TODO: wut
-  structs : map::HashMap<@Symbol, Option<map::HashMap<@Symbol, @Type>>>,
-  vars :    map::HashMap<@Symbol, @Type>,
+  funs :    map::HashMap<Ident, (@Type, @~[@Type])>, // TODO: wut
+  structs : map::HashMap<Ident, Option<map::HashMap<Ident, @Type>>>,
+  vars :    map::HashMap<Ident, @Type>,
   mut loops : int,
   mut ret : @Type
 }
@@ -194,7 +195,7 @@ impl Typechecker {
     }
   }
 
-  fn bind_struct(id : @Symbol, fields : &~[(Ident, @Type)]) {
+  fn bind_struct(id : Ident, fields : &~[(Ident, @Type)]) {
     match self.structs.find(id) {
       Some(Some(_)) => {
         self.err.add(~"Redefined struct");
@@ -225,7 +226,7 @@ impl Typechecker {
     self.structs.insert(id, Some(table));
   }
 
-  fn bind_fun(id : @Symbol, ret : @Type, args : &~[(Ident, @Type)]) -> bool {
+  fn bind_fun(id : Ident, ret : @Type, args : &~[(Ident, @Type)]) -> bool {
     let prev = self.err.size();
 
     match self.funs.find(id) {
@@ -270,7 +271,7 @@ impl Typechecker {
   }
 
   fn tc_small(t : @Type) -> bool {
-    if t.small() {
+    if !t.small() {
       self.err.add(fmt!("Type must be small: '%s'", t.pp()));
     }
     t.small()

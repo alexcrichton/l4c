@@ -1,4 +1,5 @@
-use ast::*;
+use front::*;
+use front::ast::*;
 use std::map;
 
 struct Initchecker {
@@ -37,7 +38,7 @@ impl Initchecker {
     }
   }
 
-  fn live(sym : @Symbol, s : @Statement) -> bool {
+  fn live(sym : Ident, s : @Statement) -> bool {
     match s {
       @Declare(id, _, s) => id != sym && self.live(sym, s),
       @Assign(e1, Some(_), e2) => self.uses(sym, e1) || self.uses(sym, e2),
@@ -56,7 +57,7 @@ impl Initchecker {
     }
   }
 
-  fn uses(sym : @Symbol, e : @Expression) -> bool {
+  fn uses(sym : Ident, e : @Expression) -> bool {
     match e {
       @Marked(ref m) => self.uses(sym, m.data),
       @Var(id) => id == sym,
@@ -71,7 +72,7 @@ impl Initchecker {
     }
   }
 
-  fn defines(sym : @Symbol, s : @Statement) -> bool {
+  fn defines(sym : Ident, s : @Statement) -> bool {
     match s {
       @Declare(_, _, s) => self.defines(sym, s),
       @Assign(@Marked(ref m), op, e2) =>
