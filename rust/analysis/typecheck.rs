@@ -4,7 +4,7 @@ use std::map;
 
 struct Typechecker {
   err :     ~error::List,
-  funs :    map::HashMap<Ident, (@Type, @~[@Type])>, // TODO: wut
+  funs :    map::HashMap<Ident, (@Type, @~[@Type])>,
   structs : map::HashMap<Ident, Option<map::HashMap<Ident, @Type>>>,
   vars :    map::HashMap<Ident, @Type>,
   mut loops : int,
