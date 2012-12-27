@@ -11,7 +11,7 @@
 
 signature PARSE_STATE =
   sig
-    (* setfile(filename) sets current filename and resets newline positions *) 
+    (* setfile(filename) sets current filename and resets newline positions *)
     val setfile : string -> unit
 
     (* newline(pos) adds pos to current newline positions *)
@@ -19,6 +19,8 @@ signature PARSE_STATE =
 
     (* returns the current position information based on two integer offsets *)
     val ext : int * int -> Mark.ext option
+
+    val col : int -> int
   end
 
 structure ParseState :> PARSE_STATE =
@@ -42,10 +44,12 @@ struct
   fun look (pos, a :: rest, n) =
       (* a is end of line n *)
       if a < pos then (n+1, pos-a)
-      else look (pos, rest, n-1) 
-    | look (pos, nil, n) = 
+      else look (pos, rest, n-1)
+    | look (pos, nil, n) =
       (* first line pos is off by 1 *)
       (1, pos-1)
+
+  fun col pos = #2 (look (pos, !currLines, List.length (!currLines)))
 
   (* ext (leftpos, rightpos) = SOME((leftline, leftcol), (rightline, rightcol), filename)
    * return NONE for invalid position (0,0)
@@ -53,7 +57,7 @@ struct
   fun ext (0, 0) = NONE
     | ext (left, right) =
       SOME (look (left, !currLines, List.length (!currLines)),
-	    look (right, !currLines, List.length (!currLines)),
-	    !currFilename)
+      look (right, !currLines, List.length (!currLines)),
+      !currFilename)
 
 end

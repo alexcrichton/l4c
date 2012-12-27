@@ -3,38 +3,18 @@
  * Author: Alex Crichton <acrichto@andrew.cmu.edu>
  * Author: Robbie McElrath <rmcelrat@andrew.cmu.edu>
  *)
-
 signature AST =
 sig
   type ident = Symbol.symbol
 
   datatype typ = INT | BOOL | TYPEDEF of ident | PTR of typ | ARRAY of typ
-               | STRUCT of ident | NULL
+               | STRUCT of ident | NULL | FUN of typ * typ list
 
-  datatype unop =
-     NEGATIVE
-   | INVERT
-   | BANG
+  datatype unop = NEGATIVE | INVERT | BANG
 
-  datatype binop =
-     PLUS
-   | MINUS
-   | TIMES
-   | DIVIDEDBY
-   | MODULO
-   | LESS
-   | LESSEQ
-   | GREATER
-   | GREATEREQ
-   | EQUALS
-   | NEQUALS
-   | LAND
-   | LOR
-   | BAND
-   | XOR
-   | BOR
-   | LSHIFT
-   | RSHIFT
+  datatype binop = PLUS | MINUS | TIMES | DIVIDEDBY | MODULO | LESS | LESSEQ
+                 | GREATER | GREATEREQ | EQUALS | NEQUALS | LAND | LOR | BAND
+                 | XOR | BOR | LSHIFT | RSHIFT
 
   datatype exp =
      Var of ident
@@ -43,7 +23,7 @@ sig
    | BinaryOp of binop * exp * exp
    | UnaryOp of unop * exp
    | Ternary of exp * exp * exp * typ ref
-   | Call of ident * exp list
+   | Call  of exp * exp list * (typ * typ list) ref
    | Deref of exp * typ ref
    | Field of exp * ident * typ ref
    | ArrSub of exp * exp * typ ref
@@ -62,13 +42,13 @@ sig
    | Return  of exp
    | Nop
    | Seq     of stm * stm
-   | Declare of ident * typ * stm
+   | Declare of ident * typ * exp option * stm
    | Markeds of stm Mark.marked
 
   datatype gdecl =
-     Fun of typ * ident * (typ * ident) list * stm
+     Fun of typ * ident * (typ * ident) list * stm * bool
    | ExtDecl of typ * ident * (typ * ident) list
-   | IntDecl of typ * ident * (typ * ident) list
+   | IntDecl of typ * ident * (typ * ident) list * bool
    | Typedef of ident * typ
    | Markedg of gdecl Mark.marked
    | StrDecl of ident
@@ -79,6 +59,7 @@ sig
   (* print as source, with redundant parentheses *)
   structure Print :
   sig
+    val pp_typ : typ -> string
     val pp_program : program -> string
   end
 
@@ -89,32 +70,13 @@ struct
   type ident = Symbol.symbol
 
   datatype typ = INT | BOOL | TYPEDEF of ident | PTR of typ | ARRAY of typ
-               | STRUCT of ident | NULL
+               | STRUCT of ident | NULL | FUN of typ * typ list
 
-  datatype unop =
-     NEGATIVE
-   | INVERT
-   | BANG
+  datatype unop = NEGATIVE | INVERT | BANG
 
-  datatype binop =
-     PLUS
-   | MINUS
-   | TIMES
-   | DIVIDEDBY
-   | MODULO
-   | LESS
-   | LESSEQ
-   | GREATER
-   | GREATEREQ
-   | EQUALS
-   | NEQUALS
-   | LAND
-   | LOR
-   | BAND
-   | XOR
-   | BOR
-   | LSHIFT
-   | RSHIFT
+  datatype binop = PLUS | MINUS | TIMES | DIVIDEDBY | MODULO | LESS | LESSEQ
+                 | GREATER | GREATEREQ | EQUALS | NEQUALS | LAND | LOR | BAND
+                 | XOR | BOR | LSHIFT | RSHIFT
 
   datatype exp =
      Var of ident
@@ -123,7 +85,7 @@ struct
    | BinaryOp of binop * exp * exp
    | UnaryOp of unop * exp
    | Ternary of exp * exp * exp * typ ref
-   | Call of ident * exp list
+   | Call  of exp * exp list * (typ * typ list) ref
    | Deref of exp * typ ref
    | Field of exp * ident * typ ref
    | ArrSub of exp * exp * typ ref
@@ -142,13 +104,13 @@ struct
    | Return  of exp
    | Nop
    | Seq     of stm * stm
-   | Declare of ident * typ * stm
+   | Declare of ident * typ * exp option * stm
    | Markeds of stm Mark.marked
 
   datatype gdecl =
-     Fun of typ * ident * (typ * ident) list * stm
+     Fun of typ * ident * (typ * ident) list * stm * bool
    | ExtDecl of typ * ident * (typ * ident) list
-   | IntDecl of typ * ident * (typ * ident) list
+   | IntDecl of typ * ident * (typ * ident) list * bool
    | Typedef of ident * typ
    | Markedg of gdecl Mark.marked
    | StrDecl of ident
@@ -231,8 +193,8 @@ struct
           pp_hash [("typ", "alloc"), ("type", pp_typ t)]
       | pp_exp (AllocArray (t, e)) =
           pp_hash [("typ", "allocarr"), ("type", pp_typ t), ("e", pp_exp e)]
-      | pp_exp (Call (id, E)) =
-          pp_hash [("typ", "call"), ("fun", pp_ident id),
+      | pp_exp (Call (e, E, _)) =
+          pp_hash [("typ", "call"), ("fun", pp_exp e),
                    ("args", pp_list (map pp_exp E))]
       | pp_exp (BinaryOp (oper, e1, e2)) =
           pp_hash [("typ", "binop"), ("oper", pp_oper oper),
@@ -244,11 +206,11 @@ struct
                    ("e1", pp_exp e1), ("e2", pp_exp e2), ("e3", pp_exp e3)]
       | pp_exp (Marked e) = pp_mark e pp_exp
 
-    fun pp_extra NONE = pp_hash [("typ", "none")]
-      | pp_extra (SOME oper) = pp_hash [("typ", "oper"), ("op", pp_oper oper)]
+    fun pp_extra _ NONE = pp_hash [("typ", "none")]
+      | pp_extra f (SOME v) = pp_hash [("typ", "some"), ("val", f v)]
 
     fun pp_stm (Assign (e1, extra, e2)) =
-          pp_hash [("typ", "assign"), ("extra", pp_extra extra),
+          pp_hash [("typ", "assign"), ("extra", pp_extra pp_oper extra),
                    ("e1", pp_exp e1), ("e2", pp_exp e2)]
       | pp_stm (If (e, s1, s2)) =
           pp_hash [("typ", "if"), ("cond", pp_exp e),
@@ -269,26 +231,29 @@ struct
                    ("s1", pp_stm s1), ("s2", pp_stm s2)]
       | pp_stm (Return e) =
           pp_hash [("typ", "return"), ("exp", pp_exp e)]
-      | pp_stm (Declare (id, t, s)) =
+      | pp_stm (Declare (id, t, eopt, s)) =
           pp_hash [("typ", "declare"), ("id", pp_ident id),
+                   ("eopt", pp_extra pp_exp eopt),
                    ("type", pp_typ t), ("rest", pp_stm s)]
       | pp_stm (Markeds s) = pp_mark s pp_stm
 
     fun pp_def (typ, id) =
           "{\"typ\":" ^ pp_typ typ ^ ", \"name\":" ^ pp_ident id ^ "}"
 
-    fun pp_fun typ (t, i, L) ex =
+    fun pp_fun typ (t, i, L, static) ex =
           pp_hash ([("typ", typ), ("name", pp_ident i),
-                    ("ret", pp_typ t), ("args", pp_list (map pp_def L))] @ ex)
+                    ("ret", pp_typ t),
+                    ("args", pp_list (map pp_def L)),
+                    ("static", if static then "true" else "false")] @ ex)
 
     fun pp_adecl (Typedef (id, typ)) =
           pp_hash [("typ", "typedef"), ("id", pp_ident id),
                    ("type", pp_typ typ)]
       | pp_adecl (Markedg d) = pp_mark d pp_adecl
       | pp_adecl (IntDecl t) = pp_fun "intdecl" t []
-      | pp_adecl (ExtDecl t) = pp_fun "extdecl" t []
-      | pp_adecl (Fun (t, i, L, s)) =
-          pp_fun "fun" (t, i, L) [("body", pp_stm s)]
+      | pp_adecl (ExtDecl (a, b, c)) = pp_fun "extdecl" (a, b, c, false) []
+      | pp_adecl (Fun (t, i, L, s, static)) =
+          pp_fun "fun" (t, i, L, static) [("body", pp_stm s)]
       | pp_adecl (StrDecl s) =
           pp_hash [("typ", "strdecl"), ("val", pp_ident s)]
       | pp_adecl (Struct (s, F)) =

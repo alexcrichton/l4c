@@ -133,6 +133,7 @@ ws = [\ \t\011\013\012];
 <INITIAL> "alloc"       => (Tokens.ALLOC (yypos, yypos + size yytext));
 <INITIAL> "alloc_array" => (Tokens.ALLOCARR (yypos, yypos + size yytext));
 <INITIAL> "typedef"     => (Tokens.TYPEDEF (yypos, yypos + size yytext));
+<INITIAL> "static"      => (Tokens.STATIC (yypos, yypos + size yytext));
 
 <INITIAL> {decnum}    => (number Word32Signed.fromString (yytext, yypos));
 <INITIAL> {hexnum}    => (number Word32Signed.fromHexString (yytext, yypos));
@@ -156,6 +157,11 @@ ws = [\ \t\011\013\012];
                           lex());
 
 <INITIAL> "//"        => (YYBEGIN COMMENT_LINE; lex());
+<INITIAL> "#"         => (YYBEGIN COMMENT_LINE;
+                          if ParseState.col yypos = 1 then ()
+                          else ErrorMsg.error (ParseState.ext (yypos, yypos))
+                                              ("pound not found at column 1");
+                          lex ());
 <INITIAL> .           => (ErrorMsg.error (ParseState.ext (yypos,yypos))
                               ("illegal character: \"" ^ yytext ^ "\"");
                           lex ());
