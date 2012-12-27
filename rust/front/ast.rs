@@ -45,11 +45,11 @@ pub enum Expression {
   Const(i32),
   BinaryOp(Binop, @Expression, @Expression),
   UnaryOp(Unop, @Expression),
-  Ternary(@Expression, @Expression, @Expression),
-  Call(@Expression, ~[@Expression]),
-  Deref(@Expression),
-  Field(@Expression, Ident),
-  ArrSub(@Expression, @Expression),
+  Ternary(@Expression, @Expression, @Expression, Ref<@Type>),
+  Call(@Expression, ~[@Expression], Ref<@Type>),
+  Deref(@Expression, Ref<@Type>),
+  Field(@Expression, Ident, Ref<Ident>),
+  ArrSub(@Expression, @Expression, Ref<@Type>),
   Alloc(@Type),
   AllocArray(@Type, @Expression),
   Null,
@@ -68,6 +68,24 @@ pub enum Binop {
 
 pub enum Unop {
   Negative, Invert, Bang
+}
+
+pub struct Ref<T> {
+  mut val : Option<T>
+}
+
+pub fn Ref<T>() -> Ref<T> {
+  Ref{ val : None }
+}
+
+impl<T : Copy> Ref<T> {
+  pub fn set(t : T) {
+    self.val = Some(t);
+  }
+
+  pub fn get() -> T {
+    self.val.get()
+  }
 }
 
 pub fn new(g : ~[@GDecl]) -> Program {
@@ -189,14 +207,15 @@ impl Elaborator {
         @UnaryOp(o, self.elaborate_exp(e)),
       @BinaryOp(o, e1, e2) =>
         @BinaryOp(o, self.elaborate_exp(e1), self.elaborate_exp(e2)),
-      @Ternary(e1, e2, e3) =>
+      @Ternary(e1, e2, e3, _) =>
         @Ternary(self.elaborate_exp(e1), self.elaborate_exp(e2),
-                 self.elaborate_exp(e3)),
-      @Call(id, ref L) => @Call(id, L.map(|x| self.elaborate_exp(*x))),
-      @Deref(e) => @Deref(self.elaborate_exp(e)),
-      @Field(e, id) => @Field(self.elaborate_exp(e), id),
-      @ArrSub(e1, e2) =>
-        @ArrSub(self.elaborate_exp(e1), self.elaborate_exp(e2)),
+                 self.elaborate_exp(e3), Ref()),
+      @Call(id, ref L, _) =>
+        @Call(id, L.map(|x| self.elaborate_exp(*x)), Ref()),
+      @Deref(e, _) => @Deref(self.elaborate_exp(e), Ref()),
+      @Field(e, id, _) => @Field(self.elaborate_exp(e), id, Ref()),
+      @ArrSub(e1, e2, _) =>
+        @ArrSub(self.elaborate_exp(e1), self.elaborate_exp(e2), Ref()),
       @Alloc(t) => @Alloc(self.resolve(t)),
       @AllocArray(t, e) => @AllocArray(self.resolve(t), self.elaborate_exp(e))
     }
@@ -239,12 +258,12 @@ impl Elaborator {
 impl Expression {
   pure fn lvalue() -> bool {
     match self {
-      Var(_)        => true,
-      Field(e, _)   => e.lvalue(),
-      Deref(e)      => e.lvalue(),
-      ArrSub(e, _)  => e.lvalue(),
-      Marked(ref m) => m.data.lvalue(),
-      _             => false
+      Var(_)          => true,
+      Field(e, _, _)  => e.lvalue(),
+      Deref(e, _)     => e.lvalue(),
+      ArrSub(e, _, _) => e.lvalue(),
+      Marked(ref m)   => m.data.lvalue(),
+      _               => false
     }
   }
 }

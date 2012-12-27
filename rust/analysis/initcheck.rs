@@ -62,13 +62,13 @@ impl Initchecker {
     match e {
       @Marked(ref m) => self.uses(sym, m.data),
       @Var(id) => id == sym,
-      @UnaryOp(_, e) | @Field(e, _) | @Deref(e) | @AllocArray(_, e) =>
+      @UnaryOp(_, e) | @Field(e, _, _) | @Deref(e, _) | @AllocArray(_, e) =>
         self.uses(sym, e),
-      @BinaryOp(_, e1, e2) | @ArrSub(e1, e2) =>
+      @BinaryOp(_, e1, e2) | @ArrSub(e1, e2, _) =>
         self.uses(sym, e1) || self.uses(sym, e2),
-      @Ternary(e1, e2, e3) =>
+      @Ternary(e1, e2, e3, _) =>
         self.uses(sym, e1) || self.uses(sym, e2) || self.uses(sym, e3),
-      @Call(_, ref args) => args.any(|x| self.uses(sym, *x)),
+      @Call(_, ref args, _) => args.any(|x| self.uses(sym, *x)),
       _ => false
     }
   }

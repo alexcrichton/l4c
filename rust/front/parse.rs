@@ -154,11 +154,14 @@ impl Parser {
                        _          => fail(~"expected boolean")
                      },
       ~"null"     => @ast::Null,
-      ~"deref"    => @ast::Deref(self.to_exp(fields.get_ref(&~"e"))),
+      ~"deref"    => @ast::Deref(self.to_exp(fields.get_ref(&~"e")),
+                                 ast::Ref()),
       ~"field"    => @ast::Field(self.to_exp(fields.get_ref(&~"e")),
-                                 self.to_id(fields.get_ref(&~"field"))),
+                                 self.to_id(fields.get_ref(&~"field")),
+                                 ast::Ref()),
       ~"arrsub"   => @ast::ArrSub(self.to_exp(fields.get_ref(&~"e1")),
-                                  self.to_exp(fields.get_ref(&~"e2"))),
+                                  self.to_exp(fields.get_ref(&~"e2")),
+                                  ast::Ref()),
       ~"alloc"    => @ast::Alloc(self.to_typ(fields.get_ref(&~"type"))),
       ~"allocarr" => @ast::AllocArray(self.to_typ(fields.get_ref(&~"type")),
                                       self.to_exp(fields.get_ref(&~"e"))),
@@ -169,12 +172,14 @@ impl Parser {
                                    self.to_exp(fields.get_ref(&~"e"))),
       ~"ternary"  => @ast::Ternary(self.to_exp(fields.get_ref(&~"e1")),
                                    self.to_exp(fields.get_ref(&~"e2")),
-                                   self.to_exp(fields.get_ref(&~"e3"))),
+                                   self.to_exp(fields.get_ref(&~"e3")),
+                                   ast::Ref()),
       ~"mark"     => @ast::Marked(self.to_mark(fields, |a| self.to_exp(a))),
       ~"call"     => {
         match *fields.get_ref(&~"args") {
           List(ref L) => @ast::Call(self.to_exp(fields.get_ref(&~"fun")),
-                                    L.map(|x| self.to_exp(x))),
+                                    L.map(|x| self.to_exp(x)),
+                                    ast::Ref()),
           _ => fail(~"expected list")
         }
       },

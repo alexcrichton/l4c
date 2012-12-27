@@ -154,21 +154,22 @@ impl Typechecker {
         Bang => { self.tc_ensure(e, @Bool); @Bool },
         _    => { self.tc_ensure(e, @Int); @Int }
       },
-      @Ternary(e1, e2, e3) => {
+      @Ternary(e1, e2, e3, ref r) => {
         self.tc_ensure(e1, @Bool);
         let t = self.tc_exp(e2);
         self.tc_ensure(e3, t);
+        r.set(t);
         t
       },
-      @Deref(e) => match self.tc_exp(e) {
-        @Pointer(t) => t,
+      @Deref(e, ref r) => match self.tc_exp(e) {
+        @Pointer(t) => { r.set(t); t },
         _ => self.err.die(~"must be a pointer type")
       },
-      @ArrSub(e1, e2) => match self.tc_exp(e1) {
-        @Array(t) => { self.tc_ensure(e2, @Int); t },
+      @ArrSub(e1, e2, ref r) => match self.tc_exp(e1) {
+        @Array(t) => { self.tc_ensure(e2, @Int); r.set(t); t },
         _ => self.err.die(~"must be an array type")
       },
-      @Call(e, ref args) => match self.tc_exp(e) {
+      @Call(e, ref args, ref r) => match self.tc_exp(e) {
         @Pointer(@Fun(ret, ref argtyps)) => {
           if argtyps.len() != args.len() {
             self.err.add(~"mismatched number of arguments");
@@ -177,14 +178,15 @@ impl Typechecker {
               self.tc_ensure(e, t2);
             }
           }
+          r.set(ret);
           ret
         },
         _ => self.err.die(~"expected a pointer to a function type")
       },
-      @Field(e, id) => match self.tc_exp(e) {
+      @Field(e, id, ref r) => match self.tc_exp(e) {
         @Struct(s) => match self.structs.find(s) {
           Some(Some(t)) => match t.find(id) {
-            Some(t) => t,
+            Some(t) => { r.set(s); t },
             None => self.err.die(fmt!("Unknown field '%s'", id.val))
           },
           _ => self.err.die(fmt!("Unknown struct '%s'", s.val))

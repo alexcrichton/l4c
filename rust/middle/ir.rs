@@ -1,19 +1,21 @@
 pub type Program = int;
 
+pub type Temp = (temp::Temp, Type);
+
 pub enum Statement {
-  Move(temp::Temp, Type, @Expression),
+  Move(Temp, @Expression),
+  Load(Temp, @Expression),
   Store(@Expression, Type, @Expression),
   Condition(@Expression),
   Return(@Expression)
 }
 
 pub enum Expression {
-  Temp(temp::Temp, Type),
+  Temp(Temp),
   Phi(~[temp::Temp]),
   Const(i32, Type),
   BinaryOp(Binop, @Expression, @Expression),
   Call(@Expression, Type, ~[(@Expression, Type)]),
-  Load(@Expression, Type),
   LabelExp(label::Label)
 }
 

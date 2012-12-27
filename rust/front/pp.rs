@@ -57,23 +57,23 @@ impl Type {
 impl Expression {
   pure fn pp() -> ~str {
     match self {
-      Var(s)           => copy s.val,
-      Boolean(b)       => b.to_str(),
-      Const(i)         => i.to_str(),
-      UnaryOp(o, e)    => o.pp() + ~"(" + e.pp() + ~")",
-      Deref(e)         => ~"*(" + e.pp() + ~")",
-      Field(e, f)      => e.pp() + ~"." + f.val,
-      ArrSub(e1, e2)   => e1.pp() + ~"[" + e2.pp() + ~"]",
-      Alloc(t)         => ~"alloc(" + t.pp() + ~")",
-      Null             => ~"NULL",
-      Marked(ref m)    => m.data.pp(),
-      AllocArray(t, e) =>
+      Var(s)            => copy s.val,
+      Boolean(b)        => b.to_str(),
+      Const(i)          => i.to_str(),
+      UnaryOp(o, e)     => o.pp() + ~"(" + e.pp() + ~")",
+      Deref(e, _)       => ~"*(" + e.pp() + ~")",
+      Field(e, f, _)    => e.pp() + ~"." + f.val,
+      ArrSub(e1, e2, _) => e1.pp() + ~"[" + e2.pp() + ~"]",
+      Alloc(t)          => ~"alloc(" + t.pp() + ~")",
+      Null              => ~"NULL",
+      Marked(ref m)     => m.data.pp(),
+      AllocArray(t, e)  =>
         ~"alloc_array(" + t.pp() + ~", " + e.pp() + ~")",
-      Call(e, ref E) =>
+      Call(e, ref E, _) =>
         e.pp() + ~"(" + str::connect(E.map(|e| e.pp()), ~", ") + ~")",
       BinaryOp(o, e1, e2) =>
         ~"(" + e1.pp() + ~" " + o.pp() + ~" " + e2.pp() + ~")",
-      Ternary(e1, e2, e3) =>
+      Ternary(e1, e2, e3, _) =>
         ~"((" + e1.pp() + ~") ? (" + e2.pp() +
         ~") : (" + e3.pp() + ~"))"
     }
