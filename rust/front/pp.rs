@@ -42,13 +42,14 @@ impl Binop {
 impl Type {
   pure fn pp() -> ~str {
     match self {
-      Int            => ~"int",
-      Bool           => ~"bool",
-      Alias(s)       => copy s.val,
-      Pointer(ref t) => ~"*" + t.pp(),
-      Array(ref t)   => t.pp() + ~"[]",
-      Struct(s)      => copy s.val,
-      Nullp          => ~"(null)"
+      Int           => ~"int",
+      Bool          => ~"bool",
+      Alias(s)      => copy s.val,
+      Pointer(t)    => ~"*" + t.pp(),
+      Array(t)      => t.pp() + ~"[]",
+      Struct(s)     => copy s.val,
+      Nullp         => ~"(null)",
+      Fun(t, ref L) => t.pp() + ~"(" + str::connect(L.map(|x| x.pp()), ~", ")
     }
   }
 }
@@ -56,21 +57,21 @@ impl Type {
 impl Expression {
   pure fn pp() -> ~str {
     match self {
-      Var(s)                 => copy s.val,
-      Boolean(b)             => b.to_str(),
-      Const(i)               => i.to_str(),
-      UnaryOp(ref o, ref e)  => o.pp() + ~"(" + e.pp() + ~")",
-      Deref(ref e)           => ~"*(" + e.pp() + ~")",
-      Field(ref e, f)        => e.pp() + ~"." + f.val,
-      ArrSub(ref e1, ref e2) => e1.pp() + ~"[" + e2.pp() + ~"]",
-      Alloc(ref t)           => ~"alloc(" + t.pp() + ~")",
-      Null                   => ~"NULL",
-      Marked(ref m)          => m.data.pp(),
-      AllocArray(ref t, ref e) =>
+      Var(s)           => copy s.val,
+      Boolean(b)       => b.to_str(),
+      Const(i)         => i.to_str(),
+      UnaryOp(o, e)    => o.pp() + ~"(" + e.pp() + ~")",
+      Deref(e)         => ~"*(" + e.pp() + ~")",
+      Field(e, f)      => e.pp() + ~"." + f.val,
+      ArrSub(e1, e2)   => e1.pp() + ~"[" + e2.pp() + ~"]",
+      Alloc(t)         => ~"alloc(" + t.pp() + ~")",
+      Null             => ~"NULL",
+      Marked(ref m)    => m.data.pp(),
+      AllocArray(t, e) =>
         ~"alloc_array(" + t.pp() + ~", " + e.pp() + ~")",
-      Call(id, ref E) =>
-        copy id.val + ~"(" + str::connect(E.map(|e| e.pp()), ~", ") + ~")",
-      BinaryOp(ref o, ref e1, ref e2) =>
+      Call(e, ref E) =>
+        e.pp() + ~"(" + str::connect(E.map(|e| e.pp()), ~", ") + ~")",
+      BinaryOp(o, e1, e2) =>
         ~"(" + e1.pp() + ~" " + o.pp() + ~" " + e2.pp() + ~")",
       Ternary(e1, e2, e3) =>
         ~"((" + e1.pp() + ~") ? (" + e2.pp() +
@@ -85,10 +86,10 @@ impl Statement {
       Continue => ~"continue",
       Break => ~"break",
       Nop => ~"",
-      Return(ref e) => ~"return " + e.pp(),
-      Express(ref e) => e.pp(),
-      Declare(v, ref t, ref s) =>
-        t.pp() + ~" " + v.val + ~"\n" + tab(s.pp()),
+      Return(e) => ~"return " + e.pp(),
+      Express(e) => e.pp(),
+      Declare(v, t, init, s) =>
+        t.pp() + ~" " + v.val + self.pp_opt(init) + ~"\n" + tab(s.pp()),
       Markeds(ref m) => m.data.pp(),
       While(ref e, ref s) =>
         ~"while (" + e.pp() + ~") {\n" + tab(s.pp()) + ~"\n}",
@@ -104,6 +105,13 @@ impl Statement {
         e2.pp(),
       Seq(@Nop, ref s) | Seq(ref s, @Nop) => s.pp(),
       Seq(ref s1, ref s2) => s1.pp() + ~"\n" + s2.pp()
+    }
+  }
+
+  pure fn pp_opt(o : Option<@Expression>) -> ~str {
+    match o {
+      Some(e) => ~" = " + e.pp(),
+      None => ~""
     }
   }
 }

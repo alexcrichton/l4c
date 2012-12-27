@@ -27,7 +27,7 @@ impl Initchecker {
       @Markeds(ref m) => self.err.with(m, |x| self.analyze(x)),
       @If(_, s1, s2) | @Seq(s1, s2) => { self.analyze(s1); self.analyze(s2); },
       @While(_, s) => self.analyze(s),
-      @Declare(id, _, s) =>
+      @Declare(id, _, _, s) =>
         if !self.live(id, s) {
           self.analyze(s);
         } else {
@@ -40,7 +40,8 @@ impl Initchecker {
 
   fn live(sym : Ident, s : @Statement) -> bool {
     match s {
-      @Declare(id, _, s) => id != sym && self.live(sym, s),
+      @Declare(id, _, init, s) =>
+        id != sym && (self.live(sym, s) || self.uses_opt(sym, init)),
       @Assign(e1, Some(_), e2) => self.uses(sym, e1) || self.uses(sym, e2),
       @Assign(_, _, e2) => self.uses(sym, e2),
       @If(e, s1, s2) =>
@@ -72,9 +73,17 @@ impl Initchecker {
     }
   }
 
+  fn uses_opt(sym : Ident, e : Option<@Expression>) -> bool {
+    match e {
+      None => false,
+      Some(e) => self.uses(sym, e)
+    }
+  }
+
   fn defines(sym : Ident, s : @Statement) -> bool {
     match s {
-      @Declare(_, _, s) => self.defines(sym, s),
+      @Declare(id, _, Some(_), s) => sym == id || self.defines(sym, s),
+      @Declare(_, _, _, s) => self.defines(sym, s),
       @Assign(@Marked(ref m), op, e2) =>
         self.defines(sym, @Assign(m.data, op, e2)),
       @Assign(@Var(id), _, _) => id == sym,

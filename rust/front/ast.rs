@@ -35,7 +35,7 @@ pub enum Statement {
   Nop,
   Return(@Expression),
   Seq(@Statement, @Statement),
-  Declare(Ident, @Type, @Statement),
+  Declare(Ident, @Type, Option<@Expression>, @Statement),
   Markeds(~mark::Mark<Statement>)
 }
 
@@ -46,7 +46,7 @@ pub enum Expression {
   BinaryOp(Binop, @Expression, @Expression),
   UnaryOp(Unop, @Expression),
   Ternary(@Expression, @Expression, @Expression),
-  Call(Ident, ~[@Expression]),
+  Call(@Expression, ~[@Expression]),
   Deref(@Expression),
   Field(@Expression, Ident),
   ArrSub(@Expression, @Expression),
@@ -57,7 +57,8 @@ pub enum Expression {
 }
 
 pub enum Type {
-  Int, Bool, Alias(Ident), Pointer(@Type), Array(@Type), Struct(Ident), Nullp
+  Int, Bool, Alias(Ident), Pointer(@Type), Array(@Type), Struct(Ident), Nullp,
+  Fun(@Type, ~[@Type])
 }
 
 pub enum Binop {
@@ -137,12 +138,13 @@ impl Elaborator {
         s
       },
       @Continue | @Break | @Nop => s,
-      @Declare(id, typ, rest) => {
+      @Declare(id, typ, init, rest) => {
         self.check_id(id);
-        @Declare(id, self.resolve(typ), self.elaborate_stm(rest))
+        @Declare(id, self.resolve(typ), init.map(|x| self.elaborate_exp(*x)),
+                 self.elaborate_stm(rest))
       },
-      @For(@Declare(id, typ, s1), e1, s2, s3) =>
-        self.elaborate_stm(@Declare(id, typ, @For(s1, e1, s2, s3))),
+      @For(@Declare(id, typ, init, s1), e1, s2, s3) =>
+        self.elaborate_stm(@Declare(id, typ, init, @For(s1, e1, s2, s3))),
       @For(@Markeds(ref m), e1, s2, s3) =>
         self.elaborate_stm(@For(m.data, e1, s2, s3)),
       @For(s1, e1, s2, s3) =>
@@ -156,8 +158,8 @@ impl Elaborator {
       @Express(e) => @Express(self.elaborate_exp(e)),
       @Seq(s1, s2) => {
         match s1 {
-          @Declare(id, typ, s1) =>
-            self.elaborate_stm(@Declare(id, typ, @Seq(s1, s2))),
+          @Declare(id, typ, init, s1) =>
+            self.elaborate_stm(@Declare(id, typ, init, @Seq(s1, s2))),
           @Markeds(ref m) => {
             m.data = @Seq(m.data, s2);
             self.elaborate_stm(s1)
@@ -224,7 +226,8 @@ impl Elaborator {
             self.err.add(fmt!("'%s' is undefined", sym.val));
             t
           }
-        }
+        },
+      @Fun(t1, ref L) => @Fun(self.resolve(t1), L.map(|&t| self.resolve(t)))
     }
   }
 
@@ -263,6 +266,8 @@ impl Type : cmp::Eq {
       (&Pointer(ref t1), &Pointer(ref t2)) => t1.eq(t2),
       (&Array(ref t1), &Array(ref t2)) => t1.eq(t2),
       (&Struct(ref s1), &Struct(ref s2)) => s1.eq(s2),
+      (&Fun(t1, ref L1), &Fun(t2, ref L2)) =>
+        t1 == t2 && L1.len() == L2.len() && vec::all2(*L1, *L2, |a, b| a == b),
       _ => false
     }
   }

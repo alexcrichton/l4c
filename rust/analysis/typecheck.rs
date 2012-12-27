@@ -93,8 +93,9 @@ impl Typechecker {
           self.tc_ensure(e2, t1);
         }
       },
-      @Declare(id, typ, stm) => {
+      @Declare(id, typ, init, stm) => {
         self.tc_small(typ);
+        init.iter(|x| self.tc_ensure(*x, typ));
         match self.vars.find(id) {
           Some(_) => self.err.add(fmt!("Redeclared var '%s'", id.val)),
           None => {
@@ -115,7 +116,10 @@ impl Typechecker {
       @Null => @Nullp,
       @Var(id) => match self.vars.find(id) {
         Some(t) => t,
-        None => self.err.die(fmt!("Unknown variable '%s'", id.val))
+        None => match self.funs.find(id) {
+          Some((ret, ref args)) => @Pointer(@Fun(ret, copy **args)), // TODO: cp
+          None => self.err.die(fmt!("Unknown variable '%s'", id.val))
+        }
       },
       @Alloc(t) => { self.tc_defined(t); @Pointer(t) },
       @AllocArray(t, e) => {
@@ -164,23 +168,18 @@ impl Typechecker {
         @Array(t) => { self.tc_ensure(e2, @Int); t },
         _ => self.err.die(~"must be an array type")
       },
-      @Call(id, ref args) => {
-        if self.vars.contains_key(id) {
-          self.err.die(fmt!("'%s' is a variable, not a function", id.val));
-        }
-        match self.funs.find(id) {
-          None => self.err.die(fmt!("Unknown function '%s'", id.val)),
-          Some((ret, argt)) => {
-            if argt.len() != args.len() {
-              self.err.add(~"mismatched number of arguments");
-            } else {
-              for vec::each2(*args, *argt) |&e, &t| {
-                self.tc_ensure(e, t);
-              }
+      @Call(e, ref args) => match self.tc_exp(e) {
+        @Pointer(@Fun(ret, ref argtyps)) => {
+          if argtyps.len() != args.len() {
+            self.err.add(~"mismatched number of arguments");
+          } else {
+            for vec::each2(*args, *argtyps) |&e, &t2| {
+              self.tc_ensure(e, t2);
             }
-            ret
           }
-        }
+          ret
+        },
+        _ => self.err.die(~"expected a pointer to a function type")
       },
       @Field(e, id) => match self.tc_exp(e) {
         @Struct(s) => match self.structs.find(s) {

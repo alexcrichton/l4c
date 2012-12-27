@@ -129,10 +129,13 @@ impl Parser {
       ~"express"  => @ast::Express(self.to_exp(fields.get_ref(&~"exp"))),
       ~"declare"  => @ast::Declare(self.to_id(fields.get_ref(&~"id")),
                                    self.to_typ(fields.get_ref(&~"type")),
+                                   self.to_opt(fields.get_ref(&~"eopt"),
+                                               |x| self.to_exp(x)),
                                    self.to_stm(fields.get_ref(&~"rest"))),
       ~"mark"     => @ast::Markeds(self.to_mark(fields, |a| self.to_stm(a))),
       ~"assign"   => @ast::Assign(self.to_exp(fields.get_ref(&~"e1")),
-                                  self.to_extra(fields.get_ref(&~"extra")),
+                                  self.to_opt(fields.get_ref(&~"extra"),
+                                              |x| self.to_binop(x)),
                                   self.to_exp(fields.get_ref(&~"e2"))),
       _           => fail(fmt!("invalid stm: %?", typ))
     }
@@ -170,9 +173,9 @@ impl Parser {
       ~"mark"     => @ast::Marked(self.to_mark(fields, |a| self.to_exp(a))),
       ~"call"     => {
         match *fields.get_ref(&~"args") {
-          List(ref L) => @ast::Call(self.to_id(fields.get_ref(&~"fun")),
-              L.map(|x| self.to_exp(x))),
-          _       => fail(~"expected list")
+          List(ref L) => @ast::Call(self.to_exp(fields.get_ref(&~"fun")),
+                                    L.map(|x| self.to_exp(x))),
+          _ => fail(~"expected list")
         }
       },
       _ => fail(fmt!("invalid exp: %?", typ))
@@ -212,11 +215,11 @@ impl Parser {
     }
   }
 
-  fn to_extra(j : &Json) -> Option<ast::Binop> {
+  fn to_opt<T>(j : &Json, f : fn(j : &Json) -> T) -> Option<T> {
     let (typ, fields) = self.gettyp(j);
     match typ {
       ~"none" => None,
-      ~"oper" => Some(self.to_binop(fields.get_ref(&~"op"))),
+      ~"some" => Some(f(fields.get_ref(&~"val"))),
       _       => fail(fmt!("invalid extra: %?", typ))
     }
   }
