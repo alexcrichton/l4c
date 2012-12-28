@@ -1,3 +1,4 @@
+use io::WriterUtil;
 use std::map;
 
 pub type NodeId = uint;
@@ -30,15 +31,28 @@ impl<N : Copy, E : Copy> Graph<N, E> {
 
   pub fn add_edge(n1 : NodeId, n2 : NodeId, e : E) {
     self.adj.get(n1).insert(n2, e);
-    self.adj.get(n2).insert(n1, e);
   }
 
-  pub fn each_edge(n : NodeId, f : &fn(id : &NodeId, e : &E) -> bool) {
-    self.adj.get(n).each_ref(f);
-  }
-
-  pub fn each_node(f : &fn(id : &NodeId, n : &N) -> bool) {
-    self.nodes.each_ref(f);
+  pub fn dot(out : io::Writer,
+             nid : &fn(&NodeId) -> ~str,
+             node : &fn(&N) -> ~str,
+             edge : &fn(&E) -> ~str) {
+    for self.nodes.each_ref |id, n| {
+      out.write_str(nid(id));
+      out.write_str(~" [");
+      out.write_str(node(n));
+      out.write_str(~"];\n");
+    }
+    for self.adj.each_ref |id1, neighbors| {
+      for neighbors.each_ref |id2, e| {
+        out.write_str(nid(id1));
+        out.write_str(~" -> ");
+        out.write_str(nid(id2));
+        out.write_str(~" [");
+        out.write_str(edge(e));
+        out.write_str(~"];\n");
+      }
+    }
   }
 }
 

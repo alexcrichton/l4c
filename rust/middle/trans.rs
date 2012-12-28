@@ -69,7 +69,7 @@ impl Translator {
         None
       }
       @ast::Function(_, id, ref args, body) => {
-        let fun = ir::Function();
+        let fun = ir::Function(copy id.val);
         self.trans_fun(id, args, body, &fun);
         Some(fun)
       }
@@ -93,6 +93,7 @@ impl Translator {
     for args.each |&(id, typ)| {
       trans.vars.insert(id, self.tmp(self.typ(typ)));
     }
+    trans.cur_id = fun.cfg.new_id();
     trans.stm(body);
   }
 
@@ -128,10 +129,10 @@ impl AstTranslator {
       }
       @ast::Continue => {
         self.stm(self.for_step);
-        self.f.cfg.add_edge(self.continue_to, self.commit(), ir::Branch);
+        self.f.cfg.add_edge(self.commit(), self.continue_to, ir::Branch);
       }
       @ast::Break => {
-        self.f.cfg.add_edge(self.break_to, self.commit(), ir::Branch);
+        self.f.cfg.add_edge(self.commit(), self.break_to, ir::Branch);
       }
       @ast::Return(e) => {
         self.stms.push(@ir::Return(self.exp(e, false)));
@@ -155,8 +156,7 @@ impl AstTranslator {
       @ast::If(cond, t, f) => {
         let true_id = self.f.cfg.new_id();
         let false_id = self.f.cfg.new_id();
-        self.condition(cond, true_id, ir::True, false_id, ir::False);
-        self.commit_with(true_id); // TODO: needed?
+        self.condition(cond, true_id, ir::True, false_id, ir::False, true_id);
 
         self.stm(t);
         let true_end = self.commit_with(false_id);
@@ -223,8 +223,7 @@ impl AstTranslator {
     let bodyid = self.f.cfg.new_id();
     let afterid = self.f.cfg.new_id();
     self.f.cfg.add_edge(pred, condid, ir::Always);
-    self.condition(cond, bodyid, ir::True, afterid, ir::False);
-    self.commit_with(bodyid); // TODO: needed?
+    self.condition(cond, bodyid, ir::True, afterid, ir::False, bodyid);
 
     do with(&mut self.continue_to, condid) {
       do with(&mut self.break_to, afterid) {
@@ -236,24 +235,24 @@ impl AstTranslator {
   }
 
   fn condition(e : @ast::Expression, tid : graph::NodeId, tedge : ir::Edge,
-               fid : graph::NodeId, fedge : ir::Edge) {
+               fid : graph::NodeId, fedge : ir::Edge,
+               into : graph::NodeId) {
     match e {
-      @ast::Marked(ref m) => self.condition(m.data, tid, tedge, fid, fedge),
+      @ast::Marked(ref m) =>
+        self.condition(m.data, tid, tedge, fid, fedge, into),
       @ast::BinaryOp(ast::LOr, e1, e2) => {
         let next = self.f.cfg.new_id();
-        self.condition(e1, tid, ir::TBranch, next, ir::False);
-        self.commit_with(next);
-        self.condition(e2, tid, tedge, fid, fedge);
+        self.condition(e1, tid, ir::TBranch, next, ir::False, next);
+        self.condition(e2, tid, tedge, fid, fedge, into);
       }
       @ast::BinaryOp(ast::LAnd, e1, e2) => {
         let next = self.f.cfg.new_id();
-        self.condition(e1, next, ir::True, fid, ir::FBranch);
-        self.commit_with(next);
-        self.condition(e2, tid, tedge, fid, fedge);
+        self.condition(e1, next, ir::True, fid, ir::FBranch, next);
+        self.condition(e2, tid, tedge, fid, fedge, into);
       }
       _ => {
         self.stms.push(@ir::Condition(self.exp(e, false)));
-        let id = self.commit();
+        let id = self.commit_with(into);
         self.f.cfg.add_edge(id, tid, tedge);
         self.f.cfg.add_edge(id, fid, fedge);
       }

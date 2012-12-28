@@ -16,8 +16,8 @@ impl Allocator {
   }
 }
 
-impl Temp : ToStr {
-  pure fn to_str() -> ~str {
+impl Temp : PrettyPrint {
+  fn pp() -> ~str {
     fmt!("%%t%u", self as uint)
   }
 }

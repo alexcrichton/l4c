@@ -5,6 +5,10 @@
 extern mod std;
 use core::util::*;
 
+trait PrettyPrint {
+  fn pp() -> ~str;
+}
+
 mod front {
   mod mark;
   mod parse;
@@ -50,5 +54,5 @@ fn main() {
   analysis::initcheck::check(&ast);
 
   let ir = trans::translate(&ast);
-  ignore(ir);
+  ir.pp(io::stdout());
 }
