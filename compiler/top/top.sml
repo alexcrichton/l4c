@@ -80,7 +80,7 @@ struct
         desc=G.NoArg (fn () => Flag.set O.flag_object),
         help="emit assembly for an object file instead of an executable"},
        {short = "l", long=["header"],
-        desc=G.ReqArg (fn s => Flag.sets (O.flag_header, s), "foo"),
+        desc=G.ReqArg (fn s => Flag.sets (O.flag_header, s), "l4.h0"),
         help="header file for the program"},
        {short = "", long=["types"],
         desc=G.NoArg (fn () => Flag.set O.flag_types),
@@ -101,7 +101,7 @@ struct
         desc=G.ReqArg (fn s => Flag.sets (O.flag_opt, s), "0"),
         help="level of optimizations to perform"},
        {short = "m", long=["arch"],
-        desc=G.ReqArg (fn s => Flag.sets (O.flag_arch, s), "arch"),
+        desc=G.ReqArg (fn s => Flag.sets (O.flag_arch, s), "x64"),
         help="architecture to emit ([x64] | x86)"}
       ]
 
