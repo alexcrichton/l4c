@@ -33,6 +33,14 @@ impl<N : Copy, E : Copy> Graph<N, E> {
     self.adj.get(n1).insert(n2, e);
   }
 
+  pub fn each_edge(n : NodeId, f : &fn(&NodeId, &E) -> bool) {
+    self.adj.get(n).each_ref(f)
+  }
+
+  pub fn each_node(f : &fn(&NodeId, &N) -> bool) {
+    self.nodes.each_ref(f)
+  }
+
   pub fn dot(out : io::Writer,
              nid : &fn(&NodeId) -> ~str,
              node : &fn(&N) -> ~str,
@@ -75,4 +83,20 @@ fn test_basic() {
       fail(~"bad id provided");
     }
   }
+}
+
+#[test]
+#[should_fail]
+fn test_random_id_fails() {
+  let g = Graph::<int, int>();
+  g.add_node(1, 1);
+}
+
+#[test]
+#[should_fail]
+fn test_same_id_fails() {
+  let g = Graph::<int, int>();
+  let id = g.new_id();
+  g.add_node(id, 1);
+  g.add_node(id, 1);
 }
