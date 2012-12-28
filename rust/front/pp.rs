@@ -4,7 +4,7 @@ pure fn tab(s : ~str) -> ~str {
   ~"  " + str::replace(s, ~"\n", ~"\n  ")
 }
 
-impl Unop {
+impl Unop : PrettyPrint {
   pure fn pp() -> ~str {
     match self {
       Negative => ~"-",
@@ -14,7 +14,7 @@ impl Unop {
   }
 }
 
-impl Binop {
+impl Binop : PrettyPrint {
   pure fn pp() -> ~str {
     match self {
       Plus      => ~"+",
@@ -39,7 +39,7 @@ impl Binop {
   }
 }
 
-impl Type {
+impl Type : PrettyPrint {
   pure fn pp() -> ~str {
     match self {
       Int           => ~"int",
@@ -54,7 +54,7 @@ impl Type {
   }
 }
 
-impl Expression {
+impl Expression : PrettyPrint {
   pure fn pp() -> ~str {
     match self {
       Var(s)            => copy s.val,
@@ -80,7 +80,7 @@ impl Expression {
   }
 }
 
-impl Statement {
+impl Statement : PrettyPrint {
   pure fn pp() -> ~str {
     match self {
       Continue => ~"continue",
@@ -89,7 +89,7 @@ impl Statement {
       Return(e) => ~"return " + e.pp(),
       Express(e) => e.pp(),
       Declare(v, t, init, s) =>
-        t.pp() + ~" " + v.val + self.pp_opt(init) + ~"\n" + tab(s.pp()),
+        t.pp() + ~" " + v.val + pp_opt(init) + ~"\n" + tab(s.pp()),
       Markeds(ref m) => m.data.pp(),
       While(ref e, ref s) =>
         ~"while (" + e.pp() + ~") {\n" + tab(s.pp()) + ~"\n}",
@@ -107,12 +107,12 @@ impl Statement {
       Seq(ref s1, ref s2) => s1.pp() + ~"\n" + s2.pp()
     }
   }
+}
 
-  pure fn pp_opt(o : Option<@Expression>) -> ~str {
-    match o {
-      Some(e) => ~" = " + e.pp(),
-      None => ~""
-    }
+pure fn pp_opt(o : Option<@Expression>) -> ~str {
+  match o {
+    Some(e) => ~" = " + e.pp(),
+    None => ~""
   }
 }
 
@@ -124,7 +124,7 @@ pure fn pfun(t : @Type, i : Ident, p : &~[(Ident, @Type)]) -> ~str {
   t.pp() + ~" " + i.val + ~"(" + str::connect(p.map(ppair), ~", ") + ~")"
 }
 
-impl GDecl {
+impl GDecl : PrettyPrint {
   pure fn pp() -> ~str {
     match self {
       Markedg(ref m) => m.data.pp(),

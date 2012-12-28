@@ -103,7 +103,9 @@ impl Program {
     e.err.check();
     prog
   }
+}
 
+impl Program : PrettyPrint {
   pure fn pp() -> ~str {
     str::connect(self.decls.map(|d| d.pp()), "\n")
   }

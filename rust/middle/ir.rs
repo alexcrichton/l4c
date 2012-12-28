@@ -73,13 +73,13 @@ impl Program {
 }
 
 impl Program : PrettyPrint {
-  fn pp() -> ~str {
+  pure fn pp() -> ~str {
     str::connect(self.funs.map(|f| f.pp()), "\n\n")
   }
 }
 
 impl Function : PrettyPrint {
-  fn pp() -> ~str {
+  pure fn pp() -> ~str {
     // TODO: graph traversal
     ~"foo"
   }
@@ -102,7 +102,7 @@ impl Binop {
 }
 
 impl Statement : PrettyPrint {
-  fn pp() -> ~str {
+  pure fn pp() -> ~str {
     match self {
       Move(tmp, e) => tmp.pp() + ~" <- " + e.pp(),
       Load(tmp, e) => ~"load " + tmp.pp() + ~" <- " + e.pp(),
@@ -115,14 +115,14 @@ impl Statement : PrettyPrint {
 }
 
 impl Temp : PrettyPrint {
-  fn pp() -> ~str {
+  pure fn pp() -> ~str {
     let (tmp, t) = self;
     tmp.pp() + t.pp()
   }
 }
 
 impl Expression : PrettyPrint {
-  fn pp() -> ~str {
+  pure fn pp() -> ~str {
     match self {
       Temp(ref t) => t.pp(),
       Phi(_) => ~"phi",
@@ -137,7 +137,7 @@ impl Expression : PrettyPrint {
 }
 
 impl Type : PrettyPrint {
-  fn pp() -> ~str {
+  pure fn pp() -> ~str {
     match self {
       ir::Int => ~":i",
       ir::Pointer => ~":p"
@@ -146,7 +146,7 @@ impl Type : PrettyPrint {
 }
 
 impl Binop : PrettyPrint {
-  fn pp() -> ~str {
+  pure fn pp() -> ~str {
     match self {
       Add => ~"+",
       Sub => ~"-",

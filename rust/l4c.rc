@@ -6,7 +6,7 @@ extern mod std;
 use core::util::*;
 
 trait PrettyPrint {
-  fn pp() -> ~str;
+  pure fn pp() -> ~str;
 }
 
 mod front {
