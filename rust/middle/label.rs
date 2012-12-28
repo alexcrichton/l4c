@@ -1,1 +1,6 @@
-pub type Label = @front::symbol::Symbol;
+use front::ast;
+
+pub enum Label {
+  External(~str),
+  Internal(~str)
+}

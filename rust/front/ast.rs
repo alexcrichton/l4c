@@ -46,7 +46,7 @@ pub enum Expression {
   BinaryOp(Binop, @Expression, @Expression),
   UnaryOp(Unop, @Expression),
   Ternary(@Expression, @Expression, @Expression, Ref<@Type>),
-  Call(@Expression, ~[@Expression], Ref<@Type>),
+  Call(@Expression, ~[@Expression], Ref<(@Type, @~[@Type])>),
   Deref(@Expression, Ref<@Type>),
   Field(@Expression, Ident, Ref<Ident>),
   ArrSub(@Expression, @Expression, Ref<@Type>),
@@ -58,7 +58,7 @@ pub enum Expression {
 
 pub enum Type {
   Int, Bool, Alias(Ident), Pointer(@Type), Array(@Type), Struct(Ident), Nullp,
-  Fun(@Type, ~[@Type])
+  Fun(@Type, @~[@Type])
 }
 
 pub enum Binop {
@@ -246,7 +246,8 @@ impl Elaborator {
             t
           }
         },
-      @Fun(t1, ref L) => @Fun(self.resolve(t1), L.map(|&t| self.resolve(t)))
+      @Fun(t1, L) => @Fun(self.resolve(t1),
+                          @L.map(|&t| self.resolve(t)))
     }
   }
 
@@ -285,7 +286,7 @@ impl Type : cmp::Eq {
       (&Pointer(ref t1), &Pointer(ref t2)) => t1.eq(t2),
       (&Array(ref t1), &Array(ref t2)) => t1.eq(t2),
       (&Struct(ref s1), &Struct(ref s2)) => s1.eq(s2),
-      (&Fun(t1, ref L1), &Fun(t2, ref L2)) =>
+      (&Fun(t1, L1), &Fun(t2, L2)) =>
         t1 == t2 && L1.len() == L2.len() && vec::all2(*L1, *L2, |a, b| a == b),
       _ => false
     }

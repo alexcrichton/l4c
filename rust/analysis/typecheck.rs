@@ -117,7 +117,7 @@ impl Typechecker {
       @Var(id) => match self.vars.find(id) {
         Some(t) => t,
         None => match self.funs.find(id) {
-          Some((ret, ref args)) => @Pointer(@Fun(ret, copy **args)), // TODO: cp
+          Some((ret, args)) => @Pointer(@Fun(ret, args)),
           None => self.err.die(fmt!("Unknown variable '%s'", id.val))
         }
       },
@@ -170,7 +170,7 @@ impl Typechecker {
         _ => self.err.die(~"must be an array type")
       },
       @Call(e, ref args, ref r) => match self.tc_exp(e) {
-        @Pointer(@Fun(ret, ref argtyps)) => {
+        @Pointer(@Fun(ret, argtyps)) => {
           if argtyps.len() != args.len() {
             self.err.add(~"mismatched number of arguments");
           } else {
@@ -178,7 +178,7 @@ impl Typechecker {
               self.tc_ensure(e, t2);
             }
           }
-          r.set(ret);
+          r.set((ret, argtyps));
           ret
         },
         _ => self.err.die(~"expected a pointer to a function type")

@@ -1,4 +1,10 @@
-pub type Program = int;
+pub struct Program {
+  funs : ~[Function]
+}
+
+pub struct Function {
+  cfg : graph::Graph<@~[@Statement], Edge>
+}
 
 pub type Temp = (temp::Temp, Type);
 
@@ -7,7 +13,8 @@ pub enum Statement {
   Load(Temp, @Expression),
   Store(@Expression, Type, @Expression),
   Condition(@Expression),
-  Return(@Expression)
+  Return(@Expression),
+  Die(@Expression),
 }
 
 pub enum Expression {
@@ -15,7 +22,7 @@ pub enum Expression {
   Phi(~[temp::Temp]),
   Const(i32, Type),
   BinaryOp(Binop, @Expression, @Expression),
-  Call(@Expression, Type, ~[(@Expression, Type)]),
+  Call(@Expression, Type, ~[@Expression]),
   LabelExp(label::Label)
 }
 
@@ -44,4 +51,12 @@ impl Binop {
       _ => false
     }
   }
+}
+
+pub fn Program(f : ~[Function]) -> ir::Program {
+  Program{ funs : f }
+}
+
+pub fn Function() -> Function {
+  Function{ cfg : graph::Graph() }
 }
