@@ -27,11 +27,11 @@ struct AstTranslator {
   mut for_step : @ast::Statement,
 }
 
-pub fn translate(p : &ast::Program) -> ir::Program {
+pub fn translate(p : &ast::Program, safe : bool) -> ir::Program {
   let t = Translator{ funs:    map::HashMap(),
                       structs: map::HashMap(),
                       temps:   temp::new(),
-                      safe:    false };// TODO: input this
+                      safe:    safe };
   t.translate(p)
 }
 

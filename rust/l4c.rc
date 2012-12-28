@@ -53,6 +53,6 @@ fn main() {
   analysis::maincheck::check(&ast);
   analysis::initcheck::check(&ast);
 
-  let ir = trans::translate(&ast);
+  let ir = trans::translate(&ast, true);
   ir.pp(io::stdout());
 }
