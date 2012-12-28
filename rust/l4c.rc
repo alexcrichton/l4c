@@ -31,28 +31,94 @@ mod middle {
   mod trans;
 }
 
+fn help() {
+  io::print(fmt!("Usage: %s", os::args()[0]));
+  io::println(" [OPTION...] SOURCEFILE
+where OPTION is
+  -v        --verbose       verbose messages
+            --dump-ast      pretty print the AST
+            --dump-ir       pretty print the IR
+            --dump-asm      pretty print the assembly before register allocaction
+  -p        --profile       profile the compiler
+  -l l4.h0  --header=l4.h0  header file for the program
+            --dot           output DOT file for the cfg
+            --safe          safe compilation with memory checks
+            --unsafe        unsafe compilation with no memory checks
+  -O 0      --optimize=0    level of optimizations to perform
+  -m x64    --arch=x64      architecture to emit ([x64] | x86)
+
+");
+  libc::exit(0);
+}
+
+#[allow(non_implicitly_copyable_typarams)]
 fn main() {
   use front::*;
   use middle::*;
+  use std::getopts::*;
 
-  let a = os::args();
-  if a.len() == 1 {
-    fail(~"need at least one file as an argument");
+  let flags = ~[
+    optflag("v"), optflag("verbose"),
+    optflag("dump-ast"),
+    optflag("dump-ir"),
+    optflag("dump-asm"),
+    optflag("f"), optflag("profile"),
+    optopt("header"), optopt("l"),
+    optflag("dot"),
+    optflag("safe"), optflag("unsafe"),
+    optopt("O"), optopt("optimize"),
+    optopt("m"), optopt("arch"),
+    optflag("j"), optflag("json"),
+  ];
+  let matches = &match getopts(vec::tail(os::args()), flags) {
+    result::Ok(m) => m,
+    result::Err(e) => fail(fail_str(e))
+  };
+  if matches.free.len() == 0 {
+    help();
   }
-
-  let file = copy a[1];
-  let {status, out, _} = run::program_output("parse/parser", [file]);
-  if status != 0 {
-    io::print(out);
-    fail(~"Failed to parse the given file");
-  }
+  let out = get_json(matches);
 
   let ast = parse::from_str(out).elaborate();
+  if opt_present(matches, "dump-ast") {
+    io::println(ast.pp());
+  }
   analysis::typecheck::check(&ast);
   analysis::returncheck::check(&ast);
   analysis::maincheck::check(&ast);
   analysis::initcheck::check(&ast);
 
-  let ir = trans::translate(&ast, true);
-  ir.pp(io::stdout());
+  let safe = opt_present(matches, "safe") &&
+             !opt_present(matches, "unsafe");
+  let ir = trans::translate(&ast, safe);
+  if opt_present(matches, "dump-ir") {
+    io::println(ir.pp());
+  }
+  if opt_present(matches, "dot") {
+    ir.dot(io::stdout());
+  }
+}
+
+#[allow(non_implicitly_copyable_typarams)]
+fn get_json(m : &std::getopts::Matches) -> ~str {
+  use std::getopts::*;
+
+  if opt_present(m, "json") || opt_present(m, "j") {
+    match io::read_whole_file_str(&path::Path(m.free[0])) {
+      result::Ok(s) => s,
+      result::Err(s) => fail(s)
+    }
+  } else {
+    let header = option::or(opt_maybe_str(m, "l"), opt_maybe_str(m, "header"));
+    let files = &match header {
+      None => m.free,
+      Some(file) => vec::append(~[file], m.free)
+    };
+    let {status, out, _} = run::program_output("parse/parser", *files);
+    if status != 0 {
+      io::print(out);
+      libc::exit(1);
+    }
+    out
+  }
 }

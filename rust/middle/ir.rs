@@ -49,7 +49,7 @@ pub fn Function(name : ~str) -> Function {
 }
 
 impl Program {
-  fn pp(out : io::Writer) {
+  fn dot(out : io::Writer) {
     out.write_str(~"digraph {\n");
     for self.funs.each |f| {
       f.cfg.dot(out,
@@ -69,6 +69,19 @@ impl Program {
       )
     }
     out.write_str(~"\n}");
+  }
+}
+
+impl Program : PrettyPrint {
+  fn pp() -> ~str {
+    str::connect(self.funs.map(|f| f.pp()), "\n\n")
+  }
+}
+
+impl Function : PrettyPrint {
+  fn pp() -> ~str {
+    // TODO: graph traversal
+    ~"foo"
   }
 }
 
