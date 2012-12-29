@@ -19,7 +19,7 @@ pub fn Graph<N : Copy, E : Copy>() -> Graph<N, E>{
 }
 
 impl<N : Copy, E : Copy> Graph<N, E> {
-  pub fn new_id() -> NodeId {
+  fn new_id() -> NodeId {
     let ret = self.next;
     self.next += 1;
     self.succ.insert(ret, map::HashMap());
@@ -27,23 +27,23 @@ impl<N : Copy, E : Copy> Graph<N, E> {
     ret
   }
 
-  pub pure fn node(id : NodeId) -> N {
+  pure fn node(id : NodeId) -> N {
     self.nodes[id]
   }
 
-  pub fn add_node(id : NodeId, n : N) {
+  fn add_node(id : NodeId, n : N) {
     assert(!self.nodes.contains_key(id));
     assert(self.succ.contains_key(id));
     self.nodes.insert(id, n);
   }
 
-  pub fn update_node(id : NodeId, n : N) {
+  fn update_node(id : NodeId, n : N) {
     assert(self.nodes.contains_key(id));
     assert(self.succ.contains_key(id));
     self.nodes.insert(id, n);
   }
 
-  pub fn remove_node(n : NodeId) {
+  fn remove_node(n : NodeId) {
     self.nodes.remove(n);
     for self.succ[n].each_key |k| {
       set::remove(self.pred[k], n);
@@ -53,28 +53,28 @@ impl<N : Copy, E : Copy> Graph<N, E> {
     }
   }
 
-  pub fn add_edge(n1 : NodeId, n2 : NodeId, e : E) {
+  fn add_edge(n1 : NodeId, n2 : NodeId, e : E) {
     self.succ[n1].insert(n2, e);
     set::add(self.pred[n2], n1);
   }
 
-  pub fn each_edge(n : NodeId, f : &fn(NodeId, &E) -> bool) {
+  fn each_edge(n : NodeId, f : &fn(NodeId, &E) -> bool) {
     self.succ[n].each_ref(|&a, b| f(a, b))
   }
 
-  pub fn each_node(f : &fn(NodeId, &N) -> bool) {
+  fn each_node(f : &fn(NodeId, &N) -> bool) {
     self.nodes.each_ref(|&a, b| f(a, b));
   }
 
-  pub fn each_pred(n : NodeId, f : &fn(NodeId) -> bool) {
+  fn each_pred(n : NodeId, f : &fn(NodeId) -> bool) {
     self.pred[n].each_key(f)
   }
 
-  pub fn each_succ(n : NodeId, f : &fn(NodeId) -> bool) {
+  fn each_succ(n : NodeId, f : &fn(NodeId) -> bool) {
     self.succ[n].each_key(f)
   }
 
-  pub fn dot(out : io::Writer,
+  fn dot(out : io::Writer,
              nid : &fn(NodeId) -> ~str,
              node : &fn(NodeId, &N) -> ~str,
              edge : &fn(&E) -> ~str) {
