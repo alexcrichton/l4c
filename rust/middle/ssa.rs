@@ -1,16 +1,19 @@
 use std::map;
+use middle::temp::Temp;
 use tmap = std::fun_treemap;
 
-type TempMap = tmap::Treemap<temp::Temp, temp::Temp>;
+type TempMap = tmap::Treemap<Temp, Temp>;
 pub type DomFrontiers = map::HashMap<graph::NodeId, graph::NodeSet>;
 
 struct Converter {
   f : &ir::Function,
 
   /* Mapping of temps to the set of nodes that the temp is defined in */
-  defs : map::HashMap<temp::Temp, (ir::Type, graph::NodeSet)>,
+  defs : map::HashMap<Temp, (ir::Type, graph::NodeSet)>,
   /* Mapping of a node id to the temps which need phis at that node */
-  phis : map::HashMap<graph::NodeId, map::Set<temp::Temp>>,
+  phis : map::HashMap<graph::NodeId, map::Set<Temp>>,
+  /* Once a phi is at a node, contains mappings of old temp => new temp */
+  phi_temps : map::HashMap<graph::NodeId, map::HashMap<Temp, Temp>>,
   /* Mapping of a node to what temp mappings exist at the end of a node */
   versions : map::HashMap<graph::NodeId, TempMap>,
   /* (re-)Allocator for temps */
@@ -22,6 +25,7 @@ pub fn convert(p : &ir::Program) {
     let converter = Converter { f: f,
                                 defs: map::HashMap(),
                                 phis: map::HashMap(),
+                                phi_temps : map::HashMap(),
                                 versions: map::HashMap(),
                                 temps: temp::new() };
     converter.convert();
@@ -30,13 +34,16 @@ pub fn convert(p : &ir::Program) {
 
 impl Converter {
   fn convert() {
-    self.prune_unreachable();
+    /*self.prune_unreachable();*/
     self.find_defs();
     self.find_phis();
 
     self.versions.insert(self.f.root, tmap::init());
     for vec::rev_each(*self.f.postorder) |&id| {
-      self.place_phis(id);
+      self.map_temps(id);
+    }
+    for self.phi_temps.each |k, v| {
+      self.place_phis(k, v);
     }
   }
 
@@ -232,28 +239,21 @@ impl Converter {
   }
 
   /* Insert all phi functions into the graph */
-  fn place_phis(n : graph::NodeId) {
+  fn map_temps(n : graph::NodeId) {
     let mut map = self.versions[self.f.idoms[n]];
 
     /* Bump all temp numbers which have phi functions at this location */
-    debug!("generating phis at %d", n as int);
-    let phis = match self.phis.find(n) {
-      None => ~[],
+    debug!("bumping temps for phis at %d", n as int);
+    match self.phis.find(n) {
+      None => (),
       Some(temps) => {
-        vec::build_sized(temps.size(), |push|
-          for set::each(temps) |tmp| {
-            let preds = map::HashMap();
-            for self.f.cfg.each_pred(n) |p| {
-              assert(self.versions.contains_key(p));
-              preds.insert(p, tmap::find(self.versions[p], tmp).get());
-            }
-            let size = self.defs[tmp].first();
-            let phi = @ir::Phi((self.bump(&mut map, tmp), size), preds);
-            push(phi);
-          }
-        )
+        let mapping = map::HashMap();
+        for set::each(temps) |tmp| {
+          mapping.insert(tmp, self.bump(&mut map, tmp));
+        }
+        self.phi_temps.insert(n, mapping);
       }
-    };
+    }
 
     /* Process all statements in this block (possibly bumping versions) */
     debug!("mapping statements at %d", n as int);
@@ -277,8 +277,30 @@ impl Converter {
     );
     self.versions.insert(n, map);
 
-    /* Finally, update our node with our altered statements */
-    self.f.cfg.update_node(n, @vec::append(phis, stms));
+    /* Update our node with our altered statements */
+    self.f.cfg.update_node(n, @stms);
+  }
+
+  fn place_phis(n : graph::NodeId, temps : map::HashMap<Temp, Temp>) {
+    /* Bump all temp numbers which have phi functions at this location */
+    debug!("generating phis at %d", n as int);
+    let phis = vec::build_sized(temps.size(), |push|
+      for temps.each |tmp_before, tmp_after| {
+        let preds = map::HashMap();
+        for self.f.cfg.each_pred(n) |p| {
+          match self.versions.find(p) {
+            None => (),
+            Some(v) => { preds.insert(p, tmap::find(v, tmp_before).get()); }
+          }
+        }
+        let size = self.defs[tmp_before].first();
+        let phi = @ir::Phi((tmp_after, size), preds);
+        push(phi);
+      }
+    );
+
+    /* Update our node with the phi nodes */
+    self.f.cfg.update_node(n, @vec::append(phis, *self.f.cfg[n]));
   }
 
   /* Map all temps to new ssa-temps in an expression */
@@ -295,14 +317,14 @@ impl Converter {
   }
 
   /* Alter the temp mapping for a specified non-ssa temp */
-  fn bump(vars : &mut TempMap, t : temp::Temp) -> temp::Temp {
+  fn bump(vars : &mut TempMap, t : Temp) -> Temp {
     let ret = self.temps.new();
     *vars = tmap::insert(*vars, t, ret);
     ret
   }
 
   /* Fetch the ssa-temp for a non-ssa temp */
-  fn map(vars : &mut TempMap, t : temp::Temp) -> temp::Temp {
+  fn map(vars : &mut TempMap, t : Temp) -> Temp {
     match tmap::find(*vars, t) {
       Some(t) => t,
       None => self.bump(vars, t)
