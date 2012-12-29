@@ -34,7 +34,6 @@ pub fn convert(p : &ir::Program) {
 
 impl Converter {
   fn convert() {
-    /*self.prune_unreachable();*/
     self.find_defs();
     self.find_phis();
 
@@ -44,31 +43,6 @@ impl Converter {
     }
     for self.phi_temps.each |k, v| {
       self.place_phis(k, v);
-    }
-  }
-
-  /* Remove all unreachable nodes from the root */
-  fn prune_unreachable() {
-    let visited = map::HashMap();
-    self.visit(self.f.root, visited);
-    let mut to_remove = ~[];
-    for self.f.cfg.each_node |id, _| {
-      if !set::contains(visited, id) {
-        to_remove.push(id);
-      }
-    }
-    for to_remove.each |&id| {
-      self.f.cfg.remove_node(id);
-    }
-  }
-
-  fn visit(n : graph::NodeId, s : graph::NodeSet) {
-    if set::contains(s, n) {
-      return;
-    }
-    set::add(s, n);
-    for self.f.cfg.each_succ(n) |x| {
-      self.visit(x, s);
     }
   }
 
@@ -95,6 +69,10 @@ impl Converter {
 
   /* Find where all phi functions need to go */
   fn find_phis() {
+    /* Use the iterated dominance frontier algorithm, shown here:
+          http://symbolaris.com/course/Compilers12/11-ssa.pdf
+       to determine the optimal placement of phi functions */
+
     let frontiers = self.dom_frontiers();
 
     for self.defs.each |tmp, (_, defs)| {
@@ -124,7 +102,10 @@ impl Converter {
     debug!("%?", order);
     self.f.postorder = @order;
     idoms.insert(root, root);
-    // http://www.cs.rice.edu/~keith/EMBED/dom.pdf
+
+    /* This code is an implementation of the algorithm found in this paper:
+          http://www.cs.rice.edu/~keith/EMBED/dom.pdf
+       and obviously adapted for rust */
     let mut changed = true;
     while changed {
       changed = false;
@@ -179,7 +160,10 @@ impl Converter {
     }
     info!("reversed idoms");
 
-    /* Now calculate the dominance frontiers */
+    /* Now calculate the dominance frontiers according to the algorithm shown in
+       these slides: http://symbolaris.com/course/Compilers12/11-ssa.pdf
+       for calculating the dominance frontier of a node */
+
     let frontiers = map::HashMap();
     for self.f.postorder.each |&a| {
       let frontier = map::HashMap();
@@ -238,7 +222,14 @@ impl Converter {
     }
   }
 
-  /* Insert all phi functions into the graph */
+  /**
+   * Modify all temps in the graph to new temps based on what they were before
+   * but now taking SSA into account. This function does not place phi functions
+   * anywhere because the version of temps in all predecessors to phi functions
+   * must be determined first.
+   *
+   * This function does, however, prepare for phi functions to be placed
+   */
   fn map_temps(n : graph::NodeId) {
     let mut map = self.versions[self.f.idoms[n]];
 
@@ -247,6 +238,8 @@ impl Converter {
     match self.phis.find(n) {
       None => (),
       Some(temps) => {
+        /* Keep track of what we changed our temps to so the phi functions can
+           be placed correctly in the next step */
         let mapping = map::HashMap();
         for set::each(temps) |tmp| {
           mapping.insert(tmp, self.bump(&mut map, tmp));
@@ -281,28 +274,6 @@ impl Converter {
     self.f.cfg.update_node(n, @stms);
   }
 
-  fn place_phis(n : graph::NodeId, temps : map::HashMap<Temp, Temp>) {
-    /* Bump all temp numbers which have phi functions at this location */
-    debug!("generating phis at %d", n as int);
-    let phis = vec::build_sized(temps.size(), |push|
-      for temps.each |tmp_before, tmp_after| {
-        let preds = map::HashMap();
-        for self.f.cfg.each_pred(n) |p| {
-          match self.versions.find(p) {
-            None => (),
-            Some(v) => { preds.insert(p, tmap::find(v, tmp_before).get()); }
-          }
-        }
-        let size = self.defs[tmp_before].first();
-        let phi = @ir::Phi((tmp_after, size), preds);
-        push(phi);
-      }
-    );
-
-    /* Update our node with the phi nodes */
-    self.f.cfg.update_node(n, @vec::append(phis, *self.f.cfg[n]));
-  }
-
   /* Map all temps to new ssa-temps in an expression */
   fn exp_phi(vars : TempMap, e : @ir::Expression) -> @ir::Expression {
     match e {
@@ -329,5 +300,33 @@ impl Converter {
       Some(t) => t,
       None => self.bump(vars, t)
     }
+  }
+
+  /**
+   * Places phi functions into the CFG. This assumes that all temps have already
+   * been renumbered/renamed and the last thing to do is to actually put the phi
+   * functions in place
+   */
+  fn place_phis(n : graph::NodeId, temps : map::HashMap<Temp, Temp>) {
+    debug!("generating phis at %d", n as int);
+    let phis = vec::build_sized(temps.size(), |push|
+      for temps.each |tmp_before, tmp_after| {
+        let preds = map::HashMap();
+        /* Our phi function operates on the last known ssa-temp for this node's
+           non-ssa temp at each of our predecessors */
+        for self.f.cfg.each_pred(n) |p| {
+          match self.versions.find(p) {
+            None => (),
+            Some(v) => { preds.insert(p, tmap::find(v, tmp_before).get()); }
+          }
+        }
+        /* The result of the phi node is the ssa-temp, not the non-ssa temp */
+        let size = self.defs[tmp_before].first();
+        push(@ir::Phi((tmp_after, size), preds));
+      }
+    );
+
+    /* Update our node with the phi nodes */
+    self.f.cfg.update_node(n, @vec::append(phis, *self.f.cfg[n]));
   }
 }
