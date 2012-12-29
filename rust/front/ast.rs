@@ -105,7 +105,7 @@ impl Program {
   }
 }
 
-impl Program : PrettyPrint {
+impl Program : utils::PrettyPrint {
   pure fn pp() -> ~str {
     str::connect(self.decls.map(|d| d.pp()), "\n")
   }

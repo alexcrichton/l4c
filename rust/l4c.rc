@@ -3,30 +3,39 @@
 #[deny(non_implicitly_copyable_typarams)];
 
 extern mod std;
-use core::util::*;
 
-trait PrettyPrint {
-  pure fn pp() -> ~str;
+use core::util::*;
+use utils::*;
+
+mod utils {
+  mod set;
+
+  pub trait PrettyPrint {
+    pure fn pp() -> ~str;
+  }
 }
 
 mod front {
+  pub mod ast;
+  pub mod error;
   mod mark;
   mod parse;
   mod pp;
   mod symbol;
-  pub mod ast;
-  pub mod error;
+
+  mod analysis {
+    mod initcheck;
+    mod maincheck;
+    mod returncheck;
+    mod typecheck;
+  }
 }
-mod analysis {
-  mod initcheck;
-  mod maincheck;
-  mod returncheck;
-  mod typecheck;
-}
+
 mod middle {
   mod graph;
   mod ir;
   mod label;
+  mod ssa;
   mod temp;
   mod trans;
 }
@@ -54,6 +63,7 @@ where OPTION is
 #[allow(non_implicitly_copyable_typarams)]
 fn main() {
   use front::*;
+  use front::analysis::*;
   use middle::*;
   use std::getopts::*;
 
@@ -91,6 +101,7 @@ fn main() {
   let safe = opt_present(matches, "safe") &&
              !opt_present(matches, "unsafe");
   let ir = trans::translate(&ast, safe);
+  ssa::convert(&ir);
   if opt_present(matches, "dump-ir") {
     io::println(ir.pp());
   }

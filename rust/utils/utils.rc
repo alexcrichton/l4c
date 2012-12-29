@@ -1,0 +1,10 @@
+#[link(name = "utils", vers = "0.0")];
+#[crate_type = "lib"];
+
+extern mod std;
+
+pub mod set;
+
+pub trait PrettyPrint {
+  pure fn pp() -> ~str;
+}

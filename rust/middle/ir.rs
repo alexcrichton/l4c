@@ -1,4 +1,5 @@
 use io::WriterUtil;
+use std::map;
 
 pub struct Program {
   funs : ~[Function]
@@ -6,7 +7,10 @@ pub struct Program {
 
 pub struct Function {
   name : ~str,
-  cfg : graph::Graph<@~[@Statement], Edge>
+  cfg : graph::Graph<@~[@Statement], Edge>,
+  mut root : graph::NodeId,
+  idoms : map::HashMap<graph::NodeId, graph::NodeId>,
+  mut postorder : @~[graph::NodeId], // TODO: iterate mutable vector?
 }
 
 pub type Temp = (temp::Temp, Type);
@@ -14,6 +18,7 @@ pub type Temp = (temp::Temp, Type);
 pub enum Statement {
   Move(Temp, @Expression),
   Load(Temp, @Expression),
+  Phi(Temp, map::HashMap<graph::NodeId, temp::Temp>),
   Store(@Expression, Type, @Expression),
   Condition(@Expression),
   Return(@Expression),
@@ -22,7 +27,6 @@ pub enum Statement {
 
 pub enum Expression {
   Temp(Temp),
-  Phi(~[temp::Temp]),
   Const(i32, Type),
   BinaryOp(Binop, @Expression, @Expression),
   Call(@Expression, Type, ~[@Expression]),
@@ -45,7 +49,11 @@ pub fn Program(f : ~[Function]) -> ir::Program {
 }
 
 pub fn Function(name : ~str) -> Function {
-  Function{ cfg : graph::Graph(), name : name }
+  Function{ cfg: graph::Graph(),
+            name: name,
+            root: 0,
+            idoms: map::HashMap(),
+            postorder: @~[] }
 }
 
 impl Program {
@@ -53,10 +61,10 @@ impl Program {
     out.write_str(~"digraph {\n");
     for self.funs.each |f| {
       f.cfg.dot(out,
-        |&id| fmt!("%s_n%d", f.name, id as int),
-        |&stms|
+        |id| fmt!("%s_n%d", f.name, id as int),
+        |id, &stms|
           ~"label=\"" + str::connect(stms.map(|s| s.pp()), "\\n") +
-          "\" shape=box",
+          fmt!("\\n[node=%d]\" shape=box", id as int),
         |&edge|
           match edge {
             ir::Always => ~"",
@@ -109,7 +117,14 @@ impl Statement : PrettyPrint {
       Store(e1, t, e2) => ~"store" + t.pp() + ~" " + e1.pp() + " <- " + e2.pp(),
       Condition(e) => ~"cond " + e.pp(),
       Return(e) => ~"return " + e.pp(),
-      Die(e) => ~"die if " + e.pp()
+      Die(e) => ~"die if " + e.pp(),
+      Phi(tmp, ref map) => {
+        let mut s = tmp.pp() + ~" <- phi(";
+        for map.each |id, tmp| {
+          s += fmt!("[ %s - n%d ] ", tmp.pp(), id as int);
+        }
+        s + ~")"
+      }
     }
   }
 }
@@ -125,7 +140,6 @@ impl Expression : PrettyPrint {
   pure fn pp() -> ~str {
     match self {
       Temp(ref t) => t.pp(),
-      Phi(_) => ~"phi",
       Const(c, t) => fmt!("0x%x%s", c as uint, t.pp()),
       BinaryOp(op, e1, e2) =>
         ~"(" + e1.pp() + ~" " + op.pp() + ~" " + e2.pp() + ~")",

@@ -94,6 +94,7 @@ impl Translator {
       trans.vars.insert(id, self.tmp(self.typ(typ)));
     }
     trans.cur_id = fun.cfg.new_id();
+    fun.root = trans.cur_id;
     trans.stm(body);
   }
 

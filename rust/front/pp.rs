@@ -1,4 +1,5 @@
 use front::ast::*;
+use utils::PrettyPrint;
 
 pure fn tab(s : ~str) -> ~str {
   ~"  " + str::replace(s, ~"\n", ~"\n  ")

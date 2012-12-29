@@ -1,4 +1,3 @@
-use front::error;
 use front::ast::*;
 use std::map;
 
