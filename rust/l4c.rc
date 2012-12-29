@@ -17,7 +17,7 @@ mod utils {
 
 mod front {
   pub mod ast;
-  pub mod error;
+  mod error;
   mod mark;
   mod parse;
   mod pp;
