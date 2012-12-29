@@ -3,7 +3,7 @@ use middle::temp::Temp;
 use tmap = std::fun_treemap;
 
 type TempMap = tmap::Treemap<Temp, Temp>;
-pub type DomFrontiers = map::HashMap<graph::NodeId, graph::NodeSet>;
+type DomFrontiers = map::HashMap<graph::NodeId, graph::NodeSet>;
 
 struct Converter {
   f : &ir::Function,
