@@ -90,11 +90,15 @@ impl Translator {
       vars: map::HashMap()
     };
     self.funs.insert(id, @ir::LabelExp(label::Internal(copy id.val)));
+    let mut argtmps = ~[];
     for args.each |&(id, typ)| {
-      trans.vars.insert(id, self.tmp(self.typ(typ)));
+      let (tmp, typ) = self.tmp(self.typ(typ));
+      trans.vars.insert(id, (tmp, typ));
+      argtmps.push(tmp);
     }
     trans.cur_id = fun.cfg.new_id();
     fun.root = trans.cur_id;
+    fun.args = @argtmps;
     trans.stm(body);
   }
 

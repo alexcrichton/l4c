@@ -37,7 +37,9 @@ impl Converter {
     self.find_defs();
     self.find_phis();
 
-    self.versions.insert(self.f.root, tmap::init());
+    let mut map = tmap::init();
+    self.f.args = @self.f.args.map(|&tmp| self.bump(&mut map, tmp));
+    self.versions.insert(self.f.root, map);
     for vec::rev_each(*self.f.postorder) |&id| {
       self.map_temps(id);
     }

@@ -11,6 +11,7 @@ pub struct Function {
   mut root : graph::NodeId,
   idoms : map::HashMap<graph::NodeId, graph::NodeId>,
   mut postorder : @~[graph::NodeId], // TODO: iterate mutable vector?
+  mut args : @~[temp::Temp],         // TODO: same as above
 }
 
 pub type Temp = (temp::Temp, Type);
@@ -53,7 +54,8 @@ pub fn Function(name : ~str) -> Function {
             name: name,
             root: 0,
             idoms: map::HashMap(),
-            postorder: @~[] }
+            postorder: @~[],
+            args: @~[] }
 }
 
 impl Program {
