@@ -19,6 +19,10 @@ pub fn Graph<N : Copy, E : Copy>() -> Graph<N, E>{
 }
 
 impl<N : Copy, E : Copy> Graph<N, E> {
+  fn nodes() -> uint {
+    self.nodes.size()
+  }
+
   fn new_id() -> NodeId {
     let ret = self.next;
     self.next += 1;
@@ -44,13 +48,15 @@ impl<N : Copy, E : Copy> Graph<N, E> {
   }
 
   fn remove_node(n : NodeId) {
-    self.nodes.remove(n);
+    assert self.nodes.remove(n);
     for self.succ[n].each_key |k| {
-      set::remove(self.pred[k], n);
+      assert set::remove(self.pred[k], n);
     }
     for self.pred[n].each_key |k| {
-      self.succ[k].remove(n);
+      assert self.succ[k].remove(n);
     }
+    assert self.succ.remove(n);
+    assert self.pred.remove(n);
   }
 
   fn add_edge(n1 : NodeId, n2 : NodeId, e : E) {

@@ -2,27 +2,36 @@ use middle::ir;
 use middle::temp;
 use std::map;
 
-type Builder = pure fn(@assem::Instruction);
+type Builder = fn(@assem::Instruction);
 
-struct CodeGenerator {
+pub struct CodeGenerator {
   temps : temp::Allocator,
-  tmap : map::HashMap<temp::Temp, temp::Temp>,
+  priv tmap : map::HashMap<temp::Temp, temp::Temp>,
 }
 
-fn codegen(p : &ir::Program) -> assem::Program {
+pub fn codegen(p : &ir::Program) -> assem::Program {
   assem::Program{ funs: p.funs.map(translate) }
 }
 
 fn translate(f : &ir::Function) -> assem::Function {
+  info!("codegen of %s", f.name);
   let cg = CodeGenerator { temps: temp::new(), tmap: map::HashMap() };
   let cfg = f.cfg.map(
     |stms|
       @vec::build(|push|
-        for stms.each |&s| { cg.stm(s, push); }
+        for stms.each |&s| { cg.stm(s, |ins| arch::constrain(ins, push, &cg)); }
       ),
     |&edge| edge
   );
-  assem::Function { cfg: cfg, root : f.root }
+  debug!("codegen of %s done", f.name);
+  assem::Function { name: copy f.name,
+                    cfg: cfg,
+                    root: f.root,
+                    idoms: f.idoms,
+                    idominated: f.idominated,
+                    postorder:  f.postorder,
+                    temps: cg.temps.cnt(),
+                    args:  f.args.map(|&tmp| cg.tmap[tmp]) }
 }
 
 impl CodeGenerator {
@@ -122,9 +131,11 @@ impl CodeGenerator {
         push(@assem::Die(self.cond(cond), self.half(e1, push),
                          self.half(e2, push))),
       @ir::Die(_) => fail(~"invalid die"),
-      @ir::Return(e) =>
+      @ir::Return(e) => {
         push(@assem::Move(@assem::Register(assem::EAX, e.size()),
-                          self.half(e, push)))
+                          self.half(e, push)));
+        push(@assem::Return);
+      }
     }
   }
 

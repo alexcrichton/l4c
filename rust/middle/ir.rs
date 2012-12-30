@@ -9,9 +9,13 @@ pub struct Function {
   name : ~str,
   cfg : graph::Graph<@~[@Statement], Edge>,
   mut root : graph::NodeId,
-  idoms : map::HashMap<graph::NodeId, graph::NodeId>,
   mut postorder : @~[graph::NodeId], // TODO: iterate mutable vector?
   mut args : @~[temp::Temp],         // TODO: same as above
+
+  /* idoms[a] = b implies the immediate dominator of a is b */
+  idoms : map::HashMap<graph::NodeId, graph::NodeId>,
+  /* idominated[a] = b implies a immediately dominates nodes in b */
+  idominated : map::HashMap<graph::NodeId, graph::NodeSet>,
 }
 
 pub type Temp = (temp::Temp, Type);
@@ -54,6 +58,7 @@ pub fn Function(name : ~str) -> Function {
             name: name,
             root: 0,
             idoms: map::HashMap(),
+            idominated: map::HashMap(),
             postorder: @~[],
             args: @~[] }
 }
@@ -95,6 +100,17 @@ impl Expression {
       }
     }
   }
+}
+
+impl Type : cmp::Eq {
+  pure fn eq(&self, other : &Type) -> bool {
+    match (*self, *other) {
+      (Int, Int) | (Pointer, Pointer) => true,
+      _ => false
+    }
+  }
+
+  pure fn ne(&self, other : &Type) -> bool { !self.eq(other) }
 }
 
 impl Program : PrettyPrint {

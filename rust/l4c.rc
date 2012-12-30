@@ -44,6 +44,7 @@ mod back {
   mod assem;
   mod codegen;
   mod arch;
+  mod alloc;
 }
 
 fn help() {
@@ -71,6 +72,7 @@ fn main() {
   use front::*;
   use front::analysis::*;
   use middle::*;
+  use back::*;
   use std::getopts::*;
 
   let flags = ~[
@@ -80,7 +82,7 @@ fn main() {
     optflag("dump-asm"),
     optflag("f"), optflag("profile"),
     optopt("header"), optopt("l"),
-    optflag("dot"),
+    optflag("dot-ir"), optflag("dot-assem"),
     optflag("safe"), optflag("unsafe"),
     optopt("O"), optopt("optimize"),
     optopt("m"), optopt("arch"),
@@ -107,13 +109,13 @@ fn main() {
   let safe = opt_present(matches, "safe") &&
              !opt_present(matches, "unsafe");
   let ir = trans::translate(&ast, safe);
+  if opt_present(matches, "dot-ir")  { ir.dot(io::stdout()); }
   ssa::convert(&ir);
-  if opt_present(matches, "dump-ir") {
-    io::println(ir.pp());
-  }
-  if opt_present(matches, "dot") {
-    ir.dot(io::stdout());
-  }
+  if opt_present(matches, "dump-ir") { io::println(ir.pp()); }
+
+  let assem = codegen::codegen(&ir);
+  if opt_present(matches, "dot-assem") { assem.dot(io::stdout()); }
+  alloc::color(&assem);
 }
 
 #[allow(non_implicitly_copyable_typarams)]

@@ -34,6 +34,8 @@ pub fn convert(p : &ir::Program) {
 
 impl Converter {
   fn convert() {
+    self.prune_unreachable();
+
     self.find_defs();
     self.find_phis();
 
@@ -45,6 +47,29 @@ impl Converter {
     }
     for self.phi_temps.each |k, v| {
       self.place_phis(k, v);
+    }
+  }
+
+  fn prune_unreachable() {
+    let visited = map::HashMap();
+    self.visit(visited, self.f.root);
+    let mut to_remove = ~[];
+    for self.f.cfg.each_node |id, _| {
+      if !set::contains(visited, id) {
+        to_remove.push(id);
+      }
+    }
+    for to_remove.each |&id| {
+      self.f.cfg.remove_node(id);
+    }
+  }
+
+  fn visit(visited : graph::NodeSet, n : graph::NodeId) {
+    if !set::contains(visited, n) {
+      set::add(visited, n);
+      for self.f.cfg.each_succ(n) |id| {
+        self.visit(visited, id);
+      }
     }
   }
 
@@ -142,11 +167,17 @@ impl Converter {
       }
     }
 
-    let mut visited = ~[];
-    vec::grow(&mut visited, self.f.postorder.len(), &false);
+    let visited = map::HashMap();
     for self.f.postorder.each |&id| {
-      assert(!visited[idoms[id]]);
-      visited[idoms[id]] = true;
+      debug!("%? => %?", id, idoms[id]);
+      assert(!set::contains(visited, idoms[id]));
+      set::add(visited, id);
+    }
+    for vec::rev_each(*self.f.postorder) |&id| {
+      if id != id {
+        assert(!set::contains(visited, idoms[id]));
+      }
+      set::remove(visited, id);
     }
     info!("idoms calculated");
   }
@@ -154,18 +185,14 @@ impl Converter {
   fn dom_frontiers() -> DomFrontiers {
     /* calculate all immediate dominators */
     self.idoms();
-    /* idom_rev[a] = b implies a immediately dominates nodes in b */
-    let idom_rev = map::HashMap();
+    let idominated = self.f.idominated;
+    for self.f.idoms.each |a, _| {
+      idominated.insert(a, map::HashMap());
+    }
     for self.f.idoms.each |a, b| {
-      let set = match idom_rev.find(b) {
-        Some(s) => s,
-        None => {
-          let set = map::HashMap();
-          idom_rev.insert(b, set);
-          set
-        }
-      };
-      set::add(set, a);
+      if a != b {
+        set::add(idominated[b], a);
+      }
     }
     info!("reversed idoms");
 
@@ -185,18 +212,15 @@ impl Converter {
         }
       }
 
-      /* not all nodes dominate some other node */
-      if idom_rev.contains_key(a) {
-        /* for all c where idom[c] = a */
-        for set::each(idom_rev[a]) |c| {
-          if a == c { loop }
-          debug!("df_up[%d, %d]...", a as int, c as int);
+      /* for all c where idom[c] = a */
+      for set::each(idominated[a]) |c| {
+        if a == c { loop }
+        debug!("df_up[%d, %d]...", a as int, c as int);
 
-          /* df_up[a, c] */
-          for set::each(frontiers[c]) |b| {
-            if self.f.idoms[b] != a {
-              set::add(frontier, b);
-            }
+        /* df_up[a, c] */
+        for set::each(frontiers[c]) |b| {
+          if self.f.idoms[b] != a {
+            set::add(frontier, b);
           }
         }
       }

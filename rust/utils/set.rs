@@ -8,8 +8,8 @@ pub fn add<T : Eq IterBytes Hash Const Copy>(s : map::Set<T>, t : T) -> bool {
   !s.insert(t, ())
 }
 
-pub fn remove<T : Eq IterBytes Hash Const Copy>(s : map::Set<T>, t : T) {
-  s.remove(t);
+pub fn remove<T : Eq IterBytes Hash Const Copy>(s : map::Set<T>, t : T) -> bool {
+  s.remove(t)
 }
 
 pub fn contains<T : Eq IterBytes Hash Const Copy>(s : map::Set<T>, t : T) -> bool {
