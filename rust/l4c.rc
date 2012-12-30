@@ -9,6 +9,7 @@ use utils::*;
 
 mod utils {
   mod set;
+  mod graph;
 
   pub trait PrettyPrint {
     pure fn pp() -> ~str;
@@ -32,12 +33,17 @@ mod front {
 }
 
 mod middle {
-  mod graph;
-  mod ir;
-  mod label;
+  pub mod ir;
+  pub mod label;
+  pub mod temp;
   mod ssa;
-  mod temp;
   mod trans;
+}
+
+mod back {
+  mod assem;
+  mod codegen;
+  mod arch;
 }
 
 fn help() {

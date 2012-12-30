@@ -74,6 +74,32 @@ impl<N : Copy, E : Copy> Graph<N, E> {
     self.succ[n].each_key(f)
   }
 
+  priv fn dup<V : Copy, V2 : Copy>
+    (m : map::HashMap<NodeId, V>, f : &fn(&V) -> V2) -> map::HashMap<NodeId, V2>
+  {
+    let ret = map::HashMap();
+    for m.each_ref |&k, v| {
+      ret.insert(k, f(v));
+    }
+    return ret;
+  }
+
+  fn map<N2 : Copy, E2 : Copy>(n : &fn(&N) -> N2,
+                               e : &fn(&E) -> E2) -> Graph<N2, E2> {
+    let g2 = Graph();
+    g2.next = self.next;
+    for self.nodes.each_ref |&k, v| {
+      g2.nodes.insert(k, n(v));
+    }
+    for self.pred.each |k, v| {
+      g2.pred.insert(k, self.dup(v, |&x| x));
+    }
+    for self.succ.each |k, v| {
+      g2.succ.insert(k, self.dup(v, e));
+    }
+    return g2;
+  }
+
   fn dot(out : io::Writer,
              nid : &fn(NodeId) -> ~str,
              node : &fn(NodeId, &N) -> ~str,

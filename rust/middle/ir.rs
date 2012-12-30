@@ -82,6 +82,21 @@ impl Program {
   }
 }
 
+impl Expression {
+  pub fn size() -> Type {
+    match self {
+      Temp((_, size)) | Const(_, size) | Call(_, size, _) => size,
+      LabelExp(_) => Pointer,
+      BinaryOp(_, e1, e2) => {
+        match e1.size() {
+          Int => e2.size(),
+          Pointer => Pointer
+        }
+      }
+    }
+  }
+}
+
 impl Program : PrettyPrint {
   pure fn pp() -> ~str {
     str::connect(self.funs.map(|f| f.pp()), "\n\n")

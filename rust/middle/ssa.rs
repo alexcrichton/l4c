@@ -141,6 +141,13 @@ impl Converter {
         }
       }
     }
+
+    let mut visited = ~[];
+    vec::grow(&mut visited, self.f.postorder.len(), &false);
+    for self.f.postorder.each |&id| {
+      assert(!visited[idoms[id]]);
+      visited[idoms[id]] = true;
+    }
     info!("idoms calculated");
   }
 
