@@ -116,7 +116,7 @@ impl Instruction : PrettyPrint {
       Call(@LabelOp(ref l), _) => fmt!("call %s", l.pp()),
       Call(e, _) => fmt!("call *%s", e.pp()),
       Phi(tmp, _, map) => {
-        let mut s = tmp.pp() + ~" <- phi(";
+        let mut s = ~"//" + tmp.pp() + ~" <- phi(";
         for map.each |id, tmp| {
           s += fmt!("[ %s - n%d ] ", tmp.pp(), id as int);
         }
