@@ -321,24 +321,37 @@ impl Program {
 }
 
 impl Function {
+  /**
+   * Traverses the cfg and outputs a stream of instructions which can be
+   * assembled to the actual program
+   */
   fn output(out : io::Writer) {
     let base = label::Internal(copy self.name).pp();
+    /* entry label */
     out.write_str(base + ~":\n");
     let lbl = |n : graph::NodeId| fmt!("%s_bb_%d", base, n as int);
+
+    /* skipped is a stack of nodes that we have yet to visit */
     let mut skipped = ~[self.root];
     let visited = map::HashMap();
+
     while skipped.len() > 0 {
       let block = skipped.pop();
       if set::contains(visited, block) { loop }
+
+      /* Each block has its own label (so it can be jumped to) */
       set::add(visited, block);
       out.write_str(lbl(block) + ~":\n");
 
+      /* output the actual block */
       let instructions = self.cfg[block];
       for instructions.each |&ins| {
         out.write_str(~"  ");
         out.write_str(ins.pp());
         out.write_char('\n');
       }
+
+      /* Collect information about the edges */
       let mut always = None;
       let mut tedge = None;
       let mut fedge = None;
@@ -360,30 +373,44 @@ impl Function {
         }
       }
 
+      /* Emit jumps and alter our stack of nodes to visit */
       match always {
+        /* Always branches to unvisited blocks can just fall through */
         Some((ir::Always, id)) if !set::contains(visited, id) =>
           { skipped.push(id); }
+        /* Otherwise always branches or edges to visited blocks are jumps */
         Some((_, id)) => { out.write_str(fmt!("  jmp %s\n", lbl(id))); }
+
         None => {
           match (tedge, fedge) {
+            /* If everything is none, then we've reached a termination */
             (None, None) => (),
+
             (Some((tedge, tid)), Some((fedge, fid))) => {
+              /* On a conditional branch, the last ins must be Condition */
               let cond = match instructions.last() {
                 @Condition(c, _, _) => c,
                 _ => fail(~"Need a condition with true/false edges")
               };
+
               match (tedge, fedge) {
+                /* If we fall through to the true block, then negate the
+                   condition to jump to the false block and push traversal */
                 (ir::True, _) => {
                   skipped.push(fid);
                   skipped.push(tid);
                   out.write_str(fmt!("  j%s %s\n", cond.negate().suffix(),
                                      lbl(fid)));
                 }
+
+                /* Otherwise we can use the condition as is and we update the
+                   nodes to visit */
                 (_, ir::False) => {
                   skipped.push(tid);
                   skipped.push(fid);
                   out.write_str(fmt!("  j%s %s\n", cond.suffix(), lbl(fid)));
                 }
+
                 _ => fail(~"invalidly specified edges")
               }
             }
@@ -392,6 +419,7 @@ impl Function {
         }
       }
 
+      /* and finally, the basic block is done with its emission! */
     }
   }
 }
