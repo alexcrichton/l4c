@@ -113,7 +113,8 @@ impl Instruction : PrettyPrint {
         fmt!("%s %s, %s // %s = %s %s %s",
              binop.pp(), dest.pp(), s2.pp()
              dest.pp(), s1.pp(), binop.pp(), s2.pp()),
-      Call(e, _) => fmt!("call %s", e.pp()),
+      Call(@LabelOp(ref l), _) => fmt!("call %s", l.pp()),
+      Call(e, _) => fmt!("call *%s", e.pp()),
       Phi(tmp, _, map) => {
         let mut s = tmp.pp() + ~" <- phi(";
         for map.each |id, tmp| {
