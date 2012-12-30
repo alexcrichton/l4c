@@ -107,10 +107,12 @@ impl Instruction : PrettyPrint {
       Die(c, o1, o2) =>
         fmt!("die%s %s, %s", c.suffix(), o1.pp(), o2.pp()),
       Condition(c, o1, o2) =>
-        fmt!("cmp%s %s, %s", c.suffix(), o1.pp(), o2.pp()),
-      Move(o1, o2) => o1.pp() + ~" <- " + o2.pp(),
+        fmt!("cmp %s, %s // %s", o1.pp(), o2.pp(), c.suffix()),
+      Move(o1, o2) => ~"mov " + o2.pp() + ~", " + o1.pp(),
       BinaryOp(binop, dest, s1, s2) =>
-        fmt!("%s <- %s %s %s", dest.pp(), s1.pp(), binop.to_str(), s2.pp()),
+        fmt!("%s %s, %s // %s = %s %s %s",
+             binop.pp(), dest.pp(), s2.pp()
+             dest.pp(), s1.pp(), binop.pp(), s2.pp()),
       Call(e, _) => fmt!("call %s", e.pp()),
       Phi(tmp, _, map) => {
         let mut s = tmp.pp() + ~" <- phi(";
@@ -189,6 +191,16 @@ impl Cond {
       Neq => Neq
     }
   }
+  pure fn negate() -> Cond {
+    match self {
+      Lt  => Gte,
+      Lte => Gt,
+      Gt  => Lte,
+      Gte => Lt,
+      Eq  => Neq,
+      Neq => Eq
+    }
+  }
   pure fn suffix() -> ~str {
     match self {
       Lt  => ~"l",
@@ -207,8 +219,8 @@ impl Binop {
   }
 }
 
-impl Binop : ToStr {
-  pure fn to_str() -> ~str {
+impl Binop : PrettyPrint {
+  pure fn pp() -> ~str {
     match self {
       Add => ~"add",
       Sub => ~"sub",
@@ -299,5 +311,87 @@ impl Program {
       )
     }
     out.write_str(~"\n}");
+  }
+
+  fn output(out : io::Writer) {
+    for self.funs.each |f| {
+      f.output(out);
+    }
+  }
+}
+
+impl Function {
+  fn output(out : io::Writer) {
+    let base = label::Internal(copy self.name).pp();
+    out.write_str(base + ~":\n");
+    let lbl = |n : graph::NodeId| fmt!("%s_bb_%d", base, n as int);
+    let mut skipped = ~[self.root];
+    let visited = map::HashMap();
+    while skipped.len() > 0 {
+      let block = skipped.pop();
+      if set::contains(visited, block) { loop }
+      set::add(visited, block);
+      out.write_str(lbl(block) + ~":\n");
+
+      let instructions = self.cfg[block];
+      for instructions.each |&ins| {
+        out.write_str(~"  ");
+        out.write_str(ins.pp());
+        out.write_char('\n');
+      }
+      let mut always = None;
+      let mut tedge = None;
+      let mut fedge = None;
+      for self.cfg.each_edge(block) |id, &typ| {
+        debug!("out of %? (%? - %?)", block, id, typ);
+        match typ {
+          ir::Always | ir::Branch => {
+            assert(tedge.is_none() && fedge.is_none() && always.is_none());
+            always = Some((typ, id));
+          }
+          ir::True | ir::TBranch => {
+            assert(tedge.is_none() && always.is_none());
+            tedge = Some((typ, id));
+          }
+          ir::False | ir::FBranch => {
+            assert(fedge.is_none() && always.is_none());
+            fedge = Some((typ, id));
+          }
+        }
+      }
+
+      match always {
+        Some((ir::Always, id)) if !set::contains(visited, id) =>
+          { skipped.push(id); }
+        Some((_, id)) => { out.write_str(fmt!("  jmp %s\n", lbl(id))); }
+        None => {
+          match (tedge, fedge) {
+            (None, None) => (),
+            (Some((tedge, tid)), Some((fedge, fid))) => {
+              let cond = match instructions.last() {
+                @Condition(c, _, _) => c,
+                _ => fail(~"Need a condition with true/false edges")
+              };
+              match (tedge, fedge) {
+                (ir::True, _) => {
+                  skipped.push(fid);
+                  skipped.push(tid);
+                  out.write_str(fmt!("  j%s %s\n", cond.negate().suffix(),
+                                     lbl(fid)));
+                }
+                (_, ir::False) => {
+                  skipped.push(tid);
+                  skipped.push(fid);
+                  out.write_str(fmt!("  jmp%s %s\n", cond.suffix(), lbl(fid)));
+                }
+                _ => fail(~"invalidly specified edges")
+              }
+            }
+            _ => fail(~"invalid edges")
+          }
+        }
+      }
+
+    }
   }
 }

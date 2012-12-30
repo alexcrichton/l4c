@@ -89,6 +89,7 @@ impl CodeGenerator {
         }
         let ret = @assem::Temp(self.temps.new(), typ);
         push(@assem::Call(fun, args.len()));
+        push(@assem::Move(ret, @assem::Register(arch::ret_reg, typ)));
         return ret;
       }
     }

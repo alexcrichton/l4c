@@ -116,6 +116,12 @@ fn main() {
   let assem = codegen::codegen(&ir);
   if opt_present(matches, "dot-assem") { assem.dot(io::stdout()); }
   alloc::color(&assem);
+
+  let output = Path(matches.free[0]).with_filetype("S");
+  match io::file_writer(&output, ~[io::Truncate, io::Create]) {
+    result::Ok(f) => assem.output(f),
+    result::Err(e) => fail(e)
+  }
 }
 
 #[allow(non_implicitly_copyable_typarams)]
