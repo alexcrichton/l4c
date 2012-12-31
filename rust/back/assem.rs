@@ -109,7 +109,12 @@ impl Instruction : PrettyPrint {
              c.suffix(), label::prefix()),
       Condition(c, o1, o2) =>
         fmt!("cmp %s, %s // %s", o2.pp(), o1.pp(), c.suffix()),
-      Move(o1, o2) => ~"mov " + o2.pp() + ~", " + o1.pp(),
+      Move(o1, o2) =>
+        if o1.size() != o2.size() {
+          ~"movslq " + o2.pp() + ~", " + o1.pp()
+        } else {
+          ~"mov " + o2.pp() + ~", " + o1.pp()
+        },
       BinaryOp(binop, dest, s1, s2) =>
         fmt!("%s %s, %s // %s"
              binop.pp(), s1.pp(), dest.pp(), s2.pp()),
@@ -135,10 +140,10 @@ impl Operand {
     }
   }
 
-  fn imm() -> bool { match self { Immediate(*) => true, _ => false } }
-  fn mem() -> bool { match self { Memory(*) => true, _ => false } }
+  pure fn imm() -> bool { match self { Immediate(*) => true, _ => false } }
+  pure fn mem() -> bool { match self { Memory(*) => true, _ => false } }
 
-  fn size() -> Size {
+  pure fn size() -> Size {
     match self {
       Immediate(_, s) | Register(_, s) | Temp(_, s) | Memory(_, s) => s,
       LabelOp(_) => ir::Pointer
