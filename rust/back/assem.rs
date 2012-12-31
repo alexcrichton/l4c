@@ -362,7 +362,7 @@ impl Function {
       let mut always = None;
       let mut tedge = None;
       let mut fedge = None;
-      for self.cfg.each_edge(block) |id, &typ| {
+      for self.cfg.each_succ_edge(block) |id, typ| {
         debug!("out of %? (%? - %?)", block, id, typ);
         match typ {
           ir::Always | ir::Branch => {

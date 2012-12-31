@@ -28,6 +28,7 @@ pub fn color(p : &Program) {
       a.args.set(tmp as uint, true);
       a.colors.insert(tmp, i + 1);
     }
+    a.eliminate_critical();
     info!("preparing: %s", f.name);
     for f.cfg.each_node |id, _| {
       a.last_uses.insert(id, map::HashMap());
@@ -56,6 +57,31 @@ pub fn color(p : &Program) {
 }
 
 impl Allocator {
+  /**
+   * Eliminate all critical edges in the graph by splitting them and placing a
+   * basic block on the edge. The fact that there are no critical edges in the
+   * graph is leveraged when spilling registers and removing phi nodes.
+   */
+  fn eliminate_critical() {
+    /* can't modify the graph during traversal */
+    let mut critical = ~[];
+    let cfg = &self.f.cfg;
+    for cfg.each_edge |n1, n2| {
+      /* critical edges are defined as those whose source has multiple out edges
+         and whose target has multiple in edges */
+      if cfg.num_succ(n1) > 1 && cfg.num_pred(n2) > 1 {
+        critical.push((n1, n2));
+      }
+    }
+    for critical.each |&(n1, n2)| {
+      let edge = cfg.remove_edge(n1, n2);
+      let new = cfg.new_id();
+      cfg.add_node(new, @~[]);
+      cfg.add_edge(n1, new, edge);
+      cfg.add_edge(new, n2, ir::Always);
+    }
+  }
+
   /* Build up tables needed for liveness */
   fn prepare(n : graph::NodeId) {
     debug!("preparing %?", n);
@@ -170,8 +196,8 @@ impl Allocator {
   }
 
   fn remove_phis() {
-    let mut new_blocks = ~[];
-    for self.f.cfg.each_node |id, ins| {
+    let cfg = &self.f.cfg;
+    for cfg.each_node |id, ins| {
       let mut phi_vars = ~[];
       let mut phi_maps = ~[];
       for ins.each |&ins| {
@@ -184,26 +210,21 @@ impl Allocator {
         }
       }
 
-      for self.f.cfg.each_pred(id) |pred| {
+      for cfg.each_pred(id) |pred| {
         let mut perm = ~[];
         for phi_maps.each |map| {
           perm.push(self.colors[map[pred]]);
         }
-        new_blocks.push((pred, id, self.resolve_perm(phi_vars, perm)));
+        /* there are no critical edges in the graph, so we can just append */
+        let ins = self.resolve_perm(phi_vars, perm);
+        if ins.len() == 0 { loop }
+        let prev = cfg[pred];
+        cfg.update_node(pred, @(prev + ins));
       }
-    }
-
-    for new_blocks.each |&(pred, id, ins)| {
-      if ins.len() == 0 { loop }
-      let e = self.f.cfg.remove_edge(pred, id);
-      let new = self.f.cfg.new_id();
-      self.f.cfg.add_node(new, ins);
-      self.f.cfg.add_edge(pred, new, e);
-      self.f.cfg.add_edge(new, id, ir::Always);
     }
   }
 
-  fn resolve_perm(result : &[uint], incoming : &[uint]) -> @~[@Instruction] {
+  fn resolve_perm(result : &[uint], incoming : &[uint]) -> ~[@Instruction] {
     let mut diff = ~[];
     for vec::each2(result, incoming) |&a, &b| {
       if a != b {
@@ -213,9 +234,9 @@ impl Allocator {
     let tmp = |i : uint| @Register(arch::num_reg(i), ir::Pointer);
 
     if diff.len() == 0 {
-      return @~[];
+      return ~[];
     } else if diff.len() == 1 {
-      return @~[
+      return ~[
         @Move(tmp(diff[0].first()), tmp(diff[0].second()))
       ];
     }

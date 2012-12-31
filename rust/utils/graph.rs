@@ -22,7 +22,7 @@ impl<N : Copy, E : Copy> Graph<N, E> {
   fn num_nodes() -> uint {
     self.nodes.size()
   }
-  fn num_preds(n : NodeId) -> uint {
+  fn num_pred(n : NodeId) -> uint {
     self.pred[n].size()
   }
   fn num_succ(n : NodeId) -> uint {
@@ -39,6 +39,10 @@ impl<N : Copy, E : Copy> Graph<N, E> {
 
   pure fn node(id : NodeId) -> N {
     self.nodes[id]
+  }
+
+  pure fn edge(a : NodeId, b : NodeId) -> E {
+    self.succ[a][b]
   }
 
   fn add_node(id : NodeId, n : N) {
@@ -77,8 +81,12 @@ impl<N : Copy, E : Copy> Graph<N, E> {
     set::add(self.pred[n2], n1);
   }
 
-  fn each_edge(n : NodeId, f : &fn(NodeId, &E) -> bool) {
-    self.succ[n].each_ref(|&a, b| f(a, b))
+  fn each_edge(f : &fn(NodeId, NodeId) -> bool) {
+    for self.succ.each |a, map| {
+      for map.each_key |b| {
+        f(a, b);
+      }
+    }
   }
 
   fn each_node(f : &fn(NodeId, &N) -> bool) {
@@ -91,6 +99,10 @@ impl<N : Copy, E : Copy> Graph<N, E> {
 
   fn each_succ(n : NodeId, f : &fn(NodeId) -> bool) {
     self.succ[n].each_key(f)
+  }
+
+  fn each_succ_edge(n : NodeId, f : &fn(NodeId, E) -> bool) {
+    self.succ[n].each(f);
   }
 
   priv fn dup<V : Copy, V2 : Copy>

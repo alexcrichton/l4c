@@ -50,9 +50,16 @@ impl Converter {
     }
   }
 
+  /**
+   * Given the root node of the control flow graph, removes all unreachable
+   * nodes by doing a DFS traversal of the graph and seeing whatever wasn't
+   * reached during the traversal.
+   */
   fn prune_unreachable() {
     let visited = map::HashMap();
+
     self.visit(visited, self.f.root);
+    /* Can't modify the graph while iterating */
     let mut to_remove = ~[];
     for self.f.cfg.each_node |id, _| {
       if !set::contains(visited, id) {
@@ -358,7 +365,7 @@ impl Converter {
         /* If not all our predecessors had a version of tmp_before, then we
            definitely don't need a phi node because this is just a node on the
            dominance frontier that won't end up being needed anyway */
-        if preds.size() == self.f.cfg.num_preds(n) {
+        if preds.size() == self.f.cfg.num_pred(n) {
           /* The result of the phi node is the ssa-temp, not the non-ssa temp */
           let size = self.defs[tmp_before].first();
           push(@ir::Phi((tmp_after, size), preds));
