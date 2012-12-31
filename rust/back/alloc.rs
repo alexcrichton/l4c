@@ -189,17 +189,24 @@ impl Allocator {
       @Die(c, o1, o2) =>
         push(@Die(c, self.alloc_op(o1), self.alloc_op(o2))),
       @Move(o1, o2) => push(@Move(self.alloc_op(o1), self.alloc_op(o2))),
+
+      /* When going through formatting and on x86 -
+            BinaryOp(op, d, s1, s2) <=> d = d op s1
+         and s2 is put in the commments */
       @BinaryOp(op, d, s1, s2) => {
         let d = self.alloc_op(d);
         let s1 = self.alloc_op(s1);
         let s2 = self.alloc_op(s2);
 
-        if s2 == d {
-          push(@BinaryOp(op, d, s1, s2));
-        } else if s1 == d && op.commutative() {
+        if s1 == d {                             /* d = d op s2, perfect! */
           push(@BinaryOp(op, d, s2, s1));
+        } else if s2 == d && op.commutative() {  /* d = s1 op d, must commute */
+          push(@BinaryOp(op, d, s1, s2));
+        } else if s2 == d {
+          fail(~"think about this");
         } else {
-          fail(fmt!("%? %? %? %?", op, d, s1, s2));
+          push(@Move(d, s1));
+          push(@BinaryOp(op, d, s2, s1));
         }
       }
       @Call(e, n) => push(@Call(self.alloc_op(e), n))
