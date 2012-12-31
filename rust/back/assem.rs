@@ -225,7 +225,7 @@ impl Binop : PrettyPrint {
     match self {
       Add => ~"add",
       Sub => ~"sub",
-      Mul => ~"mul",
+      Mul => ~"imul",
       Div => ~"div",
       Mod => ~"mod",
       And => ~"and",
