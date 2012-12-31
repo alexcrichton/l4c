@@ -111,9 +111,8 @@ impl Instruction : PrettyPrint {
         fmt!("cmp %s, %s // %s", o2.pp(), o1.pp(), c.suffix()),
       Move(o1, o2) => ~"mov " + o2.pp() + ~", " + o1.pp(),
       BinaryOp(binop, dest, s1, s2) =>
-        fmt!("%s %s, %s // %s = %s %s %s",
-             binop.pp(), s1.pp(), dest.pp()
-             dest.pp(), s1.pp(), binop.pp(), s2.pp()),
+        fmt!("%s %s, %s // %s"
+             binop.pp(), s1.pp(), dest.pp(), s2.pp()),
       Call(@LabelOp(ref l), _) => fmt!("call %s", l.pp()),
       Call(e, _) => fmt!("call *%s", e.pp()),
       Phi(tmp, _, map) => {
