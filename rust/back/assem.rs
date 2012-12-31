@@ -110,7 +110,7 @@ impl Instruction : PrettyPrint {
       Condition(c, o1, o2) =>
         fmt!("cmp %s, %s // %s", o2.pp(), o1.pp(), c.suffix()),
       Move(o1, o2) =>
-        if o1.size() != o2.size() {
+        if o1.size() != o2.size() && !o2.imm() {
           ~"movslq " + o2.pp() + ~", " + o1.pp()
         } else {
           ~"mov " + o2.pp() + ~", " + o1.pp()
