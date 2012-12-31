@@ -105,7 +105,8 @@ impl Instruction : PrettyPrint {
       Comment(copy s) => ~"/* " + s + ~" */",
       Return => ~"ret",
       Die(c, o1, o2) =>
-        fmt!("die%s %s, %s", c.suffix(), o1.pp(), o2.pp()),
+        fmt!("cmp %s, %s; j%s %sraise_segv", o2.pp(), o1.pp(),
+             c.suffix(), label::prefix()),
       Condition(c, o1, o2) =>
         fmt!("cmp %s, %s // %s", o2.pp(), o1.pp(), c.suffix()),
       Move(o1, o2) => ~"mov " + o2.pp() + ~", " + o1.pp(),
