@@ -24,43 +24,35 @@ pub fn constrain(ins : @Instruction,
                  cg : &CodeGenerator) {
   ignore(cg);
   match ins {
-    /* TODO: actually use this */
-    /*
+    @Condition(c, o1, o2) => constrain_cmp(c, o1, o2, push, cg, Condition),
+    @Die(c, o1, o2) => constrain_cmp(c, o1, o2, push, cg, Die),
     @BinaryOp(op, d, s1, s2) => {
-      let (d, s) = match op {
+      match op {
         Mul | Cmp(_) if d.mem() => {
           let tmp = @Temp(cg.temps.new(), ir::Int);
           constrain(@BinaryOp(op, tmp, s1, s2), push, cg);
           return push(@Move(d, tmp));
         }
-        Cmp(c) if s1.imm() && !s2.imm() => {
-          return constrain(@BinaryOp(Cmp(c.rev()), d, s2, s1), push, cg);
-        }
-        _ => {
-          if s1.imm() && op.commutative() {
-            push(@Move(d, s2));
-            (d, s1)
-          } else if d != s2 {
-            push(@Move(d, s1));
-            (d, s2)
-          } else if op.commutative() {
-            push(@Move(d, s2));
-            (d, s1)
-          } else {
-            fail(~"you never thought this much, did you?");
-          }
-        }
-      };
-      let s = if (d.mem() && s.mem()) || d.size() != s.size() {
-        let tmp = @Temp(cg.temps.new(), s.size());
-        push(@Move(tmp, s));
-        tmp
-      } else {
-        s
-      };
-
-      push(@BinaryOp(op, d, d, s));
-    }*/
+        Cmp(c) =>
+          constrain_cmp(c, s1, s2, push, cg,
+                        |c, o1, o2| BinaryOp(Cmp(c), d, o1, o2)),
+        _ => return push(ins)
+      }
+    }
     _ => push(ins)
+  }
+}
+
+fn constrain_cmp(c : Cond, o1 : @Operand, o2 : @Operand,
+                 push : &pure fn(@Instruction), cg : &CodeGenerator,
+                 f : &fn(Cond, @Operand, @Operand) -> Instruction ) {
+  match (o1, o2) {
+    (@Immediate(*), @Immediate(*)) => {
+      let tmp = @Temp(cg.temps.new(), ir::Int);
+      push(@Move(tmp, o1));
+      push(@f(c, tmp, o2));
+    }
+    (@Immediate(*), _) => push(@f(c.flip(), o2, o1)),
+    _ => push(@f(c, o1, o2))
   }
 }
