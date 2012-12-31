@@ -3,7 +3,8 @@ RUSTC = rustc
 all: l4c
 
 l4c: parse/parser
-	$(RUSTC) l4c.rc
+	@mkdir -p bin
+	$(RUSTC) l4c.rc -o bin/l4c
 .PHONY: l4c
 
 clean: parseclean
