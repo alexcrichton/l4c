@@ -1,9 +1,10 @@
 use std::map;
 use middle::temp;
+use back::assem::*;
 use std::bitv::Bitv;
 
 struct Allocator {
-  f : &assem::Function,
+  f : &Function,
   colors : map::HashMap<temp::Temp, uint>,
 
   live_in : map::HashMap<graph::NodeId, @Bitv>,
@@ -13,7 +14,7 @@ struct Allocator {
   args : Bitv,
 }
 
-pub fn color(p : &assem::Program) {
+pub fn color(p : &Program) {
   for p.funs.each |f| {
     let a = Allocator{ colors: map::HashMap(),
                        f: f,
@@ -66,7 +67,7 @@ impl Allocator {
         last_uses.insert(tmp, i);
       }
       match ins {
-        @assem::Phi(_, _, map) => {
+        @Phi(_, _, map) => {
           for map.each |pred, tmp| {
             set::add(self.phi_uses[pred], tmp);
           }
