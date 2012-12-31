@@ -13,8 +13,17 @@ end
 structure Top :> TOP =
 struct
 
-  fun pp_json file = print (Ast.Print.pp_program (Parse.parse file))
+  fun pp_json [] = ()
+    | pp_json [a] =
+         (print ("\"" ^ a ^ "\":");
+          Ast.Print.pp_program (Parse.parse a))
+    | pp_json (a :: b :: L) =
+        (pp_json [a]; print ","; pp_json (b ::L))
 
-  fun main (name, args) = (map pp_json args; OS.Process.success)
+  fun main (name, args) = (
+    print "{";
+    pp_json args;
+    print "}";
+    OS.Process.success)
 
 end

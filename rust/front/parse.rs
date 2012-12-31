@@ -2,11 +2,12 @@ use std::json;
 use std::json::*;
 
 struct Parser {
-  syms : symbol::Symtab
+  priv mut file :  @~str,
+  syms : symbol::Symtab,
 }
 
 pub fn from_str(s : ~str) -> ast::Program {
-  let parser = Parser{syms: symbol::Symtab()};
+  let parser = Parser{syms: symbol::Symtab(), file: @~"" };
   match json::from_str(s) {
     result::Ok(j) => parser.parse(j),
     result::Err(e) => fail(fmt!("JSON parse error: %?", e.msg))
@@ -16,8 +17,21 @@ pub fn from_str(s : ~str) -> ast::Program {
 impl Parser {
   fn parse(j : Json) -> ast::Program {
     match j {
-      List(data) => ast::new(data.map(|x| self.to_gdecl(x))),
-      _          => fail(~"expected JSON list")
+      Object(ref data) => {
+        let decls = vec::build(|push|
+          for data.each |k, v| {
+            self.file = @(copy *k);
+            match *v {
+              List(ref data) => {
+                for data.each |j| { push(self.to_gdecl(j)); }
+              }
+              _ => fail(~"expected list")
+            }
+          }
+        );
+        return ast::new(decls);
+      }
+      _ => fail(~"expected object")
     }
   }
 
@@ -40,14 +54,10 @@ impl Parser {
   }
 
   fn to_mark<T>(o : &~Object, f : fn(j : &Json) -> @T) -> ~mark::Mark<T> {
-    let src   = match *o.get_ref(&~"f") {
-                  String(copy s) => s,
-                  _ => fail(~"expected string for file")
-                };
     let left  = self.to_coord(o.get_ref(&~"l"));
     let right = self.to_coord(o.get_ref(&~"r"));
     let data  = f(o.get_ref(&~"d"));
-    mark::make(data, @mark::Coords(left, right, src))
+    mark::make(data, @mark::Coords(left, right, self.file))
   }
 
   fn to_coord(j : &Json) -> (int, int) {

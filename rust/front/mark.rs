@@ -1,4 +1,4 @@
-pub struct Coords((int, int), (int, int), ~str);
+pub struct Coords((int, int), (int, int), @~str);
 pub struct Mark<T> {
   mut data : @T,
   pos : @Coords

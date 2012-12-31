@@ -24,8 +24,8 @@ impl List {
       for self.errs.each |&(c, s)| {
         match c {
           None => out.write_str(fmt!("error: %s\n", s)),
-          Some(@mark::Coords((l1, c1), (l2, c2), copy file)) =>
-            out.write_str(fmt!("%s:%d.%d-%d.%d:error: %s\n", file,
+          Some(@mark::Coords((l1, c1), (l2, c2), file)) =>
+            out.write_str(fmt!("%s:%d.%d-%d.%d:error: %s\n", *file,
                                l1, c1, l2, c2, s))
         }
       }

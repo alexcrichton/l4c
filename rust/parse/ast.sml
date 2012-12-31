@@ -59,8 +59,7 @@ sig
   (* print as source, with redundant parentheses *)
   structure Print :
   sig
-    val pp_typ : typ -> string
-    val pp_program : program -> string
+    val pp_program : program -> unit
   end
 
 end
@@ -171,7 +170,6 @@ struct
             of NONE => f (Mark.data m)
              | SOME (l, r, file) =>
                 pp_hash [("typ", "mark"), ("l", pp_pair l), ("r", pp_pair r),
-                         ("f", q ^ file ^ q),
                          ("d", f (Mark.data m))]
 
     fun pp_exp (Var id) =
@@ -260,6 +258,6 @@ struct
           pp_hash [("typ", "struct"), ("val", pp_ident s),
                    ("fields", pp_list (map pp_def F))]
 
-    fun pp_program prog = pp_list (map pp_adecl prog)
+    fun pp_program prog = print (pp_list (map pp_adecl prog))
   end
 end
