@@ -65,6 +65,13 @@ impl<N : Copy, E : Copy> Graph<N, E> {
     assert self.pred.remove(n);
   }
 
+  fn remove_edge(n1 : NodeId, n2 : NodeId) -> E {
+    let e = self.succ[n1][n2];
+    assert set::remove(self.pred[n2], n1);
+    assert self.succ[n1].remove(n2);
+    return e;
+  }
+
   fn add_edge(n1 : NodeId, n2 : NodeId, e : E) {
     self.succ[n1].insert(n2, e);
     set::add(self.pred[n2], n1);

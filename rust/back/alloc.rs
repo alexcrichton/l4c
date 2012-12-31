@@ -46,7 +46,11 @@ pub fn color(p : &Program) {
     }
     info!("coloring: %s", f.name);
     a.color(f.root);
+    for a.colors.each |tmp, color| {
+      debug!("%s => %?", tmp.to_str(), color);
+    }
 
+    a.remove_phis();
     a.apply_coloring();
   }
 }
@@ -163,6 +167,59 @@ impl Allocator {
       i += 1;
     }
     return i;
+  }
+
+  fn remove_phis() {
+    let mut new_blocks = ~[];
+    for self.f.cfg.each_node |id, ins| {
+      let mut phi_vars = ~[];
+      let mut phi_maps = ~[];
+      for ins.each |&ins| {
+        match ins {
+          @Phi(tmp, _, map) => {
+            phi_vars.push(self.colors[tmp]);
+            phi_maps.push(map);
+          }
+          _ => break
+        }
+      }
+
+      for self.f.cfg.each_pred(id) |pred| {
+        let mut perm = ~[];
+        for phi_maps.each |map| {
+          perm.push(self.colors[map[pred]]);
+        }
+        new_blocks.push((pred, id, self.resolve_perm(phi_vars, perm)));
+      }
+    }
+
+    for new_blocks.each |&(pred, id, ins)| {
+      if ins.len() == 0 { loop }
+      let e = self.f.cfg.remove_edge(pred, id);
+      let new = self.f.cfg.new_id();
+      self.f.cfg.add_node(new, ins);
+      self.f.cfg.add_edge(pred, new, e);
+      self.f.cfg.add_edge(new, id, ir::Always);
+    }
+  }
+
+  fn resolve_perm(result : &[uint], incoming : &[uint]) -> @~[@Instruction] {
+    let mut diff = ~[];
+    for vec::each2(result, incoming) |&a, &b| {
+      if a != b {
+        diff.push((a, b));
+      }
+    }
+    let tmp = |i : uint| @Register(arch::num_reg(i), ir::Pointer);
+
+    if diff.len() == 0 {
+      return @~[];
+    } else if diff.len() == 1 {
+      return @~[
+        @Move(tmp(diff[0].first()), tmp(diff[0].second()))
+      ];
+    }
+    fail(fmt!("%? %? %?", diff, result, incoming));
   }
 
   /**
