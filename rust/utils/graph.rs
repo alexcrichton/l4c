@@ -19,8 +19,14 @@ pub fn Graph<N : Copy, E : Copy>() -> Graph<N, E>{
 }
 
 impl<N : Copy, E : Copy> Graph<N, E> {
-  fn nodes() -> uint {
+  fn num_nodes() -> uint {
     self.nodes.size()
+  }
+  fn num_preds(n : NodeId) -> uint {
+    self.pred[n].size()
+  }
+  fn num_succ(n : NodeId) -> uint {
+    self.succ[n].size()
   }
 
   fn new_id() -> NodeId {

@@ -341,21 +341,28 @@ impl Converter {
    * functions in place
    */
   fn place_phis(n : graph::NodeId, temps : map::HashMap<Temp, Temp>) {
-    debug!("generating phis at %d", n as int);
+    debug!("generating %? phis at %?", temps.size(), n);
     let phis = vec::build_sized(temps.size(), |push|
       for temps.each |tmp_before, tmp_after| {
+        debug!("placing phi for %? at %?", tmp_before, n);
         let preds = map::HashMap();
         /* Our phi function operates on the last known ssa-temp for this node's
            non-ssa temp at each of our predecessors */
         for self.f.cfg.each_pred(n) |p| {
-          match self.versions.find(p) {
-            None => (),
-            Some(v) => { preds.insert(p, tmap::find(v, tmp_before).get()); }
+          match tmap::find(self.versions[p], tmp_before) {
+            Some(t) => { preds.insert(p, t); }
+            None => ()
           }
         }
-        /* The result of the phi node is the ssa-temp, not the non-ssa temp */
-        let size = self.defs[tmp_before].first();
-        push(@ir::Phi((tmp_after, size), preds));
+
+        /* If not all our predecessors had a version of tmp_before, then we
+           definitely don't need a phi node because this is just a node on the
+           dominance frontier that won't end up being needed anyway */
+        if preds.size() == self.f.cfg.num_preds(n) {
+          /* The result of the phi node is the ssa-temp, not the non-ssa temp */
+          let size = self.defs[tmp_before].first();
+          push(@ir::Phi((tmp_after, size), preds));
+        }
       }
     );
 
