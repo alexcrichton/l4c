@@ -343,7 +343,7 @@ impl Function {
 
       /* Each block has its own label (so it can be jumped to) */
       set::add(visited, block);
-      out.write_str(lbl(block) + ~":\n");
+      out.write_str(~"L" + lbl(block) + ~":\n");
 
       /* output the actual block */
       let instructions = self.cfg[block];
@@ -381,7 +381,7 @@ impl Function {
         Some((ir::Always, id)) if !set::contains(visited, id) =>
           { skipped.push(id); }
         /* Otherwise always branches or edges to visited blocks are jumps */
-        Some((_, id)) => { out.write_str(fmt!("  jmp %s\n", lbl(id))); }
+        Some((_, id)) => { out.write_str(fmt!("  jmp L%s\n", lbl(id))); }
 
         None => {
           match (tedge, fedge) {
@@ -401,7 +401,7 @@ impl Function {
                 (ir::True, _) => {
                   skipped.push(fid);
                   skipped.push(tid);
-                  out.write_str(fmt!("  j%s %s\n", cond.negate().suffix(),
+                  out.write_str(fmt!("  j%s L%s\n", cond.negate().suffix(),
                                      lbl(fid)));
                 }
 
@@ -410,7 +410,7 @@ impl Function {
                 (_, ir::False) => {
                   skipped.push(tid);
                   skipped.push(fid);
-                  out.write_str(fmt!("  j%s %s\n", cond.suffix(), lbl(fid)));
+                  out.write_str(fmt!("  j%s L%s\n", cond.suffix(), lbl(fid)));
                 }
 
                 _ => fail(~"invalidly specified edges")
