@@ -1,10 +1,11 @@
 RUSTC = rustc
 
 all: l4c
+l4c: bin/l4c
 
-l4c: parse/parser
+bin/l4c: parse/parser $(wildcard **/*.rs) l4c.rc
 	@mkdir -p bin
-	$(RUSTC) l4c.rc -o bin/l4c
+	$(RUSTC) l4c.rc -o $@
 .PHONY: l4c
 
 clean: parseclean
