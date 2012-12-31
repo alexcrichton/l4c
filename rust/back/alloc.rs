@@ -47,10 +47,7 @@ pub fn color(p : &Program) {
     info!("coloring: %s", f.name);
     a.color(f.root);
 
-    debug!("%s", f.name);
-    for a.colors.each |k, v| {
-      debug!("%? => %?", k, v);
-    }
+    a.apply_coloring();
   }
 }
 
@@ -166,5 +163,47 @@ impl Allocator {
       i += 1;
     }
     return i;
+  }
+
+  /**
+   * Apply the coloring previously generated to all instructions and operands in
+   * all basic blocks.
+   *
+   * This also converts all three-operand binary ops to two-operand binops
+   * because x86 is so awesome.
+   */
+  fn apply_coloring() {
+    for self.f.cfg.each_node |id, ins| {
+      let ins = vec::build(|push|
+        for ins.each |&ins| { self.alloc_ins(ins, push); }
+      );
+      self.f.cfg.update_node(id, @ins);
+    }
+  }
+
+  fn alloc_ins(i : @Instruction, push : &pure fn(@Instruction)) {
+    match i {
+      @Return | @Raw(*) | @Comment(*) | @Phi(*) => push(i),
+      @Condition(c, o1, o2) =>
+        push(@Condition(c, self.alloc_op(o1), self.alloc_op(o2))),
+      @Die(c, o1, o2) =>
+        push(@Die(c, self.alloc_op(o1), self.alloc_op(o2))),
+      @Move(o1, o2) => push(@Move(self.alloc_op(o1), self.alloc_op(o2))),
+      @BinaryOp(op, d, s1, s2) => {
+        let d = self.alloc_op(d);
+        push(@Move(d, self.alloc_op(s2)));
+        push(@BinaryOp(op, d, d, self.alloc_op(s1)));
+      }
+      @Call(e, n) => push(@Call(self.alloc_op(e), n))
+    }
+  }
+
+  fn alloc_op(o : @Operand) -> @Operand {
+    match o {
+      @Memory(@MOp(o), size) => @Memory(@MOp(self.alloc_op(o)), size),
+      @Immediate(*) | @LabelOp(*) | @Register(*) | @Memory(*) => o,
+      @Temp(tmp, size) =>
+        @Register(arch::num_reg(self.colors[tmp]), size)
+    }
   }
 }

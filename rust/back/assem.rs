@@ -182,7 +182,7 @@ impl Address : PrettyPrint {
 }
 
 impl Cond {
-  pure fn rev() -> Cond {
+  pure fn flip() -> Cond {
     match self {
       Lt  => Gt,
       Lte => Gte,

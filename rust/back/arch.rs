@@ -19,6 +19,25 @@ pub fn arg_reg(i : uint) -> Register {
   }
 }
 
+pub fn num_reg(i : uint) -> Register {
+  match i {
+     1 => R9D,
+     2 => R8D,
+     3 => ECX,
+     4 => EDX,
+     5 => ESI,
+     6 => EDI,
+     7 => EAX,
+     8 => EBX,
+     9 => R12D,
+    10 => R13D,
+    11 => R14D,
+    12 => R15D,
+    13 => EBP,
+    _ => fail(fmt!("%u is not a register", i))
+  }
+}
+
 pub fn constrain(ins : @Instruction,
                  push : &pure fn(@Instruction),
                  cg : &CodeGenerator) {
