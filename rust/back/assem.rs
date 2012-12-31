@@ -107,7 +107,7 @@ impl Instruction : PrettyPrint {
       Die(c, o1, o2) =>
         fmt!("die%s %s, %s", c.suffix(), o1.pp(), o2.pp()),
       Condition(c, o1, o2) =>
-        fmt!("cmp %s, %s // %s", o1.pp(), o2.pp(), c.suffix()),
+        fmt!("cmp %s, %s // %s", o2.pp(), o1.pp(), c.suffix()),
       Move(o1, o2) => ~"mov " + o2.pp() + ~", " + o1.pp(),
       BinaryOp(binop, dest, s1, s2) =>
         fmt!("%s %s, %s // %s = %s %s %s",
