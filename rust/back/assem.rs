@@ -329,6 +329,7 @@ impl Function {
   fn output(out : io::Writer) {
     let base = label::Internal(copy self.name).pp();
     /* entry label */
+    out.write_str(~".globl " + base + ~"\n");
     out.write_str(base + ~":\n");
     let lbl = |n : graph::NodeId| fmt!("%s_bb_%d", base, n as int);
 
