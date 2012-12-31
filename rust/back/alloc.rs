@@ -191,8 +191,16 @@ impl Allocator {
       @Move(o1, o2) => push(@Move(self.alloc_op(o1), self.alloc_op(o2))),
       @BinaryOp(op, d, s1, s2) => {
         let d = self.alloc_op(d);
-        push(@Move(d, self.alloc_op(s2)));
-        push(@BinaryOp(op, d, d, self.alloc_op(s1)));
+        let s1 = self.alloc_op(s1);
+        let s2 = self.alloc_op(s2);
+
+        if s2 == d {
+          push(@BinaryOp(op, d, s1, s2));
+        } else if s1 == d && op.commutative() {
+          push(@BinaryOp(op, d, s2, s1));
+        } else {
+          fail(fmt!("%? %? %? %?", op, d, s1, s2));
+        }
       }
       @Call(e, n) => push(@Call(self.alloc_op(e), n))
     }
