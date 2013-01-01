@@ -151,7 +151,8 @@ impl Operand {
   pure fn size() -> Size {
     match self {
       Immediate(_, s) | Register(_, s) | Memory(_, s) => s,
-      LabelOp(*) | Temp(*) => ir::Pointer,
+      LabelOp(*) => ir::Pointer,
+      Temp(*) => ir::Int
     }
   }
 }
