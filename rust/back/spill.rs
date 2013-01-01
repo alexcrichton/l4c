@@ -29,8 +29,13 @@ pub fn spill(p : &Program) {
 
     /* Initialize state, prepare the graph */
     s.eliminate_critical();
-    for f.postorder.each |&id| {
-      s.process(id);
+    /* Prepare the graph and build all next_use information */
+    let mut changed = true;
+    while changed {
+      changed = false;
+      for f.postorder.each |&id| {
+        changed = s.process(id) || changed;
+      }
     }
 
     /* In reverse postorder, spill everything! */
@@ -83,7 +88,7 @@ impl Spiller {
     let bottom = map::HashMap();
     let block = self.f.cfg[n];
     for self.f.cfg.each_succ(n) |pred| {
-      assert self.next_use.contains_key(pred);
+      if !self.next_use.contains_key(pred) { loop }
       /* TODO: if this is a loop-out edge, then have a higher merge weight */
       /* Assume that all variables aren't used in this block and add block.len()
          to the value being merged. This will be updated if the value is
@@ -115,8 +120,25 @@ impl Spiller {
       deltas.push(delta);
     }
 
+    match self.next_use.find(n) {
+      Some(before) => {
+        let mut diff = false;
+        for bottom.each |k, v| {
+          match before.find(k) {
+            Some(v2) => { diff = v2 != v; }
+            None     => { diff = true; }
+          }
+          if diff { break }
+        }
+        if !diff {
+          return false;
+        }
+      }
+      None => ()
+    }
     self.next_use.insert(n, bottom);
     self.deltas.insert(n, @deltas);
+    return true;
   }
 
   fn merge(a : NextUse, b : NextUse, edge : uint) {
