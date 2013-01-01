@@ -33,7 +33,10 @@ fn translate(f : &ir::Function) -> assem::Function {
       }),
     |&edge| edge
   );
-  debug!("codegen of %s done", f.name);
+  info!("codegen of %s done", f.name);
+  for f.types.each |k, v| {
+    debug!("%? sized %?", k, v);
+  }
   assem::Function { name: copy f.name,
                     cfg: cfg,
                     root: f.root,
