@@ -6,6 +6,7 @@ type Builder = fn(@assem::Instruction);
 
 pub struct CodeGenerator {
   temps : temp::Allocator,
+  sizes : map::HashMap<temp::Temp, assem::Size>,
   priv tmap : map::HashMap<temp::Temp, temp::Temp>,
 }
 
@@ -15,7 +16,9 @@ pub fn codegen(p : &ir::Program) -> assem::Program {
 
 fn translate(f : &ir::Function) -> assem::Function {
   info!("codegen of %s", f.name);
-  let cg = CodeGenerator { temps: temp::new(), tmap: map::HashMap() };
+  let cg = CodeGenerator { temps: temp::new(),
+                           tmap: map::HashMap(),
+                           sizes: map::HashMap() };
   let cfg = f.cfg.map(
     |stms|
       @vec::build(|push|
@@ -31,6 +34,7 @@ fn translate(f : &ir::Function) -> assem::Function {
                     idominated: f.idominated,
                     postorder:  f.postorder,
                     temps: cg.temps.cnt(),
+                    sizes: cg.sizes,
                     args:  f.args.map(|&tmp| cg.tmap[tmp]) }
 }
 
@@ -66,11 +70,11 @@ impl CodeGenerator {
 
   fn half(e : @ir::Expression, push : Builder) -> @assem::Operand {
     match e {
-      @ir::Temp((t, size)) => @assem::Temp(self.tmp(t), size),
+      @ir::Temp((t, size)) => @assem::Temp(self.tmp(t, size)),
       @ir::Const(c, size) => @assem::Immediate(c, size),
       @ir::LabelExp(copy l) => @assem::LabelOp(l),
       @ir::BinaryOp(op, e1, e2) => {
-        let out = @assem::Temp(self.temps.new(), e.size());
+        let out = self.tmpnew(e.size());
         push(@assem::BinaryOp(self.op(op), out, self.half(e1, push),
                               self.half(e2, push)));
         return out;
@@ -87,7 +91,7 @@ impl CodeGenerator {
           };
           push(@assem::Move(dst, arg));
         }
-        let ret = @assem::Temp(self.temps.new(), typ);
+        let ret = self.tmpnew(typ);
         push(@assem::Call(fun, args.len()));
         push(@assem::Move(ret, @assem::Register(arch::ret_reg, typ)));
         return ret;
@@ -100,21 +104,23 @@ impl CodeGenerator {
       @ir::Phi((tmp, size), map) => {
         let map2 = map::HashMap();
         for map.each |k, v| {
-          map2.insert(k, self.tmp(v));
+          let mapping = self.tmap.find(v);
+          assert(mapping.is_some());
+          map2.insert(k, mapping.get());
         }
-        push(@assem::Phi(self.tmp(tmp), size, map2));
+        push(@assem::Phi(self.tmp(tmp, size), map2));
       }
       @ir::Move((tmp, typ), @ir::BinaryOp(op, e1, e2)) =>
         push(@assem::BinaryOp(self.op(op),
-                              @assem::Temp(self.tmp(tmp), typ),
+                              @assem::Temp(self.tmp(tmp, typ)),
                               self.half(e1, push),
                               self.half(e2, push))),
       @ir::Move((tmp, typ), e) =>
-        push(@assem::Move(@assem::Temp(self.tmp(tmp), typ),
+        push(@assem::Move(@assem::Temp(self.tmp(tmp, typ)),
                           self.half(e, push))),
       @ir::Load((tmp, typ), e) => {
         let addr = @assem::MOp(self.half(e, push));
-        push(@assem::Move(@assem::Temp(self.tmp(tmp), typ),
+        push(@assem::Move(@assem::Temp(self.tmp(tmp, typ)),
                           @assem::Memory(addr, typ)));
       }
       @ir::Store(e1, typ, e2) => {
@@ -140,14 +146,21 @@ impl CodeGenerator {
     }
   }
 
-  fn tmp(t : temp::Temp) -> temp::Temp {
+  fn tmp(t : temp::Temp, s : ir::Type) -> temp::Temp {
     match self.tmap.find(t) {
       Some(t) => t,
       None => {
         let ret = self.temps.new();
         self.tmap.insert(t, ret);
+        self.sizes.insert(ret, s);
         return ret;
       }
     }
+  }
+
+  fn tmpnew(s : ir::Type) -> @assem::Operand {
+    let tmp = self.temps.new();
+    self.sizes.insert(tmp, s);
+    @assem::Temp(tmp)
   }
 }

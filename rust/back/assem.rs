@@ -17,6 +17,7 @@ pub struct Function {
   root : graph::NodeId,
   cfg : graph::Graph<@~[@Instruction], Edge>,
   args : ~[temp::Temp],
+  sizes : map::HashMap<temp::Temp, Size>,
   mut temps : uint,
 
   idoms : map::HashMap<graph::NodeId, graph::NodeId>,
@@ -33,13 +34,13 @@ pub enum Instruction {
   Call(@Operand, uint),
   Raw(~str),
   Comment(~str),
-  Phi(temp::Temp, Size, map::HashMap<graph::NodeId, temp::Temp>)
+  Phi(temp::Temp, map::HashMap<graph::NodeId, temp::Temp>),
 }
 
 pub enum Operand {
   Immediate(i32, Size),
   Register(Register, Size),
-  Temp(temp::Temp, Size),
+  Temp(temp::Temp),
   Memory(@Address, Size),
   LabelOp(Label)
 }
@@ -67,8 +68,7 @@ pub enum Register {
 impl Instruction {
   fn each_def(f : &fn(temp::Temp) -> bool) {
     match self {
-      BinaryOp(_, @Temp(t, _), _, _) | Move(@Temp(t, _), _) | Phi(t, _, _) =>
-        { f(t); }
+      BinaryOp(_, @Temp(t), _, _) | Move(@Temp(t), _) | Phi(t, _) => { f(t); }
       _ => ()
     }
   }
@@ -82,18 +82,18 @@ impl Instruction {
         o1.each_temp(f);
         o2.each_temp(f);
         match dest {
-          @Temp(_, _) => (),
+          @Temp(*) => (),
           o => o.each_temp(f)
         }
       }
       Move(dest, src) => {
         src.each_temp(f);
         match dest {
-          @Temp(_, _) => (),
+          @Temp(*) => (),
           o => o.each_temp(f)
         }
       }
-      Phi(_, _, _) | Raw(_) | Comment(_) | Return => ()
+      Phi(*) | Raw(*) | Comment(*) | Return => ()
     }
   }
 }
@@ -120,7 +120,7 @@ impl Instruction : PrettyPrint {
              binop.pp(), s1.pp(), dest.pp(), s2.pp()),
       Call(@LabelOp(ref l), _) => fmt!("call %s", l.pp()),
       Call(e, _) => fmt!("call *%s", e.pp()),
-      Phi(tmp, _, map) => {
+      Phi(tmp, map) => {
         let mut s = ~"//" + tmp.pp() + ~" <- phi(";
         for map.each |id, tmp| {
           s += fmt!("[ %s - n%d ] ", tmp.pp(), id as int);
@@ -134,7 +134,7 @@ impl Instruction : PrettyPrint {
 impl Operand {
   fn each_temp(f : &fn(temp::Temp) -> bool) {
     match self {
-      Temp(t, _) => { f(t); }
+      Temp(t) => { f(t); }
       Memory(@MOp(o), _) => { o.each_temp(f); }
       _ => ()
     }
@@ -145,8 +145,9 @@ impl Operand {
 
   pure fn size() -> Size {
     match self {
-      Immediate(_, s) | Register(_, s) | Temp(_, s) | Memory(_, s) => s,
-      LabelOp(_) => ir::Pointer
+      Immediate(_, s) | Register(_, s) | Memory(_, s) => s,
+      LabelOp(*) => ir::Pointer,
+      Temp(*) => fail(~"size of temp")
     }
   }
 }
@@ -156,7 +157,7 @@ impl Operand : PrettyPrint {
     match self {
       Immediate(c, _) => fmt!("$%d", c as int),
       Register(reg, s) => reg.size(s),
-      Temp(t, _) => t.pp(),
+      Temp(t) => t.pp(),
       Memory(o, _) => o.pp(),
       LabelOp(ref l) => l.pp()
     }
@@ -167,7 +168,7 @@ impl Operand : cmp::Eq {
   pure fn eq(&self, other : &Operand) -> bool {
     match (*self, *other) {
       (Register(a, _), Register(b, _)) => a == b,
-      (Temp(a, _), Temp(b, _)) => a == b,
+      (Temp(a), Temp(b)) => a == b,
       _ => false
     }
   }

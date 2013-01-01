@@ -94,7 +94,7 @@ impl Allocator {
         last_uses.insert(tmp, i);
       }
       match ins {
-        @Phi(_, _, map) => {
+        @Phi(_, map) => {
           for map.each |pred, tmp| {
             set::add(self.phi_uses[pred], tmp);
           }
@@ -202,7 +202,7 @@ impl Allocator {
       let mut phi_maps = ~[];
       for ins.each |&ins| {
         match ins {
-          @Phi(tmp, _, map) => {
+          @Phi(tmp, map) => {
             phi_vars.push(self.colors[tmp]);
             phi_maps.push(map);
           }
@@ -295,8 +295,9 @@ impl Allocator {
     match o {
       @Memory(@MOp(o), size) => @Memory(@MOp(self.alloc_op(o)), size),
       @Immediate(*) | @LabelOp(*) | @Register(*) | @Memory(*) => o,
-      @Temp(tmp, size) =>
-        @Register(arch::num_reg(self.colors[tmp]), size)
+      @Temp(tmp) =>
+        @Register(arch::num_reg(self.colors[tmp]),
+                  self.f.sizes[tmp])
     }
   }
 }

@@ -48,7 +48,7 @@ pub fn constrain(ins : @Instruction,
     @BinaryOp(op, d, s1, s2) => {
       match op {
         Mul | Cmp(_) if d.mem() => {
-          let tmp = @Temp(cg.temps.new(), ir::Int);
+          let tmp = cg.tmpnew(ir::Int);
           constrain(@BinaryOp(op, tmp, s1, s2), push, cg);
           return push(@Move(d, tmp));
         }
@@ -67,7 +67,7 @@ fn constrain_cmp(c : Cond, o1 : @Operand, o2 : @Operand,
                  f : &fn(Cond, @Operand, @Operand) -> Instruction ) {
   match (o1, o2) {
     (@Immediate(*), @Immediate(*)) => {
-      let tmp = @Temp(cg.temps.new(), ir::Int);
+      let tmp = cg.tmpnew(ir::Int);
       push(@Move(tmp, o1));
       push(@f(c, tmp, o2));
     }
