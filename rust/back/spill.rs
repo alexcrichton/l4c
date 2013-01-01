@@ -15,6 +15,9 @@ struct Spiller {
   regs_end : map::HashMap<NodeId, TempSet>,
   spill_entry : map::HashMap<NodeId, TempSet>,
   spill_exit : map::HashMap<NodeId, TempSet>,
+
+  renamings : map::HashMap<(NodeId, NodeId), map::HashMap<Temp, Temp>>,
+  phis : map::HashMap<NodeId, map::HashMap<Temp, map::HashMap<NodeId, Temp>>>,
 }
 
 pub fn spill(p : &Program) {
@@ -25,10 +28,16 @@ pub fn spill(p : &Program) {
                      regs_end: map::HashMap(),
                      regs_entry: map::HashMap(),
                      spill_entry: map::HashMap(),
-                     spill_exit: map::HashMap() };
+                     spill_exit: map::HashMap(),
+                     renamings: map::HashMap(),
+                     phis: map::HashMap() };
 
-    /* Initialize state, prepare the graph */
+    /* Build up phi renaming maps */
     s.eliminate_critical();
+    for f.cfg.each_node |n, _| {
+      s.build_renamings(n);
+    }
+
     /* Prepare the graph and build all next_use information */
     let mut changed = true;
     while changed {
@@ -74,6 +83,25 @@ fn set_to_str(m : TempSet) -> ~str {
 }
 
 impl Spiller {
+  fn build_renamings(n : NodeId) {
+    for self.f.cfg.each_pred(n) |pred| {
+      self.renamings.insert((pred, n), map::HashMap());
+    }
+    let phis = map::HashMap();
+    self.phis.insert(n, phis);
+    for self.f.cfg[n].each |&ins| {
+      match ins {
+        @Phi(my_name, renamings) => {
+          for renamings.each |pred, their_name| {
+            self.renamings[(pred, n)].insert(their_name, my_name);
+          }
+          phis.insert(my_name, renamings);
+        }
+        _ => ()
+      }
+    }
+  }
+
   /**
    * Eliminate all critical edges in the graph by splitting them and placing a
    * basic block on the edge. The fact that there are no critical edges in the
@@ -256,7 +284,11 @@ impl Spiller {
     let cand = map::HashMap();
     for self.f.cfg.each_pred(n) |pred| {
       for set::each(self.regs_end[pred]) |tmp| {
-        freq.insert(tmp, freq.find(tmp).get_default(0) + 1);
+        /* tmp from pred may be known by a different name in this block if there
+           is a phi node for this temp */
+        let tmp2 = self.my_name(tmp, pred, n);
+        debug!("%? => %?", tmp, tmp2);
+        freq.insert(tmp2, freq.find(tmp2).get_default(0) + 1);
       }
     }
     let preds = self.f.cfg.num_pred(n);
@@ -280,32 +312,52 @@ impl Spiller {
   fn connect_pred(n : NodeId, entry : TempSet) -> TempSet {
     debug!("connecting preds: %?", n);
     /* Build up our list of required spilled registers */
-    let entry = self.regs_entry[n];
-    let spill_entry = map::HashMap();
+    let spill = map::HashMap();
     for self.f.cfg.each_pred(n) |pred| {
       assert(self.spill_exit.contains_key(pred));
-      set::union(spill_entry, self.spill_exit[pred]);
+      /* Be sure we're using the right name for each temp spilled on the exit of
+         our predecessors because we may be renaming it with a phi node */
+      for set::each(self.spill_exit[pred]) |tmp| {
+        set::add(spill, self.my_name(tmp, pred, n));
+      }
     }
-    set::intersect(spill_entry, entry);
+    set::intersect(spill, entry);
     debug!("node %? entry regs:%s spill:%s", n,
-           set_to_str(entry), set_to_str(spill_entry));
+           set_to_str(entry), set_to_str(spill));
 
     /* Now modify all predecessors to get to our state */
     for self.f.cfg.each_pred(n) |pred| {
       let mut append = ~[];
-      let exit = self.regs_end[pred];
-      for set::each(spill_entry) |tmp| {
-        if !exit.contains_key(tmp) && exit.contains_key(tmp) {
-          append.push(@Spill(tmp));
+      let regs_exit = self.regs_end[pred];
+      let spill_exit = self.spill_exit[pred];
+      for set::each(spill) |tmp| {
+        let theirs = self.their_name(tmp, pred, n);
+        if !spill_exit.contains_key(theirs) && regs_exit.contains_key(theirs) {
+          append.push(@Spill(theirs));
         }
       }
       for set::each(entry) |tmp| {
-        if !exit.contains_key(tmp) {
-          append.push(@Reload(tmp));
+        let theirs = self.their_name(tmp, pred, n);
+        if !regs_exit.contains_key(theirs) {
+          append.push(@Reload(theirs));
         }
       }
-      self.f.cfg.update_node(pred, @(*self.f.cfg[pred] + append));
+      if append.len() > 0 {
+        debug!("appending to %? : %?", pred, append);
+        self.f.cfg.update_node(pred, @(*self.f.cfg[pred] + append));
+      }
     }
-    return spill_entry;
+    return spill;
+  }
+
+  fn my_name(tmp : Temp, from : NodeId, to : NodeId) -> Temp {
+    self.renamings[(from, to)].find(tmp).get_default(tmp)
+  }
+
+  fn their_name(tmp : Temp, from : NodeId, to : NodeId) -> Temp {
+    match self.phis[to].find(tmp) {
+      Some(map) => map[from],
+      None => tmp
+    }
   }
 }
