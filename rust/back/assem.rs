@@ -84,8 +84,13 @@ impl Instruction {
     match self {
       Condition(_, @Temp(t1), @Temp(t2)) |
       Die(_, @Temp(t1), @Temp(t2)) |
-      BinaryOp(_, _, @Temp(t1), @Temp(t2)) => { if f(t1) { f(t2); } }
+      Store(@MOp(@Temp(t1)), @Temp(t2)) |
+      BinaryOp(_, _, @Temp(t1), @Temp(t2))
+        => { if f(t1) { f(t2); } }
 
+      Load(_, @MOp(@Temp(t))) |
+      Store(@MOp(@Temp(t)), _) |
+      Store(_, @Temp(t)) |
       Condition(_, @Temp(t), _) |
       Condition(_, _, @Temp(t)) |
       Die(_, @Temp(t), _) |
