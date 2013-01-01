@@ -25,7 +25,8 @@ struct Spiller {
      name t2 in node n */
   phis : map::HashMap<NodeId, map::HashMap<Temp, map::HashMap<NodeId, Temp>>>,
 
-  max_pressures: map::HashMap<NodeId, uint>,
+  max_pressures : map::HashMap<NodeId, uint>,
+  connected : map::Set<(NodeId, NodeId)>,
 }
 
 pub fn spill(p : &Program) {
@@ -39,7 +40,8 @@ pub fn spill(p : &Program) {
                      spill_exit: map::HashMap(),
                      renamings: map::HashMap(),
                      phis: map::HashMap(),
-                     max_pressures: map::HashMap() };
+                     max_pressures: map::HashMap(),
+                     connected: map::HashMap() };
 
     /* Build up phi renaming maps */
     s.eliminate_critical();
@@ -137,6 +139,7 @@ impl Spiller {
       }
     }
     for critical.each |&(n1, n2)| {
+      debug!("splitting critical edge %? %?", n1, n2);
       let edge = cfg.remove_edge(n1, n2);
       let new = cfg.new_id();
       cfg.add_node(new, @~[]);
@@ -246,6 +249,10 @@ impl Spiller {
     let spill_entry = self.connect_pred(n, regs_entry);
     self.regs_entry.insert(n, regs_entry);
     self.spill_entry.insert(n, spill_entry);
+    /* connect what we can, may not succeed */
+    for self.f.cfg.each_pred(n) |pred| {
+      self.connect_edge(pred, n);
+    }
 
     /* Set up the maps which will become {regs,spill}_exit */
     let regs = map::HashMap();
@@ -319,6 +326,13 @@ impl Spiller {
     self.spill_exit.insert(n, spill);
     debug!("node %? exit regs:%s spill:%s", n,
            set_to_str(regs), set_to_str(spill));
+
+    /* connect any lingering edges which weren't covered beforehand */
+    for self.f.cfg.each_succ(n) |succ| {
+      if self.spill_entry.contains_key(succ) {
+        self.connect_edge(n, succ);
+      }
+    }
   }
 
   fn init_usual(n : NodeId) -> TempSet {
@@ -327,13 +341,13 @@ impl Spiller {
     let take = map::HashMap();
     let cand = map::HashMap();
     for self.f.cfg.each_pred(n) |pred| {
+      debug!("%?", pred);
       assert(self.regs_end.contains_key(pred));
       for set::each(self.regs_end[pred]) |tmp| {
         /* tmp from pred may be known by a different name in this block if there
            is a phi node for this temp */
-        let tmp2 = self.my_name(tmp, pred, n);
-        debug!("%? => %?", tmp, tmp2);
-        freq.insert(tmp2, freq.find(tmp2).get_default(0) + 1);
+        let tmp = self.my_name(tmp, pred, n);
+        freq.insert(tmp, freq.find(tmp).get_default(0) + 1);
       }
     }
     let preds = self.f.cfg.num_pred(n);
@@ -362,7 +376,6 @@ impl Spiller {
        body of the loop would be less than loop_out_weight */
     for self.next_use[body].each |tmp, n| {
       if n < loop_out_weight {
-        assert(self.next_use[n].contains_key(tmp));
         set::add(cand, tmp);
       }
     }
@@ -411,7 +424,7 @@ impl Spiller {
     /* Build up our list of required spilled registers */
     let spill = map::HashMap();
     for self.f.cfg.each_pred(n) |pred| {
-      assert(self.spill_exit.contains_key(pred));
+      if !self.spill_exit.contains_key(pred) { loop }
       /* Be sure we're using the right name for each temp spilled on the exit of
          our predecessors because we may be renaming it with a phi node */
       for set::each(self.spill_exit[pred]) |tmp| {
@@ -421,30 +434,36 @@ impl Spiller {
     set::intersect(spill, entry);
     debug!("node %? entry regs:%s spill:%s", n,
            set_to_str(entry), set_to_str(spill));
+    return spill;
+  }
 
-    /* Now modify all predecessors to get to our state */
-    for self.f.cfg.each_pred(n) |pred| {
-      let mut append = ~[];
-      let regs_exit = self.regs_end[pred];
-      let spill_exit = self.spill_exit[pred];
-      for set::each(spill) |tmp| {
-        let theirs = self.their_name(tmp, pred, n);
-        if !spill_exit.contains_key(theirs) && regs_exit.contains_key(theirs) {
-          append.push(@Spill(theirs));
-        }
-      }
-      for set::each(entry) |tmp| {
-        let theirs = self.their_name(tmp, pred, n);
-        if !regs_exit.contains_key(theirs) {
-          append.push(@Reload(theirs));
-        }
-      }
-      if append.len() > 0 {
-        debug!("appending to %? : %?", pred, append);
-        self.f.cfg.update_node(pred, @(*self.f.cfg[pred] + append));
+  fn connect_edge(pred : NodeId, succ : NodeId) {
+    if set::contains(self.connected, (pred, succ)) { return }
+    if !self.spill_exit.contains_key(pred) { return }
+    set::add(self.connected, (pred, succ));
+    let succ_spill = self.spill_entry[succ];
+    let succ_regs = self.regs_entry[succ];
+
+    let mut append = ~[];
+    let pred_regs_exit = self.regs_end[pred];
+    let pred_spill_exit = self.spill_exit[pred];
+    for set::each(succ_spill) |tmp| {
+      let theirs = self.their_name(tmp, pred, succ);
+      if !pred_spill_exit.contains_key(theirs) &&
+          pred_regs_exit.contains_key(theirs) {
+        append.push(@Spill(theirs));
       }
     }
-    return spill;
+    for set::each(succ_regs) |tmp| {
+      let theirs = self.their_name(tmp, pred, succ);
+      if !pred_regs_exit.contains_key(theirs) {
+        append.push(@Reload(theirs));
+      }
+    }
+    if append.len() > 0 {
+      debug!("appending to %? : %?", pred, append);
+      self.f.cfg.update_node(pred, @(*self.f.cfg[pred] + append));
+    }
   }
 
   fn my_name(tmp : Temp, from : NodeId, to : NodeId) -> Temp {
