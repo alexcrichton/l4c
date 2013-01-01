@@ -153,6 +153,7 @@ impl Spiller {
       None => ()
     }
     self.next_use.insert(n, bottom);
+    vec::reverse(deltas);
     self.deltas.insert(n, @deltas);
     return true;
   }
