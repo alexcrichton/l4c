@@ -48,11 +48,6 @@ pub fn constrain(ins : @Instruction,
     @Die(c, o1, o2) => constrain_cmp(c, o1, o2, push, cg, Die),
     @BinaryOp(op, d, s1, s2) => {
       match op {
-        Mul | Cmp(_) if d.mem() => {
-          let tmp = cg.tmpnew(ir::Int);
-          constrain(@BinaryOp(op, tmp, s1, s2), push, cg);
-          return push(@Move(d, tmp));
-        }
         Cmp(c) =>
           constrain_cmp(c, s1, s2, push, cg,
                         |c, o1, o2| BinaryOp(Cmp(c), d, o1, o2)),

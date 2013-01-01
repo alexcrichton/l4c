@@ -18,6 +18,10 @@ impl Allocator {
   fn cnt() -> uint {
     self.next
   }
+
+  fn reset() {
+    self.next = 0;
+  }
 }
 
 impl Temp : PrettyPrint {

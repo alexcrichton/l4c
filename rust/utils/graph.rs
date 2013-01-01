@@ -125,12 +125,12 @@ impl<N : Copy, E : Copy> Graph<N, E> {
     return ret;
   }
 
-  fn map<N2 : Copy, E2 : Copy>(n : &fn(&N) -> N2,
+  fn map<N2 : Copy, E2 : Copy>(n : &fn(NodeId, &N) -> N2,
                                e : &fn(&E) -> E2) -> Graph<N2, E2> {
     let g2 = Graph();
     g2.next = self.next;
     for self.nodes.each_ref |&k, v| {
-      g2.nodes.insert(k, n(v));
+      g2.nodes.insert(k, n(k, v));
     }
     for self.pred.each |k, v| {
       g2.pred.insert(k, self.dup(v, |&x| x));

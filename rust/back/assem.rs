@@ -28,6 +28,8 @@ pub struct Function {
 pub enum Instruction {
   BinaryOp(Binop, @Operand, @Operand, @Operand),
   Move(@Operand, @Operand),
+  Load(@Operand, @Address),
+  Store(@Address, @Operand),
   Condition(Cond, @Operand, @Operand),
   Die(Cond, @Operand, @Operand),
   Return,
@@ -43,14 +45,13 @@ pub enum Operand {
   Immediate(i32, Size),
   Register(Register, Size),
   Temp(temp::Temp),
-  Memory(@Address, Size),
   LabelOp(Label)
 }
 
 pub enum Address {
   MOp(@Operand),
   Stack(uint),
-  StackArg(int),
+  StackArg(uint),
   StackLoc(int),
 }
 
@@ -77,26 +78,22 @@ impl Instruction {
 
   fn each_use(f : &fn(temp::Temp) -> bool) {
     match self {
-      Call(o, _) => o.each_temp(f),
-      Condition(_, o1, o2) | Die(_, o1, o2) =>
-        { o1.each_temp(f); o2.each_temp(f); }
-      BinaryOp(_, dest, o1, o2) => {
-        o1.each_temp(f);
-        o2.each_temp(f);
-        match dest {
-          @Temp(*) => (),
-          o => o.each_temp(f)
-        }
-      }
-      Move(dest, src) => {
-        src.each_temp(f);
-        match dest {
-          @Temp(*) => (),
-          o => o.each_temp(f)
-        }
-      }
-      Spill(t) => { f(t); }
-      Phi(*) | Reload(*) | Raw(*) | Comment(*) | Return => ()
+      Condition(_, @Temp(t1), @Temp(t2)) |
+      Die(_, @Temp(t1), @Temp(t2)) |
+      BinaryOp(_, _, @Temp(t1), @Temp(t2)) => { if f(t1) { f(t2); } }
+
+      Condition(_, @Temp(t), _) |
+      Condition(_, _, @Temp(t)) |
+      Die(_, @Temp(t), _) |
+      Die(_, _, @Temp(t)) |
+      BinaryOp(_, _, @Temp(t), _) |
+      BinaryOp(_, _, _, @Temp(t)) |
+      Call(@Temp(t), _) |
+      Move(_, @Temp(t)) |
+      Spill(t)
+        => { f(t); }
+
+      _ => ()
     }
   }
 }
@@ -112,6 +109,10 @@ impl Instruction : PrettyPrint {
              c.suffix(), label::prefix()),
       Condition(c, o1, o2) =>
         fmt!("cmp %s, %s // %s", o2.pp(), o1.pp(), c.suffix()),
+      Load(dst, addr) =>
+        fmt!("mov (%s), %s", addr.pp(), dst.pp()),
+      Store(addr, src) =>
+        fmt!("mov %s, (%s)", src.pp(), addr.pp()),
       Move(o1, o2) =>
         if o1.size() != o2.size() && !o2.imm() {
           ~"movslq " + o2.pp() + ~", " + o1.pp()
@@ -137,20 +138,11 @@ impl Instruction : PrettyPrint {
 }
 
 impl Operand {
-  fn each_temp(f : &fn(temp::Temp) -> bool) {
-    match self {
-      Temp(t) => { f(t); }
-      Memory(@MOp(o), _) => { o.each_temp(f); }
-      _ => ()
-    }
-  }
-
   pure fn imm() -> bool { match self { Immediate(*) => true, _ => false } }
-  pure fn mem() -> bool { match self { Memory(*) => true, _ => false } }
 
   pure fn size() -> Size {
     match self {
-      Immediate(_, s) | Register(_, s) | Memory(_, s) => s,
+      Immediate(_, s) | Register(_, s) => s,
       LabelOp(*) => ir::Pointer,
       Temp(*) => ir::Int
     }
@@ -163,7 +155,6 @@ impl Operand : PrettyPrint {
       Immediate(c, _) => fmt!("$%d", c as int),
       Register(reg, s) => reg.size(s),
       Temp(t) => t.pp(),
-      Memory(o, _) => o.pp(),
       LabelOp(ref l) => l.pp()
     }
   }
@@ -185,9 +176,9 @@ impl Address : PrettyPrint {
   pure fn pp() -> ~str {
     match self {
       MOp(o) => ~"(" + o.pp() + ~")",
-      Stack(i) => fmt!("%%rsp(%u)", i),
-      StackArg(i) => fmt!("arg[%d]", i),
-      StackLoc(i) => fmt!("stack[%d]", i)
+      Stack(i) => fmt!("%%rsp(%?)", i),
+      StackArg(i) => fmt!("arg[%?]", i),
+      StackLoc(i) => fmt!("stack[%?]", i)
     }
   }
 }

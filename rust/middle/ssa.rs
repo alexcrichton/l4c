@@ -9,7 +9,7 @@ struct Converter {
   f : &ir::Function,
 
   /* Mapping of temps to the set of nodes that the temp is defined in */
-  defs : map::HashMap<Temp, (ir::Type, graph::NodeSet)>,
+  defs : map::HashMap<Temp, graph::NodeSet>,
   /* Mapping of a node id to the temps which need phis at that node */
   phis : map::HashMap<graph::NodeId, map::Set<Temp>>,
   /* Once a phi is at a node, contains mappings of old temp => new temp */
@@ -84,13 +84,16 @@ impl Converter {
   fn find_defs() {
     for self.f.cfg.each_node |id, stms| {
       for stms.each |&s| {
-        for s.each_def |tmp, size| {
+        for s.each_def |tmp| {
           let table = match self.defs.find(tmp) {
-            Some((_, t)) => t,
-            None => map::HashMap()
+            Some(t) => t,
+            None => {
+              let t = map::HashMap();
+              self.defs.insert(tmp, t);
+              t
+            }
           };
           set::add(table, id);
-          self.defs.insert(tmp, (size, table));
         }
       }
     }
@@ -105,7 +108,7 @@ impl Converter {
 
     let frontiers = self.dom_frontiers();
 
-    for self.defs.each |tmp, (_, defs)| {
+    for self.defs.each |tmp, defs| {
       debug!("idf for tmp: %s", tmp.pp());
       let locs = self.idf(frontiers, defs);
       for set::each(locs) |n| {
@@ -287,19 +290,23 @@ impl Converter {
     debug!("mapping statements at %d", n as int);
     let stms = self.f.cfg[n].map(|&s|
       match s {
-        @ir::Move((tmp, size), e) => {
+        @ir::Move(tmp, e) => {
           let e = self.exp_phi(map, e);
-          @ir::Move((self.bump(&mut map, tmp), size), e)
+          @ir::Move(self.bump(&mut map, tmp), e)
         }
-        @ir::Load((tmp, size), e) => {
+        @ir::Load(tmp, e) => {
           let e = self.exp_phi(map, e);
-          @ir::Load((self.bump(&mut map, tmp), size), e)
+          @ir::Load(self.bump(&mut map, tmp), e)
         }
-        @ir::Store(e1, typ, e2) =>
-          @ir::Store(self.exp_phi(map, e1), typ, self.exp_phi(map, e2)),
+        @ir::Store(e1, e2) =>
+          @ir::Store(self.exp_phi(map, e1), self.exp_phi(map, e2)),
         @ir::Condition(e) => @ir::Condition(self.exp_phi(map, e)),
         @ir::Return(e) => @ir::Return(self.exp_phi(map, e)),
         @ir::Die(e) => @ir::Die(self.exp_phi(map, e)),
+        @ir::Call(tmp, e, ref args) =>
+          @ir::Call(self.bump(&mut map, tmp),
+                    self.exp_phi(map, e),
+                    args.map(|&x| self.exp_phi(map, x))),
         @ir::Phi(_, _) => fail(~"shouldn't see phi nodes yet")
       }
     );
@@ -315,16 +322,14 @@ impl Converter {
       @ir::Const(_, _) | @ir::LabelExp(_) => e,
       @ir::BinaryOp(op, e1, e2) =>
         @ir::BinaryOp(op, self.exp_phi(vars, e1), self.exp_phi(vars, e2)),
-      @ir::Call(e, typ, ref args) =>
-        @ir::Call(self.exp_phi(vars, e), typ,
-                  args.map(|&x| self.exp_phi(vars, x))),
-      @ir::Temp((tmp, size)) => @ir::Temp((tmap::find(vars, tmp).get(), size))
+      @ir::Temp(tmp) => @ir::Temp(tmap::find(vars, tmp).get())
     }
   }
 
   /* Alter the temp mapping for a specified non-ssa temp */
   fn bump(vars : &mut TempMap, t : Temp) -> Temp {
     let ret = self.temps.new();
+    self.f.types.insert(ret, self.f.types[t]);
     *vars = tmap::insert(*vars, t, ret);
     ret
   }
@@ -362,8 +367,7 @@ impl Converter {
            dominance frontier that won't end up being needed anyway */
         if preds.size() == self.f.cfg.num_pred(n) {
           /* The result of the phi node is the ssa-temp, not the non-ssa temp */
-          let size = self.defs[tmp_before].first();
-          push(@ir::Phi((tmp_after, size), preds));
+          push(@ir::Phi(tmp_after, preds));
         }
       }
     );

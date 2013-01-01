@@ -269,6 +269,12 @@ impl Allocator {
   fn alloc_ins(i : @Instruction, push : &pure fn(@Instruction)) {
     match i {
       @Spill(*) | @Reload(*) => fail(~"can't alloc spill/reload yet"),
+      @Load(dst, @MOp(addr)) =>
+        push(@Load(self.alloc_op(dst), @MOp(self.alloc_op(addr)))),
+      @Load(dst, addr) => push(@Load(self.alloc_op(dst), addr)),
+      @Store(@MOp(addr), src) =>
+        push(@Store(@MOp(self.alloc_op(addr)), self.alloc_op(src))),
+      @Store(addr, src) => push(@Store(addr, self.alloc_op(src))),
       @Return | @Raw(*) | @Comment(*) | @Phi(*) => push(i),
       @Condition(c, o1, o2) =>
         push(@Condition(c, self.alloc_op(o1), self.alloc_op(o2))),
@@ -301,8 +307,7 @@ impl Allocator {
 
   fn alloc_op(o : @Operand) -> @Operand {
     match o {
-      @Memory(@MOp(o), size) => @Memory(@MOp(self.alloc_op(o)), size),
-      @Immediate(*) | @LabelOp(*) | @Register(*) | @Memory(*) => o,
+      @Immediate(*) | @LabelOp(*) | @Register(*) => o,
       @Temp(tmp) =>
         @Register(arch::num_reg(self.colors[tmp]),
                   self.f.sizes[tmp])

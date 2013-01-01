@@ -1,5 +1,6 @@
 use io::WriterUtil;
 use std::map;
+use middle::temp::Temp;
 
 pub struct Program {
   funs : ~[Function]
@@ -9,7 +10,8 @@ pub struct Function {
   name : ~str,
   cfg : graph::Graph<@~[@Statement], Edge>,
   mut root : graph::NodeId,
-  mut args : @~[temp::Temp],         // TODO: iterate mutable vector?
+  mut args : @~[Temp],         // TODO: iterate mutable vector?
+  types : map::HashMap<Temp, Type>,
 
   /* idoms[a] = b implies the immediate dominator of a is b */
   idoms : map::HashMap<graph::NodeId, graph::NodeId>,
@@ -19,24 +21,22 @@ pub struct Function {
   loops : map::HashMap<graph::NodeId, (graph::NodeId, graph::NodeId)>,
 }
 
-pub type Temp = (temp::Temp, Type);
-
 pub enum Statement {
   Move(Temp, @Expression),
   Load(Temp, @Expression),
-  Phi(Temp, map::HashMap<graph::NodeId, temp::Temp>),
-  Store(@Expression, Type, @Expression),
+  Phi(Temp, map::HashMap<graph::NodeId, Temp>),
+  Store(@Expression, @Expression),
   Condition(@Expression),
   Return(@Expression),
   Die(@Expression),
+  Call(Temp, @Expression, ~[@Expression]),
 }
 
 pub enum Expression {
   Temp(Temp),
   Const(i32, Type),
   BinaryOp(Binop, @Expression, @Expression),
-  Call(@Expression, Type, ~[@Expression]),
-  LabelExp(label::Label)
+  LabelExp(label::Label),
 }
 
 pub enum Type { Int, Pointer }
@@ -59,6 +59,7 @@ pub fn Function(name : ~str) -> Function {
   Function{ cfg: graph::Graph(),
             name: name,
             root: 0,
+            types: map::HashMap(),
             idoms: map::HashMap(),
             idominated: map::HashMap(),
             args: @~[],
@@ -80,22 +81,12 @@ impl Program {
     out.write_str(~"\n}");
   }
 }
-
+/*
 impl Expression {
   pub fn size() -> Type {
-    match self {
-      Temp((_, size)) | Const(_, size) | Call(_, size, _) => size,
-      LabelExp(_) => Pointer,
-      BinaryOp(_, e1, e2) => {
-        match e1.size() {
-          Int => e2.size(),
-          Pointer => Pointer
-        }
-      }
-    }
   }
 }
-
+*/
 impl Type : cmp::Eq {
   pure fn eq(&self, other : &Type) -> bool {
     match (*self, *other) {
@@ -110,6 +101,22 @@ impl Type : cmp::Eq {
 impl Program : PrettyPrint {
   pure fn pp() -> ~str {
     str::connect(self.funs.map(|f| f.pp()), "\n\n")
+  }
+}
+
+impl Function {
+  pure fn size(e : @Expression) -> Type {
+    match e {
+      @Const(_, size) => size,
+      @LabelExp(_) => Pointer,
+      @BinaryOp(_, e1, e2) => {
+        match self.size(e1) {
+          Int => self.size(e2),
+          Pointer => Pointer
+        }
+      },
+      @Temp(t) => self.types[t]
+    }
   }
 }
 
@@ -137,9 +144,9 @@ impl Binop {
 }
 
 impl Statement {
-  fn each_def(f : &fn(temp::Temp, Type) -> bool) {
+  fn each_def(f : &fn(Temp) -> bool) {
     match self {
-      Load((tmp, size), _) | Move((tmp, size), _) => { f(tmp, size); }
+      Load(tmp, _) | Move(tmp, _) => { f(tmp); }
       _ => ()
     }
   }
@@ -150,10 +157,13 @@ impl Statement : PrettyPrint {
     match self {
       Move(tmp, e) => tmp.pp() + ~" <- " + e.pp(),
       Load(tmp, e) => ~"load " + tmp.pp() + ~" <- " + e.pp(),
-      Store(e1, t, e2) => ~"store" + t.pp() + ~" " + e1.pp() + " <- " + e2.pp(),
+      Store(e1, e2) => ~"store" + ~" " + e1.pp() + " <- " + e2.pp(),
       Condition(e) => ~"cond " + e.pp(),
       Return(e) => ~"return " + e.pp(),
       Die(e) => ~"die if " + e.pp(),
+      Call(t, e, ref E) =>
+        fmt!("%s <- %s(%s)", t.pp(), e.pp(),
+             str::connect(E.map(|e| e.pp()), ~", ")),
       Phi(tmp, ref map) => {
         let mut s = tmp.pp() + ~" <- phi(";
         for map.each |id, tmp| {
@@ -165,32 +175,14 @@ impl Statement : PrettyPrint {
   }
 }
 
-impl Temp : PrettyPrint {
-  pure fn pp() -> ~str {
-    let (tmp, t) = self;
-    tmp.pp() + t.pp()
-  }
-}
-
 impl Expression : PrettyPrint {
   pure fn pp() -> ~str {
     match self {
       Temp(ref t) => t.pp(),
-      Const(c, t) => fmt!("0x%x%s", c as uint, t.pp()),
+      Const(c, _) => fmt!("0x%x", c as uint),
       BinaryOp(op, e1, e2) =>
         ~"(" + e1.pp() + ~" " + op.pp() + ~" " + e2.pp() + ~")",
-      Call(e, _, ref E) =>
-        e.pp() + ~"(" + str::connect(E.map(|e| e.pp()), ~", ") + ~")",
       LabelExp(ref l) => l.pp()
-    }
-  }
-}
-
-impl Type : PrettyPrint {
-  pure fn pp() -> ~str {
-    match self {
-      ir::Int => ~":i",
-      ir::Pointer => ~":p"
     }
   }
 }

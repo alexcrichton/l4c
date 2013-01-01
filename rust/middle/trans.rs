@@ -15,7 +15,7 @@ struct Translator {
 struct AstTranslator {
   t : &Translator,
   f : &ir::Function,
-  vars : map::HashMap<ast::Ident, ir::Temp>,
+  vars : map::HashMap<ast::Ident, temp::Temp>,
 
   /* cfg creation */
   mut cur_id : graph::NodeId,
@@ -79,6 +79,7 @@ impl Translator {
 
   fn trans_fun(id : ast::Ident, args : &~[(ast::Ident, @ast::Type)],
                body : @ast::Statement, fun : &ir::Function) {
+    self.temps.reset();
     let trans = AstTranslator {
       cur_id: 0,
       stms: ~[],
@@ -92,8 +93,9 @@ impl Translator {
     self.funs.insert(id, @ir::LabelExp(label::Internal(copy id.val)));
     let mut argtmps = ~[];
     for args.each |&(id, typ)| {
-      let (tmp, typ) = self.tmp(self.typ(typ));
-      trans.vars.insert(id, (tmp, typ));
+      let tmp = self.temps.new();
+      fun.types.insert(tmp, self.typ(typ));
+      trans.vars.insert(id, tmp);
       argtmps.push(tmp);
     }
     trans.cur_id = fun.cfg.new_id();
@@ -116,10 +118,6 @@ impl Translator {
       @ast::Struct(id) => self.structs.get(id).second(),
       _ => fail(~"bad type to typ_size")
     }
-  }
-
-  fn tmp(t : ir::Type) -> ir::Temp {
-    (self.temps.new(), t)
   }
 }
 
@@ -206,7 +204,7 @@ impl AstTranslator {
           }
         };
         if ismem {
-          self.stms.push(@ir::Store(left, leftsize, right));
+          self.stms.push(@ir::Store(left, right));
         } else {
           let tmp = match left { @ir::Temp(t) => t, _ => fail(~"bad left") };
           self.stms.push(@ir::Move(tmp, right));
@@ -314,9 +312,10 @@ impl AstTranslator {
         ignore(argtyps); // TODO: remove this entirely?
         let fun = self.exp(e, false);
         let args = args.map(|&e| self.exp(e, false));
-        let (tmp, typ) = self.tmp(self.typ(ret));
-        self.stms.push(@ir::Move((tmp, typ), @ir::Call(fun, typ, args)));
-        @ir::Temp((tmp, typ))
+        let typ = self.typ(ret);
+        let tmp = self.tmp(typ);
+        self.stms.push(@ir::Call(tmp, fun, args));
+        @ir::Temp(tmp)
       }
 
       @ast::Alloc(t) =>
@@ -372,7 +371,7 @@ impl AstTranslator {
     let fun = @ir::LabelExp(fun);
     let result = self.tmp(ir::Pointer);
     let args = ~[cnt, self.constp(self.typ_size(t) as i32)];
-    self.stms.push(@ir::Move(result, @ir::Call(fun, ir::Pointer, args)));
+    self.stms.push(@ir::Call(result, fun, args));
     @ir::Temp(result)
   }
 
@@ -457,7 +456,11 @@ impl AstTranslator {
     return id;
   }
 
-  fn tmp(t : ir::Type) -> ir::Temp { self.t.tmp(t) }
   fn typ(t : @ast::Type) -> ir::Type { self.t.typ(t) }
   fn typ_size(t : @ast::Type) -> uint { self.t.typ_size(t) }
+  fn tmp(t : ir::Type) -> temp::Temp {
+    let tmp = self.t.temps.new();
+    self.f.types.insert(tmp, t);
+    return tmp;
+  }
 }
