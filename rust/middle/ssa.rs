@@ -18,6 +18,8 @@ struct Converter {
   versions : map::HashMap<graph::NodeId, TempMap>,
   /* (re-)Allocator for temps */
   temps : temp::Allocator,
+  /* new types of all newly allocated temps */
+  newtypes : map::HashMap<Temp, ir::Type>,
 }
 
 pub fn convert(p : &ir::Program) {
@@ -27,7 +29,8 @@ pub fn convert(p : &ir::Program) {
                                 phis: map::HashMap(),
                                 phi_temps : map::HashMap(),
                                 versions: map::HashMap(),
-                                temps: temp::new() };
+                                temps: temp::new(),
+                                newtypes: map::HashMap() };
     converter.convert();
   }
 }
@@ -47,6 +50,11 @@ impl Converter {
     }
     for self.phi_temps.each |k, v| {
       self.place_phis(k, v);
+    }
+
+    self.f.types.clear();
+    for self.newtypes.each |k, v| {
+      self.f.types.insert(k, v);
     }
   }
 
@@ -329,7 +337,7 @@ impl Converter {
   /* Alter the temp mapping for a specified non-ssa temp */
   fn bump(vars : &mut TempMap, t : Temp) -> Temp {
     let ret = self.temps.new();
-    self.f.types.insert(ret, self.f.types[t]);
+    self.newtypes.insert(ret, self.f.types[t]);
     *vars = tmap::insert(*vars, t, ret);
     ret
   }
