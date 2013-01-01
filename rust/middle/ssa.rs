@@ -84,17 +84,13 @@ impl Converter {
   fn find_defs() {
     for self.f.cfg.each_node |id, stms| {
       for stms.each |&s| {
-        match s {
-          /* Only loads and moves can define temps */
-          @ir::Load((tmp, size), _) | @ir::Move((tmp, size), _) => {
-            let table = match self.defs.find(tmp) {
-              Some((_, t)) => t,
-              None => map::HashMap()
-            };
-            set::add(table, id);
-            self.defs.insert(tmp, (size, table));
-          }
-          _ => ()
+        for s.each_def |tmp, size| {
+          let table = match self.defs.find(tmp) {
+            Some((_, t)) => t,
+            None => map::HashMap()
+          };
+          set::add(table, id);
+          self.defs.insert(tmp, (size, table));
         }
       }
     }

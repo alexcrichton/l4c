@@ -142,6 +142,15 @@ impl Binop {
   }
 }
 
+impl Statement {
+  fn each_def(f : &fn(temp::Temp, Type) -> bool) {
+    match self {
+      Load((tmp, size), _) | Move((tmp, size), _) => { f(tmp, size); }
+      _ => ()
+    }
+  }
+}
+
 impl Statement : PrettyPrint {
   pure fn pp() -> ~str {
     match self {
