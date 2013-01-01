@@ -119,9 +119,9 @@ impl Instruction : PrettyPrint {
       Condition(c, o1, o2) =>
         fmt!("cmp %s, %s // %s", o2.pp(), o1.pp(), c.suffix()),
       Load(dst, addr) =>
-        fmt!("mov (%s), %s", addr.pp(), dst.pp()),
+        fmt!("mov %s, %s", addr.pp(), dst.pp()),
       Store(addr, src) =>
-        fmt!("mov %s, (%s)", src.pp(), addr.pp()),
+        fmt!("mov %s, %s", src.pp(), addr.pp()),
       Move(o1, o2) =>
         if o1.size() != o2.size() && !o2.imm() {
           ~"movslq " + o2.pp() + ~", " + o1.pp()
