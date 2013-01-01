@@ -16,7 +16,11 @@ struct Spiller {
   spill_entry : map::HashMap<NodeId, TempSet>,
   spill_exit : map::HashMap<NodeId, TempSet>,
 
+  /* m[(a, b)] => (t1 -> t2) means that any temp known by the name t1 in a
+     becomes the temp named t2 in b */
   renamings : map::HashMap<(NodeId, NodeId), map::HashMap<Temp, Temp>>,
+  /* m[a] = t1 -> (n -> t2) means that in block a, the temp t1 is known under the
+     name t2 in node n */
   phis : map::HashMap<NodeId, map::HashMap<Temp, map::HashMap<NodeId, Temp>>>,
 }
 
@@ -43,7 +47,7 @@ pub fn spill(p : &Program) {
     while changed {
       changed = false;
       for f.postorder.each |&id| {
-        changed = s.process(id) || changed;
+        changed = s.build_next_use(id) || changed;
       }
     }
 
@@ -82,7 +86,15 @@ fn set_to_str(m : TempSet) -> ~str {
   return s + ~"}";
 }
 
+/**
+ * The spilling algorithm implemented is outlined in the paper "Register
+ * Spilling and Live-Range Splitting for SSA-Form Programs" by Braun and Hack.
+ */
 impl Spiller {
+  /**
+   * Build up internal maps of the renaming of temps done by phi functions per
+   * node. This just needs to iterate and look at every phi node in a block.
+   */
   fn build_renamings(n : NodeId) {
     for self.f.cfg.each_pred(n) |pred| {
       self.renamings.insert((pred, n), map::HashMap());
@@ -127,10 +139,19 @@ impl Spiller {
     }
   }
 
-  fn process(n : NodeId) -> bool {
+  /**
+   * This performs the dataflow analysis necessary to build the internal maps of
+   * the next_use information. This returns whether any information was modified
+   * or not.
+   *
+   * The analysis is a backwards analysis (like liveness).
+   */
+  fn build_next_use(n : NodeId) -> bool {
     debug!("processing: %?", n);
     let bottom = map::HashMap();
     let block = self.f.cfg[n];
+
+    /* Union each of our predecessors into the 'bottom' map */
     for self.f.cfg.each_succ(n) |pred| {
       if !self.next_use.contains_key(pred) { loop }
       /* TODO: if this is a loop-out edge, then have a higher merge weight */
@@ -139,8 +160,9 @@ impl Spiller {
          actually used in the block */
       self.merge(bottom, self.next_use[pred], block.len());
     }
-    let mut deltas = ~[];
 
+    /* Process all of our block's statements backwards */
+    let mut deltas = ~[];
     for vec::rev_eachi(*block) |i, &ins| {
       let mut delta = ~[];
       /* If we define a temp, then the distance to the next use from the start
@@ -164,6 +186,7 @@ impl Spiller {
       deltas.push(delta);
     }
 
+    /* If we didn't update anything, return false */
     match self.next_use.find(n) {
       Some(before) => {
         let mut diff = false;
@@ -180,6 +203,8 @@ impl Spiller {
       }
       None => ()
     }
+
+    /* If we did update something, then update it and return so */
     self.next_use.insert(n, bottom);
     vec::reverse(deltas);
     self.deltas.insert(n, @deltas);
@@ -196,6 +221,11 @@ impl Spiller {
     }
   }
 
+  /**
+   * This functions spills all necessary temps for the specified block. This may
+   * possibly insert spills/reloads in predecessor and successors depending on
+   * their processed state.
+   */
   fn spill(n : NodeId) {
     debug!("spilling: %?", n);
     let regs_entry = self.init_usual(n); /* TODO: special case loop headers */
