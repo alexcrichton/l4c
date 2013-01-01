@@ -71,7 +71,11 @@ pub enum Register {
 impl Instruction {
   fn each_def(f : &fn(temp::Temp) -> bool) {
     match self {
-      BinaryOp(_, @Temp(t), _, _) | Move(@Temp(t), _) | Phi(t, _) => { f(t); }
+      BinaryOp(_, @Temp(t), _, _) |
+      Move(@Temp(t), _) |
+      Phi(t, _) |
+      Load(@Temp(t), _)
+        => { f(t); }
       _ => ()
     }
   }
