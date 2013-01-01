@@ -10,6 +10,7 @@ use utils::*;
 mod utils {
   mod set;
   mod graph;
+  mod bitv;
 
   pub trait PrettyPrint {
     pure fn pp() -> ~str;
