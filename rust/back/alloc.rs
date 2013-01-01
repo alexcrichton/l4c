@@ -11,7 +11,6 @@ struct Allocator {
   defs : map::HashMap<temp::Temp, graph::NodeId>,
   last_uses : map::HashMap<graph::NodeId, map::HashMap<temp::Temp, uint>>,
   phi_uses : map::HashMap<graph::NodeId, map::Set<temp::Temp>>,
-  args : Bitv,
 }
 
 pub fn color(p : &Program) {
@@ -21,12 +20,10 @@ pub fn color(p : &Program) {
                        live_in: map::HashMap(),
                        defs: map::HashMap(),
                        last_uses: map::HashMap(),
-                       phi_uses: map::HashMap(),
-                       args: Bitv(f.temps, false) };
+                       phi_uses: map::HashMap(), };
 
     /* Initialize state, prepare the graph */
     for f.args.eachi |i, &tmp| {
-      a.args.set(tmp as uint, true);
       a.colors.insert(tmp, i + 1);
     }
     a.eliminate_critical();
@@ -138,7 +135,7 @@ impl Allocator {
 
   fn upmark(n : graph::NodeId, t : temp::Temp) {
     debug!("upmark %? %?", n, t);
-    if self.args[t as uint] || self.defs[t] == n { return }
+    if self.defs[t] == n { return }
     let bitv = self.live_in[n];
     if bitv[t as uint] { return }
     bitv.set(t as uint, true);
