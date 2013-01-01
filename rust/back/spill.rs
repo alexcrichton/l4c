@@ -3,6 +3,8 @@ use middle::temp::Temp;
 use back::assem::*;
 use utils::graph::*;
 
+const loop_out_weight : uint = 100000;
+
 /* If a temp isn't in a set, then its next_use distance is infinity */
 type NextUse = map::HashMap<Temp, uint>;
 type TempSet = map::Set<Temp>;
@@ -22,6 +24,8 @@ struct Spiller {
   /* m[a] = t1 -> (n -> t2) means that in block a, the temp t1 is known under the
      name t2 in node n */
   phis : map::HashMap<NodeId, map::HashMap<Temp, map::HashMap<NodeId, Temp>>>,
+
+  max_pressures: map::HashMap<NodeId, uint>,
 }
 
 pub fn spill(p : &Program) {
@@ -34,7 +38,8 @@ pub fn spill(p : &Program) {
                      spill_entry: map::HashMap(),
                      spill_exit: map::HashMap(),
                      renamings: map::HashMap(),
-                     phis: map::HashMap() };
+                     phis: map::HashMap(),
+                     max_pressures: map::HashMap() };
 
     /* Build up phi renaming maps */
     s.eliminate_critical();
@@ -58,7 +63,8 @@ pub fn spill(p : &Program) {
   }
 }
 
-fn sort(v : ~[Temp], s : NextUse) -> ~[Temp] {
+fn sort(set : TempSet, s : NextUse) -> ~[Temp] {
+  let v = map::vec_from_set(set);
   sort::quick_sort(vec::to_mut(v),
                    |&a, &b| match s.find(b) {
                               None => true,       /* a is always < infty */
@@ -163,6 +169,7 @@ impl Spiller {
 
     /* Process all of our block's statements backwards */
     let mut deltas = ~[];
+    let mut max = bottom.size();
     for vec::rev_eachi(*block) |i, &ins| {
       let mut delta = ~[];
       /* If we define a temp, then the distance to the next use from the start
@@ -184,6 +191,7 @@ impl Spiller {
         bottom.insert(tmp, i);
       }
       deltas.push(delta);
+      max = uint::max(max, bottom.size());
     }
 
     /* If we didn't update anything, return false */
@@ -208,6 +216,7 @@ impl Spiller {
     self.next_use.insert(n, bottom);
     vec::reverse(deltas);
     self.deltas.insert(n, @deltas);
+    self.max_pressures.insert(n, max);
     return true;
   }
 
@@ -228,7 +237,10 @@ impl Spiller {
    */
   fn spill(n : NodeId) {
     debug!("spilling: %?", n);
-    let regs_entry = self.init_usual(n); /* TODO: special case loop headers */
+    let regs_entry = match self.f.loops.find(n) {
+      Some((body, end)) => self.init_loop(n, body, end),
+      None            => self.init_usual(n)
+    };
     let spill_entry = self.connect_pred(n, regs_entry);
     self.regs_entry.insert(n, regs_entry);
     self.spill_entry.insert(n, spill_entry);
@@ -248,7 +260,7 @@ impl Spiller {
        used the farthest away */
     let limit = |max : uint, push : &fn(@Instruction)| {
       if regs.size() >= max {
-        let sorted = sort(map::vec_from_set(regs), next_use);
+        let sorted = sort(regs, next_use);
         for sorted.view(max, sorted.len()).each |&tmp| {
           if !set::contains(spill, tmp) && next_use.contains_key(tmp) {
             push(@Spill(tmp));
@@ -307,12 +319,13 @@ impl Spiller {
            set_to_str(regs), set_to_str(spill));
   }
 
-  fn init_usual(n : NodeId) -> map::Set<Temp> {
+  fn init_usual(n : NodeId) -> TempSet {
     debug!("init_usual: %?", n);
     let freq = map::HashMap();
     let take = map::HashMap();
     let cand = map::HashMap();
     for self.f.cfg.each_pred(n) |pred| {
+      assert(self.regs_end.contains_key(pred));
       for set::each(self.regs_end[pred]) |tmp| {
         /* tmp from pred may be known by a different name in this block if there
            is a phi node for this temp */
@@ -330,13 +343,65 @@ impl Spiller {
       }
     }
     if arch::num_regs - take.size() > 0 {
-      let sorted = sort(map::vec_from_set(cand), self.next_use[n]);
+      let sorted = sort(cand, self.next_use[n]);
       let max = arch::num_regs - take.size();
       for sorted.view(0, uint::min(max, sorted.len())).each |&tmp| {
         set::add(take, tmp);
       }
     }
     return take;
+  }
+
+  fn init_loop(n : NodeId, body : NodeId, end : NodeId) -> TempSet {
+    debug!("init_loop %? %? %?", n, body, end);
+    /* cand = (phis | live_in) & used_in_loop */
+    let cand = map::HashMap();
+    /* If a variable is used in the loop, then its next_use as viewed from the
+       body of the loop would be less than loop_out_weight */
+    for self.next_use[body].each |tmp, n| {
+      if n < loop_out_weight {
+        assert(self.next_use[n].contains_key(tmp));
+        set::add(cand, tmp);
+      }
+    }
+    if cand.size() < arch::num_regs {
+      /* live_through = (phis | live_in) - cand */
+      let live_through = map::HashMap();
+      for self.next_use[n].each_key |tmp| {
+        if !set::contains(cand, tmp) { set::add(live_through, tmp); }
+      }
+      for self.phis[n].each_key |tmp| {
+        if !set::contains(cand, tmp) { set::add(live_through, tmp); }
+      }
+
+      let visited = map::HashMap();
+      set::add(visited, n);     /* don't loop back to the start */
+      set::add(visited, end);   /* don't go outside the loop */
+      let free = arch::num_regs - self.max_pressure(body, visited);
+      if free > 0 {
+        let sorted = sort(live_through, self.next_use[n]);
+        for sorted.view(0, uint::min(free, sorted.len())).each |&tmp| {
+          set::add(cand, tmp);
+        }
+      }
+    } else {
+      let sorted = sort(cand, self.next_use[n]);
+      cand.clear();
+      for sorted.each |&tmp| {
+        set::add(cand, tmp);
+      }
+    }
+    return cand;
+  }
+
+  fn max_pressure(cur : NodeId, visited : map::Set<NodeId>) -> uint {
+    if set::contains(visited, cur) { return 0; }
+    set::add(visited, cur);
+    let mut ret = self.max_pressures[cur];
+    for self.f.cfg.each_succ(cur) |succ| {
+      ret = uint::max(ret, self.max_pressure(succ, visited));
+    }
+    return ret;
   }
 
   fn connect_pred(n : NodeId, entry : TempSet) -> TempSet {
