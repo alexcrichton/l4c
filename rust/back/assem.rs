@@ -35,6 +35,8 @@ pub enum Instruction {
   Raw(~str),
   Comment(~str),
   Phi(temp::Temp, map::HashMap<graph::NodeId, temp::Temp>),
+  Reload(temp::Temp),
+  Spill(temp::Temp),
 }
 
 pub enum Operand {
@@ -93,7 +95,8 @@ impl Instruction {
           o => o.each_temp(f)
         }
       }
-      Phi(*) | Raw(*) | Comment(*) | Return => ()
+      Spill(t) => { f(t); }
+      Reload(*) | Phi(*) | Raw(*) | Comment(*) | Return => ()
     }
   }
 }
@@ -127,6 +130,8 @@ impl Instruction : PrettyPrint {
         }
         s + ~")"
       }
+      Spill(t) => fmt!("spill %s", t.pp()),
+      Reload(t) => fmt!("reload %s", t.pp()),
     }
   }
 }

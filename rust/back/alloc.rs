@@ -268,6 +268,7 @@ impl Allocator {
 
   fn alloc_ins(i : @Instruction, push : &pure fn(@Instruction)) {
     match i {
+      @Spill(*) | @Reload(*) => fail(~"can't alloc spill/reload yet"),
       @Return | @Raw(*) | @Comment(*) | @Phi(*) => push(i),
       @Condition(c, o1, o2) =>
         push(@Condition(c, self.alloc_op(o1), self.alloc_op(o2))),

@@ -46,6 +46,7 @@ mod back {
   mod codegen;
   mod arch;
   mod alloc;
+  mod spill;
 }
 
 fn help() {

@@ -1,0 +1,260 @@
+use std::{map, sort};
+use middle::temp;
+use back::assem::*;
+
+/* If a temp isn't in a set, then its next_use distance is infinity */
+type NextUse = map::HashMap<temp::Temp, uint>;
+type TempSet = map::Set<temp::Temp>;
+
+struct Spiller {
+  f : &Function,
+  next_use : map::HashMap<graph::NodeId, NextUse>,
+  deltas : map::HashMap<graph::NodeId, @~[~[(temp::Temp, Option<uint>)]]>,
+  regs_entry : map::HashMap<graph::NodeId, TempSet>,
+  regs_end : map::HashMap<graph::NodeId, TempSet>,
+  spill_entry : map::HashMap<graph::NodeId, TempSet>,
+  spill_exit : map::HashMap<graph::NodeId, TempSet>,
+}
+
+pub fn spill(p : &Program) {
+  for p.funs.each |f| {
+    let s = Spiller{ f: f,
+                     next_use: map::HashMap(),
+                     deltas: map::HashMap(),
+                     regs_end: map::HashMap(),
+                     regs_entry: map::HashMap(),
+                     spill_entry: map::HashMap(),
+                     spill_exit: map::HashMap() };
+
+    /* Initialize state, prepare the graph */
+    s.eliminate_critical();
+    for f.postorder.each |&id| {
+      s.process(id);
+    }
+
+    /* In reverse postorder, spill everything! */
+    for vec::rev_each(*f.postorder) |&id| {
+      s.spill(id);
+    }
+  }
+}
+
+fn sort(v : ~[temp::Temp], s : NextUse) -> ~[temp::Temp] {
+  sort::quick_sort(vec::to_mut(v),
+                   |&a, &b| match s.find(b) {
+                              None => true,       /* a is always < infty */
+                              Some(b) => match s.find(a) {
+                                None => false,    /* infty always > n */
+                                Some(a) => a < b
+                              }
+                            });
+  return v;
+}
+
+impl Spiller {
+  /**
+   * Eliminate all critical edges in the graph by splitting them and placing a
+   * basic block on the edge. The fact that there are no critical edges in the
+   * graph is leveraged when spilling registers and removing phi nodes.
+   */
+  fn eliminate_critical() {
+    /* can't modify the graph during traversal */
+    let mut critical = ~[];
+    let cfg = &self.f.cfg;
+    for cfg.each_edge |n1, n2| {
+      /* critical edges are defined as those whose source has multiple out edges
+         and whose target has multiple in edges */
+      if cfg.num_succ(n1) > 1 && cfg.num_pred(n2) > 1 {
+        critical.push((n1, n2));
+      }
+    }
+    for critical.each |&(n1, n2)| {
+      let edge = cfg.remove_edge(n1, n2);
+      let new = cfg.new_id();
+      cfg.add_node(new, @~[]);
+      cfg.add_edge(n1, new, edge);
+      cfg.add_edge(new, n2, ir::Always);
+    }
+  }
+
+  fn process(n : graph::NodeId) {
+    debug!("processing: %?", n);
+    let bottom = map::HashMap();
+    let block = self.f.cfg[n];
+    for self.f.cfg.each_succ(n) |pred| {
+      assert self.next_use.contains_key(pred);
+      /* TODO: if this is a loop-out edge, then have a higher merge weight */
+      /* Assume that all variables aren't used in this block and add block.len()
+         to the value being merged. This will be updated if the value is
+         actually used in the block */
+      self.merge(bottom, self.next_use[pred], block.len());
+    }
+    let mut deltas = ~[];
+
+    for vec::rev_eachi(*block) |i, &ins| {
+      let mut delta = ~[];
+      /* If we define a temp, then the distance to the next use from the start
+         is infinity because it's just not relevant */
+      for ins.each_def |tmp| {
+        match bottom.find(tmp) {
+          None    => (), /* well apparently this wasn't used anywhere */
+          Some(d) => {
+            bottom.remove(tmp);         /* liveness stops here */
+            delta.push((tmp, Some(d)));
+          }
+        }
+      }
+
+      /* Our delta contains what the last distance to the temp used to be (None
+       * for infty), and then we update it to our current distance now */
+      for ins.each_use |tmp| {
+        delta.push((tmp, bottom.find(tmp)));
+        bottom.insert(tmp, i);
+      }
+      deltas.push(delta);
+    }
+
+    self.next_use.insert(n, bottom);
+    self.deltas.insert(n, @deltas);
+  }
+
+  fn merge(a : NextUse, b : NextUse, edge : uint) {
+    for b.each |tmp, next| {
+      let cost = next + edge;
+      match a.find(tmp) {
+        Some(amt) => { if cost < amt { a.insert(tmp, cost); } }
+        None => { a.insert(tmp, cost); }
+      }
+    }
+  }
+
+  fn spill(n : graph::NodeId) {
+    let regs_entry = self.init_usual(n); /* TODO: special case loop headers */
+    let spill_entry = self.connect_pred(n);
+    self.regs_entry.insert(n, regs_entry);
+    self.spill_entry.insert(n, spill_entry);
+
+    /* Set up the maps which will become {regs,spill}_exit */
+    let regs = map::HashMap();
+    let spill = map::HashMap();
+    set::union(regs, regs_entry);
+    set::union(spill, spill_entry);
+    let mut reloaded = ~[];
+    let mut block = ~[];
+
+    /* next_use is always relative to the top of the block */
+    let next_use = self.next_use[n];
+
+    /* Limit the amount of variables in registers by spilling those which are
+       used the farthest away */
+    let limit = |max : uint, push : &fn(@Instruction)| {
+      if regs.size() >= max {
+        let sorted = sort(map::vec_from_set(regs), next_use);
+        for sorted.view(max, sorted.len()).each |&tmp| {
+          if !set::contains(spill, tmp) && next_use.contains_key(tmp) {
+            push(@Spill(tmp));
+          }
+          set::remove(regs, tmp);
+          set::remove(spill, tmp);
+        }
+      }
+    };
+
+    for vec::each2(*self.f.cfg[n], *self.deltas[n]) |&ins, delta| {
+      /* Determine what needs to be reloaded */
+      for ins.each_use |tmp| {
+        if regs.contains_key(tmp) { loop }
+        reloaded.push(tmp);
+        set::add(regs, tmp);
+        set::add(spill, tmp);
+      }
+      /* This limit is relative to the next_use of this instruction */
+      limit(arch::num_regs, |i| block.push(i));
+
+      /* The next limit is relative to the next_use of the next instruction, so
+         for each delta if the value is None, then that means the liveness has
+         stopped. Otherwise the next_use value is updated with what it should be
+         for down the road */
+      for delta.each |&(tmp, amt)| {
+        match amt {
+          None    => { assert next_use.remove(tmp); }
+          Some(d) => { next_use.insert(tmp, d); }
+        }
+      }
+      let mut defs = 0;
+      for ins.each_def |_| { defs += 1; }
+      limit(arch::num_regs - defs, |i| block.push(i));
+
+      /* Add all defined temps to the set of those in regs */
+      for ins.each_def |tmp| {
+        set::add(regs, tmp);
+      }
+
+      /* Finally reload all operands as necessary, and then run ins */
+      for reloaded.each |&tmp| {
+        block.push(@Reload(tmp));
+      }
+      reloaded.truncate(0);
+      block.push(ins);
+    }
+
+    self.f.cfg.update_node(n, @block);
+    self.regs_end.insert(n, regs);
+    self.spill_exit.insert(n, spill);
+  }
+
+  fn init_usual(n : graph::NodeId) -> map::Set<temp::Temp> {
+    let freq = map::HashMap();
+    let take = map::HashMap();
+    let cand = map::HashMap();
+    for self.f.cfg.each_pred(n) |pred| {
+      for set::each(self.regs_end[pred]) |tmp| {
+        freq.insert(tmp, freq.find(tmp).get_default(0) + 1);
+      }
+    }
+    let preds = self.f.cfg.num_pred(n);
+    for freq.each |tmp, n| {
+      if n == preds {
+        set::add(take, tmp);
+      } else {
+        set::add(cand, tmp);
+      }
+    }
+    if arch::num_regs - take.size() > 0 {
+      let sorted = sort(map::vec_from_set(cand), self.next_use[n]);
+      for sorted.view(0, arch::num_regs - take.size()).each |&tmp| {
+        set::add(take, tmp);
+      }
+    }
+    return take;
+  }
+
+  fn connect_pred(n : graph::NodeId) -> map::Set<temp::Temp> {
+    /* Build up our list of required spilled registers */
+    let entry = self.regs_entry[n];
+    let spill_entry = map::HashMap();
+    for self.f.cfg.each_pred(n) |pred| {
+      assert(self.spill_exit.contains_key(pred));
+      set::union(spill_entry, self.spill_exit[pred]);
+    }
+    set::intersect(spill_entry, entry);
+
+    /* Now modify all predecessors to get to our state */
+    for self.f.cfg.each_pred(n) |pred| {
+      let mut append = ~[];
+      let exit = self.regs_end[pred];
+      for set::each(spill_entry) |tmp| {
+        if !exit.contains_key(tmp) && exit.contains_key(tmp) {
+          append.push(@Spill(tmp));
+        }
+      }
+      for set::each(entry) |tmp| {
+        if !exit.contains_key(tmp) {
+          append.push(@Reload(tmp));
+        }
+      }
+      self.f.cfg.update_node(n, @(*self.f.cfg[n] + append));
+    }
+    return spill_entry;
+  }
+}
