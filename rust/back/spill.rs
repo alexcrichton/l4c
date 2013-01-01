@@ -57,6 +57,22 @@ fn sort(v : ~[Temp], s : NextUse) -> ~[Temp] {
   return v;
 }
 
+fn map_to_str(m : NextUse) -> ~str {
+  let mut s = ~"{";
+  for m.each |k, v| {
+    s += fmt!("(%? => %?) ", k, v);
+  }
+  return s + ~"}";
+}
+
+fn set_to_str(m : TempSet) -> ~str {
+  let mut s = ~"{";
+  for m.each_key |k| {
+    s += fmt!("%? ", k);
+  }
+  return s + ~"}";
+}
+
 impl Spiller {
   /**
    * Eliminate all critical edges in the graph by splitting them and placing a
@@ -152,8 +168,9 @@ impl Spiller {
   }
 
   fn spill(n : NodeId) {
+    debug!("spilling: %?", n);
     let regs_entry = self.init_usual(n); /* TODO: special case loop headers */
-    let spill_entry = self.connect_pred(n);
+    let spill_entry = self.connect_pred(n, regs_entry);
     self.regs_entry.insert(n, regs_entry);
     self.spill_entry.insert(n, spill_entry);
 
@@ -183,7 +200,10 @@ impl Spiller {
       }
     };
 
+    debug!("%s", map_to_str(next_use));
     for vec::each2(*self.f.cfg[n], *self.deltas[n]) |&ins, delta| {
+      debug!("%40s  %s", ins.pp(),
+             str::connect(delta.map(|a| fmt!("%?", a)), ~", "));
       /* Determine what needs to be reloaded */
       for ins.each_use |tmp| {
         if regs.contains_key(tmp) { loop }
@@ -224,9 +244,12 @@ impl Spiller {
     self.f.cfg.update_node(n, @block);
     self.regs_end.insert(n, regs);
     self.spill_exit.insert(n, spill);
+    debug!("node %? exit regs:%s spill:%s", n,
+           set_to_str(regs), set_to_str(spill));
   }
 
   fn init_usual(n : NodeId) -> map::Set<Temp> {
+    debug!("init_usual: %?", n);
     let freq = map::HashMap();
     let take = map::HashMap();
     let cand = map::HashMap();
@@ -253,6 +276,7 @@ impl Spiller {
   }
 
   fn connect_pred(n : NodeId, entry : TempSet) -> TempSet {
+    debug!("connecting preds: %?", n);
     /* Build up our list of required spilled registers */
     let entry = self.regs_entry[n];
     let spill_entry = map::HashMap();
@@ -261,6 +285,8 @@ impl Spiller {
       set::union(spill_entry, self.spill_exit[pred]);
     }
     set::intersect(spill_entry, entry);
+    debug!("node %? entry regs:%s spill:%s", n,
+           set_to_str(entry), set_to_str(spill_entry));
 
     /* Now modify all predecessors to get to our state */
     for self.f.cfg.each_pred(n) |pred| {
