@@ -97,7 +97,7 @@ impl Instruction {
         }
       }
       Spill(t) => { f(t); }
-      Reload(*) | Phi(*) | Raw(*) | Comment(*) | Return => ()
+      Phi(*) | Reload(*) | Raw(*) | Comment(*) | Return => ()
     }
   }
 }
