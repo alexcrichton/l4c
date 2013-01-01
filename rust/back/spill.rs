@@ -269,7 +269,8 @@ impl Spiller {
     }
     if arch::num_regs - take.size() > 0 {
       let sorted = sort(map::vec_from_set(cand), self.next_use[n]);
-      for sorted.view(0, arch::num_regs - take.size()).each |&tmp| {
+      let max = arch::num_regs - take.size();
+      for sorted.view(0, uint::min(max, sorted.len())).each |&tmp| {
         set::add(take, tmp);
       }
     }
