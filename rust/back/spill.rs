@@ -304,7 +304,7 @@ impl Spiller {
           append.push(@Reload(tmp));
         }
       }
-      self.f.cfg.update_node(n, @(*self.f.cfg[n] + append));
+      self.f.cfg.update_node(pred, @(*self.f.cfg[pred] + append));
     }
     return spill_entry;
   }
