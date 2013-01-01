@@ -237,6 +237,7 @@ impl AstTranslator {
     }
     let bodyend = self.commit_with(afterid);
     self.f.cfg.add_edge(bodyend, condid, ir::Always);
+    self.f.loops.insert(condid, (bodyid, afterid));
   }
 
   fn condition(e : @ast::Expression, tid : graph::NodeId, tedge : ir::Edge,

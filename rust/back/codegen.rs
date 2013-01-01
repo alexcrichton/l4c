@@ -35,7 +35,8 @@ fn translate(f : &ir::Function) -> assem::Function {
                     postorder:  f.postorder,
                     temps: cg.temps.cnt(),
                     sizes: cg.sizes,
-                    args:  f.args.map(|&tmp| cg.tmap[tmp]) }
+                    args:  f.args.map(|&tmp| cg.tmap[tmp]),
+                    loops: f.loops }
 }
 
 impl CodeGenerator {

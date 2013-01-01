@@ -16,6 +16,8 @@ pub struct Function {
   idoms : map::HashMap<graph::NodeId, graph::NodeId>,
   /* idominated[a] = b implies a immediately dominates nodes in b */
   idominated : map::HashMap<graph::NodeId, graph::NodeSet>,
+  /* loop header blocks to loop body and loop exit blocks */
+  loops : map::HashMap<graph::NodeId, (graph::NodeId, graph::NodeId)>,
 }
 
 pub type Temp = (temp::Temp, Type);
@@ -60,7 +62,8 @@ pub fn Function(name : ~str) -> Function {
             idoms: map::HashMap(),
             idominated: map::HashMap(),
             postorder: @~[],
-            args: @~[] }
+            args: @~[],
+            loops: map::HashMap() }
 }
 
 impl Program {
