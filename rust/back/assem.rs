@@ -311,15 +311,7 @@ impl Program {
         |id, &ins|
           ~"label=\"" + str::connect(ins.map(|s| s.pp()), "\\n") +
           fmt!("\\n[node=%d]\" shape=box", id as int),
-        |&edge|
-          match edge {
-            ir::Always => ~"",
-            ir::True => ~"label=true",
-            ir::False => ~"label=false",
-            ir::Branch => ~"label=branch",
-            ir::TBranch => ~"label=tbranch",
-            ir::FBranch => ~"label=fbranch"
-          }
+        |&edge| fmt!("label=%?", edge)
       )
     }
     out.write_str(~"\n}");
@@ -371,7 +363,7 @@ impl Function {
       for self.cfg.each_succ_edge(block) |id, typ| {
         debug!("out of %? (%? - %?)", block, id, typ);
         match typ {
-          ir::Always | ir::Branch => {
+          ir::Always | ir::Branch | ir::LoopOut => {
             assert(tedge.is_none() && fedge.is_none() && always.is_none());
             always = Some((typ, id));
           }
@@ -379,7 +371,7 @@ impl Function {
             assert(tedge.is_none() && always.is_none());
             tedge = Some((typ, id));
           }
-          ir::False | ir::FBranch => {
+          ir::False | ir::FBranch | ir::FLoopOut => {
             assert(fedge.is_none() && always.is_none());
             fedge = Some((typ, id));
           }

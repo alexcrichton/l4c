@@ -137,7 +137,7 @@ impl AstTranslator {
         self.f.cfg.add_edge(self.commit(), self.continue_to, ir::Branch);
       }
       @ast::Break => {
-        self.f.cfg.add_edge(self.commit(), self.break_to, ir::Branch);
+        self.f.cfg.add_edge(self.commit(), self.break_to, ir::LoopOut);
       }
       @ast::Return(e) => {
         self.stms.push(@ir::Return(self.exp(e, false)));
@@ -228,7 +228,7 @@ impl AstTranslator {
     let bodyid = self.f.cfg.new_id();
     let afterid = self.f.cfg.new_id();
     self.f.cfg.add_edge(pred, condid, ir::Always);
-    self.condition(cond, bodyid, ir::True, afterid, ir::False, bodyid);
+    self.condition(cond, bodyid, ir::True, afterid, ir::FLoopOut, bodyid);
 
     do with(&mut self.continue_to, condid) {
       do with(&mut self.break_to, afterid) {

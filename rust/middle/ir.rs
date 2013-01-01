@@ -48,7 +48,8 @@ pub enum Binop {
 
 pub enum Edge {
   Always, True, False,      /* fall through if condition holds */
-  Branch, TBranch, FBranch  /* branch if condition holds */
+  Branch, TBranch, FBranch, /* branch if condition holds */
+  LoopOut, FLoopOut         /* break out of a loop */
 }
 
 pub fn Program(f : ~[Function]) -> ir::Program {
@@ -75,15 +76,7 @@ impl Program {
         |id, &stms|
           ~"label=\"" + str::connect(stms.map(|s| s.pp()), "\\n") +
           fmt!("\\n[node=%d]\" shape=box", id as int),
-        |&edge|
-          match edge {
-            ir::Always => ~"",
-            ir::True => ~"label=true",
-            ir::False => ~"label=false",
-            ir::Branch => ~"label=branch",
-            ir::TBranch => ~"label=tbranch",
-            ir::FBranch => ~"label=fbranch"
-          }
+        |&edge| fmt!("label=%?", edge)
       )
     }
     out.write_str(~"\n}");

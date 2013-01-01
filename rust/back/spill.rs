@@ -158,13 +158,15 @@ impl Spiller {
     let block = self.f.cfg[n];
 
     /* Union each of our predecessors into the 'bottom' map */
-    for self.f.cfg.each_succ(n) |pred| {
-      if !self.next_use.contains_key(pred) { loop }
-      /* TODO: if this is a loop-out edge, then have a higher merge weight */
+    for self.f.cfg.each_succ(n) |succ| {
+      if !self.next_use.contains_key(succ) { loop }
+      let edge_cost = match self.f.cfg.edge(n, succ) {
+        ir::LoopOut | ir::FLoopOut => loop_out_weight, _ => 0
+      };
       /* Assume that all variables aren't used in this block and add block.len()
          to the value being merged. This will be updated if the value is
          actually used in the block */
-      self.merge(bottom, self.next_use[pred], block.len());
+      self.merge(bottom, self.next_use[succ], block.len() + edge_cost);
     }
 
     /* Process all of our block's statements backwards */
