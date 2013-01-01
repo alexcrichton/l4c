@@ -1,19 +1,20 @@
 use std::{map, sort};
-use middle::temp;
+use middle::temp::Temp;
 use back::assem::*;
+use utils::graph::*;
 
 /* If a temp isn't in a set, then its next_use distance is infinity */
-type NextUse = map::HashMap<temp::Temp, uint>;
-type TempSet = map::Set<temp::Temp>;
+type NextUse = map::HashMap<Temp, uint>;
+type TempSet = map::Set<Temp>;
 
 struct Spiller {
   f : &Function,
-  next_use : map::HashMap<graph::NodeId, NextUse>,
-  deltas : map::HashMap<graph::NodeId, @~[~[(temp::Temp, Option<uint>)]]>,
-  regs_entry : map::HashMap<graph::NodeId, TempSet>,
-  regs_end : map::HashMap<graph::NodeId, TempSet>,
-  spill_entry : map::HashMap<graph::NodeId, TempSet>,
-  spill_exit : map::HashMap<graph::NodeId, TempSet>,
+  next_use : map::HashMap<NodeId, NextUse>,
+  deltas : map::HashMap<NodeId, @~[~[(Temp, Option<uint>)]]>,
+  regs_entry : map::HashMap<NodeId, TempSet>,
+  regs_end : map::HashMap<NodeId, TempSet>,
+  spill_entry : map::HashMap<NodeId, TempSet>,
+  spill_exit : map::HashMap<NodeId, TempSet>,
 }
 
 pub fn spill(p : &Program) {
@@ -39,7 +40,7 @@ pub fn spill(p : &Program) {
   }
 }
 
-fn sort(v : ~[temp::Temp], s : NextUse) -> ~[temp::Temp] {
+fn sort(v : ~[Temp], s : NextUse) -> ~[Temp] {
   sort::quick_sort(vec::to_mut(v),
                    |&a, &b| match s.find(b) {
                               None => true,       /* a is always < infty */
@@ -77,7 +78,7 @@ impl Spiller {
     }
   }
 
-  fn process(n : graph::NodeId) {
+  fn process(n : NodeId) -> bool {
     debug!("processing: %?", n);
     let bottom = map::HashMap();
     let block = self.f.cfg[n];
@@ -128,7 +129,7 @@ impl Spiller {
     }
   }
 
-  fn spill(n : graph::NodeId) {
+  fn spill(n : NodeId) {
     let regs_entry = self.init_usual(n); /* TODO: special case loop headers */
     let spill_entry = self.connect_pred(n);
     self.regs_entry.insert(n, regs_entry);
@@ -203,7 +204,7 @@ impl Spiller {
     self.spill_exit.insert(n, spill);
   }
 
-  fn init_usual(n : graph::NodeId) -> map::Set<temp::Temp> {
+  fn init_usual(n : NodeId) -> map::Set<Temp> {
     let freq = map::HashMap();
     let take = map::HashMap();
     let cand = map::HashMap();
@@ -229,7 +230,7 @@ impl Spiller {
     return take;
   }
 
-  fn connect_pred(n : graph::NodeId) -> map::Set<temp::Temp> {
+  fn connect_pred(n : NodeId, entry : TempSet) -> TempSet {
     /* Build up our list of required spilled registers */
     let entry = self.regs_entry[n];
     let spill_entry = map::HashMap();
