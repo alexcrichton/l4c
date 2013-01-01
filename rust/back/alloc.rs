@@ -22,8 +22,9 @@ pub fn color(p : &Program) {
                        defs: map::HashMap(),
                        last_uses: map::HashMap(),
                        phi_uses: map::HashMap(),
-                       args : Bitv(f.temps, false) };
+                       args: Bitv(f.temps, false) };
 
+    /* Initialize state, prepare the graph */
     for f.args.eachi |i, &tmp| {
       a.args.set(tmp as uint, true);
       a.colors.insert(tmp, i + 1);
@@ -38,6 +39,8 @@ pub fn color(p : &Program) {
     for f.postorder.each |&id| {
       a.prepare(id);
     }
+
+    /* Build all the metadata about phis/liveness needed */
     info!("building live_in: %s", f.name);
     for f.args.each |&arg| {
       a.live_in[f.root].set(arg, true);
@@ -45,14 +48,17 @@ pub fn color(p : &Program) {
     for f.postorder.each |&id| {
       a.build_live(id);
     }
+
+    /* Color the graph completely */
     info!("coloring: %s", f.name);
     a.color(f.root);
     for a.colors.each |tmp, color| {
       debug!("%s => %?", tmp.to_str(), color);
     }
 
+    /* Finally remove all phi nodes and all temps */
     a.remove_phis();
-    a.apply_coloring();
+    a.remove_temps();
   }
 }
 
@@ -245,12 +251,13 @@ impl Allocator {
 
   /**
    * Apply the coloring previously generated to all instructions and operands in
-   * all basic blocks.
+   * all basic blocks. This means that the cfg will no longer have any temps,
+   * and that it will no longer be in SSA-form.
    *
    * This also converts all three-operand binary ops to two-operand binops
    * because x86 is so awesome.
    */
-  fn apply_coloring() {
+  fn remove_temps() {
     for self.f.cfg.each_node |id, ins| {
       let ins = vec::build(|push|
         for ins.each |&ins| { self.alloc_ins(ins, push); }
