@@ -8,9 +8,9 @@ use core::util::*;
 use utils::*;
 
 mod utils {
-  mod set;
-  mod graph;
-  mod bitv;
+  pub mod set;
+  pub mod graph;
+  pub mod bitv;
 
   pub trait PrettyPrint {
     pure fn pp() -> ~str;
@@ -55,7 +55,6 @@ fn help() {
 where OPTION is
   -v        --verbose       verbose messages
             --dump-ast      pretty print the AST
-            --dump-ir       pretty print the IR
             --dump-asm      pretty print the assembly before register allocaction
   -p        --profile       profile the compiler
   -l l4.h0  --header=l4.h0  header file for the program
@@ -80,11 +79,10 @@ fn main() {
   let flags = ~[
     optflag("v"), optflag("verbose"),
     optflag("dump-ast"),
-    optflag("dump-ir"),
-    optflag("dump-asm"),
     optflag("f"), optflag("profile"),
     optopt("header"), optopt("l"),
-    optflag("dot-ir"), optflag("dot-assem"),
+    optflag("dot-ir"), optflag("dot-assem"), optflag("dot-spilled"),
+    optflag("dot-ssa"),
     optflag("safe"), optflag("unsafe"),
     optopt("O"), optopt("optimize"),
     optopt("m"), optopt("arch"),
@@ -113,10 +111,12 @@ fn main() {
   let ir = trans::translate(&ast, safe);
   if opt_present(matches, "dot-ir")  { ir.dot(io::stdout()); }
   ssa::convert(&ir);
-  if opt_present(matches, "dump-ir") { io::println(ir.pp()); }
+  if opt_present(matches, "dot-ssa")  { ir.dot(io::stdout()); }
 
   let assem = codegen::codegen(&ir);
   if opt_present(matches, "dot-assem") { assem.dot(io::stdout()); }
+  spill::spill(&assem);
+  if opt_present(matches, "dot-spilled") { assem.dot(io::stdout()); }
   alloc::color(&assem);
 
   let output = Path(matches.free[0]).with_filetype("S");
