@@ -300,7 +300,11 @@ impl Spiller {
          for down the road */
       for delta.each |&(tmp, amt)| {
         match amt {
-          None    => { assert next_use.remove(tmp); }
+          None => {
+            assert next_use.remove(tmp);
+            set::remove(regs, tmp);
+            set::remove(spill, tmp);
+          }
           Some(d) => { next_use.insert(tmp, d); }
         }
       }
