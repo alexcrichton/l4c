@@ -104,9 +104,7 @@ impl CodeGenerator {
       @ir::Phi((tmp, size), map) => {
         let map2 = map::HashMap();
         for map.each |k, v| {
-          let mapping = self.tmap.find(v);
-          assert(mapping.is_some());
-          map2.insert(k, mapping.get());
+          map2.insert(k, self.tmp(v, size));
         }
         push(@assem::Phi(self.tmp(tmp, size), map2));
       }
