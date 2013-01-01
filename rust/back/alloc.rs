@@ -1,7 +1,7 @@
 use std::map;
 use middle::temp;
 use back::assem::*;
-use std::bitv::Bitv;
+use utils::bitv::Bitv;
 
 struct Allocator {
   f : &Function,
