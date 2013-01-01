@@ -6,6 +6,7 @@ pub const arg_regs : uint = 6;
 pub const ptrsize : uint = 8;
 pub const intsize : uint = 4;
 pub const ret_reg : Register = EAX;
+pub const num_regs : uint = 13;
 
 pub fn arg_reg(i : uint) -> Register {
   match i {
