@@ -53,13 +53,13 @@ pub fn spill(p : &Program) {
     let mut changed = true;
     while changed {
       changed = false;
-      for f.postorder.each |&id| {
+      for f.cfg.each_postorder(f.root) |&id| {
         changed = s.build_next_use(id) || changed;
       }
     }
 
     /* In reverse postorder, spill everything! */
-    for vec::rev_each(*f.postorder) |&id| {
+    for f.cfg.each_rev_postorder(f.root) |&id| {
       s.spill(id);
     }
   }

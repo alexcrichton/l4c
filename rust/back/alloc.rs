@@ -36,7 +36,7 @@ pub fn color(p : &Program) {
       a.live_in.insert(id, @Bitv(f.temps, false));
       a.phi_uses.insert(id, map::HashMap());
     }
-    for f.postorder.each |&id| {
+    for f.cfg.each_postorder(f.root) |&id| {
       a.prepare(id);
     }
 
@@ -45,7 +45,7 @@ pub fn color(p : &Program) {
     for f.args.each |&arg| {
       a.live_in[f.root].set(arg, true);
     }
-    for f.postorder.each |&id| {
+    for f.cfg.each_postorder(f.root) |&id| {
       a.build_live(id);
     }
 

@@ -22,7 +22,6 @@ pub struct Function {
 
   idoms : map::HashMap<graph::NodeId, graph::NodeId>,
   idominated : map::HashMap<graph::NodeId, graph::NodeSet>,
-  postorder : @~[graph::NodeId],
   loops : map::HashMap<graph::NodeId, (graph::NodeId, graph::NodeId)>,
 }
 

@@ -9,8 +9,7 @@ pub struct Function {
   name : ~str,
   cfg : graph::Graph<@~[@Statement], Edge>,
   mut root : graph::NodeId,
-  mut postorder : @~[graph::NodeId], // TODO: iterate mutable vector?
-  mut args : @~[temp::Temp],         // TODO: same as above
+  mut args : @~[temp::Temp],         // TODO: iterate mutable vector?
 
   /* idoms[a] = b implies the immediate dominator of a is b */
   idoms : map::HashMap<graph::NodeId, graph::NodeId>,
@@ -62,7 +61,6 @@ pub fn Function(name : ~str) -> Function {
             root: 0,
             idoms: map::HashMap(),
             idominated: map::HashMap(),
-            postorder: @~[],
             args: @~[],
             loops: map::HashMap() }
 }

@@ -105,6 +105,16 @@ impl<N : Copy, E : Copy> Graph<N, E> {
     self.succ[n].each(f);
   }
 
+  fn each_postorder(root : NodeId, f : &fn(&NodeId) -> bool) {
+    let (order, _) = self.postorder(root);
+    order.each(f);
+  }
+
+  fn each_rev_postorder(root : NodeId, f : &fn(&NodeId) -> bool) {
+    let (order, _) = self.postorder(root);
+    vec::rev_each(order, f);
+  }
+
   priv fn dup<V : Copy, V2 : Copy>
     (m : map::HashMap<NodeId, V>, f : &fn(&V) -> V2) -> map::HashMap<NodeId, V2>
   {

@@ -42,7 +42,7 @@ impl Converter {
     let mut map = tmap::init();
     self.f.args = @self.f.args.map(|&tmp| self.bump(&mut map, tmp));
     self.versions.insert(self.f.root, map);
-    for vec::rev_each(*self.f.postorder) |&id| {
+    for self.f.cfg.each_rev_postorder(self.f.root) |&id| {
       self.map_temps(id);
     }
     for self.phi_temps.each |k, v| {
@@ -130,7 +130,6 @@ impl Converter {
     let root = self.f.root;
     let (order, postorder) = self.f.cfg.postorder(root);
     debug!("%?", order);
-    self.f.postorder = @order;
     idoms.insert(root, root);
 
     /* This code is an implementation of the algorithm found in this paper:
@@ -139,7 +138,7 @@ impl Converter {
     let mut changed = true;
     while changed {
       changed = false;
-      for vec::rev_each(*self.f.postorder) |&b| {
+      for vec::rev_each(order) |&b| {
         if b == root { loop }
         let mut new_idom = -1;
 
@@ -171,12 +170,12 @@ impl Converter {
     }
 
     let visited = map::HashMap();
-    for self.f.postorder.each |&id| {
+    for order.each |&id| {
       debug!("%? => %?", id, idoms[id]);
       assert(!set::contains(visited, idoms[id]));
       set::add(visited, id);
     }
-    for vec::rev_each(*self.f.postorder) |&id| {
+    for vec::rev_each(order) |&id| {
       if id != id {
         assert(!set::contains(visited, idoms[id]));
       }
@@ -204,7 +203,7 @@ impl Converter {
        for calculating the dominance frontier of a node */
 
     let frontiers = map::HashMap();
-    for self.f.postorder.each |&a| {
+    for self.f.cfg.each_postorder(self.f.root) |&a| {
       let frontier = map::HashMap();
 
       /* df_local[a] */

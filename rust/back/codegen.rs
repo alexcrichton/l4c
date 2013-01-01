@@ -32,7 +32,6 @@ fn translate(f : &ir::Function) -> assem::Function {
                     root: f.root,
                     idoms: f.idoms,
                     idominated: f.idominated,
-                    postorder:  f.postorder,
                     temps: cg.temps.cnt(),
                     sizes: cg.sizes,
                     args:  f.args.map(|&tmp| cg.tmap[tmp]),
