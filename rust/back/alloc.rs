@@ -170,7 +170,9 @@ impl Allocator {
       for ins.each_def |tmp| {
         let color = self.min_vacant(assigned);
         self.colors.insert(tmp, color);
-        set::add(assigned, color);
+        if !self.last_use(tmp, n, i) {
+          set::add(assigned, color);
+        }
       }
     }
 
@@ -182,13 +184,16 @@ impl Allocator {
   fn last_use(t : temp::Temp, n : graph::NodeId, i : uint) -> bool {
     /* If any block n immediately dominates use t, then we certainly aren't the
        last use of the variable t */
-    for set::each(self.f.idominated[n]) |id| {
+    for self.f.cfg.each_succ(n) |id| {
       if self.live_in[id][t as uint] {
         return false;
       }
     }
     /* otherwise make sure we're the last instruction in the block to use */
-    return self.last_uses[n][t] == i;
+    match self.last_uses[n].find(t) {
+      None => true, /* this is never used anywhere */
+      Some(last) => i == last
+    }
   }
 
   fn min_vacant(colors : map::Set<uint>) -> uint {
