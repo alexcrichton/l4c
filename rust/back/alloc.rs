@@ -30,13 +30,13 @@ pub fn color(p : &Program) {
       a.live_in.insert(id, @Bitv(f.temps, false));
       a.phi_uses.insert(id, map::HashMap());
     }
-    for f.cfg.each_postorder(f.root) |&id| {
+    for f.cfg.each_node |id, _| {
       a.prepare(id);
     }
 
     /* Build all the metadata about phis/liveness needed */
     info!("building live_in: %s", f.name);
-    for f.cfg.each_postorder(f.root) |&id| {
+    for f.cfg.each_node |id, _| {
       a.build_live(id);
     }
 
