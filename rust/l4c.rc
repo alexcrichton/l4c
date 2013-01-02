@@ -127,7 +127,7 @@ fn main() {
 
   let output = Path(matches.free[0]).with_filetype("s");
   match io::file_writer(&output, ~[io::Truncate, io::Create]) {
-    result::Ok(f) => assem.output(f),
+    result::Ok(f)  => assem.output(f),
     result::Err(e) => fail(e)
   }
 }

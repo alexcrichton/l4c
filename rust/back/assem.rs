@@ -162,8 +162,18 @@ impl Instruction : PrettyPrint {
         } else {
           ~"mov " + o2.pp() + ~", " + o1.pp()
         },
-      BinaryOp(Mul, dest, s1, s2) if s2.imm() && !s1.imm() =>
-        fmt!("imul %s, %s, %s", s2.pp(), s1.pp(), dest.pp()),
+      BinaryOp(Mul, dest, s1, s2) if s2.imm() && !s1.imm() => {
+        if s1.size() == dest.size() {
+          fmt!("imul %s, %s, %s", s2.pp(), s1.pp(), dest.pp())
+        } else {
+          let larger = match s1 {
+            @Register(r, _) => @Register(r, ir::Pointer),
+            _ => s1
+          };
+          fmt!("movslq %s, %s; imul %s, %s, %s", s1.pp(), larger.pp(),
+               s2.pp(), larger.pp(), dest.pp())
+        }
+      }
       BinaryOp(binop, dest, s1, s2) =>
         fmt!("%s %s, %s // %s"
              binop.pp(), s1.pp(), dest.pp(), s2.pp()),
