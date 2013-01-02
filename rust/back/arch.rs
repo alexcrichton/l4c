@@ -42,7 +42,6 @@ pub fn num_reg(i : uint) -> Register {
 pub fn constrain(ins : @Instruction,
                  push : &pure fn(@Instruction),
                  cg : &CodeGenerator) {
-  ignore(cg);
   match ins {
     @Condition(c, o1, o2) => constrain_cmp(c, o1, o2, push, cg, Condition),
     @Die(c, o1, o2) => constrain_cmp(c, o1, o2, push, cg, Die),

@@ -162,6 +162,8 @@ impl Instruction : PrettyPrint {
         } else {
           ~"mov " + o2.pp() + ~", " + o1.pp()
         },
+      BinaryOp(Mul, dest, s1, s2) if s2.imm() && !s1.imm() =>
+        fmt!("imul %s, %s, %s", s2.pp(), s1.pp(), dest.pp()),
       BinaryOp(binop, dest, s1, s2) =>
         fmt!("%s %s, %s // %s"
              binop.pp(), s1.pp(), dest.pp(), s2.pp()),

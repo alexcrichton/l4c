@@ -314,6 +314,12 @@ impl Allocator {
         push(@Die(c, self.alloc_op(o1), self.alloc_op(o2))),
       @Move(o1, o2) => push(@Move(self.alloc_op(o1), self.alloc_op(o2))),
 
+      /* x86 imul can have 3 operands if one is an immediate */
+      @BinaryOp(Mul, d, s1, s2) if s1.imm() && !s2.imm() =>
+        push(@BinaryOp(Mul, self.alloc_op(d), self.alloc_op(s2), s1)),
+      @BinaryOp(Mul, d, s1, s2) if s2.imm() && !s1.imm() =>
+        push(@BinaryOp(Mul, self.alloc_op(d), self.alloc_op(s1), s2)),
+
       /* When going through formatting and on x86 -
             BinaryOp(op, d, s1, s2) <=> d = d op s1
          and s2 is put in the commments */
