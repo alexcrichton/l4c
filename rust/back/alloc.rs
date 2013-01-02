@@ -1,7 +1,9 @@
 use std::map;
-use middle::temp;
+use middle::{temp, ssa, ir};
 use back::assem::*;
 use utils::bitv::Bitv;
+
+type CFG = graph::Graph<@~[@assem::Instruction], ir::Edge>;
 
 struct Allocator {
   f : &Function,
@@ -13,8 +15,17 @@ struct Allocator {
   phi_uses : map::HashMap<graph::NodeId, map::Set<temp::Temp>>,
 }
 
-pub fn color(p : &Program) {
+pub fn color(p : &Program, dump : bool) {
+  let mut idominated = ~[];
+  /* First, since spilling put the graph in not-ssa form, put it back */
   for p.funs.each |f| {
+    eliminate_critical(&f.cfg);
+    idominated.push(ressa(f));
+  }
+
+  if dump { p.dot(io::stdout()); }
+
+  for vec::each2(p.funs, idominated) |f, &idominated| {
     let a = Allocator{ colors: map::HashMap(),
                        f: f,
                        live_in: map::HashMap(),
@@ -22,11 +33,6 @@ pub fn color(p : &Program) {
                        last_uses: map::HashMap(),
                        phi_uses: map::HashMap(), };
 
-    /* Initialize state, prepare the graph */
-    for f.args.eachi |i, &tmp| {
-      a.colors.insert(tmp, i + 1);
-    }
-    a.eliminate_critical();
     info!("preparing: %s", f.name);
     for f.cfg.each_node |id, _| {
       a.last_uses.insert(id, map::HashMap());
@@ -39,16 +45,13 @@ pub fn color(p : &Program) {
 
     /* Build all the metadata about phis/liveness needed */
     info!("building live_in: %s", f.name);
-    for f.args.each |&arg| {
-      a.live_in[f.root].set(arg, true);
-    }
     for f.cfg.each_postorder(f.root) |&id| {
       a.build_live(id);
     }
 
     /* Color the graph completely */
     info!("coloring: %s", f.name);
-    a.color(f.root);
+    a.color(f.root, idominated);
     for a.colors.each |tmp, color| {
       debug!("%s => %?", tmp.to_str(), color);
     }
@@ -59,31 +62,53 @@ pub fn color(p : &Program) {
   }
 }
 
-impl Allocator {
-  /**
-   * Eliminate all critical edges in the graph by splitting them and placing a
-   * basic block on the edge. The fact that there are no critical edges in the
-   * graph is leveraged when spilling registers and removing phi nodes.
-   */
-  fn eliminate_critical() {
-    /* can't modify the graph during traversal */
-    let mut critical = ~[];
-    let cfg = &self.f.cfg;
-    for cfg.each_edge |n1, n2| {
-      /* critical edges are defined as those whose source has multiple out edges
-         and whose target has multiple in edges */
-      if cfg.num_succ(n1) > 1 && cfg.num_pred(n2) > 1 {
-        critical.push((n1, n2));
-      }
-    }
-    for critical.each |&(n1, n2)| {
-      let edge = cfg.remove_edge(n1, n2);
-      let new = cfg.new_id();
-      cfg.add_node(new, @~[]);
-      cfg.add_edge(n1, new, edge);
-      cfg.add_edge(new, n2, ir::Always);
+fn ressa(f : &assem::Function) -> ssa::Idominated {
+  /* tables/metadata altered through temp remapping */
+  let oldsizes = f.sizes;
+  let newsizes = map::HashMap();
+
+  /* And, convert! */
+  let ret = ssa::convert(&f.cfg, f.root, ~[], |old, new| {
+    info!("%? => %?", old, new);
+    newsizes.insert(new, oldsizes[old]);
+  }, |tmp, map| @assem::Phi(tmp, map));
+
+  /* update all type information for the new temps */
+  f.sizes.clear();
+  let mut max = 0;
+  for newsizes.each |k, v| {
+    f.sizes.insert(k, v);
+    max = uint::max(max, k as uint);
+  }
+  f.temps = max + 1;
+  return ret;
+}
+
+/**
+ * Eliminate all critical edges in the graph by splitting them and placing a
+ * basic block on the edge. The fact that there are no critical edges in the
+ * graph is leveraged when spilling registers and removing phi nodes.
+ */
+fn eliminate_critical(cfg : &CFG) {
+  /* can't modify the graph during traversal */
+  let mut critical = ~[];
+  for cfg.each_edge |n1, n2| {
+    /* critical edges are defined as those whose source has multiple out edges
+       and whose target has multiple in edges */
+    if cfg.num_succ(n1) > 1 && cfg.num_pred(n2) > 1 {
+      critical.push((n1, n2));
     }
   }
+  for critical.each |&(n1, n2)| {
+    let edge = cfg.remove_edge(n1, n2);
+    let new = cfg.new_id();
+    cfg.add_node(new, @~[]);
+    cfg.add_edge(n1, new, edge);
+    cfg.add_edge(new, n2, ir::Always);
+  }
+}
+
+impl Allocator {
 
   /* Build up tables needed for liveness */
   fn prepare(n : graph::NodeId) {
@@ -150,9 +175,9 @@ impl Allocator {
    * A top-down traversal of the dominator tree is done, coloring all
    * definitions as they are seen with the first available color.
    */
-  fn color(n : graph::NodeId) {
+  fn color(n : graph::NodeId, idominated : ssa::Idominated) {
     let assigned = map::HashMap();
-    debug!("at block %?", n);
+    debug!("at block %? %?", n, self.f.temps);
     for self.live_in[n].ones |t| {
       debug!("live in %?", t as temp::Temp);
       set::add(assigned, self.colors[t as temp::Temp]);
@@ -176,8 +201,8 @@ impl Allocator {
       }
     }
 
-    for set::each(self.f.idominated[n]) |id| {
-      self.color(id);
+    for set::each(idominated[n]) |id| {
+      self.color(id, idominated);
     }
   }
 
@@ -279,7 +304,7 @@ impl Allocator {
       @Store(@MOp(addr), src) =>
         push(@Store(@MOp(self.alloc_op(addr)), self.alloc_op(src))),
       @Store(addr, src) => push(@Store(addr, self.alloc_op(src))),
-      @Return | @Raw(*) | @Comment(*) | @Phi(*) => push(i),
+      @Return | @Raw(*) | @Phi(*) => push(i),
       @Condition(c, o1, o2) =>
         push(@Condition(c, self.alloc_op(o1), self.alloc_op(o2))),
       @Die(c, o1, o2) =>
