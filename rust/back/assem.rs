@@ -1,6 +1,7 @@
-use middle::temp;
+use middle::temp::Temp;
 use middle::label;
 use middle::ir;
+use middle::ssa;
 use std::map;
 use io::WriterUtil;
 
@@ -16,12 +17,9 @@ pub struct Function {
   name : ~str,
   root : graph::NodeId,
   cfg : graph::Graph<@~[@Instruction], Edge>,
-  args : ~[temp::Temp],
-  sizes : map::HashMap<temp::Temp, Size>,
+  sizes : map::HashMap<Temp, Size>,
   mut temps : uint,
 
-  idoms : map::HashMap<graph::NodeId, graph::NodeId>,
-  idominated : map::HashMap<graph::NodeId, graph::NodeSet>,
   loops : map::HashMap<graph::NodeId, (graph::NodeId, graph::NodeId)>,
 }
 
@@ -35,16 +33,15 @@ pub enum Instruction {
   Return,
   Call(@Operand, uint),
   Raw(~str),
-  Comment(~str),
-  Phi(temp::Temp, map::HashMap<graph::NodeId, temp::Temp>),
-  Reload(temp::Temp),
-  Spill(temp::Temp),
+  Phi(Temp, ssa::PhiMap),
+  Reload(Temp, Temp),
+  Spill(Temp),
 }
 
 pub enum Operand {
   Immediate(i32, Size),
   Register(Register, Size),
-  Temp(temp::Temp),
+  Temp(Temp),
   LabelOp(Label)
 }
 
@@ -68,19 +65,59 @@ pub enum Register {
   R8D, R9D, R10D, R11D, R12D, R13D, R14D, R15D
 }
 
-impl Instruction {
-  fn each_def(f : &fn(temp::Temp) -> bool) {
+impl Instruction : ssa::Statement {
+  fn each_def(f : &fn(Temp) -> bool) {
     match self {
       BinaryOp(_, @Temp(t), _, _) |
       Move(@Temp(t), _) |
       Phi(t, _) |
-      Load(@Temp(t), _)
+      Load(@Temp(t), _) |
+      Reload(t, _)
         => { f(t); }
       _ => ()
     }
   }
 
-  fn each_use(f : &fn(temp::Temp) -> bool) {
+  fn phi_map() -> Option<ssa::PhiMap> {
+    match self {
+      Phi(_, m) => Some(m),
+      _         => None
+    }
+  }
+
+  fn map_temps(@self, uses: &fn(Temp) -> Temp,
+               defs: &fn(Temp) -> Temp) -> @Instruction {
+    match self {
+      @BinaryOp(op, o1, o2, o3) => {
+        let (o2, o3) = (o2.map_temps(uses), o3.map_temps(uses));
+        @BinaryOp(op, o1.map_temps(defs), o2, o3)
+      }
+      @Move(dest, src) => {
+        let src = src.map_temps(uses);
+        @Move(dest.map_temps(defs), src)
+      }
+      @Load(dest, src) => {
+        let src = src.map_temps(uses);
+        @Load(dest.map_temps(defs), src)
+      }
+      @Store(dest, src) => @Store(dest.map_temps(uses), src.map_temps(uses)),
+      @Die(c, o1, o2) => @Die(c, o1.map_temps(uses), o2.map_temps(uses)),
+      @Condition(c, o1, o2) =>
+        @Condition(c, o1.map_temps(uses), o2.map_temps(uses)),
+      @Spill(t) => @Spill(uses(t)),
+      @Reload(dest, src) => {
+        let src = uses(src);
+        @Reload(defs(dest), src)
+      }
+      @Phi(t, map) => @Phi(defs(t), map),
+      @Call(o, n) => @Call(o.map_temps(uses), n),
+      @Return | @Raw(*) => self
+    }
+  }
+}
+
+impl Instruction {
+  fn each_use(f : &fn(Temp) -> bool) {
     match self {
       Condition(_, @Temp(t1), @Temp(t2)) |
       Die(_, @Temp(t1), @Temp(t2)) |
@@ -111,7 +148,6 @@ impl Instruction : PrettyPrint {
   pure fn pp() -> ~str {
     match self {
       Raw(copy s) => s,
-      Comment(copy s) => ~"/* " + s + ~" */",
       Return => ~"ret",
       Die(c, o1, o2) =>
         fmt!("cmp %s, %s; j%s %sraise_segv", o2.pp(), o1.pp(),
@@ -141,7 +177,7 @@ impl Instruction : PrettyPrint {
         s + ~")"
       }
       Spill(t) => fmt!("spill %s", t.pp()),
-      Reload(t) => fmt!("reload %s", t.pp()),
+      Reload(t1, t2) => fmt!("reload %s <= %s", t1.pp(), t2.pp()),
     }
   }
 }
@@ -154,6 +190,24 @@ impl Operand {
       Immediate(_, s) | Register(_, s) => s,
       LabelOp(*) => ir::Pointer,
       Temp(*) => ir::Int
+    }
+  }
+}
+
+impl @Operand {
+  fn map_temps(f : &fn(Temp) -> Temp) -> @Operand {
+    match self {
+      @Temp(t) => @Temp(f(t)),
+      _        => self
+    }
+  }
+}
+
+impl @Address {
+  fn map_temps(f : &fn(Temp) -> Temp) -> @Address {
+    match self {
+      @MOp(t) => @MOp(t.map_temps(f)),
+      _        => self
     }
   }
 }

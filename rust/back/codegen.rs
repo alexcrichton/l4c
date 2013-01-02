@@ -40,11 +40,8 @@ fn translate(f : &ir::Function) -> assem::Function {
   assem::Function { name: copy f.name,
                     cfg: cfg,
                     root: f.root,
-                    idoms: f.idoms,
-                    idominated: f.idominated,
                     temps: cg.temps.cnt(),
                     sizes: cg.sizes,
-                    args:  f.args.map(|&tmp| cg.tmap[tmp]),
                     loops: f.loops }
 }
 
