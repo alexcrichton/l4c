@@ -1,3 +1,27 @@
+/**
+ * The spilling algorithm implemented is outlined in the paper "Register
+ * Spilling and Live-Range Splitting for SSA-Form Programs" by Braun and Hack.
+ *
+ * The basic idea of the spilling algorithm is to run the "Belady Method" on all
+ * basic blocks and combine the data. The Belady method states that if a
+ * register must be evicted, then the register which should be evicted is the
+ * one that is used "farthest in the future."
+ *
+ * To implement this, each block develops a set of temps assumed in registers on
+ * entry, and a subset of this which may be spilled. The belady method is then
+ * run, inserting reloads/spills as the block progresses, and then the results
+ * are recorded in the output.
+ *
+ * When inserting reloads, the SSA form of the graph is destroyed because a
+ * reload is a redefinition of that temporary. For this reason, register
+ * allocation puts the graph back into SSA form right before running its
+ * coloring algorithm.
+ *
+ * Much more detailed information about how the spilling works in theory is
+ * located in the paper above, and comments of implementation can be found
+ * throughout the code in this file.
+ */
+
 use std::{map, sort};
 use middle::temp::Temp;
 use back::assem::*;
@@ -11,8 +35,12 @@ type TempSet = map::Set<Temp>;
 
 struct Spiller {
   f : &Function,
+  /* next_use information for each node in the graph */
   next_use : map::HashMap<NodeId, NextUse>,
+  /* Delta information for next_use as a block is traversed top down */
   deltas : map::HashMap<NodeId, @~[~[(Temp, Option<uint>)]]>,
+
+  /* Information required by the spilling algorithm */
   regs_entry : map::HashMap<NodeId, TempSet>,
   regs_end : map::HashMap<NodeId, TempSet>,
   spill_entry : map::HashMap<NodeId, TempSet>,
@@ -25,7 +53,9 @@ struct Spiller {
      name t2 in node n */
   phis : map::HashMap<NodeId, map::HashMap<Temp, map::HashMap<NodeId, Temp>>>,
 
+  /* Maximum register pressure at each basic block */
   max_pressures : map::HashMap<NodeId, uint>,
+  /* Set of edges which have been connected (spills/reloads placed) so far */
   connected : map::Set<(NodeId, NodeId)>,
 }
 
@@ -98,10 +128,6 @@ fn set_to_str(m : TempSet) -> ~str {
   return s + ~"}";
 }
 
-/**
- * The spilling algorithm implemented is outlined in the paper "Register
- * Spilling and Live-Range Splitting for SSA-Form Programs" by Braun and Hack.
- */
 impl Spiller {
   /**
    * Build up internal maps of the renaming of temps done by phi functions per
