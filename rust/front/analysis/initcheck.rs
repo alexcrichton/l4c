@@ -13,11 +13,16 @@ pub fn check(a : &Program) {
 
 impl Initchecker {
   fn check(a : &Program) {
-    for a.decls.each |x| {
-      match *x {
-        @Function(_, _, _, body) => self.analyze(body),
-        _ => ()
-      }
+    for a.decls.each |&x| {
+      self.check_gdecl(x);
+    }
+  }
+
+  fn check_gdecl(g : @GDecl) {
+    match g {
+      @Markedg(ref m) => self.check_gdecl(m.data),
+      @Function(_, _, _, body) => self.analyze(body),
+      _ => ()
     }
   }
 
@@ -26,12 +31,13 @@ impl Initchecker {
       @Markeds(ref m) => self.err.with(m, |x| self.analyze(x)),
       @If(_, s1, s2) | @Seq(s1, s2) => { self.analyze(s1); self.analyze(s2); },
       @While(_, s) => self.analyze(s),
-      @Declare(id, _, _, s) =>
+      @Declare(id, _, None, s) =>
         if !self.live(id, s) {
           self.analyze(s);
         } else {
           self.err.add(fmt!("Uninitialized variable: '%s'", id.val));
         },
+      @Declare(_, _, _, s) => self.analyze(s),
       @For(_, _, _, body) => self.analyze(body),
       _ => ()
     }
