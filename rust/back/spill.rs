@@ -270,19 +270,23 @@ impl Spiller {
     let limit = |max : uint, push : &fn(@Instruction)| {
       if regs.size() >= max {
         let sorted = sort(regs, next_use);
+        debug!("%? %s", sorted, map_to_str(next_use));
         for sorted.view(max, sorted.len()).each |&tmp| {
           if !set::contains(spill, tmp) && next_use.contains_key(tmp) {
+            debug!("spilling %?", tmp);
             push(@Spill(tmp));
           }
           set::remove(regs, tmp);
           set::remove(spill, tmp);
         }
       }
+      assert(regs.size() <= max);
     };
 
     debug!("%s", map_to_str(next_use));
+    let mut i = 0;
     for vec::each2(*self.f.cfg[n], *self.deltas[n]) |&ins, delta| {
-      debug!("%40s  %s", ins.pp(),
+      debug!("%2d %30s  %s %s", i, ins.pp(), map_to_str(next_use),
              str::connect(delta.map(|a| fmt!("%?", a)), ~", "));
       /* Determine what needs to be reloaded */
       for ins.each_use |tmp| {
@@ -291,6 +295,7 @@ impl Spiller {
         set::add(regs, tmp);
         set::add(spill, tmp);
       }
+      debug!("making room for operands");
       /* This limit is relative to the next_use of this instruction */
       limit(arch::num_regs, |i| block.push(i));
 
@@ -310,12 +315,14 @@ impl Spiller {
       }
       let mut defs = 0;
       for ins.each_def |_| { defs += 1; }
+      debug!("making room for results");
       limit(arch::num_regs - defs, |i| block.push(i));
 
       /* Add all defined temps to the set of those in regs */
       for ins.each_def |tmp| {
         set::add(regs, tmp);
       }
+      assert(regs.size() <= arch::num_regs);
 
       /* Finally reload all operands as necessary, and then run ins */
       for reloaded.each |&tmp| {
@@ -323,6 +330,7 @@ impl Spiller {
       }
       reloaded.truncate(0);
       block.push(ins);
+      i += 1;
     }
 
     self.f.cfg.update_node(n, @block);

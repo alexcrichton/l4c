@@ -159,11 +159,12 @@ impl Allocator {
     }
 
     for self.f.cfg[n].eachi |i, &ins| {
+      debug!("%s", ins.pp());
       for ins.each_use |tmp| {
         debug!("found use %?", tmp);
         if self.last_use(tmp, n, i) {
           debug!("removing %?", tmp);
-          assigned.remove(self.colors[tmp]);
+          set::remove(assigned, self.colors[tmp]);
         }
       }
       for ins.each_def |tmp| {
