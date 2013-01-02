@@ -66,15 +66,19 @@ pub fn spill(p : &Program) {
 }
 
 fn sort(set : TempSet, s : NextUse) -> ~[Temp] {
-  let v = map::vec_from_set(set);
-  sort::quick_sort(vec::to_mut(v),
-                   |&a, &b| match s.find(b) {
-                              None => true,       /* a is always < infty */
-                              Some(b) => match s.find(a) {
-                                None => false,    /* infty always > n */
-                                Some(a) => a < b
-                              }
-                            });
+  let mut v = ~[];
+  for set::each(set) |tmp| {
+    v.push(tmp);
+  }
+  sort::quick_sort(v, |&a : &Temp, &b : &Temp| {
+    match s.find(b) {
+      None => true,       /* a is always < infty */
+      Some(b) => match s.find(a) {
+        None => false,    /* infty always > n */
+        Some(a) => a <= b
+      }
+    }
+  });
   return v;
 }
 
@@ -487,5 +491,37 @@ impl Spiller {
       Some(map) => map[from],
       None => tmp
     }
+  }
+}
+
+#[cfg(test)]
+mod test {
+  fn set(v : ~[int]) -> TempSet {
+    let set = map::HashMap();
+    for v.each |&i| {
+      set::add(set, i as Temp);
+    }
+    return set;
+  }
+
+  #[test]
+  fn test_sort_works1() {
+    let map : NextUse = map::HashMap();
+    map.insert(4, 5);
+    map.insert(5, 6);
+    let sorted = sort(set(~[4, 5, 6]), map);
+    assert(sorted[0] == 4);
+    assert(sorted[1] == 5);
+    assert(sorted[2] == 6);
+  }
+
+  #[test]
+  fn test_sort_works2() {
+    let map : NextUse = map::HashMap();
+    map.insert(4, 5);
+    map.insert(5, 6);
+    let sorted = sort(set(~[4, 5]), map);
+    assert(sorted[0] == 4);
+    assert(sorted[1] == 5);
   }
 }
