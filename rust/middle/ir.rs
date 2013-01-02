@@ -13,23 +13,18 @@ pub struct Function {
   mut args : @~[Temp],         // TODO: iterate mutable vector?
   types : map::HashMap<Temp, Type>,
 
-  /* idoms[a] = b implies the immediate dominator of a is b */
-  idoms : map::HashMap<graph::NodeId, graph::NodeId>,
-  /* idominated[a] = b implies a immediately dominates nodes in b */
-  idominated : map::HashMap<graph::NodeId, graph::NodeSet>,
-  /* loop header blocks to loop body and loop exit blocks */
   loops : map::HashMap<graph::NodeId, (graph::NodeId, graph::NodeId)>,
 }
 
 pub enum Statement {
   Move(Temp, @Expression),
   Load(Temp, @Expression),
-  Phi(Temp, map::HashMap<graph::NodeId, Temp>),
+  Call(Temp, @Expression, ~[@Expression]),
+  Phi(Temp, ssa::PhiMap),
   Store(@Expression, @Expression),
   Condition(@Expression),
   Return(@Expression),
   Die(@Expression),
-  Call(Temp, @Expression, ~[@Expression]),
 }
 
 pub enum Expression {
@@ -60,8 +55,6 @@ pub fn Function(name : ~str) -> Function {
             name: name,
             root: 0,
             types: map::HashMap(),
-            idoms: map::HashMap(),
-            idominated: map::HashMap(),
             args: @~[],
             loops: map::HashMap() }
 }
@@ -93,12 +86,6 @@ impl Type : cmp::Eq {
   pure fn ne(&self, other : &Type) -> bool { !self.eq(other) }
 }
 
-impl Program : PrettyPrint {
-  pure fn pp() -> ~str {
-    str::connect(self.funs.map(|f| f.pp()), "\n\n")
-  }
-}
-
 impl Function {
   pure fn size(e : @Expression) -> Type {
     match e {
@@ -112,13 +99,6 @@ impl Function {
       },
       @Temp(t) => self.types[t]
     }
-  }
-}
-
-impl Function : PrettyPrint {
-  pure fn pp() -> ~str {
-    // TODO: graph traversal
-    ~"foo"
   }
 }
 
@@ -138,34 +118,42 @@ impl Binop {
   }
 }
 
-impl Statement {
+impl Statement : ssa::Statement {
   fn each_def(f : &fn(Temp) -> bool) {
     match self {
-      Load(tmp, _) | Move(tmp, _) => { f(tmp); }
+      Load(tmp, _) | Move(tmp, _) | Call(tmp, _, _) | Phi(tmp, _) => {f(tmp);}
       _ => ()
     }
   }
 
-  fn map_temps(uses: &fn(Temp) -> Temp, defs: &fn(Temp) -> Temp) -> @Statement {
+  fn map_temps(@self, uses: &fn(Temp) -> Temp,
+               defs: &fn(Temp) -> Temp) -> @Statement {
     match self {
-      ir::Move(tmp, e) => {
-        let e = e.map_temps(defs);
-        @ir::Move(defs(tmp), e)
+      @Move(tmp, e) => {
+        let e = e.map_temps(uses);
+        @Move(defs(tmp), e)
       }
-      ir::Load(tmp, e) => {
-        let e = e.map_temps(defs);
-        @ir::Load(defs(tmp), e)
+      @Load(tmp, e) => {
+        let e = e.map_temps(uses);
+        @Load(defs(tmp), e)
       }
-      ir::Store(e1, e2) => @ir::Store(e1.map_temps(uses), e2.map_temps(uses)),
-      ir::Condition(e) => @ir::Condition(e.map_temps(uses)),
-      ir::Return(e) => @ir::Return(e.map_temps(uses)),
-      ir::Die(e) => @ir::Die(e.map_temps(uses)),
-      ir::Call(tmp, e, ref args) => {
+      @Store(e1, e2) => @Store(e1.map_temps(uses), e2.map_temps(uses)),
+      @Condition(e) => @Condition(e.map_temps(uses)),
+      @Return(e) => @Return(e.map_temps(uses)),
+      @Die(e) => @Die(e.map_temps(uses)),
+      @Call(tmp, e, ref args) => {
         let e = e.map_temps(uses);
         let args = args.map(|&x| x.map_temps(uses));
-        @ir::Call(defs(tmp), e, args)
+        @Call(defs(tmp), e, args)
       }
-      ir::Phi(_, _) => fail(~"shouldn't see phi nodes yet")
+      @Phi(_, _) => fail(~"shouldn't see phi nodes yet")
+    }
+  }
+
+  fn phi_map() -> Option<ssa::PhiMap> {
+    match self {
+      ir::Phi(_, m) => Some(m),
+      _             => None
     }
   }
 }
@@ -237,4 +225,37 @@ impl Binop : PrettyPrint {
       Rsh => ~">>",
     }
   }
+}
+
+pub fn ssa(p : &ir::Program) {
+  for p.funs.each |f| {
+    ssa_fun(f);
+  }
+}
+
+priv fn ssa_fun(f : &ir::Function) {
+  /* tables/metadata altered through temp remapping */
+  let args = map::HashMap();
+  let oldtypes = f.types;
+  let newtypes = map::HashMap();
+  for f.args.each |&tmp| {
+    args.insert(tmp, None);
+  }
+
+  /* And, convert! */
+  ssa::convert(&f.cfg, f.root, *f.args, |old, new| {
+    newtypes.insert(new, oldtypes[old]);
+    match args.find(old) {
+      Some(_) => (),
+      None    => { args.insert(old, Some(new)); }
+    }
+  }, |tmp, map| @ir::Phi(tmp, map));
+
+  /* update all type information for the new temps */
+  f.types.clear();
+  for newtypes.each |k, v| {
+    f.types.insert(k, v);
+  }
+  /* remap our args */
+  f.args = @f.args.map(|&arg| args[arg].get());
 }
