@@ -112,6 +112,19 @@ fn sort(set : TempSet, s : NextUse) -> ~[Temp] {
   return v;
 }
 
+fn eq(m1 : NextUse, m2 : NextUse) -> bool {
+  if m1.size() != m2.size() {
+    return false;
+  }
+  for m1.each |k, v| {
+    match m2.find(k) {
+      Some(v2) => { if v2 != v { return false } }
+      None     => { return false; }
+    }
+  }
+  return true;
+}
+
 fn map_to_str(m : NextUse) -> ~str {
   let mut s = ~"{";
   for m.each |k, v| {
@@ -228,28 +241,22 @@ impl Spiller {
       deltas.push(delta);
       max = uint::max(max, bottom.size());
     }
+    vec::reverse(deltas);
 
     /* If we didn't update anything, return false */
     match self.next_use.find(n) {
       Some(before) => {
-        let mut diff = false;
-        for bottom.each |k, v| {
-          match before.find(k) {
-            Some(v2) => { diff = v2 != v; }
-            None     => { diff = true; }
-          }
-          if diff { break }
-        }
-        if !diff {
+        if eq(bottom, before) && *self.deltas[n] == deltas {
           return false;
         }
       }
       None => ()
     }
+    debug!("next_use: %s", map_to_str(bottom));
+    debug!("deltas: %?", deltas);
 
     /* If we did update something, then update it and return so */
     self.next_use.insert(n, bottom);
-    vec::reverse(deltas);
     self.deltas.insert(n, @deltas);
     self.max_pressures.insert(n, max);
     return true;
