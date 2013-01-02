@@ -1,9 +1,10 @@
 RUSTC = rustc
+SOURCES = $(shell find . -name '*.rs' -or -name '*.rc')
 
 all: l4c
 l4c: bin/l4c
 
-bin/l4c: parse/parser $(wildcard **/*.rs) l4c.rc
+bin/l4c: parse/parser $(SOURCES)
 	@mkdir -p bin
 	$(RUSTC) l4c.rc -o $@
 .PHONY: l4c
