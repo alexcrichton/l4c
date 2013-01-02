@@ -190,8 +190,8 @@ impl<N : Copy, E : Copy> Graph<N, E> {
   }
 }
 
-impl<N : Copy, E : Copy> Graph<N, E> : Index<graph::NodeId, N> {
-  pure fn index(&self, id : graph::NodeId) -> N {
+impl<N : Copy, E : Copy> Graph<N, E> : Index<NodeId, N> {
+  pure fn index(&self, id : NodeId) -> N {
     self.node(id)
   }
 }
