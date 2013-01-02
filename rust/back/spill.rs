@@ -326,7 +326,7 @@ impl Spiller {
 
       /* Finally reload all operands as necessary, and then run ins */
       for reloaded.each |&tmp| {
-        block.push(@Reload(tmp));
+        block.push(@Reload(tmp, tmp));
       }
       reloaded.truncate(0);
       block.push(ins);
@@ -391,6 +391,7 @@ impl Spiller {
         set::add(cand, tmp);
       }
     }
+    debug!("loop candidates: %s", set_to_str(cand));
     if cand.size() < arch::num_regs {
       /* live_through = (phis | live_in) - cand */
       let live_through = map::HashMap();
@@ -405,6 +406,7 @@ impl Spiller {
       set::add(visited, n);     /* don't loop back to the start */
       set::add(visited, end);   /* don't go outside the loop */
       let free = arch::num_regs - self.max_pressure(body, visited);
+      debug!("live through loop: %s", set_to_str(live_through));
       if free > 0 {
         let sorted = sort(live_through, self.next_use[n]);
         for sorted.view(0, uint::min(free, sorted.len())).each |&tmp| {
@@ -469,7 +471,7 @@ impl Spiller {
     for set::each(succ_regs) |tmp| {
       let theirs = self.their_name(tmp, pred, succ);
       if !pred_regs_exit.contains_key(theirs) {
-        append.push(@Reload(theirs));
+        append.push(@Reload(theirs, theirs));
       }
     }
     if append.len() > 0 {
