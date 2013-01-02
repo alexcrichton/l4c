@@ -2,11 +2,22 @@ use std::map;
 use middle::temp::Temp;
 use tmap = std::fun_treemap;
 
+pub trait Statement : PrettyPrint {
+  fn each_def(&fn(Temp) -> bool);
+  fn map_temps(@self, u: &fn(Temp) -> Temp, d: &fn(Temp) -> Temp) -> @self;
+  fn phi_map() -> Option<PhiMap>;
+}
+
 type TempMap = tmap::Treemap<Temp, Temp>;
 type DomFrontiers = map::HashMap<graph::NodeId, graph::NodeSet>;
+pub type Idominators = map::HashMap<graph::NodeId, graph::NodeId>;
+pub type Idominated = map::HashMap<graph::NodeId, map::Set<graph::NodeId>>;
+pub type PhiMap = map::HashMap<graph::NodeId, Temp>;
+type CFG<T> = graph::Graph<@~[@T], ir::Edge>;
 
-struct Converter {
-  f : &ir::Function,
+struct Converter<T> {
+  cfg : &CFG<T>,
+  root : graph::NodeId,
 
   /* Mapping of temps to the set of nodes that the temp is defined in */
   defs : map::HashMap<Temp, graph::NodeSet>,
@@ -18,43 +29,58 @@ struct Converter {
   versions : map::HashMap<graph::NodeId, TempMap>,
   /* (re-)Allocator for temps */
   temps : temp::Allocator,
-  /* new types of all newly allocated temps */
-  newtypes : map::HashMap<Temp, ir::Type>,
+  /* idoms[a] = b => immediate dominator of a is b */
+  idoms : Idominators,
+  /* idoms[a] = b => all elements of b are immeidately dominated by a */
+  idominated : Idominated,
+
+  /* callback to invoke whenever altering a temp's name */
+  remap : @fn(Temp, Temp),
+  /* callback for creating phi functions */
+  phi_maker : @fn(Temp, PhiMap) -> @T,
 }
 
-pub fn convert(p : &ir::Program) {
-  for p.funs.each |f| {
-    let converter = Converter { f: f,
-                                defs: map::HashMap(),
-                                phis: map::HashMap(),
-                                phi_temps : map::HashMap(),
-                                versions: map::HashMap(),
-                                temps: temp::new(),
-                                newtypes: map::HashMap() };
-    converter.convert();
-  }
+pub fn convert<T : Statement>(cfg : &CFG<T>,
+                              root : graph::NodeId, live_in : &[Temp],
+                              remap : @fn(Temp, Temp),
+                              phi : @fn(Temp, PhiMap) -> @T) -> Idominated {
+  let converter = Converter { cfg: cfg,
+                              root: root,
+                              defs: map::HashMap(),
+                              phis: map::HashMap(),
+                              phi_temps : map::HashMap(),
+                              versions: map::HashMap(),
+                              temps: temp::new(),
+                              idoms: map::HashMap(),
+                              idominated: map::HashMap(),
+                              remap: remap,
+                              phi_maker: phi };
+  converter.convert(live_in);
+  return converter.idominated;
 }
 
-impl Converter {
-  fn convert() {
+impl<T : Statement> Converter<T> {
+  fn convert(live_in : &[Temp]) {
+    /* prepare the graph */
     self.prune_unreachable();
 
+    /* Do all the heavy work of finding where phis go */
     self.find_defs();
     self.find_phis();
 
+    /* Re-number the entire graph */
     let mut map = tmap::init();
-    self.f.args = @self.f.args.map(|&tmp| self.bump(&mut map, tmp));
-    self.versions.insert(self.f.root, map);
-    for self.f.cfg.each_rev_postorder(self.f.root) |&id| {
+    for live_in.each |&tmp| {
+      self.bump(&mut map, tmp);
+    }
+    self.versions.insert(self.root, map);
+    for self.cfg.each_rev_postorder(self.root) |&id| {
       self.map_temps(id);
     }
+
+    /* Finally place our new phi nodes */
     for self.phi_temps.each |k, v| {
       self.place_phis(k, v);
-    }
-
-    self.f.types.clear();
-    for self.newtypes.each |k, v| {
-      self.f.types.insert(k, v);
     }
   }
 
@@ -66,23 +92,23 @@ impl Converter {
   fn prune_unreachable() {
     let visited = map::HashMap();
 
-    self.visit(visited, self.f.root);
+    self.visit(visited, self.root);
     /* Can't modify the graph while iterating */
     let mut to_remove = ~[];
-    for self.f.cfg.each_node |id, _| {
+    for self.cfg.each_node |id, _| {
       if !set::contains(visited, id) {
         to_remove.push(id);
       }
     }
     for to_remove.each |&id| {
-      self.f.cfg.remove_node(id);
+      self.cfg.remove_node(id);
     }
   }
 
   fn visit(visited : graph::NodeSet, n : graph::NodeId) {
     if !set::contains(visited, n) {
       set::add(visited, n);
-      for self.f.cfg.each_succ(n) |id| {
+      for self.cfg.each_succ(n) |id| {
         self.visit(visited, id);
       }
     }
@@ -90,7 +116,7 @@ impl Converter {
 
   /* Build up the 'defs' map */
   fn find_defs() {
-    for self.f.cfg.each_node |id, stms| {
+    for self.cfg.each_node |id, stms| {
       for stms.each |&s| {
         for s.each_def |tmp| {
           let table = match self.defs.find(tmp) {
@@ -105,7 +131,7 @@ impl Converter {
         }
       }
     }
-    info!("found definitions for: %s", self.f.name);
+    info!("found definitions");
   }
 
   /* Find where all phi functions need to go */
@@ -120,6 +146,7 @@ impl Converter {
       debug!("idf for tmp: %s", tmp.pp());
       let locs = self.idf(frontiers, defs);
       for set::each(locs) |n| {
+        /*if !live[n][tmp] { loop }*/ /* TODO: analyze */
         let set = match self.phis.find(n) {
           Some(s) => s,
           None => {
@@ -131,17 +158,16 @@ impl Converter {
         set::add(set, tmp);
       }
     }
-    info!("found phis for: %s", self.f.name);
+    info!("found phis");
   }
 
   /* Calculate the immediate dominators of every node */
   pub fn idoms() {
     debug!("calculating idoms");
-    let idoms = self.f.idoms;
-    let root = self.f.root;
-    let (order, postorder) = self.f.cfg.postorder(root);
+    let idoms = self.idoms;
+    let (order, postorder) = self.cfg.postorder(self.root);
     debug!("%?", order);
-    idoms.insert(root, root);
+    idoms.insert(self.root, self.root);
 
     /* This code is an implementation of the algorithm found in this paper:
           http://www.cs.rice.edu/~keith/EMBED/dom.pdf
@@ -150,10 +176,10 @@ impl Converter {
     while changed {
       changed = false;
       for vec::rev_each(order) |&b| {
-        if b == root { loop }
+        if b == self.root { loop }
         let mut new_idom = -1;
 
-        for self.f.cfg.each_pred(b) |p| {
+        for self.cfg.each_pred(b) |p| {
           if !idoms.contains_key(p) { loop }
           if new_idom == -1 {
             new_idom = p;
@@ -198,11 +224,11 @@ impl Converter {
   fn dom_frontiers() -> DomFrontiers {
     /* calculate all immediate dominators */
     self.idoms();
-    let idominated = self.f.idominated;
-    for self.f.idoms.each |a, _| {
+    let idominated = self.idominated;
+    for self.idoms.each |a, _| {
       idominated.insert(a, map::HashMap());
     }
-    for self.f.idoms.each |a, b| {
+    for self.idoms.each |a, b| {
       if a != b {
         set::add(idominated[b], a);
       }
@@ -214,13 +240,13 @@ impl Converter {
        for calculating the dominance frontier of a node */
 
     let frontiers = map::HashMap();
-    for self.f.cfg.each_postorder(self.f.root) |&a| {
+    for self.cfg.each_postorder(self.root) |&a| {
       let frontier = map::HashMap();
 
       /* df_local[a] */
       debug!("df_local[%d]...", a as int);
-      for self.f.cfg.each_succ(a) |b| {
-        if self.f.idoms[b] != a {
+      for self.cfg.each_succ(a) |b| {
+        if self.idoms[b] != a {
           set::add(frontier, b);
         }
       }
@@ -232,7 +258,7 @@ impl Converter {
 
         /* df_up[a, c] */
         for set::each(frontiers[c]) |b| {
-          if self.f.idoms[b] != a {
+          if self.idoms[b] != a {
             set::add(frontier, b);
           }
         }
@@ -277,7 +303,7 @@ impl Converter {
    * This function does, however, prepare for phi functions to be placed
    */
   fn map_temps(n : graph::NodeId) {
-    let mut map = self.versions[self.f.idoms[n]];
+    let mut map = self.versions[self.idoms[n]];
 
     /* Bump all temp numbers which have phi functions at this location */
     debug!("bumping temps for phis at %d", n as int);
@@ -296,20 +322,23 @@ impl Converter {
 
     /* Process all statements in this block (possibly bumping versions) */
     debug!("mapping statements at %d", n as int);
-    let stms = self.f.cfg[n].map(|&s| {
+    let stms = self.cfg[n].map(|&s| {
+      debug!("%s", s.pp());
       s.map_temps(|usage| tmap::find(map, usage).get(),
                   |def|   self.bump(&mut map, def))
     });
     self.versions.insert(n, map);
 
     /* Update our node with our altered statements */
-    self.f.cfg.update_node(n, @stms);
+    self.cfg.update_node(n, @stms);
   }
 
   /* Alter the temp mapping for a specified non-ssa temp */
   fn bump(vars : &mut TempMap, t : Temp) -> Temp {
     let ret = self.temps.new();
-    self.newtypes.insert(ret, self.f.types[t]);
+    /* TODO: will rust make this able to be one line? */
+    let foo = self.remap;
+    foo(t, ret);
     *vars = tmap::insert(*vars, t, ret);
     ret
   }
@@ -321,30 +350,43 @@ impl Converter {
    */
   fn place_phis(n : graph::NodeId, temps : map::HashMap<Temp, Temp>) {
     debug!("generating %? phis at %?", temps.size(), n);
-    let phis = vec::build_sized(temps.size(), |push|
-      for temps.each |tmp_before, tmp_after| {
-        debug!("placing phi for %? at %?", tmp_before, n);
-        let preds = map::HashMap();
-        /* Our phi function operates on the last known ssa-temp for this node's
-           non-ssa temp at each of our predecessors */
-        for self.f.cfg.each_pred(n) |p| {
-          match tmap::find(self.versions[p], tmp_before) {
-            Some(t) => { preds.insert(p, t); }
-            None => ()
-          }
-        }
-
-        /* If not all our predecessors had a version of tmp_before, then we
-           definitely don't need a phi node because this is just a node on the
-           dominance frontier that won't end up being needed anyway */
-        if preds.size() == self.f.cfg.num_pred(n) {
-          /* The result of the phi node is the ssa-temp, not the non-ssa temp */
-          push(@ir::Phi(tmp_after, preds));
+    let mut block = ~[];
+    for temps.each |tmp_before, tmp_after| {
+      debug!("placing phi for %? at %?", tmp_before, n);
+      let preds = map::HashMap();
+      /* Our phi function operates on the last known ssa-temp for this node's
+         non-ssa temp at each of our predecessors */
+      for self.cfg.each_pred(n) |p| {
+        match tmap::find(self.versions[p], tmp_before) {
+          Some(t) => { preds.insert(p, t); }
+          None => ()
         }
       }
-    );
+
+      /* If not all our predecessors had a version of tmp_before, then we
+         definitely don't need a phi node because this is just a node on the
+         dominance frontier that won't end up being needed anyway */
+      if preds.size() == self.cfg.num_pred(n) {
+        /* The result of the phi node is the ssa-temp, not the non-ssa temp */
+        let maker = self.phi_maker;
+        block.push(maker(tmp_after, preds));
+      }
+    }
+
+    for self.cfg[n].each |&stm| {
+      match stm.phi_map() {
+        None => (),
+        Some(map) => {
+          for map.each |pred, tmp| {
+            debug!("%? %?", pred, tmp);
+            map.insert(pred, tmap::find(self.versions[pred], tmp).get());
+          }
+        }
+      }
+      block.push(stm);
+    }
 
     /* Update our node with the phi nodes */
-    self.f.cfg.update_node(n, @vec::append(phis, *self.f.cfg[n]));
+    self.cfg.update_node(n, @block);
   }
 }
