@@ -176,8 +176,8 @@ impl Instruction : PrettyPrint {
         }
         s + ~")"
       }
-      Spill(t, tag) => fmt!("spill %s -> %?", t.pp(), tag),
-      Reload(t, tag) => fmt!("reload %s <= %?", t.pp(), tag),
+      Spill(t, tag) => fmt!("SPILL %s -> %?", t.pp(), tag),
+      Reload(t, tag) => fmt!("RELOAD %s <= %?", t.pp(), tag),
     }
   }
 }
