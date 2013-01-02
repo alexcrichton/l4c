@@ -201,6 +201,7 @@ impl Allocator {
     while set::contains(colors, i) {
       i += 1;
     }
+    assert(i <= arch::num_regs);
     return i;
   }
 
