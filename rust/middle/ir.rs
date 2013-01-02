@@ -81,12 +81,7 @@ impl Program {
     out.write_str(~"\n}");
   }
 }
-/*
-impl Expression {
-  pub fn size() -> Type {
-  }
-}
-*/
+
 impl Type : cmp::Eq {
   pure fn eq(&self, other : &Type) -> bool {
     match (*self, *other) {
@@ -150,6 +145,29 @@ impl Statement {
       _ => ()
     }
   }
+
+  fn map_temps(uses: &fn(Temp) -> Temp, defs: &fn(Temp) -> Temp) -> @Statement {
+    match self {
+      ir::Move(tmp, e) => {
+        let e = e.map_temps(defs);
+        @ir::Move(defs(tmp), e)
+      }
+      ir::Load(tmp, e) => {
+        let e = e.map_temps(defs);
+        @ir::Load(defs(tmp), e)
+      }
+      ir::Store(e1, e2) => @ir::Store(e1.map_temps(uses), e2.map_temps(uses)),
+      ir::Condition(e) => @ir::Condition(e.map_temps(uses)),
+      ir::Return(e) => @ir::Return(e.map_temps(uses)),
+      ir::Die(e) => @ir::Die(e.map_temps(uses)),
+      ir::Call(tmp, e, ref args) => {
+        let e = e.map_temps(uses);
+        let args = args.map(|&x| x.map_temps(uses));
+        @ir::Call(defs(tmp), e, args)
+      }
+      ir::Phi(_, _) => fail(~"shouldn't see phi nodes yet")
+    }
+  }
 }
 
 impl Statement : PrettyPrint {
@@ -171,6 +189,17 @@ impl Statement : PrettyPrint {
         }
         s + ~")"
       }
+    }
+  }
+}
+
+impl @Expression {
+  fn map_temps(f: &fn(Temp) -> Temp) -> @Expression {
+    match self {
+      @ir::Const(*) | @ir::LabelExp(*) => self,
+      @ir::BinaryOp(op, e1, e2) =>
+        @ir::BinaryOp(op, e1.map_temps(f), e2.map_temps(f)),
+      @ir::Temp(tmp) => @ir::Temp(f(tmp))
     }
   }
 }

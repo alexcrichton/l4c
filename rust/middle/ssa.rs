@@ -296,42 +296,14 @@ impl Converter {
 
     /* Process all statements in this block (possibly bumping versions) */
     debug!("mapping statements at %d", n as int);
-    let stms = self.f.cfg[n].map(|&s|
-      match s {
-        @ir::Move(tmp, e) => {
-          let e = self.exp_phi(map, e);
-          @ir::Move(self.bump(&mut map, tmp), e)
-        }
-        @ir::Load(tmp, e) => {
-          let e = self.exp_phi(map, e);
-          @ir::Load(self.bump(&mut map, tmp), e)
-        }
-        @ir::Store(e1, e2) =>
-          @ir::Store(self.exp_phi(map, e1), self.exp_phi(map, e2)),
-        @ir::Condition(e) => @ir::Condition(self.exp_phi(map, e)),
-        @ir::Return(e) => @ir::Return(self.exp_phi(map, e)),
-        @ir::Die(e) => @ir::Die(self.exp_phi(map, e)),
-        @ir::Call(tmp, e, ref args) =>
-          @ir::Call(self.bump(&mut map, tmp),
-                    self.exp_phi(map, e),
-                    args.map(|&x| self.exp_phi(map, x))),
-        @ir::Phi(_, _) => fail(~"shouldn't see phi nodes yet")
-      }
-    );
+    let stms = self.f.cfg[n].map(|&s| {
+      s.map_temps(|usage| tmap::find(map, usage).get(),
+                  |def|   self.bump(&mut map, def))
+    });
     self.versions.insert(n, map);
 
     /* Update our node with our altered statements */
     self.f.cfg.update_node(n, @stms);
-  }
-
-  /* Map all temps to new ssa-temps in an expression */
-  fn exp_phi(vars : TempMap, e : @ir::Expression) -> @ir::Expression {
-    match e {
-      @ir::Const(_, _) | @ir::LabelExp(_) => e,
-      @ir::BinaryOp(op, e1, e2) =>
-        @ir::BinaryOp(op, self.exp_phi(vars, e1), self.exp_phi(vars, e2)),
-      @ir::Temp(tmp) => @ir::Temp(tmap::find(vars, tmp).get())
-    }
   }
 
   /* Alter the temp mapping for a specified non-ssa temp */
@@ -340,14 +312,6 @@ impl Converter {
     self.newtypes.insert(ret, self.f.types[t]);
     *vars = tmap::insert(*vars, t, ret);
     ret
-  }
-
-  /* Fetch the ssa-temp for a non-ssa temp */
-  fn map(vars : &mut TempMap, t : Temp) -> Temp {
-    match tmap::find(*vars, t) {
-      Some(t) => t,
-      None => self.bump(vars, t)
-    }
   }
 
   /**
