@@ -332,8 +332,10 @@ impl Spiller {
       /* The next limit is relative to the next_use of the next instruction, so
          for each delta if the value is None, then that means the liveness has
          stopped. Otherwise the next_use value is updated with what it should be
-         for down the road */
-      for delta.each |&(tmp, amt)| {
+         for down the road. We iterate in reverse order in case one instruction
+         uses the same operand more than once. In this case the first listed
+         delta is the one which is the relevant value */
+      for vec::rev_each(*delta) |&(tmp, amt)| {
         match amt {
           None    => { assert next_use.remove(tmp); }
           Some(d) => { next_use.insert(tmp, d); }
