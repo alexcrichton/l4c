@@ -41,6 +41,7 @@ fn translate(f : &ir::Function) -> assem::Function {
                     cfg: cfg,
                     root: f.root,
                     temps: cg.temps.cnt(),
+                    idominated: map::HashMap(),
                     sizes: cg.sizes,
                     loops: f.loops }
 }

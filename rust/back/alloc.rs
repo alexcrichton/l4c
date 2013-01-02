@@ -15,17 +15,8 @@ struct Allocator {
   phi_uses : map::HashMap<graph::NodeId, map::Set<temp::Temp>>,
 }
 
-pub fn color(p : &Program, dump : bool) {
-  let mut idominated = ~[];
-  /* First, since spilling put the graph in not-ssa form, put it back */
+pub fn color(p : &Program) {
   for p.funs.each |f| {
-    eliminate_critical(&f.cfg);
-    idominated.push(ressa(f));
-  }
-
-  if dump { p.dot(io::stdout()); }
-
-  for vec::each2(p.funs, idominated) |f, &idominated| {
     let a = Allocator{ colors: map::HashMap(),
                        f: f,
                        live_in: map::HashMap(),
@@ -51,7 +42,7 @@ pub fn color(p : &Program, dump : bool) {
 
     /* Color the graph completely */
     info!("coloring: %s", f.name);
-    a.color(f.root, idominated);
+    a.color(f.root, f.idominated);
     for a.colors.each |tmp, color| {
       debug!("%s => %?", tmp.to_str(), color);
     }
@@ -62,54 +53,7 @@ pub fn color(p : &Program, dump : bool) {
   }
 }
 
-fn ressa(f : &assem::Function) -> ssa::Idominated {
-  /* tables/metadata altered through temp remapping */
-  let oldsizes = f.sizes;
-  let newsizes = map::HashMap();
-
-  /* And, convert! */
-  let ret = ssa::convert(&f.cfg, f.root, ~[], |old, new| {
-    info!("%? => %?", old, new);
-    newsizes.insert(new, oldsizes[old]);
-  }, |tmp, map| @assem::Phi(tmp, map));
-
-  /* update all type information for the new temps */
-  f.sizes.clear();
-  let mut max = 0;
-  for newsizes.each |k, v| {
-    f.sizes.insert(k, v);
-    max = uint::max(max, k as uint);
-  }
-  f.temps = max + 1;
-  return ret;
-}
-
-/**
- * Eliminate all critical edges in the graph by splitting them and placing a
- * basic block on the edge. The fact that there are no critical edges in the
- * graph is leveraged when spilling registers and removing phi nodes.
- */
-fn eliminate_critical(cfg : &CFG) {
-  /* can't modify the graph during traversal */
-  let mut critical = ~[];
-  for cfg.each_edge |n1, n2| {
-    /* critical edges are defined as those whose source has multiple out edges
-       and whose target has multiple in edges */
-    if cfg.num_succ(n1) > 1 && cfg.num_pred(n2) > 1 {
-      critical.push((n1, n2));
-    }
-  }
-  for critical.each |&(n1, n2)| {
-    let edge = cfg.remove_edge(n1, n2);
-    let new = cfg.new_id();
-    cfg.add_node(new, @~[]);
-    cfg.add_edge(n1, new, edge);
-    cfg.add_edge(new, n2, ir::Always);
-  }
-}
-
 impl Allocator {
-
   /* Build up tables needed for liveness */
   fn prepare(n : graph::NodeId) {
     debug!("preparing %?", n);

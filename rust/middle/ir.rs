@@ -59,7 +59,7 @@ pub fn Function(name : ~str) -> Function {
             loops: map::HashMap() }
 }
 
-impl Program {
+impl Program : Graphable {
   fn dot(out : io::Writer) {
     out.write_str(~"digraph {\n");
     for self.funs.each |f| {

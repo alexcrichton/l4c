@@ -19,6 +19,7 @@ pub struct Function {
   cfg : graph::Graph<@~[@Instruction], Edge>,
   sizes : map::HashMap<Temp, Size>,
   mut temps : uint,
+  mut idominated : ssa::Idominated,
 
   loops : map::HashMap<graph::NodeId, (graph::NodeId, graph::NodeId)>,
 }
@@ -356,7 +357,7 @@ impl Register : cmp::Eq {
   pure fn ne(&self, other : &Register) -> bool { !self.eq(other) }
 }
 
-impl Program {
+impl Program : Graphable {
   fn dot(out : io::Writer) {
     out.write_str(~"digraph {\n");
     for self.funs.each |f| {
@@ -370,7 +371,9 @@ impl Program {
     }
     out.write_str(~"\n}");
   }
+}
 
+impl Program {
   fn output(out : io::Writer) {
     for self.funs.each |f| {
       f.output(out);

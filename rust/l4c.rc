@@ -15,6 +15,9 @@ mod utils {
   pub trait PrettyPrint {
     pure fn pp() -> ~str;
   }
+  pub trait Graphable {
+    fn dot(io::Writer);
+  }
 }
 
 mod front {
@@ -42,11 +45,13 @@ mod middle {
 }
 
 mod back {
+  mod alloc;
+  mod arch;
   mod assem;
   mod codegen;
-  mod arch;
-  mod alloc;
+  mod ressa;
   mod spill;
+  mod stack;
 }
 
 fn help() {
@@ -83,6 +88,7 @@ fn main() {
     optopt("header"), optopt("l"),
     optflag("dot-ir"), optflag("dot-ssa"),
     optflag("dot-assem"), optflag("dot-spilled"), optflag("dot-ressa"),
+    optflag("dot-colored"), optflag("dot-stack"),
     optflag("safe"), optflag("unsafe"),
     optopt("O"), optopt("optimize"),
     optopt("m"), optopt("arch"),
@@ -110,20 +116,28 @@ fn main() {
              !opt_present(matches, "unsafe");
   let ir = trans::translate(&ast, safe);
   if opt_present(matches, "dot-ir")  { ir.dot(io::stdout()); }
-  ir::ssa(&ir);
-  if opt_present(matches, "dot-ssa")  { ir.dot(io::stdout()); }
+  pass(ir::ssa, &ir, opt_present(matches, "dot-ssa"));
 
   let assem = codegen::codegen(&ir);
   if opt_present(matches, "dot-assem") { assem.dot(io::stdout()); }
-  spill::spill(&assem);
-  if opt_present(matches, "dot-spilled") { assem.dot(io::stdout()); }
-  alloc::color(&assem, opt_present(matches, "dot-ressa"));
+  pass(spill::spill,   &assem, opt_present(matches, "dot-spilled"));
+  pass(ressa::convert, &assem, opt_present(matches, "dot-ressa"));
+  pass(stack::alloc,   &assem, opt_present(matches, "dot-stack"));
+  pass(alloc::color,   &assem, opt_present(matches, "dot-colored"));
 
   let output = Path(matches.free[0]).with_filetype("S");
   match io::file_writer(&output, ~[io::Truncate, io::Create]) {
     result::Ok(f) => assem.output(f),
     result::Err(e) => fail(e)
   }
+}
+
+fn pass<T : Graphable, U>(f : &fn(&T) -> U, p : &T, dump : bool) -> U {
+  let ret = f(p);
+  if dump {
+    p.dot(io::stdout());
+  }
+  return ret;
 }
 
 #[allow(non_implicitly_copyable_typarams)]
