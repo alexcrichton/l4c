@@ -304,7 +304,7 @@ impl Spiller {
         for sorted.view(max, sorted.len()).each |&tmp| {
           if !set::contains(spill, tmp) && next_use.contains_key(tmp) {
             debug!("spilling %?", tmp);
-            push(@Spill(tmp));
+            push(@Spill(tmp, tmp));
           }
           set::remove(regs, tmp);
           set::remove(spill, tmp);
@@ -491,7 +491,7 @@ impl Spiller {
       let theirs = self.their_name(tmp, pred, succ);
       if !pred_spill_exit.contains_key(theirs) &&
           pred_regs_exit.contains_key(theirs) {
-        append.push(@Spill(theirs));
+        append.push(@Spill(theirs, theirs));
       }
     }
     for set::each(succ_regs) |tmp| {

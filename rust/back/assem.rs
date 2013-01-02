@@ -8,6 +8,7 @@ use io::WriterUtil;
 pub type Label = label::Label;
 pub type Edge = ir::Edge;
 pub type Size = ir::Type;
+pub type Tag = uint;
 
 pub struct Program {
   funs : ~[Function]
@@ -35,8 +36,8 @@ pub enum Instruction {
   Call(@Operand, uint),
   Raw(~str),
   Phi(Temp, ssa::PhiMap),
-  Reload(Temp, Temp),
-  Spill(Temp),
+  Reload(Temp, Tag),
+  Spill(Temp, Tag),
 }
 
 pub enum Operand {
@@ -104,11 +105,8 @@ impl Instruction : ssa::Statement {
       @Die(c, o1, o2) => @Die(c, o1.map_temps(uses), o2.map_temps(uses)),
       @Condition(c, o1, o2) =>
         @Condition(c, o1.map_temps(uses), o2.map_temps(uses)),
-      @Spill(t) => @Spill(uses(t)),
-      @Reload(dest, src) => {
-        let src = uses(src);
-        @Reload(defs(dest), src)
-      }
+      @Spill(t, tag) => @Spill(uses(t), tag),
+      @Reload(dest, tag) => @Reload(defs(dest), tag),
       @Phi(t, map) => @Phi(defs(t), map),
       @Call(o, n) => @Call(o.map_temps(uses), n),
       @Return | @Raw(*) => self
@@ -136,7 +134,7 @@ impl Instruction {
       BinaryOp(_, _, _, @Temp(t)) |
       Call(@Temp(t), _) |
       Move(_, @Temp(t)) |
-      Spill(t)
+      Spill(t, _)
         => { f(t); }
 
       _ => ()
@@ -176,8 +174,8 @@ impl Instruction : PrettyPrint {
         }
         s + ~")"
       }
-      Spill(t) => fmt!("spill %s", t.pp()),
-      Reload(t1, t2) => fmt!("reload %s <= %s", t1.pp(), t2.pp()),
+      Spill(t, tag) => fmt!("spill %s -> %?", t.pp(), tag),
+      Reload(t, tag) => fmt!("reload %s <= %?", t.pp(), tag),
     }
   }
 }
