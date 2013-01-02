@@ -115,6 +115,8 @@ impl Instruction : ssa::Statement {
 }
 
 impl Instruction {
+  pure fn is_phi() -> bool { match self { Phi(*) => true, _ => false } }
+
   fn each_use(f : &fn(Temp) -> bool) {
     match self {
       Condition(_, @Temp(t1), @Temp(t2)) |

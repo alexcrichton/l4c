@@ -209,10 +209,23 @@ impl Spiller {
       let edge_cost = match self.f.cfg.edge(n, succ) {
         ir::LoopOut | ir::FLoopOut => loop_out_weight, _ => 0
       };
+
       /* Assume that all variables aren't used in this block and add block.len()
          to the value being merged. This will be updated if the value is
          actually used in the block */
-      self.merge(bottom, self.next_use[succ], block.len() + edge_cost);
+      let edge_cost = block.len() + edge_cost;
+
+      /* Temps may change names along edges because of phi nodes, so be sure to
+         account for that here */
+      for self.next_use[succ].each |tmp, next| {
+        let cost = next + edge_cost;
+        let mytmp = self.their_name(tmp, n, succ);
+        debug!("%? %?", mytmp, tmp);
+        match bottom.find(mytmp) {
+          Some(amt) => { if cost < amt { bottom.insert(mytmp, cost); } }
+          None      => { bottom.insert(mytmp, cost); }
+        }
+      }
     }
 
     /* Process all of our block's statements backwards */
@@ -226,7 +239,9 @@ impl Spiller {
         match bottom.find(tmp) {
           None    => (), /* well apparently this wasn't used anywhere */
           Some(d) => {
-            bottom.remove(tmp);         /* liveness stops here */
+            if !ins.is_phi() {
+              bottom.remove(tmp); /* liveness stops here */
+            }
             delta.push((tmp, Some(d)));
           }
         }
@@ -260,16 +275,6 @@ impl Spiller {
     self.deltas.insert(n, @deltas);
     self.max_pressures.insert(n, max);
     return true;
-  }
-
-  fn merge(a : NextUse, b : NextUse, edge : uint) {
-    for b.each |tmp, next| {
-      let cost = next + edge;
-      match a.find(tmp) {
-        Some(amt) => { if cost < amt { a.insert(tmp, cost); } }
-        None => { a.insert(tmp, cost); }
-      }
-    }
   }
 
   /**
