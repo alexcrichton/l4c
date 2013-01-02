@@ -246,8 +246,9 @@ priv fn ssa_fun(f : &ir::Function) {
   ssa::convert(&f.cfg, f.root, *f.args, |old, new| {
     newtypes.insert(new, oldtypes[old]);
     match args.find(old) {
-      Some(_) => (),
-      None    => { args.insert(old, Some(new)); }
+      Some(Some(_)) => (),
+      Some(None)    => { args.insert(old, Some(new)); }
+      None          => ()
     }
   }, |tmp, map| @ir::Phi(tmp, map));
 
@@ -257,5 +258,8 @@ priv fn ssa_fun(f : &ir::Function) {
     f.types.insert(k, v);
   }
   /* remap our args */
-  f.args = @f.args.map(|&arg| args[arg].get());
+  f.args = @f.args.map(|&arg| {
+    assert args.contains_key(arg) && args[arg].is_some();
+    args[arg].get()
+  });
 }

@@ -82,6 +82,7 @@ impl<T : Statement> Converter<T> {
     for self.phi_temps.each |k, v| {
       self.place_phis(k, v);
     }
+    info!("ssa finished");
   }
 
   /**
