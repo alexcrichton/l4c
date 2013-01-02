@@ -50,7 +50,6 @@ pub enum Address {
   MOp(@Operand),
   Stack(uint),
   StackArg(uint),
-  StackLoc(int),
 }
 
 pub enum Binop {
@@ -240,9 +239,8 @@ impl Address : PrettyPrint {
   pure fn pp() -> ~str {
     match self {
       MOp(o) => ~"(" + o.pp() + ~")",
-      Stack(i) => fmt!("%%rsp(%?)", i),
+      Stack(i) => fmt!("%?(%%rsp)", i),
       StackArg(i) => fmt!("arg[%?]", i),
-      StackLoc(i) => fmt!("stack[%?]", i)
     }
   }
 }

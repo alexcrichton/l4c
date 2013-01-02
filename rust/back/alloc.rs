@@ -8,26 +8,33 @@ type CFG = graph::Graph<@~[@assem::Instruction], ir::Edge>;
 struct Allocator {
   f : &Function,
   colors : map::HashMap<temp::Temp, uint>,
+  slots : map::HashMap<temp::Temp, uint>,
 
-  live_in : map::HashMap<graph::NodeId, @Bitv>,
+  live_in : map::HashMap<graph::NodeId, (@Bitv, @Bitv)>,
   defs : map::HashMap<temp::Temp, graph::NodeId>,
+  spill_defs : map::HashMap<temp::Temp, graph::NodeId>,
   last_uses : map::HashMap<graph::NodeId, map::HashMap<temp::Temp, uint>>,
+  last_spill_uses : map::HashMap<graph::NodeId, map::HashMap<temp::Temp, uint>>,
   phi_uses : map::HashMap<graph::NodeId, map::Set<temp::Temp>>,
 }
 
 pub fn color(p : &Program) {
   for p.funs.each |f| {
     let a = Allocator{ colors: map::HashMap(),
+                       slots: map::HashMap(),
                        f: f,
                        live_in: map::HashMap(),
                        defs: map::HashMap(),
+                       spill_defs: map::HashMap(),
                        last_uses: map::HashMap(),
+                       last_spill_uses: map::HashMap(),
                        phi_uses: map::HashMap(), };
 
     info!("preparing: %s", f.name);
     for f.cfg.each_node |id, _| {
       a.last_uses.insert(id, map::HashMap());
-      a.live_in.insert(id, @Bitv(f.temps, false));
+      a.last_spill_uses.insert(id, map::HashMap());
+      a.live_in.insert(id, (@Bitv(f.temps, false), @Bitv(f.temps, false)));
       a.phi_uses.insert(id, map::HashMap());
     }
     for f.cfg.each_node |id, _| {
@@ -58,6 +65,7 @@ impl Allocator {
   fn prepare(n : graph::NodeId) {
     debug!("preparing %?", n);
     let last_uses = self.last_uses[n];
+    let last_spill_uses = self.last_spill_uses[n];
     for self.f.cfg[n].eachi |i, &ins| {
       for ins.each_def |tmp| {
         assert self.defs.insert(tmp, n);
@@ -71,6 +79,8 @@ impl Allocator {
             set::add(self.phi_uses[pred], tmp);
           }
         }
+        @Spill(t) => assert self.spill_defs.insert(t, n),
+        @Reload(_, t) => { last_spill_uses.insert(t, i); }
         _ => ()
       }
     }
@@ -88,7 +98,7 @@ impl Allocator {
     debug!("building %?", n);
 
     for set::each(self.phi_uses[n]) |tmp| {
-      self.upmark(n, tmp);
+      self.upmark(n, tmp, false);
     }
 
     /* For each temp used in this block, mark it as live in the block and then
@@ -97,19 +107,30 @@ impl Allocator {
       /* each_use skips phi nodes */
       for ins.each_use |tmp| {
         debug!("-- use %? at %?", tmp, n);
-        self.upmark(n, tmp);
+        self.upmark(n, tmp, false);
+      }
+      match ins {
+        @Reload(_, t) => self.upmark(n, t, true),
+        _ => ()
       }
     }
   }
 
-  fn upmark(n : graph::NodeId, t : temp::Temp) {
-    debug!("upmark %? %?", n, t);
-    if self.defs[t] == n { return }
-    let bitv = self.live_in[n];
-    if bitv[t as uint] { return }
-    bitv.set(t as uint, true);
+  fn upmark(n : graph::NodeId, t : temp::Temp, spill : bool) {
+    debug!("upmark %? %? %?", n, t, spill);
+    if spill {
+      if self.spill_defs[t] == n { return }
+      let bitv = self.live_in[n].second();
+      if bitv[t as uint] { return }
+      bitv.set(t as uint, true);
+    } else {
+      if self.defs[t] == n { return }
+      let bitv = self.live_in[n].first();
+      if bitv[t as uint] { return }
+      bitv.set(t as uint, true);
+    }
     for self.f.cfg.each_pred(n) |pred| {
-      self.upmark(pred, t);
+      self.upmark(pred, t, spill);
     }
   }
 
@@ -120,11 +141,14 @@ impl Allocator {
    * definitions as they are seen with the first available color.
    */
   fn color(n : graph::NodeId, idominated : ssa::Idominated) {
-    let assigned = map::HashMap();
     debug!("at block %? %?", n, self.f.temps);
-    for self.live_in[n].ones |t| {
-      debug!("live in %?", t as temp::Temp);
-      set::add(assigned, self.colors[t as temp::Temp]);
+    let registers = map::HashMap();
+    let slots = map::HashMap();
+    for self.live_in[n].first().ones |t| {
+      set::add(registers, self.colors[t as temp::Temp]);
+    }
+    for self.live_in[n].second().ones |t| {
+      set::add(slots, self.slots[t as temp::Temp]);
     }
 
     for self.f.cfg[n].eachi |i, &ins| {
@@ -133,15 +157,28 @@ impl Allocator {
         debug!("found use %?", tmp);
         if self.last_use(tmp, n, i) {
           debug!("removing %?", tmp);
-          set::remove(assigned, self.colors[tmp]);
+          set::remove(registers, self.colors[tmp]);
         }
       }
       for ins.each_def |tmp| {
-        let color = self.min_vacant(assigned);
+        let color = self.min_vacant(registers);
         self.colors.insert(tmp, color);
         if !self.last_use(tmp, n, i) {
-          set::add(assigned, color);
+          set::add(registers, color);
         }
+      }
+      match ins {
+        @Spill(t) => {
+          let slot = self.min_vacant(slots);
+          self.slots.insert(t, slot);
+          set::add(slots, slot);
+        }
+        @Reload(_, t) => {
+          if self.last_spill_use(t, n, i) {
+            set::remove(slots, self.slots[t]);
+          }
+        }
+        _ => ()
       }
     }
 
@@ -154,7 +191,7 @@ impl Allocator {
     /* If any block n immediately dominates use t, then we certainly aren't the
        last use of the variable t */
     for self.f.cfg.each_succ(n) |id| {
-      if self.live_in[id][t as uint] {
+      if self.live_in[id].first()[t as uint] {
         return false;
       }
     }
@@ -163,6 +200,18 @@ impl Allocator {
       None => true, /* this is never used anywhere */
       Some(last) => i == last
     }
+  }
+
+  fn last_spill_use(t : temp::Temp, n : graph::NodeId, i : uint) -> bool {
+    /* If any block n immediately dominates use t, then we certainly aren't the
+       last use of the variable t */
+    for self.f.cfg.each_succ(n) |id| {
+      if self.live_in[id].second()[t as uint] {
+        return false;
+      }
+    }
+    /* otherwise make sure we're the last instruction in the block to use */
+    return self.last_spill_uses[n][t] == i;
   }
 
   fn min_vacant(colors : map::Set<uint>) -> uint {
@@ -241,7 +290,16 @@ impl Allocator {
 
   fn alloc_ins(i : @Instruction, push : &pure fn(@Instruction)) {
     match i {
-      @Spill(*) | @Reload(*) => fail(~"can't alloc spill/reload yet"),
+      @Spill(t) => {
+        let reg = @Register(arch::num_reg(self.colors[t]), self.f.sizes[t]);
+        let slot = @Stack(self.slots[t] * arch::ptrsize);
+        push(@Store(slot, reg));
+      }
+      @Reload(dst, src) => {
+        let reg = @Register(arch::num_reg(self.colors[dst]), self.f.sizes[dst]);
+        let slot = @Stack(self.slots[src] * arch::ptrsize);
+        push(@Load(reg, slot));
+      }
       @Load(dst, @MOp(addr)) =>
         push(@Load(self.alloc_op(dst), @MOp(self.alloc_op(addr)))),
       @Load(dst, addr) => push(@Load(self.alloc_op(dst), addr)),
