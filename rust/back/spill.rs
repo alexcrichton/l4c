@@ -393,7 +393,6 @@ impl Spiller {
     let take = map::HashMap();
     let cand = map::HashMap();
     for self.f.cfg.each_pred(n) |pred| {
-      debug!("%?", pred);
       assert(self.regs_end.contains_key(pred));
       for set::each(self.regs_end[pred]) |tmp| {
         /* tmp from pred may be known by a different name in this block if there
@@ -414,7 +413,9 @@ impl Spiller {
       let sorted = sort(cand, self.next_use[n]);
       let max = arch::num_regs - take.size();
       for sorted.view(0, uint::min(max, sorted.len())).each |&tmp| {
-        set::add(take, tmp);
+        if self.next_use[n].contains_key(tmp) {
+          set::add(take, tmp);
+        }
       }
     }
     return take;
