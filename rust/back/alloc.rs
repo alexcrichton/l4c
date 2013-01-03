@@ -254,22 +254,56 @@ impl Allocator {
   }
 
   fn resolve_perm(result : &[uint], incoming : &[uint]) -> ~[@Instruction] {
-    let mut diff = ~[];
+    /* build up some small conversion maps */
+    use sim = std::smallintmap;
+    let dst_src = sim::mk();
+    let src_dst = sim::mk();
     for vec::each2(result, incoming) |&a, &b| {
       if a != b {
-        diff.push((a, b));
+        dst_src.insert(a, b);
+        src_dst.insert(b, a);
       }
     }
-    let tmp = |i : uint| @Register(arch::num_reg(i), ir::Pointer);
 
-    if diff.len() == 0 {
-      return ~[];
-    } else if diff.len() == 1 {
-      return ~[
-        @Move(tmp(diff[0].first()), tmp(diff[0].second()))
-      ];
+    /* Iterate over incoming registers, and permute! */
+    let mkreg = |i : uint| @Register(arch::num_reg(i), ir::Pointer);
+    let mut ins = ~[];
+    for incoming.each |&reg| {
+      if !src_dst.contains_key(reg) { loop }
+      let mut dst = reg;
+      loop {
+        match src_dst.find(dst) {
+          None =>  {
+            /* we have a chain (not cycle) from reg to cur */
+            while dst != reg {
+              let src = dst_src[dst];
+              assert src_dst.remove(src);
+              ins.push(@Move(mkreg(dst), mkreg(src)));
+              dst = src;
+            }
+            break;
+          }
+          Some(dst) if dst == reg => {
+            /* we have a cycle from reg to dst */
+            let mut src = reg;
+            while dst != reg {
+              let dst = src_dst[src];
+              src_dst.remove(src);
+              ins.push(@Raw(fmt!("xchg %s, %s", mkreg(dst).pp(),
+                            mkreg(src).pp())));
+              src = dst;
+            }
+            break;
+          }
+          Some(r) => { dst = r; }
+        }
+      }
     }
-    fail(fmt!("%? %? %?", diff, result, incoming));
+
+    if ins.len() > 0 {
+      info!("perm %? -> %? yielded %?", incoming, result, ins);
+    }
+    return ins;
   }
 
   /**
