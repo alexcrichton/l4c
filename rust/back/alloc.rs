@@ -232,6 +232,7 @@ impl Allocator {
       @Die(c, o1, o2) =>
         push(@Die(c, self.alloc_op(o1), self.alloc_op(o2))),
       @Move(o1, o2) => push(@Move(self.alloc_op(o1), self.alloc_op(o2))),
+      @Use(_) => (),
 
       @Return => {
         push(@BinaryOp(Add, @Register(ESP, ir::Pointer),
@@ -256,17 +257,10 @@ impl Allocator {
 
         if s1 == d {                             /* d = d op s2, perfect! */
           push(@BinaryOp(op, d, s2, s1));
-        } else if s2 == d && op.commutative() {  /* d = s1 op d, must commute */
+        } else if s2 == d && op.commutative() {  /* d = s1 op d, can commute */
           push(@BinaryOp(op, d, s1, s2));
         } else if s2 == d {
-          match op {
-            /* d = s1 - d = -(d - s1) */
-            Sub => {
-              push(@BinaryOp(op, d, s1, s2));
-              push(@Raw(~"neg " + d.pp()));
-            }
-            _ => fail(fmt!("think about this: %s", i.pp()))
-          }
+          fail(~"should have been covered when constraining");
         } else {
           push(@Move(d, s1));
           push(@BinaryOp(op, d, s2, s1));

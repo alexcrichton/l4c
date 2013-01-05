@@ -38,6 +38,7 @@ pub enum Instruction {
   Phi(Temp, ssa::PhiMap),
   Reload(Temp, Tag),
   Spill(Temp, Tag),
+  Use(Temp), /* used when constraining 2-operand non-commutative ops */
 }
 
 pub enum Operand {
@@ -98,7 +99,8 @@ impl Instruction : ssa::Statement {
       BinaryOp(_, _, _, @Temp(t)) |
       Call(@Temp(t), _) |
       Move(_, @Temp(t)) |
-      Spill(t, _)
+      Spill(t, _) |
+      Use(t)
         => { f(t); }
 
       _ => ()
@@ -149,6 +151,7 @@ impl Instruction : ssa::Statement {
       @Reload(dest, tag) => @Reload(defs(dest), tag),
       @Phi(t, map) => @Phi(defs(t), map),
       @Call(o, n) => @Call(o.map_temps(uses), n),
+      @Use(t) => @Use(uses(t)),
       @Return | @Raw(*) => self
     }
   }
@@ -163,6 +166,7 @@ impl Instruction : PrettyPrint {
     match self {
       Raw(copy s) => s,
       Return => ~"ret",
+      Use(t) => fmt!("use %s", t.pp()),
       Die(c, o1, o2) =>
         fmt!("cmp %s, %s; j%s %sraise_segv", o2.pp(), o1.pp(),
              c.suffix(), label::prefix()),
@@ -307,6 +311,10 @@ impl Cond {
 impl Binop {
   pure fn commutative() -> bool {
     match self { Add | Mul | And | Or | Xor => true, _ => false }
+  }
+
+  pure fn constrained() -> bool {
+    match self { Div | Mod | Lsh | Rsh => true, _ => false }
   }
 }
 

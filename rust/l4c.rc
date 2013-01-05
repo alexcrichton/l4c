@@ -52,6 +52,7 @@ mod back {
   mod codegen;
   mod ressa;
   mod spill;
+  mod precolor;
 }
 
 fn help() {
@@ -88,7 +89,7 @@ fn main() {
     optopt("header"), optopt("l"),
     optflag("dot-ir"), optflag("dot-ssa"),
     optflag("dot-assem"), optflag("dot-spilled"), optflag("dot-ressa"),
-    optflag("dot-colored"),
+    optflag("dot-colored"), optflag("dot-precolored"),
     optflag("safe"), optflag("unsafe"),
     optopt("O"), optopt("optimize"),
     optopt("m"), optopt("arch"),
@@ -120,9 +121,10 @@ fn main() {
 
   let assem = codegen::codegen(&ir);
   if opt_present(matches, "dot-assem") { assem.dot(io::stdout()); }
-  pass(spill::spill,   &assem, opt_present(matches, "dot-spilled"));
-  pass(ressa::convert, &assem, opt_present(matches, "dot-ressa"));
-  pass(alloc::color,   &assem, opt_present(matches, "dot-colored"));
+  pass(precolor::constrain, &assem, opt_present(matches, "dot-precolor"));
+  pass(spill::spill,        &assem, opt_present(matches, "dot-spilled"));
+  pass(ressa::convert,      &assem, opt_present(matches, "dot-ressa"));
+  pass(alloc::color,        &assem, opt_present(matches, "dot-colored"));
 
   let output = Path(matches.free[0]).with_filetype("s");
   match io::file_writer(&output, ~[io::Truncate, io::Create]) {

@@ -9,6 +9,7 @@ pub type Data = (LiveMap, DeltaMap);
 pub type LiveMap = map::HashMap<NodeId, LiveIn>;
 pub type LiveIn = map::Set<uint>;
 pub type DeltaMap = map::HashMap<NodeId, @~[Delta]>;
+pub type DeltaList = @~[Delta];
 pub type Delta = ~[Either<uint, uint>];
 pub type Generator<S> = &fn(@S, &fn(uint));
 
