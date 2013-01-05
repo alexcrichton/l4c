@@ -16,76 +16,113 @@ trait LivenessDelta {
   fn apply(&Delta);
 }
 
+struct Liveness<T> {
+  live_in : LiveMap,
+  deltas : DeltaMap,
+  cfg : &CFG<T>,
+  phi_out : LiveMap,
+
+  typ : uint,
+}
+
 /* TODO: if 'f' is passed as callbacks, the generated binary segfaults? */
 pub fn calculate<S : Statement>(cfg : &CFG<S>, root : NodeId, f : uint) -> Data {
-  debug!("calculating liveness...");
-  let live_in = map::HashMap();
-  let deltas = map::HashMap();
+  debug!("calculating liveness %?...", f);
+  let l = Liveness { live_in: map::HashMap(),
+                     phi_out: map::HashMap(),
+                     deltas: map::HashMap(),
+                     cfg: cfg,
+                     typ: f };
+
+  if f == 0 {
+    for cfg.each_node |id, _| {
+      l.phi_out.insert(id, map::HashMap());
+    }
+    for cfg.each_node |id, _| {
+      l.lookup_phis(id);
+    }
+  }
 
   /* perform liveness analysis until nothing changes */
   let mut changed = true;
   while changed {
     changed = false;
     for cfg.each_postorder(root) |&id| {
-      changed = liveness(cfg, live_in, deltas, f, id) || changed;
+      changed = l.liveness(id) || changed;
     }
   }
 
-  return (live_in, deltas);
+  return (l.live_in, l.deltas);
 }
 
-fn liveness<S : Statement>(cfg : &CFG<S>, live_in : LiveMap, deltas : DeltaMap,
-                           f : uint,
-                           n : graph::NodeId) -> bool {
-  let live = map::HashMap();
-  for cfg.each_succ(n) |succ| {
-    match live_in.find(succ) {
-      Some(s) => { set::union(live, s); }
-      None    => ()
-    }
-  }
-  let mut my_deltas = ~[];
-  for vec::rev_each(*cfg[n]) |&ins| {
-    let mut delta = ~[];
-    if f == 0 {
-      for ins.each_def |def| {
-        if set::remove(live, def) {
-          delta.push(Left(def));
+impl<T : Statement> Liveness<T> {
+  fn lookup_phis(n : NodeId) {
+    for self.cfg[n].each |&stm| {
+      match stm.phi_map() {
+        Some(map) => {
+          for map.each |pred, tmp| {
+            set::add(self.phi_out[pred], tmp);
+          }
         }
-      }
-      for ins.each_use |tmp| {
-        if set::add(live, tmp) {
-          delta.push(Right(tmp));
-        }
-      }
-    } else {
-      for ins.each_spill |def| {
-        if set::remove(live, def) {
-          delta.push(Left(def));
-        }
-      }
-      for ins.each_reload |tmp| {
-        if set::add(live, tmp) {
-          delta.push(Right(tmp));
-        }
-      }
-    }
-    my_deltas.push(delta);
-  }
-  /* only return true if something has changed from before */
-  vec::reverse(my_deltas);
-  match live_in.find(n) {
-    None    => (),
-    Some(s) => {
-      if set::eq(s, live) && *deltas[n] == my_deltas {
-        return false;
+        None => ()
       }
     }
   }
-  debug!("%? %s %?", n, set::to_str(live), my_deltas);
-  live_in.insert(n, live);
-  deltas.insert(n, @my_deltas);
-  return true;
+
+  fn liveness(n : NodeId) -> bool {
+    let live = map::HashMap();
+    if self.typ == 0 {
+      set::union(live, self.phi_out[n]);
+    }
+    for self.cfg.each_succ(n) |succ| {
+      match self.live_in.find(succ) {
+        Some(s) => { set::union(live, s); }
+        None    => ()
+      }
+    }
+    let mut my_deltas = ~[];
+    for vec::rev_each(*self.cfg[n]) |&ins| {
+      let mut delta = ~[];
+      if self.typ == 0 {
+        for ins.each_def |def| {
+          if set::remove(live, def) {
+            delta.push(Left(def));
+          }
+        }
+        for ins.each_use |tmp| {
+          if set::add(live, tmp) {
+            delta.push(Right(tmp));
+          }
+        }
+      } else {
+        for ins.each_spill |def| {
+          if set::remove(live, def) {
+            delta.push(Left(def));
+          }
+        }
+        for ins.each_reload |tmp| {
+          if set::add(live, tmp) {
+            delta.push(Right(tmp));
+          }
+        }
+      }
+      my_deltas.push(delta);
+    }
+    /* only return true if something has changed from before */
+    vec::reverse(my_deltas);
+    match self.live_in.find(n) {
+      None    => (),
+      Some(s) => {
+        if set::eq(s, live) && *self.deltas[n] == my_deltas {
+          return false;
+        }
+      }
+    }
+    debug!("%? %s %?", n, set::to_str(live), my_deltas);
+    self.live_in.insert(n, live);
+    self.deltas.insert(n, @my_deltas);
+    return true;
+  }
 }
 
 impl LiveIn : LivenessDelta {
