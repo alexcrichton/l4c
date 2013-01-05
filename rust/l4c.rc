@@ -41,6 +41,7 @@ mod middle {
   pub mod label;
   pub mod temp;
   pub mod ssa;
+  pub mod liveness;
   mod trans;
 }
 

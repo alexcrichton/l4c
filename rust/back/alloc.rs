@@ -1,5 +1,5 @@
 use std::map;
-use middle::{ssa, ir};
+use middle::{ssa, ir, liveness};
 use middle::temp::Temp;
 use back::assem::*;
 use utils::bitv::Bitv;
@@ -10,47 +10,24 @@ struct Allocator {
   f : &Function,
   colors : map::HashMap<Temp, uint>,
   slots : map::HashMap<Tag, uint>,
-
-  live_in : map::HashMap<graph::NodeId, (@Bitv, @Bitv)>,
-  defs : map::HashMap<Temp, graph::NodeId>,
-  spill_defs : map::HashMap<Tag, graph::NodeId>,
-  last_uses : map::HashMap<graph::NodeId, map::HashMap<Temp, uint>>,
-  last_spill_uses : map::HashMap<graph::NodeId, map::HashMap<Tag, uint>>,
-  phi_uses : map::HashMap<graph::NodeId, map::Set<Temp>>,
 }
 
 pub fn color(p : &Program) {
   for p.funs.each |f| {
     let a = Allocator{ colors: map::HashMap(),
                        slots: map::HashMap(),
-                       f: f,
-                       live_in: map::HashMap(),
-                       defs: map::HashMap(),
-                       spill_defs: map::HashMap(),
-                       last_uses: map::HashMap(),
-                       last_spill_uses: map::HashMap(),
-                       phi_uses: map::HashMap(), };
-
-    info!("preparing: %s", f.name);
-    for f.cfg.each_node |id, _| {
-      a.last_uses.insert(id, map::HashMap());
-      a.last_spill_uses.insert(id, map::HashMap());
-      a.live_in.insert(id, (@Bitv(f.temps, false), @Bitv(f.temps, false)));
-      a.phi_uses.insert(id, map::HashMap());
-    }
-    for f.cfg.each_node |id, _| {
-      a.prepare(id);
-    }
-
-    /* Build all the metadata about phis/liveness needed */
-    info!("building live_in: %s", f.name);
-    for f.cfg.each_node |id, _| {
-      a.build_live(id);
-    }
+                       f: f };
 
     /* Color the graph completely */
     info!("coloring: %s", f.name);
-    a.color(f.root, f.idominated);
+    let tmpdata = liveness::calculate(&f.cfg, f.root, 0);
+                                      /*|ins, f| ins.each_def(f),*/
+                                      /*|ins, f| ins.each_use(f));*/
+    let slotdata = liveness::calculate(&f.cfg, f.root, 1);
+                                       /*|ins, f| ins.each_spill(f),*/
+                                       /*|ins, f| ins.each_reload(f));*/
+
+    a.color(f.root, f.idominated, tmpdata, slotdata);
     for a.colors.each |tmp, color| {
       debug!("%s => %?", tmp.to_str(), color);
     }
@@ -62,78 +39,6 @@ pub fn color(p : &Program) {
 }
 
 impl Allocator {
-  /* Build up tables needed for liveness */
-  fn prepare(n : graph::NodeId) {
-    debug!("preparing %?", n);
-    let last_uses = self.last_uses[n];
-    let last_spill_uses = self.last_spill_uses[n];
-    for self.f.cfg[n].eachi |i, &ins| {
-      for ins.each_def |tmp| {
-        assert self.defs.insert(tmp, n);
-      }
-      for ins.each_use |tmp| {
-        last_uses.insert(tmp, i);
-      }
-      match ins {
-        @Phi(_, map) => {
-          for map.each |pred, tmp| {
-            set::add(self.phi_uses[pred], tmp);
-          }
-        }
-        @Spill(_, t) => assert self.spill_defs.insert(t, n),
-        @Reload(_, t) => { last_spill_uses.insert(t, i); }
-        _ => ()
-      }
-    }
-  }
-
-  /**
-   * Build the live_in sets of the allocator. This is used when coloring the
-   * graph later on. this algorithm is described here:
-   *    http://hal.inria.fr/docs/00/58/53/03/PDF/RR-7503.pdf
-   * as algorithms 4/5. The paper describes how to calculate the live_in and
-   * live_out sets for each basic block, but we're only interested in the
-   * live_in information so we can slightly modify the algorithm.
-   */
-  fn build_live(n : graph::NodeId) {
-    debug!("building %?", n);
-
-    for set::each(self.phi_uses[n]) |tmp| {
-      self.upmark(n, tmp, false);
-    }
-
-    /* For each temp used in this block, mark it as live in the block and then
-       traverse back towards its definition doing the same */
-    for self.f.cfg[n].each |&ins| {
-      /* each_use skips phi nodes */
-      for ins.each_use |tmp| {
-        debug!("-- use %? at %?", tmp, n);
-        self.upmark(n, tmp, false);
-      }
-      match ins {
-        @Reload(_, t) => self.upmark(n, t, true),
-        _ => ()
-      }
-    }
-  }
-
-  fn upmark(n : graph::NodeId, t : Temp, spill : bool) {
-    debug!("upmark %? %? %?", n, t, spill);
-    if spill {
-      if self.spill_defs[t] == n { return }
-      let bitv = self.live_in[n].second();
-      if bitv[t as uint] { return }
-      bitv.set(t as uint, true);
-    } else {
-      if self.defs[t] == n { return }
-      let bitv = self.live_in[n].first();
-      if bitv[t as uint] { return }
-      bitv.set(t as uint, true);
-    }
-    for self.f.cfg.each_pred(n) |pred| {
-      self.upmark(pred, t, spill);
-    }
-  }
 
   /**
    * Color the functions CFG according to the algorithm outlined in the paper
@@ -141,22 +46,34 @@ impl Allocator {
    * A top-down traversal of the dominator tree is done, coloring all
    * definitions as they are seen with the first available color.
    */
-  fn color(n : graph::NodeId, idominated : ssa::Idominated) {
+  fn color(n : graph::NodeId, idominated : ssa::Idominated,
+           tmpdata : liveness::Data, slotdata : liveness::Data) {
     debug!("at block %? %?", n, self.f.temps);
+    let (tmplive, tmpdelta) = tmpdata;
+    let (slotlive, slotdelta) = slotdata;
+    let tmplive = tmplive[n];
+    let slotlive = slotlive[n];
+    let tmpdelta = tmpdelta[n];
+    let slotdelta = slotdelta[n];
     let registers = map::HashMap();
     let slots = map::HashMap();
-    for self.live_in[n].first().ones |t| {
+    for set::each(tmplive) |t| {
       set::add(registers, self.colors[t as Temp]);
     }
-    for self.live_in[n].second().ones |t| {
-      set::add(slots, self.slots[t as Temp]);
+    for set::each(slotlive) |t| {
+      set::add(slots, self.slots[t as Tag]);
     }
 
     for self.f.cfg[n].eachi |i, &ins| {
+      /* examine data for next instruction for last use information */
+      debug!("%? %?", tmpdelta[i], slotdelta[i]);
+      debug!("%s %s", set::to_str(tmplive), set::to_str(slotlive));
+      tmplive.apply(&tmpdelta[i]);
+      slotlive.apply(&slotdelta[i]);
       debug!("%s", ins.pp());
       for ins.each_use |tmp| {
         debug!("found use %?", tmp);
-        if self.last_use(tmp, n, i) {
+        if !set::contains(tmplive, tmp) {
           debug!("removing %?", tmp);
           set::remove(registers, self.colors[tmp]);
         }
@@ -164,19 +81,25 @@ impl Allocator {
       for ins.each_def |tmp| {
         let color = self.min_vacant(registers);
         assert(color <= arch::num_regs);
-        self.colors.insert(tmp, color);
-        if !self.last_use(tmp, n, i) {
+        assert(self.colors.insert(tmp, color));
+        if set::contains(tmplive, tmp) {
           set::add(registers, color);
         }
       }
       match ins {
         @Spill(_, t) => {
-          let slot = self.min_vacant(slots);
-          self.slots.insert(t, slot);
+          let slot = match self.slots.find(t) {
+            None => {
+              let slot = self.min_vacant(slots);
+              self.slots.insert(t, slot);
+              slot
+            }
+            Some(s) => s
+          };
           set::add(slots, slot);
         }
         @Reload(_, t) => {
-          if self.last_spill_use(t, n, i) {
+          if !set::contains(slotlive, t) {
             set::remove(slots, self.slots[t]);
           }
         }
@@ -185,35 +108,8 @@ impl Allocator {
     }
 
     for set::each(idominated[n]) |id| {
-      self.color(id, idominated);
+      self.color(id, idominated, tmpdata, slotdata);
     }
-  }
-
-  fn last_use(t : Temp, n : graph::NodeId, i : uint) -> bool {
-    /* If any block n immediately dominates use t, then we certainly aren't the
-       last use of the variable t */
-    for self.f.cfg.each_succ(n) |id| {
-      if self.live_in[id].first()[t as uint] {
-        return false;
-      }
-    }
-    /* otherwise make sure we're the last instruction in the block to use */
-    match self.last_uses[n].find(t) {
-      None => true, /* this is never used anywhere */
-      Some(last) => i == last
-    }
-  }
-
-  fn last_spill_use(t : Temp, n : graph::NodeId, i : uint) -> bool {
-    /* If any block n immediately dominates use t, then we certainly aren't the
-       last use of the variable t */
-    for self.f.cfg.each_succ(n) |id| {
-      if self.live_in[id].second()[t as uint] {
-        return false;
-      }
-    }
-    /* otherwise make sure we're the last instruction in the block to use */
-    return self.last_spill_uses[n][t] == i;
   }
 
   fn min_vacant(colors : map::Set<uint>) -> uint {
@@ -388,8 +284,7 @@ impl Allocator {
     match o {
       @Immediate(*) | @LabelOp(*) | @Register(*) => o,
       @Temp(tmp) =>
-        @Register(arch::num_reg(self.colors[tmp]),
-                  self.f.sizes[tmp])
+        @Register(arch::num_reg(self.colors[tmp]), self.f.sizes[tmp])
     }
   }
 }

@@ -3,9 +3,9 @@ use cmp::Eq;
 use to_bytes::IterBytes;
 use hash::Hash;
 
-/* returns true if item already existed in the map */
+/* returns true if item didn't already existed in the map */
 pub fn add<T : Eq IterBytes Hash Const Copy>(s : map::Set<T>, t : T) -> bool {
-  !s.insert(t, ())
+  s.insert(t, ())
 }
 
 pub fn remove<T : Eq IterBytes Hash Const Copy>(s : map::Set<T>, t : T) -> bool {

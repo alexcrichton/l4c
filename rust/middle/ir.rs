@@ -119,14 +119,14 @@ impl Binop {
 }
 
 impl Statement : ssa::Statement {
-  fn each_def(f : &fn(Temp) -> bool) {
+  fn each_def<T>(f : &fn(Temp) -> T) {
     match self {
       Load(tmp, _) | Move(tmp, _) | Call(tmp, _, _) | Phi(tmp, _) => {f(tmp);}
       _ => ()
     }
   }
 
-  fn each_use(f : &fn(Temp) -> bool) {
+  fn each_use<T>(f : &fn(Temp) -> T) {
     match self {
       Move(_, e) | Load(_, e) | Condition(e) | Return(e) | Die(e) =>
         e.each_temp(f),
@@ -138,6 +138,9 @@ impl Statement : ssa::Statement {
       Phi(_, _) => fail(~"shouldn't see phi nodes yet")
     }
   }
+
+  fn each_spill<T>(f : &fn(uint) -> T) { fail(~"shouldn't be here"); }
+  fn each_reload<T>(f : &fn(uint) -> T) { fail(~"shouldn't be here"); }
 
   fn map_temps(@self, uses: &fn(Temp) -> Temp,
                defs: &fn(Temp) -> Temp) -> @Statement {
@@ -204,7 +207,7 @@ impl @Expression {
     }
   }
 
-  fn each_temp(f: &fn(Temp) -> bool) {
+  fn each_temp<T>(f: &fn(Temp) -> T) {
     match self {
       @ir::Const(*) | @ir::LabelExp(*) => (),
       @ir::BinaryOp(_, e1, e2) => { e1.each_temp(f); e2.each_temp(f); }

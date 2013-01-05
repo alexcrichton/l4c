@@ -67,7 +67,7 @@ pub enum Register {
 }
 
 impl Instruction : ssa::Statement {
-  fn each_def(f : &fn(Temp) -> bool) {
+  fn each_def<T>(f : &fn(Temp) -> T) {
     match self {
       BinaryOp(_, @Temp(t), _, _) |
       Move(@Temp(t), _) |
@@ -79,13 +79,13 @@ impl Instruction : ssa::Statement {
     }
   }
 
-  fn each_use(f : &fn(Temp) -> bool) {
+  fn each_use<T>(f : &fn(Temp) -> T) {
     match self {
       Condition(_, @Temp(t1), @Temp(t2)) |
       Die(_, @Temp(t1), @Temp(t2)) |
       Store(@MOp(@Temp(t1)), @Temp(t2)) |
       BinaryOp(_, _, @Temp(t1), @Temp(t2))
-        => { if f(t1) { f(t2); } }
+        => { f(t1); f(t2); }
 
       Load(_, @MOp(@Temp(t))) |
       Store(@MOp(@Temp(t)), _) |
@@ -101,6 +101,20 @@ impl Instruction : ssa::Statement {
       Spill(t, _)
         => { f(t); }
 
+      _ => ()
+    }
+  }
+
+  fn each_spill<T>(f : &fn(Tag) -> T) {
+    match self {
+      Spill(_, t) => { f(t); },
+      _ => ()
+    }
+  }
+
+  fn each_reload<T>(f : &fn(Tag) -> T) {
+    match self {
+      Reload(_, t) => { f(t); },
       _ => ()
     }
   }

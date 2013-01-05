@@ -3,8 +3,10 @@ use middle::temp::Temp;
 use tmap = std::fun_treemap;
 
 pub trait Statement : PrettyPrint {
-  fn each_def(&fn(Temp) -> bool);
-  fn each_use(&fn(Temp) -> bool);
+  fn each_def<T>(&fn(Temp) -> T);
+  fn each_use<T>(&fn(Temp) -> T);
+  fn each_spill<T>(&fn(uint) -> T);
+  fn each_reload<T>(&fn(uint) -> T);
   fn map_temps(@self, u: &fn(Temp) -> Temp, d: &fn(Temp) -> Temp) -> @self;
   fn phi_map() -> Option<PhiMap>;
 }
@@ -14,7 +16,7 @@ type DomFrontiers = map::HashMap<graph::NodeId, graph::NodeSet>;
 pub type Idominators = map::HashMap<graph::NodeId, graph::NodeId>;
 pub type Idominated = map::HashMap<graph::NodeId, map::Set<graph::NodeId>>;
 pub type PhiMap = map::HashMap<graph::NodeId, Temp>;
-type CFG<T> = graph::Graph<@~[@T], ir::Edge>;
+pub type CFG<T> = graph::Graph<@~[@T], ir::Edge>;
 
 struct Converter<T> {
   cfg : &CFG<T>,
@@ -34,8 +36,6 @@ struct Converter<T> {
   idoms : Idominators,
   /* idoms[a] = b => all elements of b are immeidately dominated by a */
   idominated : Idominated,
-  /* results of liveness analysis */
-  live_in : map::HashMap<graph::NodeId, map::Set<Temp>>,
 
   /* callback to invoke whenever altering a temp's name */
   remap : @fn(Temp, Temp),
@@ -56,7 +56,6 @@ pub fn convert<T : Statement>(cfg : &CFG<T>,
                               temps: temp::new(),
                               idoms: map::HashMap(),
                               idominated: map::HashMap(),
-                              live_in: map::HashMap(),
                               remap: remap,
                               phi_maker: phi };
   converter.convert(live_in);
@@ -68,18 +67,12 @@ impl<T : Statement> Converter<T> {
     /* prepare the graph */
     self.prune_unreachable();
 
-    /* perform liveness analysis */
-    let mut changed = true;
-    while changed {
-      changed = false;
-      for self.cfg.each_postorder(self.root) |&id| {
-        changed = self.liveness(id) || changed;
-      }
-    }
-
     /* Do all the heavy work of finding where phis go */
     self.find_defs();
-    self.find_phis();
+
+    /* perform liveness analysis */
+    let (live, _) = liveness::calculate(self.cfg, self.root, 0);
+    self.find_phis(live);
 
     /* Re-number the entire graph */
     let mut map = tmap::init();
@@ -128,33 +121,6 @@ impl<T : Statement> Converter<T> {
     }
   }
 
-  /* Performs liveness analysis at a node, calculating the live_in sets */
-  fn liveness(n : graph::NodeId) -> bool {
-    let live = map::HashMap();
-    for self.cfg.each_succ(n) |succ| {
-      match self.live_in.find(succ) {
-        Some(s) => { set::union(live, s); }
-        None    => ()
-      }
-    }
-    for vec::rev_each(*self.cfg[n]) |&ins| {
-      for ins.each_def |def| {
-        set::remove(live, def);
-      }
-      for ins.each_use |tmp| {
-        set::add(live, tmp);
-      }
-    }
-    /* only return true if something has changed from before */
-    match self.live_in.find(n) {
-      Some(s) => if set::eq(s, live) { return false; },
-      None    => ()
-    }
-    debug!("%? %s", n, set::to_str(live));
-    self.live_in.insert(n, live);
-    return true;
-  }
-
   /* Build up the 'defs' map */
   fn find_defs() {
     for self.cfg.each_node |id, stms| {
@@ -176,7 +142,7 @@ impl<T : Statement> Converter<T> {
   }
 
   /* Find where all phi functions need to go */
-  fn find_phis() {
+  fn find_phis(live_in : liveness::LiveMap) {
     /* Use the iterated dominance frontier algorithm, shown here:
           http://symbolaris.com/course/Compilers12/11-ssa.pdf
        to determine the optimal placement of phi functions */
@@ -187,7 +153,7 @@ impl<T : Statement> Converter<T> {
       debug!("idf for tmp: %s", tmp.pp());
       let locs = self.idf(frontiers, defs);
       for set::each(locs) |n| {
-        if !set::contains(self.live_in[n], tmp) { loop }
+        if !set::contains(live_in[n], tmp) { loop }
         let set = match self.phis.find(n) {
           Some(s) => s,
           None => {
