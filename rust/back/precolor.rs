@@ -70,6 +70,34 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
         new.push(@Use(t));
       }
 
+      /* calling conventions dictate that we must save all caller-saved
+         registers and we will have to put our first few arguments in very
+         specific registers */
+      @Call(dst, fun, ref args) => {
+        new.push(pcopy(live)); /* break liveness of all variables */
+
+        let args = do args.mapi |i, &arg| {
+          /* the first few arguments in registers need to be copied because all
+             argument registers are caller-saved registers */
+          let src = match arg {
+            @Temp(t) if i < arch::arg_regs && set::contains(live, t) => {
+              let dst = @Temp(tmpclone(t));
+              new.push(@Move(dst, arg));
+              dst
+            }
+            _ => arg
+          };
+          /* Move the argument to the right spot */
+          if i >= arch::arg_regs {
+            new.push(@Store(@StackArg(i - arch::arg_regs), src));
+          }
+
+          src
+        };
+
+        new.push(@Call(dst, fun, args));
+      }
+
       _ => new.push(ins)
     }
   }
