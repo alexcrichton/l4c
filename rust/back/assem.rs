@@ -33,7 +33,7 @@ pub enum Instruction {
   Condition(Cond, @Operand, @Operand),
   Die(Cond, @Operand, @Operand),
   Return,
-  Call(@Operand, uint),
+  Call(Temp, @Operand, ~[@Operand]),
   Raw(~str),
   Phi(Temp, ssa::PhiMap),
   Reload(Temp, Tag),
@@ -74,6 +74,7 @@ impl Instruction : ssa::Statement {
       Move(@Temp(t), _) |
       Phi(t, _) |
       Load(@Temp(t), _) |
+      Call(t, _, _) |
       Reload(t, _)
         => { f(t); }
       _ => ()
@@ -97,11 +98,23 @@ impl Instruction : ssa::Statement {
       Die(_, _, @Temp(t)) |
       BinaryOp(_, _, @Temp(t), _) |
       BinaryOp(_, _, _, @Temp(t)) |
-      Call(@Temp(t), _) |
       Move(_, @Temp(t)) |
       Spill(t, _) |
       Use(t)
         => { f(t); }
+
+      Call(_, fun, ref args) => {
+        match fun {
+          @Temp(t) => { f(t); }
+          _ => ()
+        }
+        for args.each |&arg| {
+          match arg {
+            @Temp(t) => { f(t); }
+            _ => ()
+          }
+        }
+      }
 
       _ => ()
     }
@@ -150,7 +163,11 @@ impl Instruction : ssa::Statement {
       @Spill(t, tag) => @Spill(uses(t), tag),
       @Reload(dest, tag) => @Reload(defs(dest), tag),
       @Phi(t, map) => @Phi(defs(t), map),
-      @Call(o, n) => @Call(o.map_temps(uses), n),
+      @Call(dst, fun, ref args) => {
+        let fun = fun.map_temps(uses);
+        let args = args.map(|&arg| arg.map_temps(uses));
+        @Call(defs(dst), fun, args)
+      }
       @Use(t) => @Use(uses(t)),
       @Return | @Raw(*) => self
     }
@@ -197,8 +214,8 @@ impl Instruction : PrettyPrint {
       BinaryOp(binop, dest, s1, s2) =>
         fmt!("%s %s, %s // %s"
              binop.pp(), s1.pp(), dest.pp(), s2.pp()),
-      Call(@LabelOp(ref l), _) => fmt!("call %s", l.pp()),
-      Call(e, _) => fmt!("call *%s", e.pp()),
+      Call(_, @LabelOp(ref l), _) => fmt!("call %s", l.pp()),
+      Call(_, e, _) => fmt!("call *%s", e.pp()),
       Phi(tmp, map) => {
         let mut s = ~"//" + tmp.pp() + ~" <- phi(";
         for map.each |id, tmp| {

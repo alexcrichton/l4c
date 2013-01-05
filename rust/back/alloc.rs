@@ -266,7 +266,9 @@ impl Allocator {
           push(@BinaryOp(op, d, s2, s1));
         }
       }
-      @Call(e, n) => push(@Call(self.alloc_op(e), n))
+      @Call(dst, fun, ref args) =>
+        push(@Call(dst, self.alloc_op(fun),
+             args.map(|&arg| self.alloc_op(arg))))
     }
   }
 

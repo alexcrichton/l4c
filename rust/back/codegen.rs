@@ -146,19 +146,8 @@ impl CodeGenerator {
       }
       @ir::Call(tmp, fun, ref args) => {
         let fun = self.half(fun, push);
-        let args = args.map(|&arg| (self.half(arg, push), self.f.size(arg)));
-        for args.eachi |i, &(arg, size)| {
-          if i < arch::arg_regs {
-            push(@assem::Move(@assem::Register(arch::arg_reg(i), size), arg));
-          } else {
-            let loc = @assem::Stack((i - arch::arg_regs) * arch::ptrsize);
-            push(@assem::Store(loc, arg));
-          }
-        }
-        let ret = @assem::Temp(self.tmp(tmp));
-        let size = self.f.types[tmp];
-        push(@assem::Call(fun, args.len()));
-        push(@assem::Move(ret, @assem::Register(arch::ret_reg, size)));
+        let args = args.map(|&arg| self.half(arg, push));
+        push(@assem::Call(self.tmp(tmp), fun, args));
       }
     }
   }
