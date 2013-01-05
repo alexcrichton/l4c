@@ -408,7 +408,10 @@ impl Spiller {
         block.push(@Reload(tmp, self.congruence[tmp]));
       }
       reloaded.truncate(0);
-      block.push(ins);
+      match ins {
+        @Phi(tmp, _) => { if set::contains(regs, tmp) { block.push(ins); } }
+        _            => { block.push(ins); }
+      }
       i += 1;
     }
 
@@ -540,6 +543,13 @@ impl Spiller {
     let mut append = ~[];
     let pred_regs_exit = self.regs_end[pred];
     let pred_spill_exit = self.spill_exit[pred];
+    for set::each(pred_regs_exit) |tmp| {
+      let mine = self.my_name(tmp, pred, succ);
+      if !pred_spill_exit.contains_key(tmp) &&
+         !succ_regs.contains_key(mine) {
+        append.push(@Spill(tmp, self.congruence[tmp]));
+      }
+    }
     for set::each(succ_spill) |tmp| {
       let theirs = self.their_name(tmp, pred, succ);
       if !pred_spill_exit.contains_key(theirs) &&
