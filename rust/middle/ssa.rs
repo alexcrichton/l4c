@@ -83,6 +83,9 @@ impl<T : Statement> Converter<T> {
     for self.cfg.each_rev_postorder(self.root) |&id| {
       self.map_temps(id);
     }
+    for self.cfg.each_node |id, _| {
+      self.map_phi_temps(id);
+    }
 
     /* Finally place our new phi nodes */
     for self.phi_temps.each |k, v| {
@@ -351,6 +354,28 @@ impl<T : Statement> Converter<T> {
   }
 
   /**
+   * Re-map all existing phi instructions to use the new temps located on all of
+   * their predecessor's edges
+   */
+  fn map_phi_temps(n : graph::NodeId) {
+    for self.cfg[n].each |&stm| {
+      match stm.phi_map() {
+        None => (),
+        Some(map) => {
+          let mut new = ~[];
+          for map.each |pred, tmp| {
+            new.push((pred, tmap::find(self.versions[pred], tmp).get()));
+          }
+          map.clear();
+          for new.each |&(a, b)| {
+            map.insert(a, b);
+          }
+        }
+      }
+    }
+  }
+
+  /**
    * Places phi functions into the CFG. This assumes that all temps have already
    * been renumbered/renamed and the last thing to do is to actually put the phi
    * functions in place
@@ -376,20 +401,7 @@ impl<T : Statement> Converter<T> {
       block.push(maker(tmp_after, preds));
     }
 
-    for self.cfg[n].each |&stm| {
-      match stm.phi_map() {
-        None => (),
-        Some(map) => {
-          for map.each |pred, tmp| {
-            debug!("%? %?", pred, tmp);
-            map.insert(pred, tmap::find(self.versions[pred], tmp).get());
-          }
-        }
-      }
-      block.push(stm);
-    }
-
     /* Update our node with the phi nodes */
-    self.cfg.update_node(n, @block);
+    self.cfg.update_node(n, @(block + *self.cfg[n]));
   }
 }
