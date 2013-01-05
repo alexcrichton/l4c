@@ -501,11 +501,10 @@ impl Spiller {
           set::add(cand, tmp);
         }
       }
-    } else {
+    } else if cand.size() > arch::num_regs {
       let sorted = sort(cand, self.next_use[n]);
-      cand.clear();
-      for sorted.each |&tmp| {
-        set::add(cand, tmp);
+      for sorted.view(arch::num_regs, sorted.len()).each|&tmp| {
+        set::remove(cand, tmp);
       }
     }
     return cand;
