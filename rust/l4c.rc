@@ -52,7 +52,6 @@ mod back {
   mod codegen;
   mod ressa;
   mod spill;
-  mod stack;
 }
 
 fn help() {
@@ -89,7 +88,7 @@ fn main() {
     optopt("header"), optopt("l"),
     optflag("dot-ir"), optflag("dot-ssa"),
     optflag("dot-assem"), optflag("dot-spilled"), optflag("dot-ressa"),
-    optflag("dot-colored"), optflag("dot-stack"),
+    optflag("dot-colored"),
     optflag("safe"), optflag("unsafe"),
     optopt("O"), optopt("optimize"),
     optopt("m"), optopt("arch"),
@@ -123,7 +122,6 @@ fn main() {
   if opt_present(matches, "dot-assem") { assem.dot(io::stdout()); }
   pass(spill::spill,   &assem, opt_present(matches, "dot-spilled"));
   pass(ressa::convert, &assem, opt_present(matches, "dot-ressa"));
-  pass(stack::alloc,   &assem, opt_present(matches, "dot-stack"));
   pass(alloc::color,   &assem, opt_present(matches, "dot-colored"));
 
   let output = Path(matches.free[0]).with_filetype("s");
