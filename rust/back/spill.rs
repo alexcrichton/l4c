@@ -57,6 +57,10 @@ struct Spiller {
   max_pressures : map::HashMap<NodeId, uint>,
   /* Set of edges which have been connected (spills/reloads placed) so far */
   connected : map::Set<(NodeId, NodeId)>,
+
+  /* phi congruence class of every temp (used for stack slots) */
+  congruence : map::HashMap<Temp, Tag>,
+  congruence_sets : map::HashMap<Temp, TempSet>,
 }
 
 pub fn spill(p : &Program) {
@@ -71,13 +75,16 @@ pub fn spill(p : &Program) {
                      renamings: map::HashMap(),
                      phis: map::HashMap(),
                      max_pressures: map::HashMap(),
-                     connected: map::HashMap() };
+                     connected: map::HashMap(),
+                     congruence: map::HashMap(),
+                     congruence_sets: map::HashMap() };
 
     /* Build up phi renaming maps */
     s.eliminate_critical();
     for f.cfg.each_node |n, _| {
       s.build_renamings(n);
     }
+    s.set_congruence();
 
     /* Prepare the graph and build all next_use information */
     let mut changed = true;
@@ -143,29 +150,6 @@ fn set_to_str(m : TempSet) -> ~str {
 
 impl Spiller {
   /**
-   * Build up internal maps of the renaming of temps done by phi functions per
-   * node. This just needs to iterate and look at every phi node in a block.
-   */
-  fn build_renamings(n : NodeId) {
-    for self.f.cfg.each_pred(n) |pred| {
-      self.renamings.insert((pred, n), map::HashMap());
-    }
-    let phis = map::HashMap();
-    self.phis.insert(n, phis);
-    for self.f.cfg[n].each |&ins| {
-      match ins {
-        @Phi(my_name, renamings) => {
-          for renamings.each |pred, their_name| {
-            self.renamings[(pred, n)].insert(their_name, my_name);
-          }
-          phis.insert(my_name, renamings);
-        }
-        _ => ()
-      }
-    }
-  }
-
-  /**
    * Eliminate all critical edges in the graph by splitting them and placing a
    * basic block on the edge. The fact that there are no critical edges in the
    * graph is leveraged when spilling registers and removing phi nodes.
@@ -188,6 +172,62 @@ impl Spiller {
       cfg.add_node(new, @~[]);
       cfg.add_edge(n1, new, edge);
       cfg.add_edge(new, n2, ir::Always);
+    }
+  }
+
+  /**
+   * Build up internal maps of the renaming of temps done by phi functions per
+   * node. This just needs to iterate and look at every phi node in a block.
+   */
+  fn build_renamings(n : NodeId) {
+    for self.f.cfg.each_pred(n) |pred| {
+      self.renamings.insert((pred, n), map::HashMap());
+    }
+    let phis = map::HashMap();
+    self.phis.insert(n, phis);
+    for self.f.cfg[n].each |&ins| {
+      match ins {
+        @Phi(my_name, renamings) => {
+          let set = map::HashMap();
+          for renamings.each |pred, their_name| {
+            self.renamings[(pred, n)].insert(their_name, my_name);
+            match self.congruence_sets.find(their_name) {
+              None    => (),
+              Some(a) => { set::union(set, a); }
+            }
+          }
+          set::add(set, my_name);
+          phis.insert(my_name, renamings);
+          for set::each(set) |tmp| {
+            self.congruence_sets.insert(tmp, set);
+          }
+        }
+        _ => {
+          for ins.each_def |def| {
+            match self.congruence_sets.find(def) {
+              None    => {
+                let map = map::HashMap();
+                set::add(map, def);
+                self.congruence_sets.insert(def, map);
+              }
+              Some(_) => {}
+            }
+          }
+        }
+      }
+    }
+  }
+
+  fn set_congruence() {
+    let mut nxt = 0;
+    for self.congruence_sets.each |tmp, set| {
+      if self.congruence.contains_key(tmp) { loop }
+      debug!("%? %s", nxt, set_to_str(set));
+
+      for set::each(set) |tmp| {
+        assert self.congruence.insert(tmp, nxt);
+      }
+      nxt += 1;
     }
   }
 
@@ -309,14 +349,14 @@ impl Spiller {
 
     /* Limit the amount of variables in registers by spilling those which are
        used the farthest away */
-    let limit = |max : uint, push : &fn(@Instruction)| {
+    let limit = |max : uint, spiller : &fn(Temp)| {
       if regs.size() >= max {
         let sorted = sort(regs, next_use);
         debug!("%? %s", sorted, map_to_str(next_use));
         for sorted.view(max, sorted.len()).each |&tmp| {
           if !set::contains(spill, tmp) && next_use.contains_key(tmp) {
             debug!("spilling %?", tmp);
-            push(@Spill(tmp, tmp));
+            spiller(tmp);
           }
           set::remove(regs, tmp);
           set::remove(spill, tmp);
@@ -330,16 +370,19 @@ impl Spiller {
     for vec::each2(*self.f.cfg[n], *self.deltas[n]) |&ins, delta| {
       debug!("%2d %30s  %s %s", i, ins.pp(), map_to_str(next_use),
              str::connect(delta.map(|a| fmt!("%?", a)), ~", "));
-      /* Determine what needs to be reloaded */
-      for ins.each_use |tmp| {
-        if regs.contains_key(tmp) { loop }
-        reloaded.push(tmp);
-        set::add(regs, tmp);
-        set::add(spill, tmp);
+
+      if !ins.is_phi() {
+        /* Determine what needs to be reloaded */
+        for ins.each_use |tmp| {
+          if regs.contains_key(tmp) { loop }
+          reloaded.push(tmp);
+          set::add(regs, tmp);
+          set::add(spill, tmp);
+        }
+        debug!("making room for operands");
+        /* This limit is relative to the next_use of this instruction */
+        limit(arch::num_regs, |t| block.push(@Spill(t, self.congruence[t])));
       }
-      debug!("making room for operands");
-      /* This limit is relative to the next_use of this instruction */
-      limit(arch::num_regs, |i| block.push(i));
 
       /* The next limit is relative to the next_use of the next instruction, so
          for each delta if the value is None, then that means the liveness has
@@ -353,20 +396,24 @@ impl Spiller {
           Some(d) => { next_use.insert(tmp, d); }
         }
       }
-      let mut defs = 0;
-      for ins.each_def |_| { defs += 1; }
-      debug!("making room for results");
-      limit(arch::num_regs - defs, |i| block.push(i));
 
-      /* Add all defined temps to the set of those in regs */
-      for ins.each_def |tmp| {
-        set::add(regs, tmp);
+      if !ins.is_phi() {
+        let mut defs = 0;
+        for ins.each_def |_| { defs += 1; }
+        debug!("making room for results");
+        limit(arch::num_regs - defs,
+              |t| block.push(@Spill(t, self.congruence[t])));
+
+        /* Add all defined temps to the set of those in regs */
+        for ins.each_def |tmp| {
+          set::add(regs, tmp);
+        }
       }
       assert(regs.size() <= arch::num_regs);
 
       /* Finally reload all operands as necessary, and then run ins */
       for reloaded.each |&tmp| {
-        block.push(@Reload(tmp, tmp));
+        block.push(@Reload(tmp, self.congruence[tmp]));
       }
       reloaded.truncate(0);
       block.push(ins);
@@ -506,13 +553,14 @@ impl Spiller {
       let theirs = self.their_name(tmp, pred, succ);
       if !pred_spill_exit.contains_key(theirs) &&
           pred_regs_exit.contains_key(theirs) {
-        append.push(@Spill(theirs, theirs));
+        append.push(@Spill(theirs, self.congruence[theirs]));
       }
     }
+
     for set::each(succ_regs) |tmp| {
       let theirs = self.their_name(tmp, pred, succ);
       if !pred_regs_exit.contains_key(theirs) {
-        append.push(@Reload(theirs, theirs));
+        append.push(@Reload(theirs, self.congruence[theirs]));
       }
     }
     if append.len() > 0 {
