@@ -50,7 +50,7 @@ impl Allocator {
    */
   fn color(n : graph::NodeId, idominated : ssa::Idominated,
            tmpdata : liveness::Data, slotdata : liveness::Data) {
-    debug!("at block %? %?", n, self.f.temps);
+    debug!("coloring %?", n);
     let (tmplive, tmpdelta) = tmpdata;
     let (slotlive, slotdelta) = slotdata;
     let tmplive = tmplive[n];
@@ -108,6 +108,7 @@ impl Allocator {
         }
         _ => ()
       }
+      debug!("%s %s", set::to_str(tmplive), set::to_str(slotlive));
     }
 
     for set::each(idominated[n]) |id| {
@@ -155,53 +156,31 @@ impl Allocator {
   fn resolve_perm(result : &[uint], incoming : &[uint]) -> ~[@Instruction] {
     /* build up some small conversion maps */
     use sim = std::smallintmap;
-    let dst_src = sim::mk();
     let src_dst = sim::mk();
     for vec::each2(result, incoming) |&a, &b| {
-      if a != b {
-        dst_src.insert(a, b);
-        src_dst.insert(b, a);
-      }
+      src_dst.insert(b, a);
     }
 
-    /* Iterate over incoming registers, and permute! */
+    /* Permute the registers by following cycles */
     let mkreg = |i : uint| @Register(arch::num_reg(i), ir::Pointer);
     let mut ins = ~[];
-    for incoming.each |&reg| {
-      if !src_dst.contains_key(reg) { loop }
-      let mut dst = reg;
-      loop {
+    for incoming.each |&src| {
+      while src_dst.contains_key(src) {
+        let dst = src_dst[src];
+        if dst != src {
+          ins.push(@Raw(fmt!("xchg %s, %s", mkreg(dst).pp(), mkreg(src).pp())));
+        }
         match src_dst.find(dst) {
-          None =>  {
-            /* we have a chain (not cycle) from reg to cur */
-            while dst != reg {
-              let src = dst_src[dst];
-              assert src_dst.remove(src);
-              ins.push(@Move(mkreg(dst), mkreg(src)));
-              dst = src;
-            }
-            break;
+          None => { src_dst.remove(src); }
+          Some(d) => {
+            src_dst.insert(src, d);
+            src_dst.remove(dst);
           }
-          Some(dst) if dst == reg => {
-            /* we have a cycle from reg to dst */
-            let mut src = reg;
-            while dst != reg {
-              let dst = src_dst[src];
-              src_dst.remove(src);
-              ins.push(@Raw(fmt!("xchg %s, %s", mkreg(dst).pp(),
-                            mkreg(src).pp())));
-              src = dst;
-            }
-            break;
-          }
-          Some(r) => { dst = r; }
         }
       }
     }
 
-    if ins.len() > 0 {
-      info!("perm %? -> %? yielded %?", incoming, result, ins);
-    }
+    info!("perm %? -> %? yielded %?", incoming, result, ins);
     return ins;
   }
 
