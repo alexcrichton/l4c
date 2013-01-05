@@ -54,3 +54,17 @@ pub fn each<T : Eq IterBytes Hash Const Copy>(s1 : map::Set<T>,
                                               f : &fn(T) -> bool) {
   s1.each_key(f);
 }
+
+pub fn to_str<T : Eq IterBytes Hash Const Copy ToStr>(m : map::Set<T>) -> ~str {
+  let mut s = ~"{";
+  let mut first = true;
+  for m.each_key |k| {
+    if first {
+      first = false;
+    } else {
+      s += ~", ";
+    }
+    s += k.to_str();
+  }
+  return s + ~"}";
+}

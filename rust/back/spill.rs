@@ -140,14 +140,6 @@ fn map_to_str(m : NextUse) -> ~str {
   return s + ~"}";
 }
 
-fn set_to_str(m : TempSet) -> ~str {
-  let mut s = ~"{";
-  for m.each_key |k| {
-    s += fmt!("%? ", k);
-  }
-  return s + ~"}";
-}
-
 impl Spiller {
   /**
    * Eliminate all critical edges in the graph by splitting them and placing a
@@ -222,7 +214,7 @@ impl Spiller {
     let mut nxt = 0;
     for self.congruence_sets.each |tmp, set| {
       if self.congruence.contains_key(tmp) { loop }
-      debug!("%? %s", nxt, set_to_str(set));
+      debug!("%? %s", nxt, set::to_str(set));
 
       for set::each(set) |tmp| {
         assert self.congruence.insert(tmp, nxt);
@@ -424,7 +416,7 @@ impl Spiller {
     self.regs_end.insert(n, regs);
     self.spill_exit.insert(n, spill);
     debug!("node %? exit regs:%s spill:%s", n,
-           set_to_str(regs), set_to_str(spill));
+           set::to_str(regs), set::to_str(spill));
 
     /* connect any lingering edges which weren't covered beforehand */
     for self.f.cfg.each_succ(n) |succ| {
@@ -479,7 +471,7 @@ impl Spiller {
         set::add(cand, tmp);
       }
     }
-    debug!("loop candidates: %s", set_to_str(cand));
+    debug!("loop candidates: %s", set::to_str(cand));
     if cand.size() < arch::num_regs {
       /* live_through = (phis | live_in) - cand */
       let live_through = map::HashMap();
@@ -494,7 +486,7 @@ impl Spiller {
       set::add(visited, n);     /* don't loop back to the start */
       set::add(visited, end);   /* don't go outside the loop */
       let free = arch::num_regs - self.max_pressure(body, visited);
-      debug!("live through loop: %s", set_to_str(live_through));
+      debug!("live through loop: %s", set::to_str(live_through));
       if free > 0 {
         let sorted = sort(live_through, self.next_use[n]);
         for sorted.view(0, uint::min(free, sorted.len())).each |&tmp| {
@@ -534,7 +526,7 @@ impl Spiller {
     }
     set::intersect(spill, entry);
     debug!("node %? entry regs:%s spill:%s", n,
-           set_to_str(entry), set_to_str(spill));
+           set::to_str(entry), set::to_str(spill));
     return spill;
   }
 

@@ -126,6 +126,19 @@ impl Statement : ssa::Statement {
     }
   }
 
+  fn each_use(f : &fn(Temp) -> bool) {
+    match self {
+      Move(_, e) | Load(_, e) | Condition(e) | Return(e) | Die(e) =>
+        e.each_temp(f),
+      Store(e1, e2) => { e1.each_temp(f); e2.each_temp(f); }
+      Call(_, e, ref args) => {
+        e.each_temp(f);
+        for args.each |&e| { e.each_temp(f); }
+      }
+      Phi(_, _) => fail(~"shouldn't see phi nodes yet")
+    }
+  }
+
   fn map_temps(@self, uses: &fn(Temp) -> Temp,
                defs: &fn(Temp) -> Temp) -> @Statement {
     match self {
@@ -188,6 +201,14 @@ impl @Expression {
       @ir::BinaryOp(op, e1, e2) =>
         @ir::BinaryOp(op, e1.map_temps(f), e2.map_temps(f)),
       @ir::Temp(tmp) => @ir::Temp(f(tmp))
+    }
+  }
+
+  fn each_temp(f: &fn(Temp) -> bool) {
+    match self {
+      @ir::Const(*) | @ir::LabelExp(*) => (),
+      @ir::BinaryOp(_, e1, e2) => { e1.each_temp(f); e2.each_temp(f); }
+      @ir::Temp(tmp) => { f(tmp); }
     }
   }
 }

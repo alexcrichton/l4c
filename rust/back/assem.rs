@@ -79,6 +79,32 @@ impl Instruction : ssa::Statement {
     }
   }
 
+  fn each_use(f : &fn(Temp) -> bool) {
+    match self {
+      Condition(_, @Temp(t1), @Temp(t2)) |
+      Die(_, @Temp(t1), @Temp(t2)) |
+      Store(@MOp(@Temp(t1)), @Temp(t2)) |
+      BinaryOp(_, _, @Temp(t1), @Temp(t2))
+        => { if f(t1) { f(t2); } }
+
+      Load(_, @MOp(@Temp(t))) |
+      Store(@MOp(@Temp(t)), _) |
+      Store(_, @Temp(t)) |
+      Condition(_, @Temp(t), _) |
+      Condition(_, _, @Temp(t)) |
+      Die(_, @Temp(t), _) |
+      Die(_, _, @Temp(t)) |
+      BinaryOp(_, _, @Temp(t), _) |
+      BinaryOp(_, _, _, @Temp(t)) |
+      Call(@Temp(t), _) |
+      Move(_, @Temp(t)) |
+      Spill(t, _)
+        => { f(t); }
+
+      _ => ()
+    }
+  }
+
   fn phi_map() -> Option<ssa::PhiMap> {
     match self {
       Phi(_, m) => Some(m),
@@ -116,32 +142,6 @@ impl Instruction : ssa::Statement {
 
 impl Instruction {
   pure fn is_phi() -> bool { match self { Phi(*) => true, _ => false } }
-
-  fn each_use(f : &fn(Temp) -> bool) {
-    match self {
-      Condition(_, @Temp(t1), @Temp(t2)) |
-      Die(_, @Temp(t1), @Temp(t2)) |
-      Store(@MOp(@Temp(t1)), @Temp(t2)) |
-      BinaryOp(_, _, @Temp(t1), @Temp(t2))
-        => { if f(t1) { f(t2); } }
-
-      Load(_, @MOp(@Temp(t))) |
-      Store(@MOp(@Temp(t)), _) |
-      Store(_, @Temp(t)) |
-      Condition(_, @Temp(t), _) |
-      Condition(_, _, @Temp(t)) |
-      Die(_, @Temp(t), _) |
-      Die(_, _, @Temp(t)) |
-      BinaryOp(_, _, @Temp(t), _) |
-      BinaryOp(_, _, _, @Temp(t)) |
-      Call(@Temp(t), _) |
-      Move(_, @Temp(t)) |
-      Spill(t, _)
-        => { f(t); }
-
-      _ => ()
-    }
-  }
 }
 
 impl Instruction : PrettyPrint {
