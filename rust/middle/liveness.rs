@@ -18,6 +18,7 @@ trait LivenessDelta {
 
 /* TODO: if 'f' is passed as callbacks, the generated binary segfaults? */
 pub fn calculate<S : Statement>(cfg : &CFG<S>, root : NodeId, f : uint) -> Data {
+  debug!("calculating liveness...");
   let live_in = map::HashMap();
   let deltas = map::HashMap();
 
@@ -81,6 +82,7 @@ fn liveness<S : Statement>(cfg : &CFG<S>, live_in : LiveMap, deltas : DeltaMap,
       }
     }
   }
+  debug!("%? %s %?", n, set::to_str(live), my_deltas);
   live_in.insert(n, live);
   deltas.insert(n, @my_deltas);
   return true;
