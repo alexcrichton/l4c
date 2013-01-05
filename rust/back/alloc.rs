@@ -10,13 +10,15 @@ struct Allocator {
   f : &Function,
   colors : map::HashMap<Temp, uint>,
   slots : map::HashMap<Tag, uint>,
+  mut max_slot : uint
 }
 
 pub fn color(p : &Program) {
   for p.funs.each |f| {
     let a = Allocator{ colors: map::HashMap(),
                        slots: map::HashMap(),
-                       f: f };
+                       f: f,
+                       max_slot: 0 };
 
     /* Color the graph completely */
     info!("coloring: %s", f.name);
@@ -92,6 +94,7 @@ impl Allocator {
             None => {
               let slot = self.min_vacant(slots);
               self.slots.insert(t, slot);
+              self.max_slot = uint::max(slot, self.max_slot) + 1;
               slot
             }
             Some(s) => s
@@ -212,9 +215,16 @@ impl Allocator {
    */
   fn remove_temps() {
     for self.f.cfg.each_node |id, ins| {
-      let ins = vec::build(|push|
-        for ins.each |&ins| { self.alloc_ins(ins, push); }
-      );
+      let ins = vec::build(|push| {
+        if id == self.f.root {
+          push(@BinaryOp(Sub, @Register(ESP, ir::Pointer),
+                         @Immediate(self.max_slot * 8 as i32, ir::Pointer),
+                         @Register(ESP, ir::Pointer)));
+        }
+        for ins.each |&ins| {
+          self.alloc_ins(ins, push);
+        }
+      });
       self.f.cfg.update_node(id, @ins);
     }
   }
@@ -237,12 +247,19 @@ impl Allocator {
       @Store(@MOp(addr), src) =>
         push(@Store(@MOp(self.alloc_op(addr)), self.alloc_op(src))),
       @Store(addr, src) => push(@Store(addr, self.alloc_op(src))),
-      @Return | @Raw(*) | @Phi(*) => push(i),
+      @Raw(*) | @Phi(*) => push(i),
       @Condition(c, o1, o2) =>
         push(@Condition(c, self.alloc_op(o1), self.alloc_op(o2))),
       @Die(c, o1, o2) =>
         push(@Die(c, self.alloc_op(o1), self.alloc_op(o2))),
       @Move(o1, o2) => push(@Move(self.alloc_op(o1), self.alloc_op(o2))),
+
+      @Return => {
+        push(@BinaryOp(Add, @Register(ESP, ir::Pointer),
+                       @Immediate(self.max_slot * 8 as i32, ir::Pointer),
+                       @Register(ESP, ir::Pointer)));
+        push(i);
+      }
 
       /* x86 imul can have 3 operands if one is an immediate */
       @BinaryOp(Mul, d, s1, s2) if s1.imm() && !s2.imm() =>
@@ -265,7 +282,7 @@ impl Allocator {
         } else if s2 == d {
           match op {
             /* d = s1 - d = -(d - s1) */
-            assem::Sub => {
+            Sub => {
               push(@BinaryOp(op, d, s1, s2));
               push(@Raw(~"neg " + d.pp()));
             }
