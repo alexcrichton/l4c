@@ -229,6 +229,8 @@ impl Spiller {
    * or not.
    *
    * The analysis is a backwards analysis (like liveness).
+   *
+   * TODO: move this into middle/liveness.rs
    */
   fn build_next_use(n : NodeId) -> bool {
     debug!("processing: %?", n);
