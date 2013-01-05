@@ -8,6 +8,10 @@ pub fn new() -> Allocator {
   Allocator{ next: 0 }
 }
 
+pub fn new_init(next : uint) -> Allocator {
+  Allocator{ next: next }
+}
+
 impl Allocator {
   fn new() -> Temp {
     let ret = self.next;
