@@ -21,12 +21,17 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
                    ins : @~[@Instruction]) -> ~[@Instruction] {
   let mut new = ~[];
 
+  /* SSA will deal with these renamings later? */
   fn pcopy(live : liveness::LiveIn) -> @Instruction {
-    fail(~"need a parallel copy instruction");
+    let mut list = ~[];
+    for set::each(live) |tmp| {
+      list.push((tmp, tmp));
+    }
+    @PCopy(list)
   }
 
   for vec::each2(*ins, *delta) |&ins, delta| {
-    live.apply(delta);
+    live.apply_remove(delta);
 
     match ins {
       @BinaryOp(op, dest, o1, o2) if op.constrained() => {
@@ -100,6 +105,8 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
 
       _ => new.push(ins)
     }
+
+    live.apply_add(delta);
   }
   return new;
 }

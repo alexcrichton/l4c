@@ -89,7 +89,7 @@ fn main() {
     optopt("header"), optopt("l"),
     optflag("dot-ir"), optflag("dot-ssa"),
     optflag("dot-assem"), optflag("dot-spilled"), optflag("dot-ressa"),
-    optflag("dot-colored"), optflag("dot-precolored"),
+    optflag("dot-colored"), optflag("dot-precolor"),
     optflag("safe"), optflag("unsafe"),
     optopt("O"), optopt("optimize"),
     optopt("m"), optopt("arch"),

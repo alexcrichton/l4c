@@ -268,7 +268,16 @@ impl Allocator {
       }
       @Call(dst, fun, ref args) =>
         push(@Call(dst, self.alloc_op(fun),
-             args.map(|&arg| self.alloc_op(arg))))
+             args.map(|&arg| self.alloc_op(arg)))),
+
+      @PCopy(ref copies) => {
+        let (dsts, srcs) = vec::unzip(vec::map(*copies, |&(d, s)|
+          (self.colors[d], self.colors[s])
+        ));
+        for self.resolve_perm(dsts, srcs).each |&ins| {
+          push(ins);
+        }
+      }
     }
   }
 

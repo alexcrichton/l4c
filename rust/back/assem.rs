@@ -35,10 +35,13 @@ pub enum Instruction {
   Return,
   Call(Temp, @Operand, ~[@Operand]),
   Raw(~str),
+
+  /* pseudo-instructions that are just use for analysis/coloring/spilling */
   Phi(Temp, ssa::PhiMap),
   Reload(Temp, Tag),
   Spill(Temp, Tag),
-  Use(Temp), /* used when constraining 2-operand non-commutative ops */
+  Use(Temp),              /* used when constraining non-commutative ops */
+  PCopy(~[(Temp, Temp)]), /* parallel copy of temps */
 }
 
 pub enum Operand {
@@ -77,6 +80,13 @@ impl Instruction : ssa::Statement {
       Call(t, _, _) |
       Reload(t, _)
         => { f(t); }
+
+      PCopy(ref copies) => {
+        for copies.each |&(dst, _)| {
+          f(dst);
+        }
+      }
+
       _ => ()
     }
   }
@@ -113,6 +123,12 @@ impl Instruction : ssa::Statement {
             @Temp(t) => { f(t); }
             _ => ()
           }
+        }
+      }
+
+      PCopy(ref copies) => {
+        for copies.each |&(_, src)| {
+          f(src);
         }
       }
 
@@ -169,7 +185,12 @@ impl Instruction : ssa::Statement {
         @Call(defs(dst), fun, args)
       }
       @Use(t) => @Use(uses(t)),
-      @Return | @Raw(*) => self
+      @Return | @Raw(*) => self,
+      @PCopy(ref copies) =>
+        @PCopy(copies.map(|&(dst, src)| {
+          let src = uses(src);
+          (defs(dst), src)
+        }))
     }
   }
 }
@@ -214,8 +235,9 @@ impl Instruction : PrettyPrint {
       BinaryOp(binop, dest, s1, s2) =>
         fmt!("%s %s, %s // %s"
              binop.pp(), s1.pp(), dest.pp(), s2.pp()),
-      Call(_, @LabelOp(ref l), _) => fmt!("call %s", l.pp()),
-      Call(_, e, _) => fmt!("call *%s", e.pp()),
+      Call(dst, e, ref args) =>
+        fmt!("call %s // %s <- %s", e.pp(), dst.pp(),
+             ~"(" + str::connect(args.map(|a| a.pp()), ~", ") + ~")"),
       Phi(tmp, map) => {
         let mut s = ~"//" + tmp.pp() + ~" <- phi(";
         for map.each |id, tmp| {
@@ -225,6 +247,8 @@ impl Instruction : PrettyPrint {
       }
       Spill(t, tag) => fmt!("SPILL %s -> %?", t.pp(), tag),
       Reload(t, tag) => fmt!("RELOAD %s <= %?", t.pp(), tag),
+      PCopy(ref copies) =>
+        str::connect(copies.map(|&(a, b)| fmt!("(%? <= %?)", a, b)), ~", ")
     }
   }
 }
