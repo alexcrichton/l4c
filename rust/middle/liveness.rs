@@ -15,8 +15,6 @@ pub type Generator<S> = &fn(@S, &fn(uint));
 
 trait LivenessDelta {
   fn apply(&Delta);
-  fn apply_remove(&Delta);
-  fn apply_add(&Delta);
 }
 
 struct Liveness<T> {
@@ -130,24 +128,10 @@ impl<T : Statement> Liveness<T> {
 
 impl LiveIn : LivenessDelta {
   fn apply(delta : &Delta) {
-    self.apply_remove(delta);
-    self.apply_add(delta);
-  }
-
-  fn apply_remove(delta : &Delta) {
     for delta.each |&e| {
       match e {
         Right(tmp) => { assert set::remove(self, tmp); }
-        _ => ()
-      }
-    }
-  }
-
-  fn apply_add(delta : &Delta) {
-    for delta.each |&e| {
-      match e {
-        Left(tmp) => { assert set::add(self, tmp); }
-        _ => ()
+        Left(tmp)  => { assert set::add(self, tmp); }
       }
     }
   }
