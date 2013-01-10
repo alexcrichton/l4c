@@ -10,7 +10,8 @@ struct Allocator {
   f : &Function,
   colors : map::HashMap<Temp, uint>,
   slots : map::HashMap<Tag, uint>,
-  mut max_slot : uint
+  mut max_slot : uint,
+  callee_saved : dvec::DVec<uint>,
 }
 
 pub fn color(p : &Program) {
@@ -18,7 +19,8 @@ pub fn color(p : &Program) {
     let a = Allocator{ colors: map::HashMap(),
                        slots: map::HashMap(),
                        f: f,
-                       max_slot: 0 };
+                       max_slot: 0,
+                       callee_saved: dvec::DVec() };
 
     /* Color the graph completely */
     info!("coloring: %s", f.name);
@@ -295,6 +297,13 @@ impl Allocator {
           push(@BinaryOp(Sub, @Register(ESP, ir::Pointer),
                          @Immediate(self.max_slot * 8 as i32, ir::Pointer),
                          @Register(ESP, ir::Pointer)));
+          for self.colors.each |_, color| {
+            let reg = arch::num_reg(color);
+            if arch::callee_reg(reg) && !self.callee_saved.contains(&color) {
+              self.callee_saved.push(color);
+              push(@Raw(fmt!("push %s", reg.size(ir::Pointer))));
+            }
+          }
         }
         for ins.each |&ins| {
           self.alloc_ins(ins, push);
@@ -334,6 +343,9 @@ impl Allocator {
         push(@BinaryOp(Add, @Register(ESP, ir::Pointer),
                        @Immediate(self.max_slot * 8 as i32, ir::Pointer),
                        @Register(ESP, ir::Pointer)));
+        for self.callee_saved.rev_each |&color| {
+          push(@Raw(fmt!("pop %s", arch::num_reg(color).size(ir::Pointer))));
+        }
         push(i);
       }
 

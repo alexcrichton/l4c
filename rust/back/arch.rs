@@ -58,6 +58,10 @@ pub fn num_reg(i : uint) -> Register {
   }
 }
 
+pub fn callee_reg(r : Register) -> bool {
+  match r { EBX | R12D | R13D | R14D | R15D | EBP => true, _ => false }
+}
+
 pub fn constrain(ins : @Instruction,
                  push : &pure fn(@Instruction),
                  cg : &CodeGenerator) {
