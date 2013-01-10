@@ -191,11 +191,15 @@ impl Spiller {
     for self.f.cfg[n].each |&ins| {
       match ins {
         @Phi(my_name, renamings) => {
-          let set = map::HashMap();
+          let set = match self.congruence_sets.find(my_name) {
+            None => map::HashMap(), Some(s) => s
+          };
+          debug!("--- %?", my_name);
           for renamings.each |pred, their_name| {
             self.renamings[(pred, n)].insert(their_name, my_name);
+            debug!("%?", their_name);
             match self.congruence_sets.find(their_name) {
-              None    => (),
+              None    => { set::add(set, their_name); }
               Some(a) => { set::union(set, a); }
             }
           }
