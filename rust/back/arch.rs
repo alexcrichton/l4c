@@ -20,6 +20,25 @@ pub fn arg_reg(i : uint) -> Register {
   }
 }
 
+pub fn reg_num(r : Register) -> uint {
+  match r {
+    R9D  => 1,
+    R8D  => 2,
+    ECX  => 3,
+    EDX  => 4,
+    ESI  => 5,
+    EDI  => 6,
+    EAX  => 7,
+    EBX  => 8,
+    R12D => 9,
+    R13D => 10,
+    R14D => 11,
+    R15D => 12,
+    EBP  => 13,
+    _    => fail(fmt!("no num assigned %?", r))
+  }
+}
+
 pub fn num_reg(i : uint) -> Register {
   match i {
      1 => R9D,
@@ -47,10 +66,26 @@ pub fn constrain(ins : @Instruction,
     @Die(c, o1, o2) => constrain_cmp(c, o1, o2, push, cg, Die),
     @BinaryOp(op, d, s1, s2) => {
       match op {
+        /* the cmp instruction can only have immediates in a few places */
         Cmp(c) =>
           constrain_cmp(c, s1, s2, push, cg,
                         |c, o1, o2| BinaryOp(Cmp(c), d, o1, o2)),
-        _ => return push(ins)
+
+        /* div/mod can't operate on immediates, only registers */
+        Div | Mod => {
+          let s1 = if s1.imm() {
+            let tmp = cg.tmpnew(ir::Int);
+            push(@Move(tmp, s1));
+            tmp
+          } else { s1 };
+          let s2 = if s2.imm() {
+            let tmp = cg.tmpnew(ir::Int);
+            push(@Move(tmp, s2));
+            tmp
+          } else { s2 };
+          push(@BinaryOp(op, d, s1, s2));
+        }
+        _ => push(ins)
       }
     }
     _ => push(ins)

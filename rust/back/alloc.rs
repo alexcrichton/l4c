@@ -66,47 +66,107 @@ impl Allocator {
       set::add(slots, self.slots[t as Tag]);
     }
 
+    let mut pcopy = None;
     for self.f.cfg[n].eachi |i, &ins| {
       /* examine data for next instruction for last use information */
+      debug!("%s", ins.pp());
       debug!("%? %?", tmpdelta[i], slotdelta[i]);
       debug!("%s %s", set::to_str(tmplive), set::to_str(slotlive));
       tmplive.apply(&tmpdelta[i]);
       slotlive.apply(&slotdelta[i]);
-      debug!("%s", ins.pp());
-      for ins.each_use |tmp| {
-        debug!("found use %?", tmp);
-        if !set::contains(tmplive, tmp) {
-          debug!("removing %?", tmp);
-          set::remove(registers, self.colors[tmp]);
-        }
-      }
-      for ins.each_def |tmp| {
-        let color = self.min_vacant(registers);
-        assert(color <= arch::num_regs);
-        assert(self.colors.insert(tmp, color));
-        if set::contains(tmplive, tmp) {
-          set::add(registers, color);
-        }
-      }
+
+      /* If we found a pcopy, then we're breaking liveness */
       match ins {
-        @Spill(_, t) => {
-          let slot = match self.slots.find(t) {
-            None => {
-              let slot = self.min_vacant(slots);
-              self.slots.insert(t, slot);
-              self.max_slot = uint::max(slot, self.max_slot) + 1;
-              slot
-            }
-            Some(s) => s
-          };
-          set::add(slots, slot);
-        }
-        @Reload(_, t) => {
-          if !set::contains(slotlive, t) {
-            set::remove(slots, self.slots[t]);
-          }
+        @PCopy(*) => {
+          assert(pcopy.is_none());
+          pcopy = Some(ins);
+          registers.clear();
+          loop;
         }
         _ => ()
+      }
+
+      /* If we found a pcopy, and we're not constrained, keep going */
+      if pcopy.is_some() {
+        match ins {
+          @BinaryOp(op, dst, op1, _) if op.constrained() => {
+            match op {
+              Div | Mod => {
+                let dreg = match op { Div => EAX, _ => EDX };
+                set::add(registers, arch::reg_num(dreg));
+                match op1 {
+                  @Temp(t) => { self.colors.insert(t, arch::reg_num(EAX)); },
+                  _        => ()
+                }
+                match dst {
+                  @Temp(t) => { self.colors.insert(t, arch::reg_num(dreg)); },
+                  _        => fail(fmt!("not tmp dst %?", dst))
+                }
+              },
+              _ => fail(fmt!("implement %?", op))
+            }
+          }
+          @Call(*) => fail(~"implement call constraints"),
+          _ => loop
+        }
+
+        match pcopy {
+          Some(@PCopy(ref copies)) => {
+            for copies.each |&(dst, src)| {
+              assert dst != src;
+              assert self.colors.contains_key(src);
+              if self.colors.contains_key(dst) { loop }
+              if set::contains(registers, self.colors[src]) {
+                let color = self.min_vacant(registers);
+                assert(color <= arch::num_regs);
+                set::add(registers, color);
+                self.colors.insert(dst, color);
+              } else {
+                set::add(registers, self.colors[src]);
+                self.colors.insert(dst, self.colors[src]);
+              }
+            }
+          }
+          _ => unreachable()
+        }
+        pcopy = None;
+      } else {
+        /* normal coloration of each instruction */
+        for ins.each_use |tmp| {
+          debug!("found use %?", tmp);
+          if !set::contains(tmplive, tmp) {
+            debug!("removing %?", tmp);
+            set::remove(registers, self.colors[tmp]);
+          }
+        }
+        for ins.each_def |tmp| {
+          let color = self.min_vacant(registers);
+          assert(color <= arch::num_regs);
+          assert(self.colors.insert(tmp, color));
+          if set::contains(tmplive, tmp) {
+            set::add(registers, color);
+          }
+        }
+        match ins {
+          @Spill(_, t) => {
+            let slot = match self.slots.find(t) {
+              None => {
+                let slot = self.min_vacant(slots);
+                self.slots.insert(t, slot);
+                self.max_slot = uint::max(slot, self.max_slot) + 1;
+                slot
+              }
+              Some(s) => s
+            };
+            set::add(slots, slot);
+          }
+          @Reload(_, t) => {
+            if !set::contains(slotlive, t) {
+              set::remove(slots, self.slots[t]);
+            }
+          }
+          _ => ()
+        }
       }
       debug!("%s %s", set::to_str(tmplive), set::to_str(slotlive));
     }
@@ -255,7 +315,9 @@ impl Allocator {
         let s1 = self.alloc_op(s1);
         let s2 = self.alloc_op(s2);
 
-        if s1 == d {                             /* d = d op s2, perfect! */
+        if op.divmod() {                         /* div/mod handled elsewhere */
+          push(@BinaryOp(op, d, s1, s2));
+        } else if s1 == d {                      /* d = d op s2, perfect! */
           push(@BinaryOp(op, d, s2, s1));
         } else if s2 == d && op.commutative() {  /* d = s1 op d, can commute */
           push(@BinaryOp(op, d, s1, s2));
