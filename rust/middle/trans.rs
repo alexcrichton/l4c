@@ -142,8 +142,9 @@ impl AstTranslator {
         self.commit();
       }
       @ast::Express(e) => {
-        let stm = @ir::Move(self.tmp(ir::Pointer), self.exp(e, false));
-        self.stms.push(stm);
+        let e = self.exp(e, false);
+        let size = self.f.size(e);
+        self.stms.push(@ir::Move(self.tmp(size), e));
       }
       @ast::For(init, cond, step, body) => {
         self.stm(init);
