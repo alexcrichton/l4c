@@ -92,7 +92,7 @@ impl Allocator {
       if pcopy.is_some() {
         let banned = map::HashMap();
         match ins {
-          @BinaryOp(op, dst, op1, _) if op.constrained() => {
+          @BinaryOp(op, dst, op1, op2) if op.constrained() => {
             match op {
               Div | Mod => {
                 let dreg = match op { Div => EAX, _ => EDX };
@@ -110,7 +110,24 @@ impl Allocator {
                 /* TODO: figure out a better way */
                 set::remove(banned, arch::reg_num(dreg));
                 set::add(registers, arch::reg_num(dreg));
-              },
+              }
+
+              Rsh | Lsh => {
+                match op2 {
+                  @Temp(t) => { self.colors.insert(t, arch::reg_num(ECX)); },
+                  _        => fail(~"shouldn't be constrained")
+                }
+                /* TODO: extract this logic to elsewhere */
+                match dst {
+                  @Temp(t) => {
+                    let color = self.min_vacant(registers);
+                    set::add(registers, color);
+                    self.colors.insert(t, color);
+                  }
+                  _ => fail(fmt!("not tmp dst %?", dst))
+                }
+              }
+
               _ => fail(fmt!("implement %?", op))
             }
           }

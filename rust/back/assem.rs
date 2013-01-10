@@ -240,6 +240,13 @@ impl Instruction : PrettyPrint {
         /* Shifting by immediates can only use lower 5 bits */
         Lsh | Rsh if s1.imm() =>
           fmt!("%s %s, %s", binop.pp(), s1.mask(0x1f).pp(), dest.pp()),
+        Lsh | Rsh if s1.reg() => {
+          match s1 {
+            @Register(ECX, _) => (),
+            _                 => fail(fmt!("expected edx, not %?", s1))
+          }
+          fmt!("%s %%cl, %s", binop.pp(), dest.pp())
+        }
         _ => fmt!("%s %s, %s // %s"
                   binop.pp(), s1.pp(), dest.pp(), s2.pp()),
       },
@@ -263,6 +270,7 @@ impl Instruction : PrettyPrint {
 
 impl Operand {
   pure fn imm() -> bool { match self { Immediate(*) => true, _ => false } }
+  pure fn reg() -> bool { match self { Register(*) => true, _ => false } }
 
   pure fn mask(mask : i32) -> @Operand {
     match self {
