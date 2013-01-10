@@ -164,6 +164,17 @@ impl Spiller {
       cfg.add_node(new, @~[]);
       cfg.add_edge(n1, new, edge);
       cfg.add_edge(new, n2, ir::Always);
+
+      /* Be sure to fix the predecessor of each phi node in our successor */
+      for cfg[n2].each |&ins| {
+        match ins {
+          @Phi(_, map) => {
+            map.insert(new, map[n1]);
+            map.remove(n1);
+          }
+          _ => ()
+        }
+      }
     }
   }
 
