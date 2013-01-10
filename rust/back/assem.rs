@@ -541,7 +541,10 @@ impl Function {
         Some((ir::Always, id)) if !set::contains(visited, id) =>
           { skipped.push(id); }
         /* Otherwise always branches or edges to visited blocks are jumps */
-        Some((_, id)) => { out.write_str(fmt!("  jmp L%s\n", lbl(id))); }
+        Some((_, id)) => {
+          skipped.unshift(id);
+          out.write_str(fmt!("  jmp L%s\n", lbl(id)));
+        }
 
         None => {
           match (tedge, fedge) {
