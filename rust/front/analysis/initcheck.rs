@@ -3,10 +3,11 @@ use std::map;
 
 struct Initchecker {
   err : ~error::List,
+  mut step : @Statement,
 }
 
 pub fn check(a : &Program) {
-  let ic = Initchecker{ err: error::new() };
+  let ic = Initchecker{ err: error::new(), step: @Nop };
   ic.check(a);
   ic.err.check();
 }
@@ -32,10 +33,10 @@ impl Initchecker {
       @If(_, s1, s2) | @Seq(s1, s2) => { self.analyze(s1); self.analyze(s2); },
       @While(_, s) => self.analyze(s),
       @Declare(id, _, None, s) =>
-        if !self.live(id, s) {
-          self.analyze(s);
-        } else {
+        if self.live(id, s) {
           self.err.add(fmt!("Uninitialized variable: '%s'", id.val));
+        } else {
+          self.analyze(s);
         },
       @Declare(_, _, _, s) => self.analyze(s),
       @For(_, _, _, body) => self.analyze(body),
@@ -51,15 +52,24 @@ impl Initchecker {
       @Assign(_, _, e2) => self.uses(sym, e2),
       @If(e, s1, s2) =>
         self.uses(sym, e) || self.live(sym, s1) || self.live(sym, s2),
-      @While(e, s) => self.uses(sym, e) || self.live(sym, s),
-      @Break | @Continue | @Nop => false,
+      @While(e, s) => {
+        do with(&mut self.step, @Nop) {
+          self.uses(sym, e) || self.live(sym, s)
+        }
+      }
+      @Break | @Nop => false,
+      @Continue => self.live(sym, self.step),
       @Express(e) | @Return(e) => self.uses(sym, e),
       @Seq(s1, s2) =>
         self.live(sym, s1) || (self.live(sym, s2) && !self.defines(sym, s1)),
       @Markeds(ref m) => self.live(sym, m.data),
-      @For(s1, e, s2, s3) =>
-        self.live(sym, s1) || self.uses(sym, e) || self.live(sym, s2) ||
-        self.live(sym, s3)
+      @For(s1, e, s2, s3) => {
+        do with(&mut self.step, s2) {
+          self.live(sym, s1) ||
+            ((self.uses(sym, e) || self.live(sym, @Seq(s3, s2))) &&
+             !self.defines(sym, s1))
+        }
+      }
     }
   }
 
@@ -93,7 +103,8 @@ impl Initchecker {
         self.defines(sym, @Assign(m.data, op, e2)),
       @Assign(@Var(id), _, _) => id == sym,
       @If(_, s1, s2) => self.defines(sym, s1) && self.defines(sym, s2),
-      @While(_,_) | @Assign(_,_,_) | @For(_,_,_,_) | @Nop | @Express(_) => false,
+      @While(_, _) | @Assign(_, _, _) | @Nop | @Express(_) => false,
+      @For(init, _, _, _) => self.defines(sym, init),
       @Break | @Continue | @Return(_) => true,
       @Seq(s1, s2) => self.defines(sym, s1) || self.defines(sym, s2),
       @Markeds(ref m) => self.defines(sym, m.data)
