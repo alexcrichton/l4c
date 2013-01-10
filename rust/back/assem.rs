@@ -573,7 +573,7 @@ impl Function {
                 (_, ir::False) => {
                   skipped.push(tid);
                   skipped.push(fid);
-                  out.write_str(fmt!("  j%s L%s\n", cond.suffix(), lbl(fid)));
+                  out.write_str(fmt!("  j%s L%s\n", cond.suffix(), lbl(tid)));
                 }
 
                 _ => fail(~"invalidly specified edges")
