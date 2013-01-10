@@ -221,6 +221,7 @@ impl Instruction : PrettyPrint {
           ~"mov " + o2.pp() + ~", " + o1.pp()
         },
       BinaryOp(binop, dest, s1, s2) => match binop {
+        /* multiplications can have third operand if it's an immediate */
         Mul if s2.imm() && !s1.imm() => {
           if s1.size() == dest.size() {
             fmt!("imul %s, %s, %s", s2.pp(), s1.pp(), dest.pp())
@@ -233,8 +234,12 @@ impl Instruction : PrettyPrint {
                  s2.pp(), larger.pp(), dest.pp())
           }
         }
+        /* division/mod are both weird */
         Div | Mod => fmt!("cltd; idiv %s // %s <- %s %s %s", s2.pp(), dest.pp(),
                           s1.pp(), binop.pp(), s2.pp()),
+        /* Shifting by immediates can only use lower 5 bits */
+        Lsh | Rsh if s1.imm() =>
+          fmt!("%s %s, %s", binop.pp(), s1.mask(0x1f).pp(), dest.pp()),
         _ => fmt!("%s %s, %s // %s"
                   binop.pp(), s1.pp(), dest.pp(), s2.pp()),
       },
@@ -258,6 +263,13 @@ impl Instruction : PrettyPrint {
 
 impl Operand {
   pure fn imm() -> bool { match self { Immediate(*) => true, _ => false } }
+
+  pure fn mask(mask : i32) -> @Operand {
+    match self {
+      Immediate(n, s) => @Immediate(n & mask, s),
+      _ => fail(~"can't mask non-immediate")
+    }
+  }
 
   pure fn size() -> Size {
     match self {
