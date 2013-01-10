@@ -5,10 +5,11 @@ use back::assem::*;
 use utils::bitv::Bitv;
 
 type CFG = graph::Graph<@~[@assem::Instruction], ir::Edge>;
+type ColorMap = map::HashMap<Temp, uint>;
 
 struct Allocator {
   f : &Function,
-  colors : map::HashMap<Temp, uint>,
+  colors : ColorMap,
   slots : map::HashMap<Tag, uint>,
   mut max_slot : uint,
   callee_saved : dvec::DVec<uint>,
@@ -91,6 +92,11 @@ impl Allocator {
       /* If we found a pcopy, and we're not constrained, keep going */
       if pcopy.is_some() {
         let banned = map::HashMap();
+        let color = |t : Temp, r : Register, colors : ColorMap| {
+          let num = arch::reg_num(r);
+          colors.insert(t, num);
+          set::add(registers, num);
+        };
         match ins {
           @BinaryOp(op, dst, op1, op2) if op.constrained() => {
             match op {
@@ -98,23 +104,23 @@ impl Allocator {
                 let dreg = match op { Div => EAX, _ => EDX };
                 set::add(registers, arch::reg_num(dreg));
                 match op1 {
-                  @Temp(t) => { self.colors.insert(t, arch::reg_num(EAX)); },
+                  @Temp(t) => color(t, EAX, self.colors),
                   _        => ()
                 }
                 match dst {
-                  @Temp(t) => { self.colors.insert(t, arch::reg_num(dreg)); },
+                  @Temp(t) => color(t, match op { Div => EAX, _ => EDX },
+                                    self.colors),
                   _        => fail(fmt!("not tmp dst %?", dst))
                 }
-                set::add(banned, arch::reg_num(EAX));
-                set::add(banned, arch::reg_num(EDX));
-                /* TODO: figure out a better way */
-                set::remove(banned, arch::reg_num(dreg));
-                set::add(registers, arch::reg_num(dreg));
+                match op {
+                  Div => { set::add(banned, arch::reg_num(EDX)); }
+                  _   => { set::add(banned, arch::reg_num(EAX)); }
+                }
               }
 
               Rsh | Lsh => {
                 match op2 {
-                  @Temp(t) => { self.colors.insert(t, arch::reg_num(ECX)); },
+                  @Temp(t) => color(t, ECX, self.colors),
                   _        => fail(~"shouldn't be constrained")
                 }
                 /* TODO: extract this logic to elsewhere */
