@@ -386,17 +386,22 @@ impl Allocator {
         let s1 = self.alloc_op(s1);
         let s2 = self.alloc_op(s2);
 
-        if op.divmod() {                         /* div/mod handled elsewhere */
-          push(@BinaryOp(op, d, s1, s2));
-        } else if s1 == d {                      /* d = d op s2, perfect! */
-          push(@BinaryOp(op, d, s2, s1));
-        } else if s2 == d && op.commutative() {  /* d = s1 op d, can commute */
-          push(@BinaryOp(op, d, s1, s2));
-        } else if s2 == d {
-          fail(~"should have been covered when constraining");
-        } else {
-          push(@Move(d, s1));
-          push(@BinaryOp(op, d, s2, s1));
+        match op {
+          /* these are all special cases handled elsewhere */
+          Div | Mod | Cmp(*) => push(@BinaryOp(op, d, s1, s2)),
+
+          /* d = d op s2, perfect! */
+          _ if s1 == d => push(@BinaryOp(op, d, s2, s1)),
+          /* d = s1 op d, can commute */
+          _ if s2 == d && op.commutative() => push(@BinaryOp(op, d, s2, s1)),
+          /* should be handled elsewhere */
+          _ if s2 == d => fail(~"shouldn't happen now"),
+          /* catch-all last resort, generate a move */
+          _ => {
+            push(@Move(d, s1));
+            push(@BinaryOp(op, d, s2, s1));
+          }
+
         }
       }
       @Call(dst, fun, ref args) =>

@@ -237,6 +237,7 @@ impl Instruction : PrettyPrint {
         /* division/mod are both weird */
         Div | Mod => fmt!("cltd; idiv %s // %s <- %s %s %s", s2.pp(), dest.pp(),
                           s1.pp(), binop.pp(), s2.pp()),
+
         /* Shifting by immediates can only use lower 5 bits */
         Lsh | Rsh if s1.imm() =>
           fmt!("%s %s, %s", binop.pp(), s1.mask(0x1f).pp(), dest.pp()),
@@ -247,6 +248,15 @@ impl Instruction : PrettyPrint {
           }
           fmt!("%s %%cl, %s", binop.pp(), dest.pp())
         }
+
+        Cmp(cond) => {
+          let dstsmall = match dest {
+            @Register(r, _) => r.byte(), _ => dest.pp()
+          };
+          fmt!("cmp %s, %s; set%s %s; movzbl %s, %s",
+               s2.pp(), s1.pp(), cond.suffix(), dstsmall, dstsmall, dest.pp())
+        }
+
         _ => fmt!("%s %s, %s // %s"
                   binop.pp(), s1.pp(), dest.pp(), s2.pp()),
       },
@@ -405,6 +415,27 @@ impl Binop : PrettyPrint {
 }
 
 impl Register {
+  pure fn byte() -> ~str {
+    match self {
+      EAX  => ~"%al",
+      EBX  => ~"%bl",
+      ECX  => ~"%cl",
+      EDX  => ~"%dl",
+      ESI  => ~"%sil",
+      EDI  => ~"%dil",
+      ESP  => ~"%spl",
+      EBP  => ~"%bpl",
+      R8D  => ~"%r8b",
+      R9D  => ~"%r9b",
+      R10D => ~"%r10b",
+      R11D => ~"%r11b",
+      R12D => ~"%r12b",
+      R13D => ~"%r13b",
+      R14D => ~"%r14b",
+      R15D => ~"%r15b",
+    }
+  }
+
   pure fn size(t : assem::Size) -> ~str {
     match (self, t) {
       (EAX, ir::Int)      => ~"%eax",
