@@ -105,6 +105,9 @@ impl Allocator {
                 }
                 set::add(banned, arch::reg_num(EAX));
                 set::add(banned, arch::reg_num(EDX));
+                /* TODO: figure out a better way */
+                set::remove(banned, arch::reg_num(dreg));
+                set::add(registers, arch::reg_num(dreg));
               },
               _ => fail(fmt!("implement %?", op))
             }
