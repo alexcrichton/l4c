@@ -1,0 +1,24 @@
+//test return 1001
+
+int main() {
+    int a;
+    int b = 0;
+
+    for(a = 0; a < 5; a ++) {
+        for(a = 5; a > 0; a--) {
+            for(a = 0; a < 5; a++) {
+                b ++;
+                if (b > 10)
+                    break;
+            }
+
+            if (b > 100)
+                break;
+        }
+
+        if (b > 1000)
+            break;
+    }
+
+    return b;
+}

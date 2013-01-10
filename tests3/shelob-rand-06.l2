@@ -1,0 +1,51 @@
+//test return -4
+int
+main ()
+{
+  int v0 = 4;
+  int v1 = v0;
+  {
+    int v2 = 0;
+    int v3 = 7;
+    int v4 = v0;
+    int v5 = v0;
+  }
+  {
+    int v2 = 3;
+    int v3 = v0;
+    {
+      int v4 = v0;
+      {
+	int v5 = v1;
+	int v6 = v1;
+	int v7 = 4;
+	int v8 = 3;
+	{
+	  int v9 = v1;
+	  int v10 = 8;
+	  int v11 = (3) % ~~((2));
+	  -v2;
+	} v8 = (8);
+	for (; false; v0 /= ~0)
+	  {
+	    int v9 = 4;
+	    int v10 = v8;
+	    int v11 = 4;
+	    int v12 = (v5);
+	  } v2--;
+      } v0--;
+    } v1;
+    for (v0++; (((3)) == (((3))));)
+      {
+	int v4 = (v3 + (-(~(v3))) - -(-v0));
+	int v5 = v1;
+	int v6 = 9;
+	int v7 = v0;
+	break;
+	break;
+	v5 -= v7;
+	v3 %= 2;
+      }
+  }
+  return (-v1);
+}

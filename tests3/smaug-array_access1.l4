@@ -1,0 +1,16 @@
+//test exception
+
+struct s {
+  int x;
+};
+typedef struct s s;
+
+int main()
+{
+  s[] array = alloc_array(struct s, 1000);
+  for (int i = 0; i <= 1000; i++) {
+    array[i].x = i;
+  }
+  return 0;
+}
+

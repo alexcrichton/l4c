@@ -1,0 +1,55 @@
+//test error
+
+// i like me some c functions now and then...
+
+int[] malloc(int bytes);
+int printf(int *fmt, int[] str);
+
+int main()
+{
+  int SIZE = 27;
+  int NUM = 160;
+  int BUFFSIZE = SIZE * NUM;
+  int[] p = malloc(BUFFSIZE * 4);
+  
+  int i;
+  for(i = 0; i < NUM*SIZE; i+=SIZE)
+    {
+      p[i+0] = 0x65726854;
+      p[i+1] = 0x69702065;
+      p[i+2] = 0x65746172;
+      p[i+3] = 0x65772073;
+      p[i+4] = 0x73206572;
+      p[i+5] = 0x67676977;
+      p[i+6] = 0x20676e69;
+      p[i+7] = 0x676f7267;
+      p[i+8] = 0x206e6f20;
+      p[i+9] = 0x20656874;
+      p[i+10] = 0x706f6f70;
+      p[i+11] = 0x63656420;
+      p[i+12] = 0x4f202e6b;
+      p[i+13] = 0x6f20656e;
+      p[i+14] = 0x68742066;
+      p[i+15] = 0x73206d65;
+      p[i+16] = 0x2c646961;
+      p[i+17] = 0x694a2220;
+      p[i+18] = 0x74202c6d;
+      p[i+19] = 0x206c6c65;
+      p[i+20] = 0x61207375;
+      p[i+21] = 0x6f747320;
+      p[i+22] = 0x222e7972;
+      p[i+23] = 0x206f5320;
+      p[i+24] = 0x206d694a;
+      p[i+25] = 0x61676562;
+      p[i+26] = 0x20203a6e;
+    }
+
+  p[i+26] = 0x203a6e;
+  
+  int *f = alloc(int);
+  *f = 0xa7325;
+
+  printf(f, p);
+
+  return 42;
+}

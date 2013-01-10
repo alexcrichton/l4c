@@ -1,0 +1,9 @@
+//test exception
+
+int main() {
+  int[] a = alloc_array(int, 10);
+  int i = 1;
+  i -= 2; //oops
+  a[i] = 31337;
+  return a[i];
+}

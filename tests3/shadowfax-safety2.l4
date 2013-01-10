@@ -1,0 +1,24 @@
+//test exception
+//oops, missed one NULL
+
+
+int*[]* initialize(int n) {
+
+        int*[]* array_ptr = alloc(int*[]);
+        *array_ptr = alloc_array(int*, n);
+
+        for(int i = 1; i < n; i++) {
+            (*array_ptr)[i] = alloc(int);
+            *(*array_ptr)[i] = 12;
+        }
+        return array_ptr;
+}
+
+int main() {
+    int n = 100;
+    int*[]* lolz = initialize(n);
+    for(int i = n-1; i >= 0; i--) {
+            n+= *(*lolz)[i];
+    }
+    return n;
+}

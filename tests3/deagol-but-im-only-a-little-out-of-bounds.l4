@@ -1,0 +1,12 @@
+//test exception 11
+
+int munchie(bool[] a) {
+  for (int i = 0; i <= 100000000; i++) a[i];
+  return 0;
+}
+
+int main() {
+  bool[] a = alloc_array(bool, 100000000);
+  return munchie(a);
+}
+

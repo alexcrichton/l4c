@@ -1,0 +1,13 @@
+//test exception 14
+
+int []infinite_loop() {
+    while (true) {
+    }
+
+    return alloc_array(int, 0);
+}
+
+int main() {
+    return (infinite_loop())[1 / 0];
+}
+

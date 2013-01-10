@@ -1,0 +1,16 @@
+//test exception
+
+int LOCInProofOfPEqualsNP(int i) {
+  i += (-i) + i + 20 - 2*i;
+  return i; 
+}
+
+
+int main() {
+  int x = 0;
+  for (int i = 15; i < 30; i++) {
+    int[] a = alloc_array(int, LOCInProofOfPEqualsNP(i));
+    x++;
+  }
+  return x;
+}

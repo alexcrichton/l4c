@@ -1,0 +1,36 @@
+//test return -1400
+//Tests memory safety in code that can maybe be optimized
+
+int main() {
+  int n = 400;
+  int []a = alloc_array(int, n);
+  int []b = alloc_array(int, n);
+  int []c = alloc_array(int, n);
+  int u = 0;
+  int i;
+  for(i=0;i<n;i++) {
+    a[i] = u;
+    u++;
+  }
+  for(i=0;i<n;i++) {
+    b[i] = u;
+    u++;
+  }
+  int j;
+  int k;
+  int x;
+  for(i=0;i<n;i++) {
+    for(j=i;j<n;j++) {
+      for(k=0;k<n;k++) {
+        x = ((j - i) * 10)/ 10;
+        c[x] += a[x];
+        x = b[k];
+        x += b[k] + a[k];
+        c[k] += x - k + c[k];
+      }
+    }
+  }
+  return c[300];
+}
+
+

@@ -1,0 +1,36 @@
+//test return 7989
+//calculates the thousandth hilbert prime
+int fourpart(int i){
+    return i==0?0:i==1?4:8+fourpart(i-2);
+}
+
+int hill(int i){
+    return 1+fourpart(i);
+}
+
+int main(){
+    int count = 0;
+    int i = 1;
+    int cur = 0;
+    while(count < 1000){
+        int hilly = hill(i);
+        bool prime = true;
+        for(int j=1;j<i;j++){
+            int hill2 = hill(j);
+            if(hilly%hill2 == 0){
+                prime=false;
+                break;
+            }
+            if(hill2 > hilly/2)
+                break;
+        }
+        if(prime){
+            cur = hilly;
+            count++;
+        }
+        i++;
+    }
+    return cur;
+}
+            
+    

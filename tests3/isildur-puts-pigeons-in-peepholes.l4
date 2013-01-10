@@ -1,0 +1,20 @@
+//test return 36
+
+// test constant folding/constant propagation
+// also does a few operations that can be sped up using leal/shifts
+// this is all straightline code that can "easily" be optimized to mov $36, %eax; ret
+int main() {
+    int a = 39;
+    int b = 3091;
+    int c = 30;
+    int d = a;
+    int e = b;
+    int q = c * 2;
+    int f = 3 * e;
+    b = f / (2 * 2 * 2 * 2 * 2 * 2);
+    d += 8;
+    d *= 3;
+    b -= d;
+    b += a - 6;
+    return b;
+}

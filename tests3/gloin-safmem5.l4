@@ -1,0 +1,18 @@
+//test exception
+
+int mayn(int []arr){
+    int sum=0;
+    for(int i=0;i<10;i++){
+        sum+=arr[i];
+    }
+    return sum;
+}
+
+struct a{
+    int []arr;
+};
+
+int main(){
+    struct a *b = alloc(struct a);
+    return mayn(b->arr);
+}

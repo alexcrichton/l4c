@@ -1,0 +1,19 @@
+//test return -154759936
+//Uses many function calls. Will be faster if the calle save registers are allocated well
+
+int f(int x) {
+  return ((5+x)*3) - x;
+}
+
+int main() {
+  int sum = 0;
+  int n = 10000;
+  int i;
+  int j;
+  for(i=0;i<n;i++) {
+    for(j=0;j<n;j++) {
+      sum += f(i+j);
+    }
+  }
+  return sum;
+}

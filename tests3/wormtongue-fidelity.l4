@@ -1,0 +1,13 @@
+//test return 15
+// attempts to be evil?
+
+int forthy(int[] someArray) {
+    someArray[3] += 3;
+    return someArray[3];
+}
+
+int main() {
+    int[] mArray = alloc_array(int, 5);
+    mArray[forthy(mArray)] *= 5;
+    return mArray[3];
+}

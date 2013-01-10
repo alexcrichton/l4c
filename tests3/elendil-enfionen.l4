@@ -1,0 +1,12 @@
+//test return 42
+
+int main () {
+  if (5 == 7-2*4+6) {
+    return 42;
+  } else {
+    for (int i = 0; i < 10000000; i++) {
+      for (int j = 0; j < 10000; j++) {
+        for (int k = 0; k < 10000000; k++) {
+          5;
+          }}}}
+  return 41;}

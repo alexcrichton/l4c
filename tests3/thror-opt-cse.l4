@@ -1,0 +1,20 @@
+//test return 0
+//benchmark of common subexpression elimination
+
+int f(int i, int j, int k, int l, int m, int n) 
+{
+  return i + j + k + l + m + n;
+}
+
+int main () {
+
+  for(int i = 0; i < 10000; i++)
+  {
+    f((i + 3) + (i + 3), i * 3 - (i + 3),
+      i * (i * 3) - (i + 3),
+      i < 1000 ? i + 3 : i / 4,
+      i / 4 + i / 4 + i / 4 + i / 4 - (i + 3),
+      i * 3 - i * 3 + (i / (i / 4 + 1)));
+  }
+  return 0;
+}

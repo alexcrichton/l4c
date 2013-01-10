@@ -1,0 +1,35 @@
+//test return 57000000
+
+int main() {
+  int a = 1;
+  int b = 2;
+  int c = 1;
+  int d = 3;
+  int e = 1;
+  int f = 2;
+  int g = 1;
+  int h = 4;
+  int i = 1;
+  int j = 2;
+  int k = 1;
+  int l = 3;
+  int m = 1;
+  int n = 5;
+  int o = 1;
+  int p = 2;
+  int q = 1;
+  int r = 3;
+  int s = 1;
+  int t = 4;
+  int u = 1;
+  int v = 2;
+  int w = 1;
+  int x = 3;
+  int y = 1;
+  int z = 9;
+  int a0 = 0;
+  for (int count = 0; count < 1000000; count++) {
+    a0 += a + b + c + d + e + f + g + h + i + j + k + l + m + n + o + p + q + r + s + t + u + v + w + x + y + z;
+  }
+  return a0;
+}

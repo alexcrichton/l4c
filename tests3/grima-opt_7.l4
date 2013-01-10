@@ -1,0 +1,98 @@
+//test return 704982704
+// Tests constant folding and propagation, and deadcode elimination.
+
+int main()
+{
+  int x = 3;
+
+  int sum = 0;
+
+  int a = x * 1;
+  int b = x + 1;
+  int c = x - 1;
+  int d = x;
+
+
+  for( int i = 0; i < 100000; i++)
+  {
+    if( x == 3 ) 
+      sum += i;
+    else
+    {
+      a = a + c + b + i;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      d = x + a;
+      a = a + c + b + d;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      a = a + c + b + i;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      a = a + c + b + i;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      a = a + c + b + i;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      a = a + c + b + i;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      a = a + c + b + i;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      a = a + c + b + i;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      a = a + c + b + i;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      a = a + c + b + i;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      a = a + c + b + i;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      a = a + c + b + i;
+      b = a + a + c * i;
+      c = b + a + d + i;
+      sum += x;
+    }
+  }
+
+  return sum;
+}

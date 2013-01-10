@@ -1,0 +1,47 @@
+//test exception 11
+
+int get_i(int* p)
+{
+  if(*p > 50)
+    *p =  15 + *p / 2;
+  else
+    *p = 3 * *p - 5;
+
+  return *p - 2;
+}
+
+int main()
+{
+  int* p = alloc(int);
+  *p = 3;
+  int[] blah = alloc_array(int,12);
+  int*[] hmm = alloc_array(int*,12);
+
+  for(int i = 0; i < 12; i++)
+  {
+    blah[i] = get_i(p);
+  }
+
+  for(int i = 0; i < 12; i++)
+  {
+    hmm[i] = alloc(int);
+    *hmm[i] = blah[11 - i] * *p;
+  }
+
+  for(int i = 1; i <= 13; i++)
+  {
+    blah[i-1] = blah[i-1] + 1;
+  }
+
+  for(int i = 1; i < 13; i++)
+  {
+    blah[i-1] = *hmm[12 - i] - 1;
+  }
+
+  for(int i = 0; i < 12; i++)
+  {
+    *hmm[i] = get_i(hmm[i]);
+  }
+
+  return *hmm[6];
+}

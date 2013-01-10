@@ -1,0 +1,22 @@
+//test return 4950000
+
+int main () {
+  int[] nums = alloc_array(int,1000);
+
+  int *ans = NULL;
+  ans = alloc(int);
+  int i = 0;
+  for (; i < 1000; i++) {
+    nums[i] = i;
+  }
+
+  for (; i > 0; i--) {
+    int curr = 0;
+    for (int j = 0; j < 100; j++) {
+      curr += nums[j];
+    }
+    *ans += curr;
+  }
+
+  return *ans;
+}

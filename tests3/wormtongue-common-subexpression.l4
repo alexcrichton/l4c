@@ -1,0 +1,68 @@
+//test return 5000
+// Tests common subexpression elimination. Uses function calls to block
+// folding.
+
+bool afunc() { return false; }
+bool bfunc() { return false; }
+bool cfunc() { return false; }
+bool dfunc() { return false; }
+bool efunc() { return false; }
+bool ffunc() { return false; }
+bool gfunc() { return false; }
+bool hfunc() { return false; }
+bool ifunc() { return false; }
+bool jfunc() { return false; }
+bool kfunc() { return false; }
+bool lfunc() { return false; }
+bool mfunc() { return false; }
+bool nfunc() { return false; }
+bool ofunc() { return false; }
+bool pfunc() { return false; }
+bool qfunc() { return false; }
+bool rfunc() { return false; }
+bool sfunc() { return false; }
+bool tfunc() { return false; }
+bool ufunc() { return false; }
+bool vfunc() { return false; }
+bool wfunc() { return false; }
+bool xfunc() { return false; }
+bool yfunc() { return false; }
+bool zfunc() { return false; }
+
+int main() {
+	int even_count = 0;
+	bool avar = afunc();
+	bool bvar = bfunc();
+	bool cvar = cfunc();
+	bool dvar = dfunc();
+	bool evar = efunc();
+	bool fvar = ffunc();
+	bool gvar = gfunc();
+	bool hvar = hfunc();
+	bool ivar = ifunc();
+	bool jvar = jfunc();
+	bool kvar = kfunc();
+	bool lvar = lfunc();
+	bool mvar = mfunc();
+	bool nvar = nfunc();
+	bool ovar = ofunc();
+	bool pvar = pfunc();
+	bool qvar = qfunc();
+	bool rvar = rfunc();
+	bool svar = sfunc();
+	bool tvar = tfunc();
+	bool uvar = ufunc();
+	bool vvar = vfunc();
+	bool wvar = wfunc();
+	bool xvar = xfunc();
+	bool yvar = yfunc();
+	bool zvar = zfunc();
+	for (int i = 0; i < 10000; i++) {
+		bool b0 = avar && bvar && cvar && dvar && evar && fvar && gvar && hvar && ivar && jvar && kvar && lvar && mvar && nvar && ovar && pvar && qvar && rvar && svar && tvar && uvar && vvar && wvar && xvar && yvar && zvar; 
+		bool b1 = b0 || (avar && bvar && cvar && dvar && evar && fvar && gvar && hvar && ivar && jvar && kvar && lvar && mvar && nvar && ovar && pvar && qvar && rvar && svar && tvar && uvar && vvar && wvar && xvar && yvar && zvar);
+		bool b2 = b1 || (avar && bvar && cvar && dvar && evar && fvar && gvar && hvar && ivar && jvar && kvar && lvar && mvar && nvar && ovar && pvar && qvar && rvar && svar && tvar && uvar && vvar && wvar && xvar && yvar && zvar);
+		bool is_even = (i % 2 == 0) || b2;
+		even_count += is_even ? 1 : 0;
+	}
+	return even_count;
+}

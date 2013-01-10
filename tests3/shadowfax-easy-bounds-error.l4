@@ -1,0 +1,7 @@
+//test exception 11
+// should notice out-of-bound error and raise SIGSEGV
+int main ()
+{
+  int[] arr = alloc_array(int, 3);
+  return arr[3];
+}

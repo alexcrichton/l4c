@@ -1,0 +1,21 @@
+//test error
+
+struct s {};
+
+int
+main()
+{
+    struct s *ptr = alloc(struct s);
+    // Here we go
+    true < true;
+    true > false;
+    3 > false;
+    true == NULL;
+    true != false;
+    3 >= NULL;
+    ptr = alloc(struct s);
+    ptr == NULL;
+    *ptr == NULL;
+
+    return 7;
+}

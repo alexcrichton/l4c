@@ -1,0 +1,10 @@
+//test return 0
+
+int myfunc(int[] arr) {
+   return arr[99];
+}
+
+int main() {
+   int[] arr = alloc_array(int, 100);
+   return myfunc(arr);
+}

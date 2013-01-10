@@ -1,0 +1,9 @@
+//test exception 11
+// large negative array index
+
+int main()
+{
+  int []a = alloc_array(int,2000);
+  int []b = alloc_array(int,3); 
+  return a[-800];
+}

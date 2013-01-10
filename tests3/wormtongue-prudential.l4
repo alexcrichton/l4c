@@ -1,0 +1,91 @@
+//test exception 11
+// man... thinking of stuff that won't throw segfaults is hard for mem checking
+
+struct a{
+int c;
+};
+struct at{
+struct a foo;
+struct a bar;
+};
+struct att{
+struct at foo;
+struct at bar;
+};
+struct attt{
+struct att foo;
+struct att bar;
+};
+struct atttt{
+struct attt foo;
+struct attt bar;
+};
+struct attttt{
+struct atttt foo;
+struct atttt bar;
+};
+struct atttttt{
+struct attttt foo;
+struct attttt bar;
+};
+struct attttttt{
+struct atttttt foo;
+struct atttttt bar;
+};
+struct atttttttt{
+struct attttttt foo;
+struct attttttt bar;
+};
+struct attttttttt{
+struct atttttttt foo;
+struct atttttttt bar;
+};
+struct atttttttttt{
+struct attttttttt foo;
+struct attttttttt bar;
+};
+struct attttttttttt{
+struct atttttttttt foo;
+struct atttttttttt bar;
+};
+struct atttttttttttt{
+struct attttttttttt foo;
+struct attttttttttt bar;
+};
+struct attttttttttttt{
+struct atttttttttttt foo;
+struct atttttttttttt bar;
+};
+struct atttttttttttttt{
+struct attttttttttttt foo;
+struct attttttttttttt bar;
+};
+struct attttttttttttttt{
+struct atttttttttttttt foo;
+struct atttttttttttttt bar;
+};
+struct atttttttttttttttt{
+struct attttttttttttttt foo;
+struct attttttttttttttt bar;
+};
+struct attttttttttttttttt{
+struct atttttttttttttttt foo;
+struct atttttttttttttttt bar;
+};
+struct atttttttttttttttttt{
+struct attttttttttttttttt foo;
+struct attttttttttttttttt bar;
+};
+struct attttttttttttttttttt{
+struct atttttttttttttttttt foo;
+struct atttttttttttttttttt bar;
+};
+struct ruler{
+struct attttttttttttttttttt foo;
+int boo;
+};
+
+int main () {
+    struct ruler* moose = NULL;
+    return moose->boo;
+}

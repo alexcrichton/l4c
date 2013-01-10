@@ -1,0 +1,17 @@
+//test return 0
+//this test is less a semantics of safe memory and more a "i'm bored".
+
+int main(){
+    int [][]arrarr = alloc_array(int[],10000);
+    for(int i=0;i<10000;i++){
+        arrarr[i] = alloc_array(int, 1000);
+    }
+    for(int i=0;i<10000;i++){
+        arrarr[i] = alloc_array(int, 1000);
+    }
+    for(int i=0;i<10000;i++){
+        if(arrarr[i][0] != 0)
+            return 1;
+    }
+    return 0;
+}

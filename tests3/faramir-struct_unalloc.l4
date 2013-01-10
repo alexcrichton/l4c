@@ -1,0 +1,22 @@
+//test exception 11
+
+struct point { int x; int y; };
+
+struct point * ham_dist(struct point * a, struct point * b) {
+    struct point ** c = alloc(struct point *);
+    (*c)->x = (a->x > b->x) ? (a->x - b->x) : (b->x - a->x);
+    (*c)->y = (a->y > b->y) ? (a->y - b->y) : (b->y - a->y);
+    return *c;
+}
+
+int main() {
+    struct point * origin = alloc(struct point);
+    origin->x = 0;
+    origin->y = 0;
+
+    struct point * p = alloc(struct point);
+    p->x = 100;
+    p->y = -1;
+
+    return (ham_dist(origin, p)->x);
+}

@@ -1,0 +1,11 @@
+//test return 17
+/* read chars until 9 is read */
+
+int main () {
+  int r = 1;
+  int c = readchar();
+
+  if( c != 0x39)
+      r += main();
+  return r;
+}

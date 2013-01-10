@@ -1,0 +1,55 @@
+//test return 0
+
+int enc(int[] data, int n, int key) {
+    int i;
+    for(i = 0; i < n; i++) {
+        data[i] = (data[i] ^ key) + ((key % 2000) + 5);
+    }
+
+    return 0;
+}
+
+int dec(int[] data, int n, int key) {
+    int i;
+    for(i = 0; i < n; i++) {
+        data[i] = (data[i] - ((key % 2000) + 5)) ^ key;
+    }
+
+    return 0;
+}
+
+int rand(int x) {
+    return x ^ (0xBABEF00D + (x % 20)) ^ (0xDEADF001 + (x * 20));
+}
+
+int main() {
+    int[] data = alloc_array(int, 1024 * 1024);
+    int seed = 0x909DFBA7;
+    int key = 0x5EC378E7;
+    int randst = rand(seed);
+    int chksum1 = 0;
+    int chksum2 = 0;
+    int i;
+
+    for(i = 0; i < (1024 * 1024); i++) {
+        data[i] = randst;
+        randst = rand(randst);
+    }
+
+    for(i = 0; i < (1024 * 1024); i++) {
+        chksum1 += data[i];
+    }
+
+    enc(data, (1024 * 1024), key);
+    dec(data, (1024 * 1024), key);
+
+    for(i = 0; i < (1024 * 1024); i++) {
+        chksum2 += data[i];
+    }
+
+    if(chksum1 == chksum2) {
+        return 0;
+    } else {
+        return -1;
+    }
+}

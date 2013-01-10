@@ -1,0 +1,14 @@
+//test return 10000
+
+int main(){
+    int sum = 0;
+    for(int i=0;i<10000;i++){
+        int a = readint();
+        int b = readint();
+        bool b2 = a==b;
+        if(b2){
+            sum++;
+        }
+    }
+    return sum;
+}

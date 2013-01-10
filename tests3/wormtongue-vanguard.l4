@@ -1,0 +1,8 @@
+//test exception 11
+// in which we hop off an array
+
+int main() {
+    int[] arr = alloc_array(int, 15);
+    arr[16] = 5;
+    return arr[0];
+}

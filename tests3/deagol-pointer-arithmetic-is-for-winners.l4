@@ -1,0 +1,8 @@
+//test error
+int main() {
+  int* a = NULL;
+  int* b = NULL;
+  a + b;
+  return 5;
+}
+

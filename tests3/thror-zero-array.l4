@@ -1,0 +1,18 @@
+//test return 1
+
+struct s {
+  int[] a;
+};
+int main() 
+{
+  int[] a = alloc_array(int, 0);
+  int x = 0;
+  while (x > 0)
+  {
+    a[x] = 54;
+  }
+  struct s * p = alloc(struct s);
+  
+  return a == p->a ? 0 : 1;
+}
+

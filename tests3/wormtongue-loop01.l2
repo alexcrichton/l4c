@@ -1,0 +1,15 @@
+//test return 350
+// Test with continue and break;
+
+int main() {
+	int i = 0;
+	for (i = 0; i <= 400; i++) {
+		if (i < 350)
+			continue;
+		else if (i > 300)
+			break;
+		else
+			i++;
+	}
+	return i;	
+}

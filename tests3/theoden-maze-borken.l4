@@ -1,0 +1,1137 @@
+//test exception 11
+
+// can you find the bug?
+
+// printing utilities /////////////////////////////////////////////////////////
+int ps(int c)
+{
+  //printchar(char_chr(c));
+  return printchar(c);
+}
+
+// rand.h0 ////////////////////////////////////////////////////////////////////
+// Pseudorandom number generators
+
+// provides:
+// typedef _ rand_t;
+// rand_t init_rand(int seed);
+// int rand(rand_t gen);
+
+typedef struct rand* rand_t;
+rand_t init_rand (int seed);
+int rand(rand_t gen);
+
+// rand.c0 ////////////////////////////////////////////////////////////////////
+// Mersenne twister pseudorandom number generator
+// According to Wikipedia                                                                            
+struct rand {
+  int[] MT;
+  int index;
+};
+
+// Right shift in C0 is arithmetic; need
+// to implement a zero-fill right shift
+// as y>>>k = (y>>k)&~(-1<<(32-k)) (1 <= k <= 31)
+
+int generateNumbers(rand_t gen) {
+  int[] MT = gen->MT;
+  int i;
+  for (i = 0; i < 624; i++) {
+    int y = (MT[i] & 0x80000000) + (MT[(i+1)%624] & 0x7fffffff);
+    MT[i] = MT[(i+397)%624] ^ ((y>>1) & ~(-1<<31));
+    if ((y & 1) == 1)
+      MT[i] ^= 0x9908b0df;
+  }
+  return 0;
+}
+
+rand_t init_rand(int seed) {
+  rand_t gen = alloc(struct rand);
+  int[] MT = alloc_array(int, 624);
+  int i;
+  gen->MT = MT;
+  gen->index = 0;
+  MT[0] = seed;
+  for (i = 1; i < 624; i++)
+    MT[i] = 0x6c078965 * (MT[i-1] ^ ((MT[i-1]>>30) & ~(-1<<2))) + i;
+  return gen;
+}
+
+int rand(rand_t gen) {
+  if (gen->index == 0) generateNumbers(gen);
+  {
+    int[] MT = gen->MT;
+    int y = MT[gen->index];
+    y ^= (y >> 11) & ~(-1<<21);
+    y ^= (y << 7) & 0x9d2c5680;
+    y ^= (y << 15) & 0xefc60000;
+    y ^= (y >> 18) & ~(-1<<14);
+
+    gen->index = (gen->index + 1) % 624;
+    return y;
+  }
+}
+
+// elem.c0 ////////////////////////////////////////////////////////////////////
+typedef struct room* room;
+typedef room elem;
+
+// lists.c0 ///////////////////////////////////////////////////////////////////
+/* Linked lists and queues
+ * 15-122 Principles of Imperative Computation, Fall 2010
+ * Frank Pfenning
+ */
+
+/* Linked lists */
+/* Building blocks for several elementary data structures */
+
+struct list {
+  elem data;
+  struct list* next;
+};
+
+typedef struct list* list;
+
+bool is_segment(list start, list end) {
+  list p = start;
+  while (p != end) {
+    if (p == NULL) return false;
+    p = p->next;
+  }
+  return true;
+}
+
+// maze.h0 ////////////////////////////////////////////////////////////////////
+/*
+// in elem.c0:
+typedef struct room* room;
+*/
+
+struct room {
+  int number;
+  list neighbors;
+  /* bookkeeping info: */
+  room predecessor;
+  bool visited;
+};
+
+typedef struct maze* maze;
+
+struct maze {
+  int numrooms;
+  room[] rooms;
+  room enter;
+  room exit;
+};
+
+// mazegenerator.c0 ///////////////////////////////////////////////////////////
+// Some silly algorithm I came up with back when I was a freshman
+// Generates mazes using our friend the twister
+
+int new_int(rand_t gen, int max)
+{
+  return (rand(gen)&0x7fffffff) % max;
+}
+
+int room_print_list(list L)
+{
+  while(L != NULL)
+    {
+      printint(L->data->number);
+      L = L->next;
+      if(L != NULL)
+	{
+	  //print(", ");
+	  ps(44);ps(32);
+	}
+    }
+  return 0;
+}
+
+int connect(room r1, room r2)
+{
+  list l = alloc(struct list);
+  list l2 = alloc(struct list);
+
+  l->data = r1;
+  l->next = r2->neighbors;
+  r2->neighbors = l;
+
+  l2->data = r2;
+  l2->next = r1->neighbors;
+  r1->neighbors = l2;
+
+  return 0;
+}
+
+int clear_predecessors(maze mz)
+{
+  int i;
+  for(i = 0; i < mz->numrooms; i++)
+    mz->rooms[i]->predecessor = NULL;
+
+  return 0;
+}
+
+int print_maze(maze mz)
+{
+  int i;
+  //print("Number of rooms: ");
+  ps(78);ps(117);ps(109);ps(98);ps(101);ps(114);ps(32);ps(111);ps(102);ps(32);ps(114);ps(111);ps(111);ps(109);ps(115);ps(58);ps(32);
+  printint(mz->numrooms); 
+  //println(" ");
+  ps(32);ps(10);
+  for(i = 0; i < mz->numrooms; i++)
+    {
+      //print("[");
+      ps(91);
+      room_print_list(mz->rooms[i]->neighbors);
+      //print("]");
+      ps(93);
+      //print(", ");
+      ps(44);ps(32);
+      //println("");
+      ps(10);
+    }
+  return 0;
+}
+
+int list_size(list L)
+{
+  int i = 0;
+  while(L != NULL)
+    {
+      i++;
+      L = L->next;
+    }
+  return i;
+}
+
+int maze_out(maze mz, int x, int y)
+{
+  int i;
+  printint(x);
+  //print("  ");
+  ps(32);ps(32);
+  printint(y);
+  //println(" ");
+  ps(10);
+  for(i = 0; i < mz->numrooms; i++)
+    {
+      if(i%x == 0) 
+	//println("");
+	ps(10);
+      printint(list_size(mz->rooms[i]->neighbors)); 
+      //print("  ");
+      ps(32); ps(32);
+      room_print_list(mz->rooms[i]->neighbors);
+      //println("");
+      ps(10);
+    }
+  return 0;
+}
+
+//finds an unvisited neighbor
+room uvn(rand_t gen, maze mz, int x, int y, room r)
+{
+  room adj = NULL;
+  int choice = 5;
+  int target;
+  bool top = true;
+  bool bot = true;
+  bool lft = true;
+  bool rht = true;
+
+  while(adj == NULL && (top||bot||lft||rht))
+    {
+      choice = new_int(gen, 4);
+
+      if(choice == 0 && top)
+	{
+	  top = false;
+	  target = r->number - x;
+	  if(target >= 0 && !(mz->rooms[target]->visited))
+	    adj = mz->rooms[target];
+	}
+
+      else if(choice == 1 && bot)
+	{
+	  bot = false;
+	  target = r->number + x;
+	  if(target < mz->numrooms && !(mz->rooms[target]->visited))
+	    adj = mz->rooms[target];
+	}
+
+      else if(choice == 2 && lft)
+	{
+	  lft = false;
+	  target = r->number - 1;
+	  if(target % x < r->number % x && target >= 0 && !(mz->rooms[target]->visited))
+	    adj = mz->rooms[target];
+	}
+      
+      else if(choice == 3 && rht)
+	{
+	  rht = false;
+	  target = r->number + 1;
+	  if(target % x > r->number % x && !(mz->rooms[target]->visited))
+	    adj = mz->rooms[target];
+	}
+    }
+  return adj;
+}
+
+int branch(rand_t gen, maze mz, int x, int y, room r)
+{
+  //BRANCH SETTINGS
+  //======================================
+  //values represent number of chances out of 1000
+  int s = 800;   /* chance there will be one new connection */
+  int b1 = 350;  /* chance for first additional connection, if possible */
+  int b2 = 250;  /* chance for second additional connection, if possible */
+  //======================================
+  //END SETTINGS
+
+  room target;
+  bool branched = false;
+  
+  r->visited = true;
+
+  //first we test to see if this branch will continue
+  if(new_int(gen, 1000) < s)
+    {
+      branched = true;
+      target = uvn(gen, mz, x, y, r);
+      if(target != NULL)
+	{
+	  connect(r, target);
+	  target->predecessor = r;
+	  branch(gen, mz, x, y, target);
+	}
+    }
+  
+  //if it will, perhaps it will spawn more branches
+  if(branched)
+    {
+      if(new_int(gen, 1000) < b1)
+	{
+	  target = uvn(gen, mz, x, y, r);
+	  if(target != NULL)
+	    {
+	      connect(r, target);
+	      target->predecessor = r;
+	      branch(gen, mz, x, y, target);
+	    }
+	}
+      
+      if(new_int(gen, 1000) < b2)
+	{
+	  target = uvn(gen, mz, x, y, r);
+	  if(target != NULL)
+	    {
+	      connect(r, target);
+	      target->predecessor = r;
+	      branch(gen, mz, x, y, target);
+	    }
+	}
+    }
+  return 0;
+}
+
+//connects a new branch to the existing network of branches
+bool linkup(rand_t gen, maze mz, int x, int y, room r)
+{
+
+  //here's an imbedded ivn function - could add yet another arg to uvn and call that
+  room adj = NULL;
+  int choice;
+  int target;
+  bool top = true;
+  bool bot = true;
+  bool lft = true;
+  bool rht = true;
+
+  while(adj == NULL && (top||bot||lft||rht))
+    {
+      choice = new_int(gen, 4);
+
+      if(choice == 0 && top)
+	{
+	  top = false;
+	  target = r->number - x;
+	  if(target >= 0 && (mz->rooms[target]->visited))
+	    adj = mz->rooms[target];
+	}
+
+      else if(choice == 1 && bot)
+	{
+	  bot = false;
+	  target = r->number + x;
+	  if(target < mz->numrooms && (mz->rooms[target]->visited))
+	    adj = mz->rooms[target];
+	}
+
+      else if(choice == 2 && lft)
+	{
+	  lft = false;
+	  target = r->number - 1;
+	  if(target % x < r->number % x && target >= 0 && (mz->rooms[target]->visited))
+	    adj = mz->rooms[target];
+	}
+      
+      else if(choice == 3 && rht)
+	{
+	  rht = false;
+	  target = r->number + 1;
+	  if(target % x > r->number % x && (mz->rooms[target]->visited))
+	    adj = mz->rooms[target];
+	}
+    }
+
+  if(adj == NULL)
+    //r unmodified
+    return false;
+
+  else 
+    {
+      connect(r, adj);
+    }
+  
+  return true;
+}
+
+int add_link(maze mz, int x, int y, room r, int dir)
+{
+  if(r != NULL)
+    {
+      if(dir == 0)
+	if(r->number - x >= 0)
+	  return connect(r, mz->rooms[r->number - x]);
+      
+	else if(dir == 1)
+	  if(r->number + x < mz->numrooms)
+	    return connect(r, mz->rooms[r->number + x]);
+
+	  else if(dir == 2)
+	    if((r->number - 1) % x < r->number % x && r->number - 1 >= 0)
+	      return connect(r, mz->rooms[r->number - 1]);
+	    
+	    else if(dir == 3)
+	      if((r->number + 1) % x > r->number % x)
+		return connect(r, mz->rooms[r->number + 1]);
+    }
+  return 0;
+}
+
+//we could generate the randomness in here, but right now its just
+//a wrapper for connect
+int portal(room r, room t)
+{
+  return connect(r, t);
+}
+
+int remove_from_neighbors(room t, room r)
+{
+  if(t->neighbors->data == r)
+    {
+      t->neighbors = t->neighbors->next;
+    }
+  else {
+    list l = t->neighbors->next;
+    list trail = t->neighbors;
+
+    while(l != NULL && l->data != r)
+      {
+	trail = l;
+	l = l->next;
+      }
+    if(l != NULL) trail->next = l->next;
+  }
+  return 0;
+}
+
+int remove_link(maze mz, room r)
+{
+  if(r->neighbors != NULL)
+    {
+      room t = r->neighbors->data;
+      r->neighbors = r->neighbors->next;
+      return remove_from_neighbors(t, r);
+    }
+  return 0;
+}
+
+int clear_visited(maze mz)
+{
+  for(int i = 0; i < mz->numrooms; i++)
+    mz->rooms[i]->visited = false;
+  return 0;
+}
+
+maze makemaze(int X, int Y, int SEED, int add, int rem, int port)
+{
+  //for testing - internal init section
+  //PARAMETER INITIALIZATION
+  //======================================
+  int seed = SEED; /*0xdeadbea7;*/
+  int x = X;
+  int y = Y;
+  //======================================
+  //END INITIALIZATION
+  
+  int i;
+  rand_t gen = init_rand(seed);
+  int count;
+  int maxcount;
+  bool[] V;
+  int selection;
+  bool[] P;
+
+  //first make a blank maze
+  maze mz = alloc(struct maze);
+  mz->numrooms = x*y;
+  mz->rooms = alloc_array(room, mz->numrooms);
+  for(i = 0; i < mz->numrooms; i++)
+    {
+      mz->rooms[i] = alloc(struct room);
+      mz->rooms[i]->number = i;
+    }
+  mz->enter = mz->rooms[0];
+  mz->exit = mz->rooms[mz->numrooms - 1];
+
+  //branch from enter
+  branch(gen, mz, x, y, mz->enter);
+  
+  //we clear for bookkeeping purposes;
+  //if a room has been visited but has no predecessor, old branch (goes to enter)
+  //if a room has been visited and has a predecessor, this branch
+  //this info is only processed in linkup
+  clear_predecessors(mz);
+
+  //now iterate over the maze;
+  //if a room isn't in a branch link it to one that is and start a new brach
+  //we do this randomly: maxcount is set to prevent an infinite loop
+  count = 0;
+  maxcount = 0;
+  V = alloc_array(bool, mz->numrooms);
+
+  while(count < mz->numrooms && maxcount < mz->numrooms*100)
+    {
+      selection = new_int(gen, mz->numrooms);
+      maxcount++;
+      if(!V[selection])
+	{
+	  if(mz->rooms[selection]->visited)
+	    {
+	      V[selection] = true;
+	      count++;
+	    }
+	  else if(linkup(gen, mz, x, y, mz->rooms[selection]))
+	      {
+		branch(gen, mz, x, y, mz->rooms[selection]);
+		clear_predecessors(mz);
+		V[selection] = true;
+		count++;
+	      }
+	}
+    }
+
+  for(i = 0; i < mz->numrooms; i++)
+    {
+      if(new_int(gen, 1000) < add)
+	{
+	  add_link(mz, x, y, mz->rooms[i], new_int(gen, 4));
+	  i--;
+	}
+    }
+
+  for(i = 0; i < mz->numrooms; i++)
+    {
+      if(new_int(gen, 1000) < rem)
+	{
+	  remove_link(mz, mz->rooms[i]);
+	  i--;
+	}
+    }
+
+  P = alloc_array(bool, mz->numrooms);
+
+  for(i = 0; i < mz->numrooms; i++)
+    {
+      if(new_int(gen, 1000) < port)
+	{
+	  int target = new_int(gen, mz->numrooms);
+	  if(!P[i] && !P[target])
+	    {
+	      P[i] = true;
+	      P[target] = true;
+	      portal(mz->rooms[i], mz->rooms[target]);
+	    }
+	}
+    }    
+    
+  clear_visited(mz);
+  clear_predecessors(mz);
+  return mz;
+}
+
+// mazedraw.c0 ////////////////////////////////////////////////////////////////
+// Based roughly on mazeimage.c0
+// Draws an ascii representation of the maze in the terminal
+
+int abs(int i)
+{
+  if(i < 0)
+    return -i;
+  else
+    return i;
+}
+
+int drawroom(int[][] vwalls, int[][] hwalls, int[][] portals, int X, int Y, room r, int *p)
+{
+  int x = r->number % X;
+  int y = r->number / X;
+
+  list l = r->neighbors;
+  while (l != NULL)
+    {
+      // room to the left
+      if(r->number - l->data->number == 1)
+	{
+	  vwalls[y][x] += 1;
+	}
+      // room to the right
+      else if(r->number - l->data->number == -1)
+	{
+	  vwalls[y][x+1] += 2;
+	}
+      // room above
+      else if(r->number - l->data->number == X)
+	{
+	  hwalls[y][x] += 1;
+	}
+      // room below
+      else if(r->number - l->data->number == -X)
+	{
+	  hwalls[y+1][x] += 2;
+	}
+      // room is somehwere else, draw a portal
+      else 
+	{
+	  int px = l->data->number % X;
+	  int py = l->data->number / X;
+
+	  // if the other room hasn't been visited, make a new one
+	  if(portals[py][px] == 0)
+	    {
+	      portals[y][x] = *p;
+	      (*p)++;
+	    }
+	  // otherwise copy theirs
+	  else 
+	    {
+	      portals[y][x] = abs(portals[py][px]);
+	    }
+	}
+      l = l->next;
+    }
+
+  // we indicate a visited room by making portals of that index negative
+  if(portals[y][x] == 0)
+    portals[y][x] = 1;
+  if(r->visited)
+    portals[y][x] = -portals[y][x];
+
+  return 0;
+}
+
+int p_hwall(int w)
+{
+  if(w == 0)
+    return ps(45);
+  else if(w == 1)
+    return ps(94);
+  else if(w == 2)
+    return ps(118);
+  else
+    return ps(32);
+}
+
+int p_vwall(int w)
+{
+  if(w == 0)
+    return ps(124);
+  else if(w == 1)
+    return ps(60);
+  else if(w == 2)
+    return ps(62);
+  else
+    return ps(32);
+}
+
+int p_portal(int p)
+{
+  if(p == 1)
+    return ps(32);
+  else if(p == -1)
+    return ps(46);
+  else if(2 <= p && p <= 27)
+    return ps(p + 95);
+  else if(-27 <= p && p <= -2)
+    return ps(-p + 63);
+  else
+    return ps(63);
+}
+
+/*
++-+-+-+
+|a|   |
++ +-+ +
+|  a  |
++-+-+-+
+*/
+int drawarrays(int[][] vwalls, int[][] hwalls, int[][] portals, int X, int Y)
+{
+  int y = 0; 
+  int x = 0;
+
+  // for each row
+  for(y = 0; y < Y; y++)
+    {
+      // draw the horizontal walls above the row
+      for(x = 0; x < X; x++)
+	{
+	  ps(43); 
+	  p_hwall(hwalls[y][x]);
+	}
+      ps(43); 
+      ps(10);
+      // draw the vertical walls at the row
+      for(x = 0; x < X; x++)
+	{
+	  p_vwall(vwalls[y][x]);
+	  p_portal(portals[y][x]);
+	}
+      p_vwall(vwalls[y][x]);
+      ps(10);
+    }
+
+  // draw the horizontal walls along the bottom
+  for(x = 0; x < X; x++)
+    {
+      ps(43); 
+      p_hwall(hwalls[y][x]);
+    }
+  ps(43); 
+  ps(10);
+
+  return 0;
+}
+
+int[][] init2d(int x, int y)
+{
+  int[][] A = alloc_array(int[], y);
+    
+  for(int i = 0; i < y; i++)
+    A[i] = alloc_array(int, x);
+  
+  return A;
+}
+
+int drawmaze(maze mz, int X, int Y)
+{
+  if(mz->numrooms != X*Y)
+    return 1/0;
+
+  int[][] vwalls = init2d(X, Y);
+  int[][] hwalls = init2d(X, Y+1);
+  int[][] portals = init2d(X, Y);
+    
+  int *p = alloc(int);
+  *p = 2;
+
+  for(int i = 0; i < mz->numrooms; i++)
+    drawroom(vwalls, hwalls, portals, X, Y, mz->rooms[i], p);
+
+  return drawarrays(vwalls, hwalls, portals, X, Y);
+}
+
+// queues.c0 //////////////////////////////////////////////////////////////////
+/* Linked lists and queues
+ * 15-122 Principles of Imperative Computation, Fall 2010
+ * Frank Pfenning
+ */
+
+/* Interface to queues */
+
+typedef struct queue* queue;
+
+bool q_empty(queue Q);    /* O(1) */
+queue q_new();            /* O(1) */
+int enq(queue Q, elem e); /* O(1) */
+elem deq(queue Q);        /* O(1) */
+
+/* Implementation of queues */
+
+struct queue {
+  list front;
+  list back;
+};
+
+bool is_queue(queue Q) {
+  return Q->front != NULL && Q->back != NULL
+    && is_segment(Q->front, Q->back);
+}
+
+bool q_empty(queue Q)
+{
+  return Q->front == Q->back;
+}
+
+queue q_new()
+{
+  queue Q = alloc(struct queue);
+  list l = alloc(struct list);
+  Q->front = l;
+  Q->back = l;
+  return Q;
+}
+
+int enq(queue Q, elem e)
+{
+  list l = alloc(struct list);
+  Q->back->data = e;
+  Q->back->next = l;
+  Q->back = l;
+  return 0;
+}
+
+elem deq(queue Q)
+{ 
+  elem e = Q->front->data;
+  Q->front = Q->front->next;
+  return e;
+}
+
+// stacks.c0 //////////////////////////////////////////////////////////////////
+/* Stacks
+ * 15-122 Principles of Imperative Computation, Fall 2010
+ * Frank Pfenning
+ */
+
+// type elem must be defined
+
+/* Interface section for stacks */
+
+struct stack;
+typedef struct stack* stack;
+bool s_empty(stack S);     /* O(1) */
+stack s_new();             /* O(1) */
+int push(elem x, stack S); /* O(1) */
+elem pop(stack S);         /* O(1) */
+
+struct stack {
+  list top;
+};
+
+bool is_stack (stack S) {
+  return is_segment(S->top, NULL);
+}
+
+bool s_empty(stack S)
+{
+  return S->top == NULL;
+}
+
+stack s_new()
+{
+  stack S = alloc(struct stack);
+  S->top = NULL;
+  return S;
+}
+
+int push(elem x, stack S)
+{
+  list first = alloc(struct list);
+  first->data = x;
+  first->next = S->top;
+  S->top = first;
+  return 0;
+}
+
+elem pop(stack S)
+{
+  elem x = S->top->data;
+  S->top = S->top->next;
+  return x;
+}
+
+// mazesearch1.c0 /////////////////////////////////////////////////////////////
+/* Bill Zorn
+   mazesearch1.c0
+   15122 Assignment 4
+   October 9, 2010
+*/
+
+elem get_end(list l)
+//we are assuming that the list is: 
+//  - noncyclic
+//  - null-terminated
+{
+  while(l->next != NULL)
+    l = l->next;
+  return l->data;
+}
+
+bool list_contains(list l, elem e)
+{
+  while(l != NULL)
+    {
+      if(l->data == e) return true;
+      l = l->next;
+    }
+  return false;
+}
+
+bool q_contains(queue Q, elem e)
+{
+  list l = Q->front;
+  while(l != Q->back)
+    {
+      if(l->data == e) return true;
+      l = l->next;
+    }
+  return false;
+}
+
+bool room_q_trace(queue Q, room e)
+{
+  list l = Q->front;
+  room p;
+  while(l != Q->back)
+    {
+    p = l->data;
+    while(p->predecessor != e)
+      {
+	if(p->predecessor == NULL) return false;
+	p = p->predecessor;
+      }
+    l = l->next;
+    }
+  return true;
+}
+
+bool room_q_unique(queue Q)
+{
+  if(q_empty(Q)) return true;
+  else{
+    list l = Q->front;
+    list t;
+    while(l != Q->back)
+      {
+	t = Q->front;
+	while(t != l)
+	  {
+	    if(t->data == l->data) return false;
+	    t = t->next;
+	  }
+	l = l->next;
+      }
+  }
+  return true;
+}
+
+bool room_q_unvisited(queue Q)
+{
+  if(q_empty(Q)) return true;
+  else{
+    list l = Q->front;
+    while(l != Q->back)
+      {
+	if(l->data->visited) return false;
+	l = l->next;
+      }
+  }
+  return true;
+}
+
+bool room_q_predecessor_excluded(queue Q)
+{
+  if(q_empty(Q)) return true;
+  else{
+    list l = Q->front;
+    while(l != Q->back)
+      {
+	if(q_contains(Q,l->data->predecessor)) return false;
+	l = l->next;
+      }
+  }
+  return true;
+}
+
+bool room_q_predecessor_legal(queue Q)
+{
+  if(q_empty(Q)) return true;
+  else{
+    list l = Q->front;
+    while(l != Q->back)
+      {
+	if(l->data->predecessor != NULL && !(list_contains(l->data->predecessor->neighbors, l->data)))
+	  return false;
+	l = l->next;
+      }
+  }
+  return true;
+}
+
+list mazesearch1(maze mz)
+{
+  queue Q = q_new();
+  room r = NULL;
+  list p;
+  enq(Q, mz->enter);
+
+  while(!(q_empty(Q)) && r != mz->exit)
+    {
+      r = deq(Q);
+      r->visited = true;
+
+      if(r->neighbors != NULL)
+	{
+	  p = r->neighbors;
+	  while(p != NULL)
+	    {
+	      if( !(p->data->visited) && !(q_contains(Q, p->data))) 
+		{
+		  p->data->predecessor = r;
+		  enq(Q,p->data);	  
+		}
+
+	      p = p->next;	    
+	    }
+	}
+    }
+  
+  if(mz->exit->predecessor == NULL) return NULL;
+
+  else{
+    list out;
+    list L = alloc(struct list);
+    stack S = s_new();
+    r = mz->exit;
+    while(r != mz->enter)
+      {
+	push(r, S);
+	r = r->predecessor;
+      }
+    push(r, S);
+
+    out = L;
+    while(!(s_empty(S)))
+      {
+	L->data = pop(S);
+	if(!(s_empty(S)))
+	  {
+	    L->next = alloc(struct list);
+	    L = L->next;
+	  }
+      }
+    
+    return out;
+  }
+
+}
+
+// main ///////////////////////////////////////////////////////////////////////
+int cleanup_sol(maze mz, list sol)
+{
+  for(int i = 0; i < mz->numrooms; i++)
+    {
+      if(!(list_contains(sol, mz->rooms[i]))) 
+	{
+	  mz->rooms[i]->visited = false;
+	}
+    }
+  return 0;
+}
+
+int main()
+{
+  int mz1_x = 6;
+  int mz1_y = 6;
+  maze mz1 = makemaze(mz1_x, mz1_y, 0xf00d, 0, 0, 0);
+  
+  print_maze(mz1);
+  ps(10);ps(10);
+  maze_out(mz1,mz1_x,mz1_y);
+  ps(10);ps(10);
+  
+  list mz1_s = mazesearch1(mz1);
+  
+  room_print_list(mz1_s);
+  ps(10);ps(10);
+
+  int mz2_x = 8;
+  int mz2_y = 4;
+  maze mz2 = makemaze(mz2_x, mz2_y, 0xbeef, 10, 1, 1);
+
+  print_maze(mz2);
+  ps(10);ps(10);
+  maze_out(mz2,mz2_x,mz2_y);
+  ps(10);ps(10);
+  drawmaze(mz2, mz2_x, mz2_y);
+  ps(10);ps(10);
+  
+  list mz2_s = mazesearch1(mz2);
+  cleanup_sol(mz2, mz2_s);
+
+  room_print_list(mz2_s);
+  ps(10);ps(10);
+  drawmaze(mz2, mz2_x, mz2_y);
+  ps(10);ps(10);
+  
+  // I know---let's find the average solution length for some cases
+
+  int num_trials = 35;
+  int trial_start = 2;
+  int trial_end = 6;
+  int seed = 0xbeeff00d;
+  
+  for(int k = trial_start; k <= trial_end; k++)
+    { 
+      int total = 0;
+      int mz_x = 1<<k;
+      int mz_y = 1<<k;
+      for(int i = 0; i < num_trials; i++)
+	{
+	  maze mz = makemaze(mz_x, mz_y, seed, 10, 1, 1);
+	  
+	  list mz_s = mazesearch1(mz);
+	  total += list_size(mz_s);
+	  seed = (seed * 1664525) + 1013904223;
+	}
+  
+      printint(mz_x);ps(32);ps(120);ps(32);printint(mz_y);ps(58);ps(10);
+      printint(total / num_trials);
+      ps(10);ps(10);
+    }
+
+  // how about a big ol maze?
+
+  int mz3_x = 100;
+  int mz3_y = 24;
+  maze mz3 = makemaze(mz3_x, mz3_y, 0xbadb01, 10, 1, 1);
+
+  drawmaze(mz3, mz3_x, mz3_y);
+  ps(10);ps(10);
+  
+  list mz3_s = mazesearch1(mz3);
+  cleanup_sol(mz3, mz3_s);
+
+  room_print_list(mz3_s);
+  ps(10);ps(10);
+  drawmaze(mz3, mz3_x, mz3_y);
+  ps(10);ps(10);
+
+  return 42;
+}

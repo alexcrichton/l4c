@@ -1,0 +1,35 @@
+//test return -17394
+// this is a fast way to get the nth number given n
+int theNthNumber(int n) {
+  for (int i = 0; i < n; i++) {
+    if (i == n) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+// this is totally the smart way to calculate sum from 1 to N
+int sumFrom1ToN(int[] a, int len) {
+  
+  for (int i = 0; i < len; i++) {
+    int runningSum = 0;
+    // also let's multiply by some stuff because we want to
+    for (int j = 0; j < i; j++) {
+      int hardcore = 11;
+      int yo = 12;
+      int multiplicativeFactor = yo*hardcore;
+      int crazyMath = multiplicativeFactor*multiplicativeFactor - hardcore / 7 + 29 * theNthNumber(70000);
+      runningSum += a[j] + crazyMath;
+    }
+    a[i] = runningSum;
+  }
+
+  return a[73];
+}
+
+
+int main() {
+  int[] a = alloc_array(int, 100);
+  return sumFrom1ToN(a, 100);
+}

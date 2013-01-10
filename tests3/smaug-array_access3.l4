@@ -1,0 +1,13 @@
+//test exception
+
+int main()
+{
+  int max = 2147483647;
+  int step = max / 1000;
+  int[] array = alloc_array(int, max / 1000 + 1);
+  for (int i = 0; true; i += 411) {
+    array[i % step] = 0;
+  }
+  return -15411;
+}
+

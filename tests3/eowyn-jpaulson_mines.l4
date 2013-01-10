@@ -1,0 +1,15 @@
+//test return 0
+int main() {
+    int* x = NULL;
+
+    if(false) { *x; }
+    for(int i=0; true; (*x)++)
+        break;
+
+    if(true) { x; } else {*x; }
+    true ? 0 : *x;
+    false && (*x==*x);
+    true || (*x==*x);
+
+    return 0;
+}

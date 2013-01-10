@@ -1,0 +1,23 @@
+//test error
+//i noticed this bug in my compiler when redoing it for this lab, and we hadn't failed on it...
+//wonder who else left this in?
+
+bool foo(int a, int b){
+    return a==b;
+}
+
+int bar(bool b){
+    return b ? 10 : 20;
+
+int main(){
+    int i=0;
+    int j;
+    bool b;
+    if(i==1){
+        j=1;
+    }
+    if(foo(i,j)){
+        b=true;
+    }
+    return bar(b);
+}

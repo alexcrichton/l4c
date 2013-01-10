@@ -1,0 +1,33 @@
+//test return 1
+int
+main()
+{
+    int total = 0;
+    int i;
+    int k;
+    for (i = 0; i < 14; i++) {
+        total += i % 2 == 1 ? 3 : (i % 3 != 2 ? 2 : 1);
+        total--;
+        break;
+        k += 3;
+    }
+    {
+        int y = 14;
+        k = 9;
+    }
+    k *= 3;
+    int y;
+    if (total == 2) {
+        y = 3;
+    } else {
+        y = 4;
+    }
+    y++;
+
+    for (int j = 3; j < 15; j++) {
+        j += 3;
+    }
+
+
+    return total;
+}

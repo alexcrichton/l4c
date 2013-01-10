@@ -1,0 +1,323 @@
+//test return 42
+
+// so for starters... MERSENNE TWISTER BITCHES ////////////////////////////////
+
+// Mersenne twister pseudorandom number generator
+// According to Wikipedia
+
+typedef struct rand* rand_t;
+rand_t init_rand (int seed);
+int rand(rand_t gen);
+                                                              
+struct rand {
+  int[] MT;
+  int index;
+};
+
+// Right shift in C0 is arithmetic; need
+// to implement a zero-fill right shift
+// as y>>>k = (y>>k)&~(-1<<(32-k)) (1 <= k <= 31)
+
+int generateNumbers(rand_t gen) {
+  int[] MT = gen->MT;
+  int i;
+  for (i = 0; i < 624; i++) {
+    int y = (MT[i] & 0x80000000) + (MT[(i+1)%624] & 0x7fffffff);
+    MT[i] = MT[(i+397)%624] ^ ((y>>1) & ~(-1<<31));
+    if ((y & 1) == 1)
+      MT[i] ^= 0x9908b0df;
+  }
+  return 0;
+}
+
+rand_t init_rand(int seed) {
+  rand_t gen = alloc(struct rand);
+  int[] MT = alloc_array(int, 624);
+  int i;
+  gen->MT = MT;
+  gen->index = 0;
+  MT[0] = seed;
+  for (i = 1; i < 624; i++)
+    MT[i] = 0x6c078965 * (MT[i-1] ^ ((MT[i-1]>>30) & ~(-1<<2))) + i;
+  return gen;
+}
+
+int rand(rand_t gen) {
+  if (gen->index == 0) generateNumbers(gen);
+  {
+    int[] MT = gen->MT;
+    int y = MT[gen->index];
+    y ^= (y >> 11) & ~(-1<<21);
+    y ^= (y << 7) & 0x9d2c5680;
+    y ^= (y << 15) & 0xefc60000;
+    y ^= (y >> 18) & ~(-1<<14);
+
+    gen->index = (gen->index + 1) % 624;
+    return y;
+  }
+}
+
+// lashtables - hashtables with linear probing ////////////////////////////////
+
+typedef struct strrrng *elem;
+typedef struct strrrng *key;
+
+int int_max()
+{
+  return 0x7fffffff;
+}
+
+/*************
+ * Interface *
+ *************/
+
+// client provided
+key elem_key(elem e);
+bool key_equal(key k1, key k2);
+int hash(key k, int m);
+
+// library provided
+struct ht_header;
+typedef struct ht_header *ht;
+
+ht ht_new(int capacity);
+int ht_insert(ht H, elem e);
+int ht_delete(ht H, key k);
+elem ht_lookup(ht H, key k);
+
+/***************
+ * Client Code *
+ ***************/
+
+struct strrrng{
+  int length;
+  int[] chars;
+};
+
+typedef struct strrrng *strrrng;
+
+key elem_key(elem e){
+  return e;
+}
+
+bool key_equal(key k1, key k2)
+{
+  int k1_length = k1->length;
+  int k2_length = k2->length;
+
+  if(k1_length != k2_length)
+    return false;
+
+  int[] k1_chars = k1->chars;
+  int[] k2_chars = k2->chars;
+
+  for(int i = 0; i < k1_length; i++)
+    if(k1_chars[i] != k2_chars[i])
+      return false;
+
+  return true;
+}
+
+// perturbed lcg
+// seems pretty good
+int hash(key k, int m){
+  int length = k->length;
+  int[] chars = k->chars;
+  
+  int h = 0;
+  for(int i = 0; i < length; i++)
+    {
+      h += chars[i];
+      h = h * 1664525 + 1013904223;
+    }
+
+  h = h % m;
+
+  return h < 0 ? h + m : h;
+}
+
+strrrng strrnd(rand_t r, int len)
+{
+  int[] chars = alloc_array(int, len);
+  for(int i = 0; i < len; i++)
+    chars[i] = rand(r) & 0x0000007f;
+
+  strrrng str = alloc(struct strrrng);
+  str->length = len;
+  str->chars = chars;
+  return str;
+}
+
+int main()
+{
+  ht map = ht_new(1024);
+
+  rand_t gen = init_rand(0xdeadb1ff);
+
+  for(int i = 0; i < 122411; i++)
+    {
+      strrrng str = strrnd(gen, 27);
+      ht_insert(map, str);
+      if(ht_lookup(map, str) == NULL)
+	return 1/0;
+      
+      if(rand(gen) > 0)
+	{
+	  ht_delete(map, str);
+	  if(ht_lookup(map, str) != NULL)
+	    return 1/0;
+	}
+    }
+
+  return 42;
+}
+
+/**************************
+ * Library Implementation *
+ **************************/
+
+struct ht_cell{
+  // 0: not occupied; 1: empty but previously occupied; 2: occupied
+  int status;
+  elem data;
+};
+
+typedef struct ht_cell cell;
+
+struct ht_header{
+  int size;
+  int capacity;
+  cell[] table;
+};
+
+ht ht_new(int capacity)
+{
+  ht H = alloc(struct ht_header);
+
+  H->size = 0;
+  H->capacity = capacity;
+  
+  // by default, status will be 0: not occupied
+  H->table = alloc_array(cell, capacity);
+  
+  return H;
+}
+
+int ht_resize(ht H, int new_capacity)
+{
+  int old_capacity = H->capacity;
+  cell[] old_table = H->table;
+
+  // we die immediately if constructing the new table would be an infinite loop
+  if(H->size > new_capacity)
+    return 1/0;
+
+  // by default, status will be 0: not occupied
+  cell[] new_table = alloc_array(cell, new_capacity);
+
+  for(int i = 0; i < old_capacity; i++)
+    {
+      if(old_table[i].status == 2)
+	{
+	  int j = hash(elem_key(old_table[i].data), new_capacity);
+	  while(new_table[j].status == 2)
+	    {
+	      j++;
+	      if(j >= new_capacity)
+		j = 0;
+	    }
+	  new_table[j].status = 2;
+	  new_table[j].data = old_table[i].data;
+	}
+    }
+
+  // size is unchanged
+  H->capacity = new_capacity;
+  H->table = new_table;
+
+  return 0;
+}
+
+int ht_insert(ht H, elem e)
+{
+  int new_size = H->size + 1;
+
+  if(new_size < 0)
+    return 1/0;
+
+  //MAX_LOAD = 3
+  if(new_size * 3 > H->capacity)
+    {
+      int new_capacity = H->capacity * 3;
+      new_capacity = new_capacity < 0 ? int_max() : new_capacity;
+      
+      if(new_capacity != H->capacity)
+	ht_resize(H, new_capacity);
+    }
+
+  key k = elem_key(e);
+  int j = hash(k, H->capacity);
+
+  while(H->table[j].status == 2)
+    {
+      if(key_equal(elem_key(H->table[j].data), k))
+	{
+	  // status is unchanged
+	  H->table[j].data = e;
+	  return 1;
+	}
+      else
+	{
+	  j++;
+	  if(j >= H->capacity)
+	    j = 0;
+	}
+    }
+
+  H->table[j].status = 2;
+  H->table[j].data = e;
+  H->size = new_size;
+
+  return 0;
+}
+
+int ht_delete(ht H, key k)
+{
+  int j = hash(k, H->capacity);
+  while(H->table[j].status > 0)
+    {
+      if(H->table[j].status == 2 && key_equal(elem_key(H->table[j].data), k))
+	{
+	  H->table[j].status = 1;
+	  H->size--;
+	  return 0;
+	}
+      else
+	{
+	  j++;
+	  if(j >= H->capacity)
+	    j = 0;
+	}
+    }
+  // we didn't find anything to delete, so size is unchanged
+  return 1;
+}
+
+elem ht_lookup(ht H, key k)
+{
+  int j = hash(k, H->capacity);
+  while(H->table[j].status > 0)
+    {
+      if(H->table[j].status == 2 && key_equal(elem_key(H->table[j].data), k))
+	{
+	  return H->table[j].data;
+	}
+      else
+	{
+	  j++;
+	  if(j >= H->capacity)
+	    j = 0;
+	}
+    }
+  return NULL;
+}

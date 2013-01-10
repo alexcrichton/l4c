@@ -1,0 +1,7 @@
+//test exception 11
+
+int main () {
+  int[] ini_akan_mati = alloc_array(int, 1);
+
+  return ini_akan_mati[1000000];
+}

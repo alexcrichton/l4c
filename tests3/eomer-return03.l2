@@ -1,0 +1,14 @@
+//test return 5
+
+int main() {
+    bool foo = false;
+    int bar = 0;
+
+    while((foo ? false : true) == !foo) {
+        bar ++;
+        if(bar >= 5)
+            break;
+    }
+
+    return bar;
+}

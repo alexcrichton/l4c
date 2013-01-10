@@ -1,0 +1,12 @@
+//test exception 11
+//Tries to return 4 bytes of the instruction main is in
+//Borrowed some code from theoden
+
+struct springboard{
+  int[] spring;
+};
+
+int main() {
+  struct springboard *s = alloc(struct springboard);
+  return s->spring[0x400ff0];
+}

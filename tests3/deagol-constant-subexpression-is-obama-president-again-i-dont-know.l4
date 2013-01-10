@@ -1,0 +1,54 @@
+//test return -1923042816 
+int main() {
+  int a = readint();
+  int b = readint();
+  int c = readint();
+  int d = readint();
+  int e = readint();
+  int f = readint();
+
+  int h = 0;
+
+  for (int g = 0; g < 36000000; g++) {
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+    h += a*b-c+d- -e*f;
+  }
+  return h;
+}
+

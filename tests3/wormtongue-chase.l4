@@ -1,0 +1,9 @@
+//test return 10
+
+int main () {
+    int i2 = -2;
+    int[] qt = alloc_array(int, 4);
+    qt[~i2] = 10;
+    qt[0] = 1;
+    return qt[qt[0]];
+}

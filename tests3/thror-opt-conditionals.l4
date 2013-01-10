@@ -1,0 +1,37 @@
+//test return 566191496
+//benchmark for conditionals
+//how good is your conditional code?
+
+int f(bool a, bool b, bool c, bool d, bool e, int i, int j, int k)
+{
+  if ((a || b) && !b && c || d)
+  {
+    if (i < 31 && j > 32 || k < i * j + (i < j ? 432 : -120))
+      return 503;
+    if (c && i > 10)
+      return i - k;
+    return d && a ? i - j : k;
+  }
+  else
+  {
+    if (i == 43)
+      return -1;
+    if (i + j < 0 && k > 15)
+      return i - k;
+    if ((k & 8) == 8)
+      return k;
+  }
+  return b && e ? i*i*i : k - 510;
+}
+int main ()
+{
+  int s = 0;
+  for (int j = -100; j < 100; j ++)
+  for (int k = -100; k < 100; k+= 4)
+  for (int i = 0; i < 32; i++)
+  {
+    s += f((i & 1) == 1, (i & 2) == 2, (i & 4) == 4, (i & 8) == 8, (i & 16) == 16,
+           j, k, k - 20);
+  }
+  return s;
+}

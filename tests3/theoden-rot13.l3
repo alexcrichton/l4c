@@ -1,0 +1,47 @@
+//test return 1
+
+// Computes the rot13 cipher from the input and outputs it
+
+int rot13lower(int c){
+  int r = c - 97;
+  r += 13;
+  r %= 26;
+  r += 97;
+  return r;
+}
+
+int rot13upper(int c){
+  int r = c - 65;
+  r += 13;
+  r %= 26;
+  r += 65;
+  return r;
+}
+
+bool islower(int c){
+  return 97 <= c && c <= 122;
+}
+
+bool isupper(int c){
+  return 65 <= c && c <= 90;
+}
+
+int rot13(int c){
+  if(islower(c))
+    return rot13lower(c);
+  else{
+    if(isupper(c))
+      return rot13upper(c);
+    else
+      return c;
+  }
+}
+
+int main(){
+  while(!eof()){
+    int c = readchar();
+    printchar(rot13(c));
+  }
+
+  return 1;
+}

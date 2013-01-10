@@ -1,0 +1,14 @@
+//test return 0
+
+int main() {
+  int i = 12;
+
+  if (i < 0) {
+    i = -1;
+  }
+
+  for (int j = 0; j < 120; j++) {
+    i += i;
+  }
+  return i;
+}

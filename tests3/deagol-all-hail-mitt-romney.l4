@@ -1,0 +1,18 @@
+//test exception
+/*
+
+#define MITT_ROMNEYS_CHANCE_OF_WINNING 0
+
+int main() {
+  int[] a = alloc_array(int, MITT_ROMNEYS_CHANCE_OF_WINNING);
+  return a[0];
+}*/
+
+/* doesn't matter where you put it,
+   MITT_ROMNEYS_CHANCE_OF_WINNING doesn't look good */
+
+int main() {
+  int[] a = alloc_array(int, 0); /*
+  return a[MITT_ROMNEYS_CHANCE_OF_WINNING];
+  */ return a[0];
+}

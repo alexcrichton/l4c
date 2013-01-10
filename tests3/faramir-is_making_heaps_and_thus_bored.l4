@@ -1,0 +1,67 @@
+//test return 8
+
+//probably shouldn't allocate heaps of size 0
+
+//this is a max heap, I guess
+struct intheap { int[] h; int last; int size; };
+
+typedef struct intheap heap_t;
+
+heap_t * create_heap (int size) {
+    heap_t * new_heap = alloc(heap_t);
+    new_heap->h = alloc_array(int, size);
+    new_heap->size = size;
+    new_heap->last = 0;
+    return new_heap;
+}
+
+heap_t * resize_heap (heap_t * h) {
+    heap_t * new_heap = alloc(heap_t);
+    
+    int[] new_h = alloc_array(int, h->size * 2);
+    for(int i = 0; i < h->last; i++) {
+        new_h[i] = h->h[i];
+    }
+    
+    new_heap->h = new_h;
+    new_heap->size = h->size * 2;
+    new_heap->last = h->last;
+
+    return new_heap;
+}
+
+int peek (heap_t * h) {
+    return h->h[0];
+}
+
+heap_t * percolate_up (heap_t * h) {
+    int i = h->last;
+    int p = (i - 1) / 2;
+    int temp;
+    while (h->h[i] > h->h[p]) {
+        temp = h->h[p];
+        h->h[p] = h->h[i];
+        h->h[i] = temp;
+        i = p;
+        p = (i - 1) / 2;
+    }
+    h->last = h->last + 1;
+    return h;
+}
+
+heap_t * insert (heap_t * h, int x) {
+    if(h->last >= h->size) {
+        h = resize_heap(h);
+    }
+
+    h->h[h->last] = x;
+    return percolate_up(h);
+}
+
+int main () {
+    heap_t * h = create_heap(1);
+    for(int i = 0; i < 9; i++) {
+        h = insert(h,i);
+    }
+    return peek(h);
+}

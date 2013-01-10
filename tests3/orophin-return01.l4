@@ -1,0 +1,45 @@
+//test return 42
+//  test multi-dimensional arrays
+
+int f1(int a) {
+  return a * 4;
+}
+
+int f0(int a) {
+  return a * 2;
+}
+
+int main() {
+  int [] [] [] a;
+  int b;
+  int i;
+
+  b = 2;
+  a = alloc_array(int [] [], b);
+
+  i = 0;
+  for (int c = f0(b); i < b; i++) {
+    int j;
+
+    a[i] = alloc_array(int [], c);
+
+    j = 0;
+    for (int d = f1(b); j < c; j++) {
+      a[i][j] = alloc_array(int, d);
+
+      a[i][j][d/2] = i + j + d/2;
+
+    }
+  }
+
+  int s = 0;
+  for (i = 0 ; i < b; i++) {
+    for  (int j = 0; j < f0(b); j++) {
+      for  (int k = 0; k < f1(b); k++) {
+        s += a[i][j][k];
+      }
+    }
+  }
+
+  return s - 6;
+}

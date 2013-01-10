@@ -1,0 +1,17 @@
+//test exception 11
+// seriously i hate writing tests, so this is probably shitty
+
+struct derp {
+  int herpValue;
+  bool isHerp;
+};
+
+typedef struct derp * derpherp;
+
+int main () {
+  derpherp a = alloc(struct derp);
+  derpherp b = NULL;
+  a->herpValue = 1;
+  a->isHerp = false;
+  return (true ? b : a)->herpValue;
+}

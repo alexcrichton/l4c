@@ -1,0 +1,15 @@
+//test return 6
+/* decl a function already defined in a header */
+
+int printchar(int c);
+
+
+int test( int z , int x)
+{
+    return z * x;
+}
+
+int main()
+{
+    return test(3,2);
+}

@@ -1,0 +1,59 @@
+//test return 17
+//in case it isn't clear, my heart isn't in these.
+//I feel like all these tests were already done for lab 4.
+
+struct woof{
+    int a;
+    int b;
+    int c;
+    int d;
+    int e;
+    int f;
+    int g;
+    int h;
+};
+
+struct bowwow{
+    int i;
+    int j;
+    int k;
+    int l;
+    int m;
+    int n;
+    int o;
+    int p;
+    int q;
+};
+
+struct who_let_the_dogs_out{
+    int []arr;
+};
+
+struct arf{
+    struct woof black;
+    struct bowwow eyed;
+    struct who_let_the_dogs_out peas;
+};
+
+int main(){
+    struct arf *dog = alloc(struct arf);
+    dog->black.a=1;
+    dog->black.b=2;
+    dog->black.c=3;
+    dog->black.d=4;
+    dog->black.e=5;
+    dog->black.f=6;
+    dog->black.g=7;
+    dog->black.h=8;
+    dog->eyed.i=9;
+    dog->eyed.j=10;
+    dog->eyed.k=11;
+    dog->eyed.l=12;
+    dog->eyed.m=13;
+    dog->eyed.n=14;
+    dog->eyed.o=15;
+    dog->eyed.p=16;
+    dog->eyed.q=17;
+    dog->peas.arr = alloc_array(int, 10000);
+    return dog->eyed.q;
+}

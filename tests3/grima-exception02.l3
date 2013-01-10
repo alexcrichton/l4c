@@ -1,0 +1,10 @@
+//test exception 11
+/* eof excpetion */
+
+int main () {
+  int r = 10;
+  int c = readchar();
+  if( c != 0x39)
+      r += main();
+  return c;
+}

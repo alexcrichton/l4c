@@ -1,0 +1,22 @@
+//test exception 11
+
+struct foo {
+    int one;
+    int two;
+    int three;
+    int four;
+    int five;
+    int etc;
+};
+
+typedef struct foo bar;
+
+int main() {
+    bar * star_bar = alloc(bar);
+
+    star_bar->one = 1;
+    
+    star_bar = NULL;
+
+    return star_bar->one;
+}

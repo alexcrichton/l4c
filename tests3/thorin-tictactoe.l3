@@ -1,0 +1,175 @@
+//test return 0
+/* Have the computer play tic-tac-toe with itself */
+
+/*
+ *  The board is represented as an integer.  The first two bits
+ *  represent the first cell, the next two bits the second cell, etc.
+ *  01 is x, 10 is o, 00 is empty.
+ */
+
+/* Print the board */
+bool print_board(int board)
+{
+    int square = 3;
+    int xp = 1; int op = 2;
+
+    /* For each row */
+    for (int y = 0; y < 3; y++) {
+
+        /* Print the three cells  */
+        for (int x = 0; x < 3; x++) {
+            int c;
+            int p = board & square;
+            if (p == 0)
+                c = 0x20;       /* space */
+            else if (p == xp)
+                c = 0x78;       /* x */
+            else if (p == op)
+                c = 0x6f;       /* o */
+            else
+                c = 0x2a;       /* * */
+            printchar(0x20);    /* space */
+            printchar(c);       /* space/x/o */
+            printchar(0x20);    /* space */
+            if (x != 2)
+                printchar(0x7c); /* | */
+            square <<= 2;
+            xp <<= 2;
+            op <<= 2;
+        }
+        printchar(0xa);         /* LF */
+
+        /* Print the divider */
+        if (y < 2) {
+            for (int x = 0; x < 3; x++) {
+                for (int i = 0; i < 3; i++)
+                    printchar(0x2d); /* - */
+                if (x != 2)
+                    printchar(0x2b); /* + */
+            }
+            printchar(0xa);     /* LF */
+        }
+    }
+    printchar(0xa);             /* LF */
+    return true;
+}
+
+
+/* Return whether player has won */
+bool win(int board, int player)
+{
+    int pattern;
+
+    /* Horizontals */
+    pattern = (player << 4) | (player << 2) | player;
+    for (int i = 0; i < 3; i++) {
+        if ((board & pattern) == pattern)
+            return true;
+        pattern <<= 6;
+    }
+
+    /* Verticals */
+    pattern = (player << 12) | (player << 6) | player;
+    for (int i = 0; i < 3; i++) {
+        if ((board & pattern) == pattern)
+            return true;
+        pattern <<= 2;
+    }
+
+    /* Diagonals */
+    pattern = (player << 16) | (player << 8) | player;
+    if ((board & pattern) == pattern)
+        return true;
+    pattern = (player << 4) | (player << 8) | (player << 12);
+    if ((board & pattern) == pattern)
+        return true;
+
+    return false;
+}
+
+/* Return whether the game is a draw */
+bool draw(int board)
+{
+    /* The game is a draw if all cells have been used.  This has been
+       calculated by taking all player 1 bits and xoring them with all
+       player 2 bits.  If this is equiv to the set of all 9 bits, then
+       the grid if full. */
+
+    return 0x15555 == ((board & 0x15555) ^ ((board & 0x2aaaa) >> 1));
+}
+
+
+/* Negamax routine.  Calculates the value of a board for a player. */
+int goodness(int board, int player)
+{
+    int other = player ^ 3;     /* Invert player (1 -> 2, 2 -> 1)*/
+
+    /* If the other player won, score badly */
+    if (win(board, other)) {
+        return -4096;
+    }
+
+    /* If there was a draw, score neutrally */
+    if (draw(board)) {
+        return 0;
+    }
+
+    /* Find the best of the subsequent moves */
+    int best = -8192;           /* Best value so far */
+    int mask = 3;               /* Mask for current move */
+    for (int i = 0; i < 9; i++) {
+        if ((board & mask) == 0) {
+            int newboard = board | (player << (i << 1));
+            int good = -goodness(newboard, other);
+            if (good > best)
+                best = good;
+        }
+        mask <<= 2;             /* Shift mask for next move */
+    }
+    return best;
+}
+
+/* Choose the best move for player */
+int choose_move(int board, int player)
+{
+    int bestv = -8192;          /* Best value so far */
+    int bestm = 0;              /* Best move so far */
+    int mask = 3;               /* Mask for current move */
+    int other = player ^ 3;     /* Other player (1 -> 2, 2 -> 1) */
+
+    /* Iterate */
+    for (int i = 0; i < 9; i++) {
+        if ((board & mask) == 0) {
+            int newboard = board | (player << (i << 1));
+            int good = -goodness(newboard, other);
+            if (good > bestv) {
+                bestv = good;
+                bestm = i;
+            }
+        }
+        mask <<= 2;             /* Shift mask for next move */
+    }
+    return bestm;
+}
+
+/* Play tic-tac-toe */
+int main()
+{
+    int board = 0;
+    int player = 1;
+
+    print_board(board);
+    for (int x = 0; x < 9; x++) {
+        int i = choose_move(board, player);
+        board |= (player << (i << 1));
+        print_board(board);
+        if (win(board, player))
+            return player;
+        player ^= 3;            /* Next player */
+    }
+    return 0;
+}
+
+/* Local Variables: */
+/* mode: c          */
+/* End:             */

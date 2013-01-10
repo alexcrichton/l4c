@@ -1,0 +1,6 @@
+//test exception
+int main() {
+    int[] A = alloc_array(int, 0);
+    int[] B = alloc_array(int, 1);
+    return A[B[0]];
+}

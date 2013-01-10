@@ -1,0 +1,31 @@
+//test exception 8
+/* how did you do on that homework by the way? */
+
+int foo(int x, int y) {
+  int z = x + y;
+  int s = y;
+  int q = 0;
+  while (s != 0) {
+    s = s - 2;
+    if (s < 0) {
+      q = 9;
+      return q;
+    } else if (s < 8) {
+      if (z < 5) {
+        x = x + 1;
+        z = z * 2;
+        continue;
+      } else {
+        break;
+      }
+    } else {
+      z = 51 / z;
+    }
+  }
+  return q;
+}
+
+int main() {
+  return foo(12398123,2111111111);
+}
+

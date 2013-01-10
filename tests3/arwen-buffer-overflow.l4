@@ -1,0 +1,24 @@
+//test exception 11
+//Tests writing past the end of allocated array
+bool is_newline(int c) {
+  return c == 10;
+}
+
+int []gets(int[] dest) {
+  int i = 0;
+  int c = readchar();
+  while(!is_newline(c) && !eof()) {
+    dest[i] = c;
+    c = readchar();
+    i++;
+  }
+  dest[i] = 0;
+  return dest;
+}
+
+int main() {
+  int []buffer = alloc_array(int, 20);
+  gets(buffer); /* This is ok */
+  gets(buffer); /* Not ok */
+  return 0;
+}

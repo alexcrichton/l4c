@@ -1,0 +1,25 @@
+//test return -37
+
+// this one should pass all bounds checks
+int write(int[] a, int index, int val) {
+    a[index] = val;
+    return val;
+}
+
+int access(int[] a, int index) {
+    return a[index];
+}
+
+int neg(int n) {
+    return -n;
+}
+
+int main() {
+    int f = -1;
+    int[] a = alloc_array(int, neg(neg(0x100000)));
+    while (f > -1000) {
+        write(a, neg(f), f);
+        f--;
+    }
+    return neg(neg(access(a, neg(neg(37)))));
+}

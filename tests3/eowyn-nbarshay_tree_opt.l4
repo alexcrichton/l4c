@@ -1,0 +1,17 @@
+//test return -293120449
+//this is an optimization test
+//an interesting case for redudant expressin elimination
+
+int main(){
+	int x = 5;
+	int y = 8;
+
+	for(int i = 0; i < 100000000; i++){	
+		x = ((((((x + y) * (x + y)) - 3) * (((x + y) * (x + y)) - 3)) + 5) * (((((x + y) * (x + y)) - 3) * (((x + y) * (x + y)) - 3)) + 5) + 6)
+			*
+			((((((x + y) * (x + y)) - 3) * (((x + y) * (x + y)) - 3)) + 5) * (((((x + y) * (x + y)) - 3) * (((x + y) * (x + y)) - 3)) + 5) + 6);
+		y = (x * 3) - 5;
+	}
+
+	return x+y;
+}

@@ -1,0 +1,26 @@
+//test return 73
+
+struct node{
+    int data;
+    struct node *next;
+    struct node *prev;
+};
+
+int main(){
+    struct node *head = NULL;
+    for(int i=0;i<=10;i++){
+        struct node * new = alloc(struct node);
+        new-> data = i;
+        new-> next = head;
+        if(head != NULL)
+            head-> prev = new;
+        head = new;
+    }
+    for(int j=10;j>=0;j--){
+        struct node* cur = head;
+        head = cur->next;
+        if(cur->data != j)
+            return j;
+    }
+    return 73;
+}

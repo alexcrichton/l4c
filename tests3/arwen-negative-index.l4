@@ -1,0 +1,12 @@
+//test exception 11
+// Index negatively into the array
+
+int main() {
+  int n =100;
+  int i;
+  int []array = alloc_array(int, n);
+  for(i=n-1;true;i--) {
+    array[i];
+  }
+  return 0;
+}

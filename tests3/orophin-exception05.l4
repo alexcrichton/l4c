@@ -1,0 +1,22 @@
+//test exception
+//  recursively allocate structures
+struct a {
+  struct a *b;
+  int c;
+};
+
+struct a *f(struct a *x) {
+  struct a *retval = alloc(struct a);
+
+  if (retval == x) {
+    return retval;
+  }
+
+  retval->b = f(x);
+  retval->c = 42;
+  return retval;
+}
+
+int main() {
+  return (f(NULL))->c;
+}

@@ -1,0 +1,12 @@
+//test exception 11
+//Tries to read from a NULL pointer
+//Borrowed some code from theoden
+
+struct springboard{
+  int *spring;
+};
+
+int main() {
+  struct springboard *s = alloc(struct springboard);
+  return *(s->spring);
+}

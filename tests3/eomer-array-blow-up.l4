@@ -1,0 +1,11 @@
+//test exception 8
+
+struct s {
+    int[] a;
+};
+
+int main() {
+    struct s *foo = alloc(struct s);
+    return foo->a[1 / 0];
+}
+

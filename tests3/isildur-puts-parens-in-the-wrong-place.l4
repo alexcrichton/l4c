@@ -1,0 +1,25 @@
+//test exception 11
+
+// neg(f - 1) is 1001 - too big for the array
+int write(int[] a, int index, int val) {
+    a[index] = val;
+    return val;
+}
+
+int access(int[] a, int index) {
+    return a[index];
+}
+
+int neg(int n) {
+    return -n;
+}
+
+int main() {
+    int f = -1;
+    int[] a = alloc_array(int, neg(neg(1000)));
+    while (f > -1000) {
+        write(a, neg(f), f);
+        f--;
+    }
+    return access(a, neg(f - 1));
+}

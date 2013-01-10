@@ -1,0 +1,199 @@
+//test return 0
+/*
+ * smooth_sort->c
+ *
+ *  Created on: Oct 24, 2012
+ *      Author: robertshih
+ */
+
+typedef int* bitset_t;
+
+/* Java's Integer class */
+int next_set_bit(bitset_t bs, int index) {
+	int i = ((*bs) >> index) << index;
+	int y;
+	if (i == 0)
+		return -1;
+	int n = 31;
+	y = i << 16;
+	if (y != 0) {
+		n = n - 16;
+		i = y;
+	}
+	y = i << 8;
+	if (y != 0) {
+		n = n - 8;
+		i = y;
+	}
+	y = i << 4;
+	if (y != 0) {
+		n = n - 4;
+		i = y;
+	}
+	y = i << 2;
+	if (y != 0) {
+		n = n - 2;
+		i = y;
+	}
+	return n - (((i << 1) >> 31) & 1);
+}
+
+bool set_bit(bitset_t bs, int index) {
+	(*bs) |= (1 << index);
+	return true;
+}
+
+bool get_bit(bitset_t bs, int index) {
+	return ((*bs) & (1 << index)) != 0;
+}
+
+bool clear_bit(bitset_t bs, int index) {
+	(*bs) &= ~(1 << index);
+	return true;
+}
+
+int leo(int n) {
+	int[] a=alloc_array(int,n+1);
+	for (int i = 0; i <= n; i++)
+		if (i < 2)
+			a[i] = 1;
+		else
+			a[i] = a[i - 1] + a[i - 2] + 1;
+	return a[n];
+}
+
+struct heap_struct {
+	int x;
+	int root;
+};
+typedef struct heap_struct* heap_t;
+
+heap_t heap(int x, int root) {
+	heap_t h=alloc(struct heap_struct);
+	h->x = x;
+	h->root = root;
+	return h;
+}
+
+int swap( int[] a, int i, int j) {
+	int tmp;
+	tmp = a[i];
+	a[i] = a[j];
+	a[j] = tmp;
+	return 0;
+}
+
+int left_of(heap_t heap) {
+	return heap->root - 1 - leo(heap->x - 2);
+}
+
+int right_of(heap_t heap) {
+	return heap->root - 1;
+}
+
+int sift( int[] a, heap_t heap) {
+	while (heap->x > 1) {
+		int left_ch = left_of(heap);
+		int right_ch = right_of(heap);
+		if (a[left_ch] > a[heap->root] && a[left_ch] >= a[right_ch]) {
+			swap(a, heap->root, left_ch);
+			heap->root = left_ch;
+			heap->x -= 1;
+		} else if (a[right_ch] > a[heap->root]
+				&& a[right_ch] >= a[left_ch]) {
+			swap(a, heap->root, right_ch);
+			heap->root = right_ch;
+			heap->x -= 2;
+		} else
+		break;
+	}
+	return 0;
+}
+
+heap_t trinkle( int[] a, heap_t heap_, bitset_t leos,
+		int left_leo) {
+	heap_t cur_heap = heap_;
+	while (left_leo >= 0) {
+		int cur_heap_size = leo(cur_heap->x);
+		int left_heap_root = cur_heap->root - cur_heap_size;
+		int left_heap_Max = a[left_heap_root];
+
+		if (cur_heap_size <= 1 && left_heap_Max > a[cur_heap->root]
+				|| cur_heap_size > 1 && left_heap_Max > a[cur_heap->root]
+				&& left_heap_Max >= a[right_of(cur_heap)]
+				&& left_heap_Max >= a[left_of(cur_heap)]) {
+
+			swap(a, cur_heap->root, left_heap_root);
+			cur_heap = heap(left_leo, left_heap_root);
+			left_leo = next_set_bit(leos,left_leo + 1);
+		} else
+		break;
+	}
+	return cur_heap;
+}
+
+int heapify( int[] a, int len,bitset_t leos) {
+	for (int i = 0; i < len; i++) {
+		int min_leos = next_set_bit(leos,0);
+
+		if (min_leos >= 0 && get_bit(leos,min_leos + 1)) {
+			set_bit(leos, min_leos + 2);
+			clear_bit(leos, min_leos + 1);
+			clear_bit(leos, min_leos);
+		} else
+		set_bit(leos,get_bit(leos,1) ? 0 : 1);
+
+		heap_t cur_heap = heap(next_set_bit(leos,0), i);
+		int left_leos = next_set_bit(leos,cur_heap->x + 1);
+
+		sift(a, trinkle(a, cur_heap, leos, left_leos));
+	}
+	return 0;
+}
+
+int pop( int[] a, bitset_t leos, int root) {
+	int min_leos = next_set_bit(leos,0);
+	clear_bit(leos,min_leos);
+	if (min_leos > 1) {
+		set_bit(leos, min_leos - 1);
+		set_bit(leos, min_leos - 2);
+		heap_t cur_heap = heap(min_leos, root);
+		sift(a,
+				trinkle(a, heap(min_leos - 1, left_of(cur_heap)), leos,
+						next_set_bit(leos,min_leos)));
+		sift(a,
+				trinkle(a, heap(min_leos - 2, right_of(cur_heap)), leos,
+						next_set_bit(leos,min_leos - 1)));
+	}
+	return a[root];
+}
+
+int smooth_sort(int[]a,int len){
+	bitset_t leos=alloc(int);
+	heapify(a,len,leos);
+
+	for(int i=len-1;i>=0;i--)
+		pop(a,leos,i);
+
+	return 0;
+}
+
+int[] fill(int len){
+	int[] a=alloc_array(int,len);
+	
+	for(int i=0;i<len;i++)
+		a[i]=readint();
+	
+	return a;
+}
+
+int main() {
+	int len = readint();
+	int[] a=fill(len);
+	smooth_sort(a, len);
+	for (int i = 0; i < len; i++) {
+		printint(a[i]);
+		printchar(0xa);
+	}
+	return 0;
+}

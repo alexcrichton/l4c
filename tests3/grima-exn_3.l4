@@ -1,0 +1,22 @@
+//test exception 11
+// struct array struct
+
+
+struct s
+{
+  int d;
+  struct s [] a;
+};
+
+typedef struct s* sp;
+
+int main()
+{
+  sp [] a= alloc_array(sp,100);
+  a[2] = alloc(struct s);
+  
+  a[2]->a[2].d = 3;
+
+  return  a[2]->a[2].d;
+ 
+}

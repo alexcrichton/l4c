@@ -1,0 +1,23 @@
+//test return 10000
+// Testing break and continue statements in loops.
+
+int main () {
+    int result = 0;
+
+    for (int i = 1; true; i++) {
+        if (i > 200) {
+            break;
+        }
+
+        if (i % 2 == 0) {
+            continue;
+        }
+        result += i;
+
+        if (i > 200) {
+            int excepition = 1 / 0;
+        }
+    }
+
+    return result;
+}

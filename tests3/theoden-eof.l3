@@ -1,0 +1,8 @@
+//test exception 11
+
+int main(){
+  if(eof())
+    return readint();
+
+  return readchar();
+}

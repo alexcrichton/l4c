@@ -1,0 +1,52 @@
+//test return 0
+//manual array bounds checking.
+
+typedef struct seed* seed;
+
+struct seed {
+    seed next;
+    int numba;
+};
+
+seed init_seed(int n) {
+
+     seed start = alloc(struct seed);
+     seed next = start;
+     while (n > 0) {
+       seed temp = alloc(struct seed);
+       next->next = temp;
+       next->numba = n;
+       n--;
+       next = temp;
+     }
+     return start;
+}
+
+
+int*[]* initialize(int n, seed x) {
+
+        int*[]* array_ptr = alloc(int*[]);
+        *array_ptr = alloc_array(int*, n);
+
+        for(int i = 0; i < n; i++) {
+            (*array_ptr)[i] = alloc(int);
+            *(*array_ptr)[i] = x->numba;
+            x = x->next;
+        }
+        return array_ptr;
+}
+
+
+
+int main() {
+
+    int ret = 0;
+    seed dat_seed = init_seed(100);
+    int*[]* array = initialize(100,dat_seed);
+    for(int i = 0; i<101; i++) {
+        if(i < 0 || i > 99)
+            return 0;
+        ret += *(*array)[i];
+    }
+    return ret;
+}

@@ -1,0 +1,40 @@
+//test return 42
+//  continuous dereference
+int rand(int s) {
+  s = (s >> 1) ^ (-(s & 2) & 0xd0000001);
+  return s;
+}
+
+struct x {
+  struct x *next;
+  int b;
+};
+
+int main() {
+  int seed = 236182313;
+  int s = 42;
+  struct x *[] a = alloc_array(struct x *, s);
+  struct x *prev = NULL;
+  for (int i = 0; i < s; i++) {
+    while (true) {
+      seed = rand(seed);
+      int k = (seed > 0 ? seed : -seed) % s;
+      if (NULL == a[k]) {
+        a[k] = alloc(struct x);
+        a[k]->next = prev;
+        (a[k]->b)++;
+        prev = a[k];
+        break;
+      }
+    }
+  }
+
+  int sum = 0;
+  struct x * i = prev;
+  while (NULL != i) {
+    sum += i->b;
+    i = i->next;
+  }
+  return sum;
+        
+}

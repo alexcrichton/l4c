@@ -1,0 +1,142 @@
+//test return 0
+struct container_struct {
+	int i;
+	int level;int[] val;struct container_struct*[] ptr;
+};
+typedef struct container_struct* container_t;
+
+int char_size() {
+	return 4;
+}
+
+int char_mask() {
+	return 0x0f;
+}
+
+int size() {
+	return 16;
+}
+
+container_t container(int level) {
+	container_t
+	c = alloc(struct container_struct);
+	c->level = level;
+	c->val = alloc_array(int,size());
+	return c;
+}
+
+int word_size() {
+	return 8;
+}
+
+int charAt(int n, int i) {
+	return (n >> ((word_size() - (i + 1)) * char_size())) & char_mask();
+}
+
+int insert(container_t c, int n);
+int burst(container_t c) {
+	c->ptr = alloc_array(container_t, size());
+	for (int i = 0; i < size(); i++)
+		c->ptr[i] = container(c->level + 1);
+
+	for (int i = 0; i < size(); i++) {
+		int n = c->val[i];
+		int key = charAt(n, c->level);
+		insert(c->ptr[key], n);
+	}
+
+	return 0;
+}
+
+int swap(int[] a, int i, int j) {
+	int tmp;
+	tmp = a[i];
+	a[i] = a[j];
+	a[j] = tmp;
+	return 0;
+}
+
+int insert(container_t c, int n) {
+	if (c->i < size()) {
+		c->val[c->i] = n;
+		for (int i = c->i; i > 0 && c->val[i] < c->val[i - 1]; i--)
+			swap(c->val, i, i - 1);
+		c->i++;
+
+		if (c->i == size())
+			burst(c);
+		return 0;
+	}
+	int key = charAt(n, c->level);
+	return insert(c->ptr[key], n);
+}
+
+struct stack_struct {
+	container_t[] body;
+	int top;
+};
+typedef struct stack_struct* stack_t;
+
+stack_t stack() {
+	stack_t
+	s = alloc(struct stack_struct);
+	s->body = alloc_array(container_t, size() * word_size());
+	return s;
+}
+
+int push(stack_t s, container_t c) {
+	s->body[s->top] = c;
+	s->top++;
+	return 0;
+}
+
+container_t pop(stack_t s) {
+	s->top--;
+	return s->body[s->top];
+}
+
+int iter_fill(container_t c, int[] a) {
+	int i = 0;
+	stack_t s = stack();
+	push(s, c);
+	while (s->top > 0) {
+		container_t cur = pop(s);
+		if (cur->i>0 && cur->i<16)
+		for (int j = 0; j < cur->i; j++) {
+			a[i] = cur->val[j];
+			i++;
+		}
+		else if(cur->i==16)
+		for (int j = size() - 1; j >= 0; j--)
+		push(s, cur->ptr[j]);
+	}
+	return 0;
+}
+
+int burst_sort(int[] a, int len) {
+	container_t c = container(0);
+	for (int i = 0; i < len; i++)
+	insert(c, a[i]);
+	iter_fill(c, a);
+	return 0;
+}
+
+int[] fill(int len){
+	int[] a=alloc_array(int,len);
+	
+	for(int i=0;i<len;i++)
+		a[i]=readint();
+	
+	return a;
+}
+
+int main() {
+	int len = readint();
+	int[] a=fill(len);
+	burst_sort(a, len);
+	for (int i = 0; i < len; i++) {
+		printint(a[i]);
+		printchar(0xa);
+	}
+	return 0;
+}

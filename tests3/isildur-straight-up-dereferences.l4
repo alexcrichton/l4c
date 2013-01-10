@@ -1,0 +1,13 @@
+//test exception 11
+
+struct s {
+  int hiImAnInt;
+  bool supImABool;
+  struct s* yoDawg;
+};
+
+int main() {
+  struct s* banana = alloc(struct s);
+  (*banana).yoDawg = alloc(struct s);
+  return (*(banana->yoDawg)).yoDawg->hiImAnInt;
+}

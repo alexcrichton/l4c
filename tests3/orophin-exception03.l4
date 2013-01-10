@@ -1,0 +1,10 @@
+//test exception 11
+//  array access beyond bounds 
+int main() {
+  int a = 42;
+  int [] b = alloc_array(int, a);
+  for (int i = 0 ; i <= a ; i++) {
+    a += b[i]; // crash here when i == a
+  }
+  return a;
+}

@@ -1,0 +1,86 @@
+//test return -330917718
+//This is an optimization test
+//I wonder if register allocation is still important...
+
+int main(){
+	int r1 = 1;
+	int r2 = 2;
+	int r3 = 3;
+	int r4 = 4;
+	int r5 = 5;
+	int r6 = 6;
+	int r7 = 7;
+	int r8 = 8;
+	int r9 = 9;
+	int r10 = 10;
+	int r11 = 11;
+	int r12 = 12;
+	int r13 = 13;
+	int r14 = 14;
+	int r15 = 15;
+	int r16 = 16;
+
+	int a1 = 1;
+	int a2 = 2;
+	int a3 = 3;
+	int a4 = 4;
+	int a5 = 5;
+	int a6 = 6;
+	int a7 = 7;
+	int a8 = 8;
+	int a9 = 9;
+	int a10 = 10;
+
+	for(int i = 0; i < 50000000 ; i++){
+		r1 += r2;
+		r2 += r3;
+		r3 += r4;
+		r4 += r5;
+		r5 += r6; 
+		r6 += r7;
+		r7 += r8;
+		r8 += r9;
+		r9 += r10;
+		r10 += r11;
+		r11 += r12;
+		r12 += r13;
+		r13 += r14;
+		r14 += r15;
+		r15 += r16;
+		r16 += i;
+	}
+
+	for(int i = 0; i < 125000000; i++){
+		a1 += a2;
+		a2 += a3;
+		a3 += a4;
+		a4 += a5;
+		a5 += a6;
+		a6 += a7;
+		a7 += a8;
+		a8 += a9;
+		a9 += a10;
+		a10 += i;
+	}
+
+	for(int i = 0; i < 50000000; i++){
+		r1 += r2;
+		r2 += r3;
+		r3 += r4;
+		r4 += r5;
+		r5 += r6; 
+		r6 += r7;
+		r7 += r8;
+		r8 += r9;
+		r9 += r10;
+		r10 += r11;
+		r11 += r12;
+		r12 += r13;
+		r13 += r14;
+		r14 += r15;
+		r15 += r16;
+		r16 += i;
+	}
+	
+	return r1 + a1;
+}

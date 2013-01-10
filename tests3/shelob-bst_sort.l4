@@ -1,0 +1,112 @@
+//test return 0
+
+struct node_struct {
+	struct node_struct* left;
+	struct node_struct* right;
+	struct node_struct* parent;
+	int data;
+};
+typedef struct node_struct* node_t;
+
+struct bst_struct {
+	int size;
+	node_t root;
+};
+typedef struct bst_struct* bst_t;
+
+struct iterator_struct {
+	int state; /* 0: left, 1: right, 2: up */
+	node_t node;
+};
+typedef struct iterator_struct* iter_t;
+
+int iter(bst_t tree,int[]a) {
+	int LEFT=0;
+	int RIGHT=1;
+	int UP=2;
+
+	iter_t it=alloc(struct iterator_struct);
+	it->state=0;
+	it->node=tree->root;
+
+	int i=0;
+	while(it->node!=NULL) {
+		if(it->state==1) {
+			a[i]=it->node->data;
+			i++;
+		}
+		if(it->state==LEFT) {
+			if(it->node->left!=NULL)
+			it->node=it->node->left;
+			else it->state=RIGHT;
+		} else if(it->state==RIGHT) {
+			if(it->node->right!=NULL) {
+				it->state=LEFT;
+				it->node=it->node->right;
+			} else it->state=UP;
+		} else /* state==up */{
+			if(it->node->parent!=NULL) {
+				if(it->node==it->node->parent->left)
+				it->state=RIGHT;
+				else it->state=UP;
+			}
+			it->node=it->node->parent;
+		}
+	}
+	return 0;
+}
+
+int insert(bst_t tree, int value) {
+	node_t root = tree->root;
+	node_t par = NULL;
+	node_t child;
+	while (root != NULL) {
+		par = root;
+		if (value < root->data)
+			root = root->left;
+		else
+			root = root->right;
+	}
+	if (par == NULL) {
+		tree->root=alloc(struct node_struct);
+		tree->root->data = value;
+	} else if (value < par->data) {
+		par->left=alloc(struct node_struct);
+		par->left->parent = par;
+		par->left->data = value;
+	} else {
+		par->right=alloc(struct node_struct);
+		par->right->parent = par;
+		par->right->data = value;
+	}
+	tree->size++;
+	return 0;
+}
+
+int bst_sort(int[] a,int len) {
+	bst_t tree=alloc(struct bst_struct);
+	for(int i=0;i<len;i++)
+	insert(tree,a[i]);
+	iter(tree,a);
+	return 0;
+}
+
+int[] fill(int len){
+	int[] a=alloc_array(int,len);
+	
+	for(int i=0;i<len;i++)
+		a[i]=readint();
+	
+	return a;
+}
+
+int main() {
+	int len = readint();
+	int[] a=fill(len);
+	bst_sort(a, len);
+	for (int i = 0; i < len; i++) {
+		printint(a[i]);
+		printchar(0xa);
+	}
+	return 0;
+}

@@ -1,0 +1,15 @@
+//test exception 11
+
+// negative allocation size
+int f(int n) {
+    if (n == 0) return 1;
+    return 0 - n * f(n - 1);
+}
+
+int main() {
+    int a = 3;
+    int b = 7;
+    int sz = f(a) + f(b);
+    alloc_array(int, sz);
+    return 0;
+}

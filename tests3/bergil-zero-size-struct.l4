@@ -1,0 +1,17 @@
+//test return 3
+
+struct x {
+
+};
+
+typedef struct x y;
+
+int main() {
+
+    int *xx = alloc(int);
+    y[] x = alloc_array(y, 100);
+    int *xxx = alloc(int);
+    
+    return 3;
+
+}

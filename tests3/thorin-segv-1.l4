@@ -1,0 +1,9 @@
+//test exception 11
+
+
+int main()
+{
+    int i;
+    int *[] x = alloc_array(int *, 10);
+    return *x[4];
+}

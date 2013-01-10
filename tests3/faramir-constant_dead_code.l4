@@ -1,0 +1,19 @@
+//test return 10
+
+/* With optimizations, this code will look like:
+ *
+ * int main() { return 10; }
+ *
+ * after compilation
+ */
+
+int main() {
+    int x = 10;
+
+    int y = 0;
+    while(y < 100) {
+        y++;
+    }
+
+    return x;
+}

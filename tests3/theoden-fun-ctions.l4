@@ -1,0 +1,86 @@
+//test return 1
+
+int foo1(int x,bool y,int* z)
+{
+  int i = 3;
+  int k = 5;
+  int s;
+  if(y)
+    z = NULL;
+  else
+    x = k;
+
+  s = i;
+  return k;
+}
+
+int foo2()
+{
+  return 3;
+}
+
+int foo2a()
+{
+  return 2/1;
+}
+
+int foo2b()
+{
+  return 3983274;
+}
+
+int foo2c()
+{
+  return -4;
+}
+
+int foo2d()
+{
+  return (false && true ? 5 : ~31);
+}
+
+int foo2f()
+{
+  return 13;
+}
+
+int foo3(bool[] blah,int** cheese,int h)
+{
+  return 7;
+}
+
+bool foo4()
+{
+  return true;
+}
+
+int foo5(int x, int y, int z, int i, int j, int k, int a, int b, int c, int d, int e, int f, int g, int h, int qq, int wtf, int zombiebq)
+{
+  int hi = x + y + z;
+  int bye = i + j + k * k * k;
+  hi = 2;
+  int phi =  a + b * c - (d / (0 * e + 1)) & f | g + ~ h;
+  bye = 2;
+  phi += qq - qq + qq;
+  wtf = wtf;
+  zombiebq++; 
+  phi = hi / bye;
+  return phi;
+}
+
+int foo6(int x1, int x2, int x3, int x4, int x5, int x6, int x7, int x8, int x9, int x10, int x11, int x13, int x14, int x15, int x16, int x17, int x255)
+{
+  return 4;
+}
+
+int main()
+{
+  bool[] b = alloc_array(bool,3);
+  int *x = alloc(int); 
+  *x = foo1(foo2b(),foo4(),x);
+  int y = *x;
+  int q = foo3(b,NULL,y);
+  int i = 55;
+  int beeeeeta = foo5(q,y,foo2d(),foo2(),foo2c(),foo2()-foo2c(),foo2f(),foo2a(),q,q,3,17,13,i,i*i,3+4+5+i,0);
+  return ((beeeeeta + 15) / 2) - 2 * foo6(foo6(2,3,1,56,2,7,34,5,3,8,9,34,57457,565,635,6346,3),foo2(),foo2a(),foo2(),foo2b(),foo2(),foo2c(),foo2(),foo2d(),foo2(),foo2f(),6,i,foo3(alloc_array(bool,1),alloc(int*),3),15,16,beeeeeta) + 1;
+}

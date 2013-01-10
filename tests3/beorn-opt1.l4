@@ -1,0 +1,64 @@
+//test return -30
+int main() {
+    int x1  = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x2  = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x3  = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x4  = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x5  = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x6  = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x7  = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x8  = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x9  = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x10 = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x11 = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x12 = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x13 = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x14 = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x15 = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x16 = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x17 = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x18 = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x19 = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x20 = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x21 = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x22 = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x23 = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x24 = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x25 = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x26 = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x27 = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x28 = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x29 = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+    int x30 = (true&&true&&true&&true&&true&&true&&true&&true&&true&&true&&false) ? 2 : -1;
+
+    return x1 +
+           x2 +
+           x3 +
+           x4 +
+           x5 +
+           x6 +
+           x7 +
+           x8 +
+           x9 +
+           x10+
+           x11+
+           x12+
+           x13+
+           x14+
+           x15+
+           x16+
+           x17+
+           x18+
+           x19+
+           x20+
+           x21+
+           x22+
+           x23+
+           x24+
+           x25+
+           x26+
+           x27+
+           x28+
+           x29+
+           x30;
+}

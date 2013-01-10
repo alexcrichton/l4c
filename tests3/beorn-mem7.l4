@@ -1,0 +1,16 @@
+//test exception 11
+
+struct s {
+    struct s *next;
+    int tag;
+};
+
+typedef int mask_t;
+
+int
+main()
+{
+    mask_t mask = 1;
+    struct s[]x = alloc_array(struct s, mask << 31);
+    return 0xbad1dea;
+}

@@ -1,0 +1,38 @@
+//test return 5
+
+/* Find number of prime factors of x, inefficiently */
+
+int main ()
+{
+    int x = 532;
+
+    int t = 1;                  /* 1 is a factor */
+
+    /* Treat -1 as a prime factor (why not?) */
+    if (x < 0) {
+        x = -x;
+        t += 1;
+    }
+
+    if (x <= 1) {
+        return (x == 1) ? t : 0;
+    }
+
+    int stop = x / 2;
+    for (int i = 2; i <= stop; i++) {
+        if (x % i == 0) {
+            t += 1;
+            x /= i;
+            stop = x / 2;
+            i = 1;
+            continue;
+        }
+        if (i != 2) i++;
+    }
+    t++;
+    return t;
+}
+
+/* Local Variables: */
+/* mode: c          */
+/* End:             */

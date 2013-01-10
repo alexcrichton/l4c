@@ -1,0 +1,18 @@
+//test return 225520
+
+int modify(int x)
+{
+    x = x * 15;
+    x += (1 << 5) | 1;
+    x -= 15;
+    return x;
+}
+
+int main ()
+{
+    int total = 0;
+    for (int i = 0; i < 50000; i++) {
+        total ^= modify(i);
+    }
+    return total;
+}

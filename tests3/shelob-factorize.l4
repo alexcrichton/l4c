@@ -1,0 +1,43 @@
+//test return 0
+//Factorization function
+
+int num_factors(int number){
+  int num = number;
+  int factors = 0;
+  int i;
+  for(i=2; i<number; i++){
+    while(num%i == 0){
+      num/=i;
+      factors++;
+    }
+  }
+  return factors;
+}
+
+int[] factorize(int number){
+  int count = num_factors(number);
+  int num = number;
+  int[] factors = alloc_array(int, count);
+  int j = 0;
+  int i;
+  for(i=2; i<number; i++){
+    while(num%i == 0){
+      num/=i;
+      factors[j] = i;
+      j++;
+    }
+  }
+  return factors;
+}
+
+int main(){
+  int input = readint();
+  int count = num_factors(input);
+  int[] factors = factorize(input);
+  int i;
+  for(i=0; i<count; i++){
+    printint(factors[i]);
+    printchar(0x20);
+  }
+  return 0;
+}

@@ -1,0 +1,73 @@
+//test return 0
+
+struct str_st {
+    int[] chars;
+    struct str_st *next;
+};
+
+typedef struct str_st str;
+
+
+str *read_str()
+{
+    if (eof()) {
+        return NULL;
+    }
+
+    str *st;
+    st = alloc(str);
+    st->chars = alloc_array(int, 32);
+    int pos = 0;
+    str *cur = st;
+
+    while (!eof())
+    {
+        int c = readchar();
+        if (c == 0) {
+            break;
+        }
+        cur->chars[pos] = c;
+        pos++;
+        if (pos == 32) {
+            str *next = alloc(str);
+            cur->next = next;
+            next->chars = alloc_array(int, 32);
+            pos = 0;
+            cur = next;
+        }
+    }
+    cur->chars[pos] = 0;
+    return st;
+}
+
+
+int write_str(str *st)
+{
+    if (st == NULL) {
+        return -1;
+    }
+    int pos = 0;
+    while (st->chars[pos] != 0) {
+        printchar(st->chars[pos]);
+        pos++;
+        if (pos == 32) {
+            return write_str(st->next);
+        }
+    }
+    printchar(0);
+    return 0;
+}
+
+int main()
+{
+    str *st = read_str();
+    while (st != NULL) {
+        write_str(st);
+        st = read_str();
+    }
+    return 0;
+}
+
+/* Local Variables: */
+/* mode: c          */
+/* End:             */

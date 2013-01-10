@@ -1,0 +1,32 @@
+//test return 0
+//benchmark of array accesses.
+
+int[][] matrix(int n, int m) {
+  int[][] mat = alloc_array(int[], n);
+  for (int i = 0; i < n; i++)
+    mat[i] = alloc_array(int, m);
+  return mat;
+}
+
+int transpose(int[][] mat, int n) {
+  for (int i = 0; i < n; i ++)
+     for(int j = i + 1; j < n; j++)
+     {
+       int t = mat[j][i];
+       mat[j][i] = mat[i][j];
+       mat[i][j] = t;
+     }
+  return 0;
+}
+
+int main() {
+  int [][] m = matrix(100,100);
+  for(int t = 0; t < 3; t++)
+  {
+    for(int i = 1; i <= 100; i ++)
+    {
+      transpose(m,i);
+    }
+  }
+  return 0;
+} 

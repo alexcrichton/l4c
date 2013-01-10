@@ -1,0 +1,21 @@
+//test return 15000
+
+int fight() {
+  int y = 0;
+  for (int i = 0; i < 100; i++) {
+    int x = 0;
+    y = 2;
+    while (x < 13) {x++;continue;}
+    y += x;
+  }
+  return y;
+}
+
+int main(){
+  int z;
+  int fighter = 0;
+  for (z = 0; z < 1000; z++) {
+    fighter += fight();
+  }
+  return fighter;
+}

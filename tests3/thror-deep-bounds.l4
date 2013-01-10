@@ -1,0 +1,21 @@
+//test exception 11
+
+struct X {
+  int* size;
+  int[] a;
+};
+
+int main() {
+  struct X* x = alloc(struct X);
+  x->a = alloc_array(int, 100);
+  int* p = alloc(int);
+  x->size = p;
+  
+  *p = 99;
+  for(int i = 0; i < 99; i++)
+  {
+    x->a[*x->size - i] = i;
+    *p = 1;
+  }
+  return *x->size;
+}

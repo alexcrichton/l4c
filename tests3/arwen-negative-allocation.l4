@@ -1,0 +1,12 @@
+//test exception 11
+//Allocates an array of negative size
+
+int []f(bool b) {
+  int size = 100;
+    size *= b ? -1 : 1;
+    return alloc_array(int, size);
+}
+
+int main() {
+  return f(true)[3];
+}

@@ -1,0 +1,32 @@
+//test return 32
+// Adding is commutative so we can find matching sub-expressions easily
+
+// There should only be 10 add ops in this function
+int f(int x, int y) {
+    // e0 = x + y
+    int l = x + y; // = e0
+    int r = y + x; // = e0
+    // e1 = e0 + y
+    int ll = l + y; // = e1
+    int lr = y + l; // = e1
+    int rl = r + y; // = e1
+    int rr = y + r; // = e1
+    // e2 = e1 + y
+    int lll = ll + y; // = e2
+    int llr = y + ll; // = e2
+    int lrl = lr + y; // = e2
+    int lrr = y + lr; // = e2
+    int rll = rl + y; // = e2
+    int rlr = y + rl; // = e2
+    int rrl = rr + y; // = e2
+    int rrr = y + rr; // = e2
+
+    // return e2 + e2 + e2 + e2 + e2 + e2 + e2 + e2 = (x + 3y) * 8
+    return lll + llr + lrl + lrr + rll + rlr + rrl + rrr;
+}
+
+int main() {
+    // Use a function call to prevent constant propagation
+    return f(1,1);
+}
+

@@ -1,0 +1,28 @@
+//test return 42
+//  variable lengths for arrays in array of structures
+struct a {
+  bool b;
+  int *c;
+};
+struct d {
+  struct a [] e;
+  int *f;
+};
+
+int main() {
+  int h = 42;
+  struct d []g = alloc_array(struct d, h);
+
+  for (int i = 0; i < h; i++) {
+    g[i].e = alloc_array(struct a, i + 1);
+    g[i].e[i].c = alloc(int);
+    *(g[i].e[i].c) = 1;
+  }
+
+  int s = 0;
+  for (int i = 0; i < h; i++) {
+    s += *(g[i].e[i].c);
+  }
+
+  return s;
+}

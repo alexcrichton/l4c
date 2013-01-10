@@ -1,0 +1,21 @@
+//test error
+
+// This is a big struct
+struct inner {
+    int x;
+};
+
+struct outer {
+    struct inner foo;
+};
+
+int main() {
+    struct outer *s1 = alloc(struct outer);
+    struct outer *s2 = alloc(struct outer);
+
+    // We forced a copy of a whole struct
+    // na-na-na-na-na-na
+    s1->foo = s2->foo;
+
+    return 0;
+}

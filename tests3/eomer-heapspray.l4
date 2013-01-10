@@ -1,0 +1,16 @@
+//test exception 11
+// Very, VERY targeted heap spraying - exactly one location.
+
+struct ram {
+    int []memory;
+};
+
+int main() {
+    int [] on_the_heap = alloc_array(int, 4096);
+
+    struct ram *ram = alloc(struct ram);
+
+    // The heap typically starts at 0x602010,
+    // which is roughly 4 times 1575000
+    return ram->memory[1575000];
+}

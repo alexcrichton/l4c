@@ -1,0 +1,51 @@
+//test return 3140990
+
+// let's copy some integer memory
+
+int icpy(int[] Ad, int id, int[] As, int is, int len)
+{
+  for(int i = 0; i < len; i++)
+    Ad[id + i] = As[is + i];
+  return id;
+}
+
+int cz(int[] A, int len)
+{
+  int count = 0;
+  for(int i = 0; i < len; i++)
+    if(A[i] == 0) count++;
+  return count;
+}
+
+int main()
+{
+  int buffsize = 1<<20;
+  int[] A1 = alloc_array(int, buffsize);
+  int[] A2 = alloc_array(int, buffsize);
+
+  int small = 1<<10;
+  int[] S = alloc_array(int, small);
+  for(int i = 0; i < small; i++)
+    S[i] = 0xffffffff;
+
+  icpy(A1, 0, S, 0, small);
+  icpy(A1, small, S, 0, small);
+
+  icpy(A1, 134800, S, 0, small);
+
+  icpy(A2, 1456, A1, 1456, 256000);
+
+  icpy(A1, 1, A2, 0, buffsize-1);
+
+  int[] A3 = alloc_array(int, buffsize);
+  int iters = buffsize / small;
+  for(int i = 0; i < iters; i++)
+    icpy(A3, i*small, S, 0, small);
+
+  int large = 1<<25;
+  int[] A4 = alloc_array(int, large);
+  for(int i = 0; i < large; i+=buffsize)
+    icpy(A4, i, A1, 0, buffsize);
+
+  return cz(A4, buffsize*3+114);
+}

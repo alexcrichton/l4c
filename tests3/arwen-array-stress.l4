@@ -1,0 +1,24 @@
+//test return 1683798664
+// Runs a slow algorithm, using lots of array indices
+
+int main() {
+  int n = 10000;
+  int []array = alloc_array(int, n);
+  int i;
+  int j;
+  for(i=0;i<n;i++) {
+    array[i] = i;
+  }
+  int sum = 0;
+  int max;
+  for(i=0;i<n;i++) {
+    max = 0;
+    for(j=0;j<n;j++) {
+      if(array[j] > max) {
+        max = array[j];
+      }
+    }
+    sum += max * i;
+  }
+  return sum;
+}

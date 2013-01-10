@@ -1,0 +1,19 @@
+//test exception
+// negative index
+
+
+struct k {
+       int* game;
+       int  on;
+
+};
+
+int main() {
+    struct k* mygurl;
+    int[] respect;
+    mygurl = alloc(struct k);
+    respect = alloc_array(int, 23);
+    respect[9] = respect[0];
+    respect[mygurl->on-1] = 12;
+    return 0;
+}

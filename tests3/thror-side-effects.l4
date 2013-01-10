@@ -1,0 +1,16 @@
+//test return 141300
+
+int f (int* p) {
+  int v = *p;
+  (*p) ++;
+  return v;
+}
+int main() {
+  int* p = alloc(int);
+  int* q = alloc(int);
+  int[] a = alloc_array(int, 11);
+  while (f(p) < 10) {
+    a[f(p)] += f(q) + 13;
+  }
+  return a[0] + a[1]*100 + a[3]*10000 + a[2];
+}

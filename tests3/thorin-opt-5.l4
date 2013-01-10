@@ -1,0 +1,43 @@
+//test return 0
+
+bool print_bin(int s, int n)
+{
+    int b = 1 << (s - 1);
+    for (int i = 0; i < s; i++)
+    {
+        if ((n & b) == 0) {
+            printchar(48);
+        } else {
+            printchar(49);
+        }
+        b >>= 1;
+    }
+    printchar(10);
+    return true;
+}
+
+
+int main()
+{
+    /* Compute gray codes */
+    int num_bits = readint();
+    int size = 1 << num_bits;
+    int [] codes = alloc_array(int, size);
+    printint(size);
+    printchar(10);
+
+    codes[1] = 1;
+    int b = 1;
+    for (int w = 1; w < num_bits; w++) {
+        int csize = b * 2;
+        for (int x = 0; x < csize; x++) {
+            codes[csize * 2 - x - 1] = csize | codes[x];
+        }
+        b *= 2;
+    }
+
+    for (int i = 0; i < size; i++) {
+        print_bin(num_bits, codes[i]);
+    }
+    return 0;
+}

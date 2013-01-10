@@ -1,0 +1,15 @@
+//test return 12
+
+int main() {
+  int i = 1;
+  bool[] beta = alloc_array(bool, 12);
+  while (i < 13) {
+    if (i % 2 == 0) {
+      beta[i-1] = false;
+    } else {
+      beta[i] = true;
+    }
+    i++;
+  }
+  return 12;
+}

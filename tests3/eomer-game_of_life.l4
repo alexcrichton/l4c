@@ -1,0 +1,187 @@
+//test return 0
+
+typedef int state;
+
+struct cell {
+    state current;
+    state update;
+};
+
+typedef struct cell cell;
+typedef cell * [][] universe;
+
+state live() {
+    return 1;
+}
+
+state dead() {
+    return 0;
+}
+
+int neighborCount(universe U, int i, int j, int bound) {
+    int n = i-1;
+    int s = i+1;
+    int home_x = j;
+    int home_y = i;
+    int e = j+1;
+    int w = j-1;
+    
+    state northwest = dead();
+    state north = dead();
+    state northeast = dead();
+    state west = dead();
+    state east = dead();
+    state southwest = dead();
+    state south = dead();
+    state southeast = dead();
+
+    if (n >= 0) {
+        if (w >= 0)
+            northwest = U[n][w]->current;
+        north = U[n][home_x]->current;
+        if (e < bound)
+            northeast = U[n][e]->current;
+    }
+    
+    if (w >= 0)
+        west = U[home_y][w]->current;
+    if (e < bound)
+        east = U[home_y][e]->current;
+    
+    if (s < bound) {
+        if (w >= 0)
+            southwest = U[s][w]->current;
+        south = U[s][home_x]->current;
+        if (e < bound)
+            southeast = U[s][e]->current;
+    }
+
+    return north + south + east + west
+        + northwest + northeast + southwest + southeast;
+}
+
+bool alive(cell *c) {
+    return c->current == live();
+}
+
+int kill(cell *c) {
+    c->update = dead();
+    return 0xDEADBEEF;
+}
+
+int resurrect(cell *c) {
+    c->update = live();
+    return 0xC0FFEE;
+}
+
+int executeStep(universe U, int n) {
+    // as we all know, the universe is a square
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            cell * wilson = U[i][j];
+            int neighbors = neighborCount(U, i, j, n);
+
+            if (alive(wilson)) {
+                if (neighbors < 2 || neighbors > 3)
+                    kill(wilson); // NOOOOOO, WILSON!!!!
+                else
+                    resurrect(wilson);
+            } else {
+                if (neighbors == 3)
+                    resurrect(wilson); // Oh... hey Wilson, did you lose weight?
+                else
+                    kill(wilson);
+            }
+        }
+    }
+
+    for (int i = 0; i < n; i++)
+        for (int j = 0; j < n; j++) {
+            cell *c = U[i][j];
+            c->current = c->update;
+        }
+
+    return 0;
+}
+
+int printUniverse(universe U, int n) {
+    for (int i = 0; i < (n+2); i++) {
+        printchar(45);
+    }
+
+    printchar(10);
+    for (int i = 0; i < n; i++) {
+        printchar(124);
+        for (int j = 0; j < n; j++) {
+            if (alive(U[i][j]))
+                printchar(79); 
+            else
+                printchar(46);
+        }
+        printchar(124);
+        printchar(10);
+    }
+
+    for (int i = 0; i < (n+2); i++) {
+        printchar(45);
+    }
+    
+    printchar(10);
+
+    return 0;
+}
+
+int executeSteps(universe U, int n, int steps) {
+    if (steps < 0)
+        return -1;
+
+    for (int i = 0; i < steps; i++)
+        executeStep(U, n);
+
+    printUniverse(U, n);
+
+    return 0;
+}
+
+int populateUniverse(universe U, int n) {
+    int r = 0;
+    int c = 0;
+
+    int deadchar = 46;
+    int livechar = 79;
+
+    while (r < n) {
+        while (c < n) {
+            int ch = readchar();
+            if (ch == deadchar) {
+                U[r][c]->current = dead();
+                c++;
+            } else if (ch == livechar) {
+                U[r][c]->current = live();
+                c++;
+            }
+        }
+
+        r++;
+        c = 0;
+    }
+
+    return 0;
+}
+
+int main() {
+    int n = readint();
+    int steps = readint();
+    universe pittsburgh = alloc_array(cell * [], n);
+    for (int i = 0; i < n; i++) {
+        pittsburgh[i] = alloc_array(cell *, n);
+        for (int j = 0; j < n; j++)
+            pittsburgh[i][j] = alloc(cell);
+    }
+
+    populateUniverse(pittsburgh, n);
+    executeSteps(pittsburgh, n, steps);
+
+    return 0;
+}
+

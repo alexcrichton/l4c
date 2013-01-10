@@ -1,0 +1,39 @@
+//test return 0
+// You don't need to save and restore each time, do you?
+
+int foo() { return 0; }
+
+int main() {
+	foo();
+	foo();
+	foo();
+	foo();
+	foo();
+	foo();
+	foo();
+	foo();
+	foo();
+	foo();
+	foo();
+	foo();
+	foo();
+	foo();
+	foo();
+	foo();
+	foo();
+	foo();
+	foo();
+	foo();
+	foo();
+	foo();
+	foo();
+	foo();
+	foo();
+	foo();
+	foo();
+	foo();
+	foo();
+	foo();
+	foo();
+	return 0;
+}

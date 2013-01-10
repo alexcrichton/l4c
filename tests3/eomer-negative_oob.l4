@@ -1,0 +1,14 @@
+//test exception 11
+
+int main() {
+    int[] foo = alloc_array(int, 100); // so we touch alloced mem
+    int[] bar = alloc_array(int, 5);
+    for(int i = 1; i <= 6; i++) {
+        bar[5-i] = i;
+    }
+    
+    foo[0] = 10;
+
+    return 0;
+}
+

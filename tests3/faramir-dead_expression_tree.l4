@@ -1,0 +1,33 @@
+//test return 8
+// Dead code analysis or CSE should be used here
+
+// There should only be no more than 7 add ops in this function.
+// If CSE is used, then only 4 add ops.
+int f(int x, int y) {
+    // e0 = x + y
+    int l = x + y; // = e0 -- Live
+    int r = y + x; // = e0 -- Live
+    // e1 = e0 + y
+    int ll = l + y; // = e1 -- Live
+    int lr = y + l; // = e1 -- Dead
+    int rl = r + y; // = e1 -- Live
+    int rr = y + r; // = e1 -- Dead
+    // e2 = e1 + y
+    int lll = ll + y; // = e2 -- Dead
+    int llr = y + ll; // = e2 -- Live
+    int lrl = lr + y; // = e2 -- Dead
+    int lrr = y + lr; // = e2 -- Dead
+    int rll = rl + y; // = e2 -- Dead
+    int rlr = y + rl; // = e2 -- Live
+    int rrl = rr + y; // = e2 -- Dead
+    int rrr = y + rr; // = e2 -- Dead
+
+    // return e2 + e2 = (x + 3y) * 2
+    return llr + rlr;
+}
+
+int main() {
+    // Use a function call to prevent constant propagation
+    return f(1,1);
+}
+

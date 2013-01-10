@@ -1,0 +1,9 @@
+//test exception 11
+//  negative array size allocation
+int main() {
+  int [] a;
+  int b;
+  b = -42;
+  a = alloc_array(int, b); // crash here
+  return 42;
+}

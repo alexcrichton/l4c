@@ -1,0 +1,43 @@
+//test return 0
+
+int [][] multiply(int[][] A, int[][] B, int aWidth, 
+                    int aHeight, int bWidth, int bHeight) {
+    if(aWidth != bHeight)
+        1/0;
+
+    int[][] newMatrix = alloc_array(int[], aHeight);
+    for(int i = 0; i < aHeight; i++) {
+        newMatrix[i] = alloc_array(int, bWidth);
+    }
+
+    for(int i = 0; i < aHeight; i++) {
+        for(int k = 0; k < bWidth; k++) {
+            int sum = 0;
+            for(int j = 0; j < aWidth; j++) {
+                sum += A[i][j] * B[j][k];
+            }
+            newMatrix[i][k] = sum;
+        }
+    }
+
+    return newMatrix;
+}
+
+int main() {    
+    int n = 300;
+    int[][] A = alloc_array(int[], n);
+    for (int i = 0; i < n; i++) {
+        A[i] = alloc_array(int, n);
+        A[i][i] = i;
+    }
+
+    int[][] A2 = multiply(A,A,n,n,n,n);
+    
+    for(int i = 0; i < n; i++) {
+        if(A2[i][i] != i*i)
+            i/0;
+    }
+
+    return 0;
+
+}

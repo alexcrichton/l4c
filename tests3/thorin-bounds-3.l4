@@ -1,0 +1,14 @@
+//test exception 11
+
+int main()
+{
+    int [] a = alloc_array(int, 10);
+    for (int i = 0; i < 10; i++) {
+        a[i] = i + 1;
+    }
+    int total = 0;
+    for (int i = 0; i < 10; i++) {
+        total += a[a[i]];
+    }
+    return total;
+}

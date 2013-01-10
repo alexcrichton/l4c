@@ -1,0 +1,56 @@
+//test return 0
+int swap(int[] a,int i,int j){
+	int tmp;
+	tmp=a[i];
+	a[i]=a[j];
+	a[j]=tmp;
+	return 0;
+}
+
+int partition(int[] a,int start,int len,int pivot,int[] result){
+	int head=start;
+	int tail=start+len;
+	int i;
+	for(i=start;i<tail;){
+		if(a[i]<pivot && i>head){swap(a,head,i);head++;}
+		else if(a[i]>pivot && i<tail){tail--;swap(a,tail,i);}
+		else i++;
+	}
+	while(a[head]<pivot&&head<start+len)head++;
+	result[0]=head;
+	result[1]=tail;
+	return 0;
+}
+
+int quick_sort(int[] a,int start,int len){
+	if(len==0)return 0;
+	int pivot=a[start+len/2];
+	int[] buf=alloc_array(int,2);
+	partition(a,start,len,pivot,buf);
+
+	int head=buf[0];
+	int tail=buf[1];
+	quick_sort(a,start,head-start);
+	quick_sort(a,tail,start+len-tail);
+	return 0;
+}
+
+int[] fill(int len){
+	int[] a=alloc_array(int,len);
+	
+	for(int i=0;i<len;i++)
+		a[i]=readint();
+	
+	return a;
+}
+
+int main() {
+	int len = readint();
+	int[] a=fill(len);
+	quick_sort(a, 0, len);
+	for (int i = 0; i < len; i++) {
+		printint(a[i]);
+		printchar(0xa);
+	}
+	return 0;
+}

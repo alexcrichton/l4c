@@ -1,0 +1,26 @@
+//test exception 11 
+// order
+
+struct blu {
+    bool parity;
+    int[] * arr1;
+    int[] * arr2;
+};
+
+int[] getArray(struct blu* cool) {
+    if (cool->parity) {
+        cool->parity = !cool->parity;
+        return *(cool->arr1);
+    }
+    int phi = 1/0;
+    return *(cool->arr2);
+}
+
+int main() {
+    struct blu* ani = alloc(struct blu);
+    int[] arr1 = alloc_array(int, 150);
+    *(ani->arr2) = arr1;
+    int[] mia = getArray(ani);
+    mia[500] = getArray(ani)[10];
+    return mia[5];
+}

@@ -1,0 +1,6 @@
+//test exception 8
+//  test alloc() initialized memory to 0
+int main () {
+  int *main = alloc(int);
+  return 42 / *main;
+}

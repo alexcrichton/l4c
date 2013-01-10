@@ -1,0 +1,13 @@
+//test exception 11
+
+int main()
+{
+   int * x = NULL;
+   int ** y = alloc(int *);
+   *y = x;
+   if (**y == 0) {
+       return 0;
+   } else {
+       return 1;
+   }
+}

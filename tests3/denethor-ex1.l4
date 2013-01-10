@@ -1,0 +1,11 @@
+//test exception
+
+int myfunc(int *ptr) {
+   *ptr;
+   return 0;
+}
+
+int main() {
+   int *ptr = NULL;
+   return myfunc(ptr);
+}

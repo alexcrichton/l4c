@@ -1,0 +1,10 @@
+//test exception 11
+
+//integer overflowing is fun!
+int main() {
+    int[] a;
+    a = alloc_array(int, -1);
+
+    // we got away with overflowing!
+    return 1;
+}

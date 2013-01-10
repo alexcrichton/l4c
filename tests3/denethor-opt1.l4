@@ -1,0 +1,20 @@
+//test return 0
+
+/* deadcode */
+
+int myfunc(int var) {
+   int i;
+   
+   for(i=0; i<1000000*100*10; i++) {
+      int k = 7;
+      k*=44;
+      k+=var;
+   }
+   
+   return 0;
+}
+
+int main() {
+   int var = 7;
+   return myfunc(var);
+}

@@ -1,0 +1,19 @@
+//test exception 11
+
+int f (int* p) {
+  int v = *p;
+  (*p) ++;
+  if (v == 12)
+  {
+    1 / 0;
+  }
+  return v;
+}
+int main() {
+  int* p = alloc(int);
+  int[] a = alloc_array(int, 11);
+  while (f(p) < 11) {
+    a[f(p)] += 13;
+  }
+  return 16;
+}

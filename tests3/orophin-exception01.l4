@@ -1,0 +1,14 @@
+//test exception 11
+//  access array before bounds
+struct a {
+  int b;
+  struct a *c;
+  bool d;
+};
+
+int main() {
+  struct a [] b = alloc_array(struct a, 42);
+  b[0].b = 42;
+  b[-42].c = NULL; // crash here
+  return b[0].b;
+}

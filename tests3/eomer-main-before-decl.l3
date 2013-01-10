@@ -1,0 +1,10 @@
+//test error
+
+int foo() {
+    return main();
+}
+
+int main() {
+    return 42;
+}
+

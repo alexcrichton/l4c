@@ -1,0 +1,15 @@
+//test return 2
+int main()
+{
+  for (int i; true; ) {
+    i = 2;
+    return i;
+    continue;
+    break;
+  }
+  return -1;
+}
+
+/* Local Variables: */
+/* mode: c          */
+/* End:             */

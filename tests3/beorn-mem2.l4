@@ -1,0 +1,16 @@
+//test exception 11
+
+int getit(int n) {
+    if(n == 30)
+        return n;
+
+    return getit(n + 1);
+}
+
+int main() {
+    int[] dontgetit = alloc_array(int, 30);
+
+    dontgetit[getit(0)] = 5;
+
+    return -1;
+}

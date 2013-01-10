@@ -1,0 +1,15 @@
+//test return 3
+
+int main() {
+  int x = 0;
+
+  while (x > -1) {
+    if (x == 3) {
+      break;
+    }
+    x++;
+  }
+
+  return x;
+}
+

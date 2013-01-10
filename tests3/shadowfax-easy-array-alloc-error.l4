@@ -1,0 +1,7 @@
+//test exception 11
+// should notice that bounds are invalid and raise sigsegv
+int main ()
+{
+    int[] arr = alloc_array(int, -1);
+    return 0;
+}

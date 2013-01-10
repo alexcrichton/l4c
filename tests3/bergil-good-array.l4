@@ -1,0 +1,6 @@
+//test return 5
+
+int main() {
+    int[] a = alloc_array(int, 100);
+    return 5 + a[true ? (false ? -4 : 74) : 1000];
+}

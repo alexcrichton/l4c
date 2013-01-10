@@ -1,0 +1,79 @@
+//test return 0
+
+/* Print a representation of the mandelbrot set */
+
+/* Convert i*10^4 to i, in floating point */
+int i2f(int x)
+{
+    int factor = tofloat(10000);
+    return fdiv(tofloat(x), factor);
+}
+
+/* Convert i in floating point to i*10^4 */
+int f2i(int x)
+{
+    int factor = tofloat(10000);
+    return fromfloat(fmul(x, factor));
+}
+
+/* Less-than operation on two floating point numbers */
+bool fless(int fa, int fb)
+{
+    return f2i(fa) < f2i(fb);
+}
+
+/* Square of two floating point numbers */
+int square(int x)
+{
+    return fmul(x, x);
+}
+
+/* Determine if a coordinate has escaped the set */
+bool escaped(int x, int y)
+{
+    return !fless(fadd(square(x), square(y)), tofloat(4));
+}
+
+
+int main ()
+{
+    int width = tofloat(75);    /* width of picture (in characters) */
+    int height = tofloat(24);   /* height of picture (in characters) */
+
+    int x_start = i2f(-25000);  /* -2.5 */
+    int x_end = i2f(10000);     /* 1 */
+
+    int y_start = i2f(-10000);  /* -1 */
+    int y_end = i2f(10000);     /* 1 */
+
+    int xstep = fdiv(fsub(x_end, x_start), width); /* x coords per char */
+    int ystep = fdiv(fsub(y_end, y_start), height); /* y coords per char */
+
+    int max_iter = 100;         /* Maximum number of iterations */
+    int two = tofloat(2);
+
+    for (int y = y_start; fless(y, y_end); y = fadd(y, ystep)) {
+        for (int x = x_start; fless(x, x_end); x = fadd(x, xstep)) {
+            int x0 = tofloat(0);
+            int y0 = tofloat(0);
+            int i = 0;
+            while (i < max_iter && !escaped(x0, y0)) {
+                int t = fadd(fsub(square(x0), square(y0)), x);
+                y0 = fadd(fmul(two, fmul(x0, y0)), y);
+                x0 = t;
+                i++;
+            }
+            if (i < max_iter)
+                printchar(0x20); /* space */
+            else
+                printchar(0x2a); /* asterisk */
+        }
+        printchar(0x0a);        /* LF */
+    }
+
+    return 0;
+}
+
+/* Local Variables: */
+/* mode: c          */
+/* End:             */

@@ -1,0 +1,57 @@
+//test exception 11
+int merge(int[] a, int len_a,int[] b,int len_b,int[] c){
+	int i=0;
+	int j=0;
+	int k=0;
+	while(k <len_a+len_b){
+		if(j==len_b || (/*i<len_a &&*/ a[i]<b[j])){
+		/* exception here ^^^ because of the missing bounds check */	
+			c[k]=a[i];
+			i++;
+		}else{
+			c[k]=b[j];
+			j++;
+		}
+		k++;
+	}
+	return 0;
+}
+
+int merge_sort(int[]c ,int len){
+	if(len<2)return 0;
+	
+	int i;
+	int half=len/2;
+	int[] a=alloc_array(int,half);
+	int[] b=alloc_array(int,len-half);
+	
+	for(i=0;i<half;i++)
+		a[i]=c[i];
+	for(i=half;i<len;i++)
+		b[i-half]=c[i];
+	
+	merge_sort(a,half);
+	merge_sort(b,len-half);
+	merge(a,half,b,len-half,c);
+	return 0;
+}
+
+int[] fill(int len){
+	int[] a=alloc_array(int,len);
+	
+	for(int i=0;i<len;i++)
+		a[i]=readint();
+	
+	return a;
+}
+
+int main() {
+	int len = readint();
+	int[] a=fill(len);
+	merge_sort(a, len);
+	for (int i = 0; i < len; i++) {
+		printint(a[i]);
+		printchar(0xa);
+	}
+	return 0;
+}

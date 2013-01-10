@@ -1,0 +1,11 @@
+//test exception 11
+// Indexing into array of length 0
+
+int foo(int[] x) {
+    return x[1];
+}
+
+int main() {
+    int[] x = alloc_array(int, 0);
+    return foo(x);
+}

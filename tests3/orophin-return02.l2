@@ -1,0 +1,12 @@
+//test return 52
+// Test that continue works
+int main() {
+	int i;
+	int a = 42;
+	for (i = 0; i < 10; i++) {
+		a++;
+		continue;
+		a = i;
+	}
+	return a;
+}

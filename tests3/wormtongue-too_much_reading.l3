@@ -1,0 +1,9 @@
+//test exception 11
+// Read too many characters.
+
+int main() {
+	while (true) {
+		int _ = readchar();
+	}
+	return 0;
+}

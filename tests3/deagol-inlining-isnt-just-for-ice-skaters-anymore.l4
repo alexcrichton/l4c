@@ -1,0 +1,17 @@
+//test return -1050522852 
+
+/* code borrowed from http://xkcd.com/221/ */
+
+int getRandomNumber()
+{
+  return 4;  // chosen by fair dice roll
+             // guaranteed to be random
+}
+
+int main() {
+  int s = 0;
+  for (int x = 0; x < 811111111; x++) {
+    s += getRandomNumber();
+  }
+  return s;
+}

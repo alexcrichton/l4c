@@ -1,0 +1,24 @@
+//test return 0
+
+bool alwaysFalse () {
+    return false;
+}
+
+int main () {
+    int x = 1;
+
+    if (x > 0) {
+        if (!alwaysFalse()) {
+            return 0;
+            // a smart compiler might understand that alwaysFalse is the
+            // constant false
+        } else {
+            return 1;
+        }
+    }
+    // The variable x is defined as the constant 1, which we can tell through
+    // static analysis is greater than 0, so we will not reach this else block
+    else {
+        return 2;
+    }
+}

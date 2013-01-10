@@ -1,0 +1,47 @@
+//test exception 8
+// Polish notation evaluator
+
+int parse_int(int c) {
+    int x = 0;
+    
+    while (c >= 48 && c < 58) {
+        int d = c - 48;
+        x = x*10 + d;
+        c = readchar();
+    }
+
+    return x;
+}
+
+int parse_expr() {
+    int c = readchar();
+    
+    // Skip spaces
+    while (c == 32) {
+        c = readchar();
+    }
+
+    if (c >= 48 && c < 58) { // digit
+        return parse_int(c);
+    } else if (c == 126) { // tilda (negate)
+        return -1 * parse_expr();
+    } else if (c == 43) { // plus
+        return parse_expr() + parse_expr(); 
+    } else if (c == 45) { // minus
+        return parse_expr() - parse_expr();
+    } else if (c == 42) { // times
+        return parse_expr() * parse_expr();
+    } else if (c == 47) { // divide
+        return parse_expr() / parse_expr();
+    } else if (c == 37) { // mod
+        return parse_expr() % parse_expr();
+    } else {
+        while (true) {}
+    }
+
+    return 0;
+}
+
+int main() {
+    return parse_expr();
+}

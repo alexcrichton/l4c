@@ -1,0 +1,8 @@
+//test exception 11
+
+int main () {
+  int[] nombor_saya = alloc_array(int,123132);
+
+  // this is not python
+  return nombor_saya[-1];
+}

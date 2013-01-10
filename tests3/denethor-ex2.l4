@@ -1,0 +1,16 @@
+//test exception
+
+struct mystruct {
+   int a;
+   int b;
+};
+
+int myfunc(struct mystruct *ptr) {
+   ptr->a;
+   return 0;
+}
+
+int main() {
+   struct mystruct *ptr = NULL;
+   return myfunc(ptr);
+}

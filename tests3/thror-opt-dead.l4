@@ -1,0 +1,24 @@
+//test return 0
+//benchmark: can you eliminate this dead code?
+//hint: interval analysis, combined with SSA
+
+int test(int [] a, int n)
+{
+  if (n < 1) return 0;
+  a[n-1] += 0;
+  for (int i = 0; i < n; i ++) {
+    if (i < 0 || i > n) // always false
+      return 0; // die
+    a[i] += 4; // always safe, as \length(a) >= n
+               // we don't need any null or bounds checks inside this loop.
+  }
+  return 1;
+}
+
+int main() {
+  int[] a = alloc_array(int, 100);
+  for(int i = 0; i < 20000; i++) {
+    test(a, 100);
+  }
+  return 0;
+}

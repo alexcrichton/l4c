@@ -1,0 +1,35 @@
+//test exception 11
+// The Linux kernel loads the program at 0x00400000 (4 MB) so we can read that
+// address for the first instruction in the program. Anything below 0x00400000
+// is read protected kernel memory.
+
+struct x00000004 { int x; }; // 4 bytes
+struct x00000010 { struct x00000004 x0; struct x00000004 x1; struct x00000004 x2; struct x00000004 x3; }; // 16 bytes
+struct x00000040 { struct x00000010 x0; struct x00000010 x1; struct x00000010 x2; struct x00000010 x3; }; // 64 bytes
+struct x00000100 { struct x00000040 x0; struct x00000040 x1; struct x00000040 x2; struct x00000040 x3; }; // 256 bytes
+struct x00000400 { struct x00000100 x0; struct x00000100 x1; struct x00000100 x2; struct x00000100 x3; }; // 1K bytes
+struct x00001000 { struct x00000400 x0; struct x00000400 x1; struct x00000400 x2; struct x00000400 x3; }; // 4K bytes
+struct x00004000 { struct x00001000 x0; struct x00001000 x1; struct x00001000 x2; struct x00001000 x3; }; // 16K bytes
+struct x00010000 { struct x00004000 x0; struct x00004000 x1; struct x00004000 x2; struct x00004000 x3; }; // 64K bytes
+struct x00040000 { struct x00010000 x0; struct x00010000 x1; struct x00010000 x2; struct x00010000 x3; }; // 256K bytes
+struct x00100000 { struct x00040000 x0; struct x00040000 x1; struct x00040000 x2; struct x00040000 x3; }; // 1M bytes
+struct x00400000 { struct x00100000 x0; struct x00100000 x1; struct x00100000 x2; struct x00100000 x3; }; // 4M bytes
+struct x01000000 { struct x00400000 x0; struct x00400000 x1; struct x00400000 x2; struct x00400000 x3; }; // 16M bytes
+
+int main() {
+    struct x01000000 *x = NULL;
+    // Read the first 4 bytes at 0x00400000, i.e. first 4 bytes of program binary
+    int y = x->x1 // Skip the x0, which is first 4 MB
+              .x0 // struct x00100000
+              .x0 // struct x00040000
+              .x0 // struct x00010000
+              .x0 // struct x00004000
+              .x0 // struct x00001000
+              .x0 // struct x00000400
+              .x0 // struct x00000100
+              .x0 // struct x00000040
+              .x0 // struct x00000010
+              .x0 // struct x00000004
+              .x; // int
+    return y;
+}

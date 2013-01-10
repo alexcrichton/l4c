@@ -1,0 +1,14 @@
+//test return 1
+int main() {
+    int[] a = alloc_array(int, 1);
+    int[] b = alloc_array(int, 1);
+
+    a[0] = 2;
+    b[0] = 2;
+
+    if(a == b) {
+        return 5;
+    } else {
+        return 1;
+    }
+}

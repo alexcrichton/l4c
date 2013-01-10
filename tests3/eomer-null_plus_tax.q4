@@ -1,0 +1,9 @@
+//test exception 11
+
+int main() {
+    int[] foo = alloc_array(int, (1<<31)-1); // foo = null
+
+    foo[786432] = 0;
+    
+    return 0;
+}

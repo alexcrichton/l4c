@@ -1,0 +1,21 @@
+//test exception 11
+
+int[] resize(int[] a, int length) {
+    int[] b = alloc_array(int, length * 2);
+    int i;
+    for(i = 0; i < length; i++) {
+        b[i] = a[i];
+    }
+
+    return b;
+}
+
+int main() {
+    int[] a = alloc_array(int, 0);
+    
+    a = resize(a, 0);
+
+    a[0] = 1;
+
+    return a[0];
+}

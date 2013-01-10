@@ -1,0 +1,194 @@
+//test return 0
+struct node_struct {
+	struct node_struct* next;
+	int data;
+};
+typedef struct node_struct* node_t;
+
+struct stack_struct {
+	node_t top;
+};
+typedef struct stack_struct* stack_t;
+
+stack_t stack() {
+	return alloc(struct stack_struct);
+}
+
+int push(stack_t s, int data) {
+	node_t n = alloc(struct node_struct);
+	n->next = s->top;
+	n->data = data;
+	s->top = n;
+	return 1;
+}
+
+int pop(stack_t s) {
+	node_t n = s->top;
+	s->top = s->top->next;
+	return n->data;
+}
+
+int peek(stack_t s) {
+	return s->top->data;
+}
+
+bool empty(stack_t s) {
+	return s->top == NULL;
+}
+
+struct list_struct {
+	stack_t[] list;
+	int len;
+};
+typedef struct list_struct* list_t;
+
+list_t list(int n) {
+	list_t l = alloc(struct list_struct);
+	l->list = alloc_array(stack_t,n);
+	return l;
+}
+
+int binary_search(list_t stacks, int n) {
+	int start = 0;
+	int end = stacks->len;
+	while (start < end) {
+		int mid = (start + end) / 2;
+		if (n <= peek(stacks->list[mid]))
+		end = mid;
+		else
+		start = mid + 1;
+	}
+	return start;
+}
+
+int insert(list_t stacks, int n) {
+	int index = binary_search(stacks, n);
+	if (index < stacks->len)
+	push(stacks->list[index], n);
+	else {
+		stacks->list[stacks->len] = stack();
+		push(stacks->list[stacks->len], n);
+		stacks->len++;
+	}
+	return 0;
+}
+
+int left(int root) {
+	return root * 2 + 1;
+}
+
+int right(int root) {
+	return (root + 1) * 2;
+}
+
+bool exists(int root, int len) {
+	return root < len;
+}
+
+bool descend(stack_t[] stacks, int root, int len) {
+	int left_child = left(root);
+	if (exists(left_child, len)
+			&& peek(stacks[root]) > peek(stacks[left_child]))
+	return true;
+
+	int right_child = right(root);
+	if (exists(right_child, len)
+			&& peek(stacks[root]) > peek(stacks[right_child]))
+	return true;
+
+	return false;
+}
+
+int which(stack_t[] stacks, int root, int len) {
+	int left_child = left(root);
+	int right_child = right(root);
+
+	if (!exists(left_child, len)
+			|| (exists(right_child, len) && peek(stacks[left_child]) >= peek(stacks[right_child])))
+	return right_child;
+
+	if (!exists(right_child, len)
+			|| (exists(left_child, len) && peek(stacks[right_child]) >= peek(stacks[left_child])))
+	return left_child;
+
+	return -1;
+}
+
+int swap(stack_t[] stacks, int i, int j) {
+	stack_t tmp;
+	tmp = stacks[i];
+	stacks[i] = stacks[j];
+	stacks[j] = tmp;
+	return 0;
+}
+
+int sift_down(stack_t[] stacks, int len, int root) {
+	while (descend(stacks, root, len)) {
+		int child = which(stacks, root, len);
+		swap(stacks, root, child);
+		root = child;
+	}
+	return 0;
+}
+
+int parent(int child) {
+	return (child - 1) / 2;
+}
+
+int sift_up(stack_t[] stacks, int len) {
+	int child = len - 1;
+	while (peek(stacks[child]) < peek(stacks[parent(child)])) {
+		swap(stacks, parent(child), child);
+		child = parent(child);
+	}
+	return 0;
+}
+
+stack_t dequeue(list_t stacks) {
+	stacks->len--;
+	stack_t min = stacks->list[0];
+	stacks->list[0] = stacks->list[stacks->len];
+	sift_down(stacks->list, stacks->len, 0);
+
+	return min;
+}
+
+int enqueue(list_t stacks, stack_t s) {
+	stacks->list[stacks->len] = s;
+	stacks->len++;
+	sift_up(stacks->list, stacks->len);
+	return 0;
+}
+
+int patience_sort(int[] a, int len) {
+	list_t stacks = list(len);
+	for (int i = 0; i < len; i++)
+		insert(stacks, a[i]);
+	for (int i = 0; i < len; i++) {
+		stack_t min_s = dequeue(stacks);
+		a[i] = pop(min_s);
+		if (!empty(min_s))
+			enqueue(stacks, min_s);
+	}
+	return 0;
+}
+
+int[] fill(int len){
+	int[] a=alloc_array(int,len);
+	
+	for(int i=0;i<len;i++)
+		a[i]=readint();
+	
+	return a;
+}
+
+int main() {
+	int len = readint();
+	int[] a=fill(len);
+	patience_sort(a, len);
+	for (int i = 0; i < len; i++) {
+		printint(a[i]);
+		printchar(0xa);
+	}
+	return 0;
+}

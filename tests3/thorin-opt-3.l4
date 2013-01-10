@@ -1,0 +1,16 @@
+//test return 24500
+int main ()
+{
+    int [] a = alloc_array(int, 100);
+    for (int i = 0; i < 100; i++) {
+        a[i] = (i * 2 + 3) % 100;
+    }
+    int x = 79;
+    int total = 0;
+    for (int i = 0; i < 500; i++) {
+        total += a[a[a[a[x]]]];
+        x += 79;
+        x %= 100;
+    }
+    return total;
+}

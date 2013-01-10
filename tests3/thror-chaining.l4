@@ -1,0 +1,17 @@
+//test exception 11
+
+struct list {
+  struct list* f;
+};
+
+int main () {
+  struct list* a;
+  a = alloc(struct list);
+  a->f = alloc(struct list);
+  a->f->f = alloc(struct list);
+  a->f->f->f = alloc(struct list);
+  a->f->f->f->f = alloc(struct list);
+  a->f->f = NULL;
+  a->f->f->f = a;
+  return 0;
+}

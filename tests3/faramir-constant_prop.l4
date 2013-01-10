@@ -1,0 +1,14 @@
+//test return -144
+
+//sanity test for constant propagation and folding
+int main() {
+    int x = 4;
+    int y = 5;
+    int z = x + y;
+    int q = z + 2 * 8 - 10;
+    int r = q * z + x + y;
+    int m = -r;
+    
+    return m;
+}
+

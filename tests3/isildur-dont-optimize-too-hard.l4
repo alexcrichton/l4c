@@ -1,0 +1,13 @@
+//test return 0
+
+int main() {
+  int i = 12;
+  while (i > -5) {
+    int[] a = alloc_array(int, i);
+    if (i == 0) {
+      break;
+    }
+    i--;
+  }
+  return i;
+}

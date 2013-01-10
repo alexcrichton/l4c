@@ -1,0 +1,61 @@
+//test return 7680
+// A good register allocator will put the active variables into registers
+// and move inactive ones to the stack.
+
+int f(int x0, int x1, int x2, int x3, int x4, int x5, int x6, int x7,
+      int x8, int x9, int xA, int xB, int xC, int xD, int xE, int xF) {
+    return x0 + x1 + x2 + x3 + x4 + x5 + x6 + x7
+         + x8 + x9 + xA + xB + xC + xD + xE + xF;
+}
+
+int main() {
+    int a0; int a1; int a2; int a3; int a4; int a5; int a6; int a7;
+    int a8; int a9; int aA; int aB; int aC; int aD; int aE; int aF;
+    int b0; int b1; int b2; int b3; int b4; int b5; int b6; int b7;
+    int b8; int b9; int bA; int bB; int bC; int bD; int bE; int bF;
+    int c0; int c1; int c2; int c3; int c4; int c5; int c6; int c7;
+    int c8; int c9; int cA; int cB; int cC; int cD; int cE; int cF;
+    int d0; int d1; int d2; int d3; int d4; int d5; int d6; int d7;
+    int d8; int d9; int dA; int dB; int dC; int dD; int dE; int dF;
+
+    int out = 0;
+
+    a0=0x0; a1=0x1; a2=0x2; a3=0x3; a4=0x4; a5=0x5; a6=0x6; a7=0x7;
+    a8=0x8; a9=0x9; aA=0xA; aB=0xB; aC=0xC; aD=0xD; aE=0xE; aF=0xF;
+    for (int i = 0; i < 16; i++) {
+        out += f(a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,aA,aB,aC,aD,aE,aF);
+        int aX = a0;
+        a0=a1; a1=a2; a2=a3; a3=a4; a4=a5; a5=a6; a6=a7; a7=a8;
+        a8=a9; a9=aA; aA=aB; aB=aC; aC=aD; aD=aE; aE=aF; aF=aX;
+    }
+
+    b0=0x0; b1=0x1; b2=0x2; b3=0x3; b4=0x4; b5=0x5; b6=0x6; b7=0x7;
+    b8=0x8; b9=0x9; bA=0xA; bB=0xB; bC=0xC; bD=0xD; bE=0xE; bF=0xF;
+    for (int i = 0; i < 16; i++) {
+        out += f(b0,b1,b2,b3,b4,b5,b6,b7,b8,b9,bA,bB,bC,bD,bE,bF);
+        int bX = b0;
+        b0=b1; b1=b2; b2=b3; b3=b4; b4=b5; b5=b6; b6=b7; b7=b8;
+        b8=b9; b9=bA; bA=bB; bB=bC; bC=bD; bD=bE; bE=bF; bF=bX;
+    }
+
+    c0=0x0; c1=0x1; c2=0x2; c3=0x3; c4=0x4; c5=0x5; c6=0x6; c7=0x7;
+    c8=0x8; c9=0x9; cA=0xA; cB=0xB; cC=0xC; cD=0xD; cE=0xE; cF=0xF;
+    for (int i = 0; i < 16; i++) {
+        out += f(c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,cA,cB,cC,cD,cE,cF);
+        int cX = c0;
+        c0=c1; c1=c2; c2=c3; c3=c4; c4=c5; c5=c6; c6=c7; c7=c8;
+        c8=c9; c9=cA; cA=cB; cB=cC; cC=cD; cD=cE; cE=cF; cF=cX;
+    }
+
+    d0=0x0; d1=0x1; d2=0x2; d3=0x3; d4=0x4; d5=0x5; d6=0x6; d7=0x7;
+    d8=0x8; d9=0x9; dA=0xA; dB=0xB; dC=0xC; dD=0xD; dE=0xE; dF=0xF;
+    for (int i = 0; i < 16; i++) {
+        out += f(d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,dA,dB,dC,dD,dE,dF);
+        int dX = d0;
+        d0=d1; d1=d2; d2=d3; d3=d4; d4=d5; d5=d6; d6=d7; d7=d8;
+        d8=d9; d9=dA; dA=dB; dB=dC; dC=dD; dD=dE; dE=dF; dF=dX;
+    }
+
+    return out;
+}
+

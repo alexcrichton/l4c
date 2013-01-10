@@ -1,0 +1,23 @@
+//test exception 11
+
+typedef struct t t;
+struct t {
+  int x;
+  int y;
+  int z;
+  int* p;
+  int k;
+};
+
+int main() 
+{
+  t[] a = alloc_array(struct t, 10);
+  int x = 10;
+  while (x >= 0)
+  {
+    x--;
+    a[x].k = 54;
+  }
+  return 0;
+}
+

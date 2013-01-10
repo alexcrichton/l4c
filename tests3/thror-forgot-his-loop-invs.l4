@@ -1,0 +1,23 @@
+//test exception 11
+
+int bin(int[] a, int k, int n) {
+  int l = 0;
+  int h = n;
+  while (l < h)
+  {
+    int mid = l + (h-l)/2;
+    if (a[mid] == k) return mid;
+    if (a[mid] <  k) l = mid + 1;
+    if (a[mid] >  k) h = mid;
+  }
+  if (a[l] == k) return l;
+  return -1;
+}
+
+int main() {
+  int[] a = alloc_array(int, 100);
+  for (int i = 0; i < 100; i++) {
+    a[i] = i * i - 50 * i + 10;
+  }
+  return a[bin(a, 600000, 100)];
+}

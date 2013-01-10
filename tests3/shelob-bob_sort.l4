@@ -1,0 +1,184 @@
+//test return 0
+
+struct run_struct {
+	int start;
+	int end;
+};
+typedef struct run_struct* run_t;
+
+struct stack_struct {
+	run_t[] body;
+	int top;
+};
+typedef struct stack_struct* stack_t;
+
+int len(run_t r) {
+	return r->end - r->start;
+}
+
+run_t run(int start, int end) {
+	run_t r = alloc(struct run_struct);
+	r->start = start;
+	r->end = end;
+	return r;
+}
+
+int swap(int[] a, int i, int j) {
+	int tmp;
+	tmp = a[i];
+	a[i] = a[j];
+	a[j] = tmp;
+	return 0;
+}
+
+int binary_search(int[] a, int n, run_t run) {
+	int start = run->start;
+	int end = run->end;
+	while (start < end) {
+		int mid = (start + end) / 2;
+		if (n < a[mid])
+		end = mid;
+		else
+		start = mid + 1;
+	}
+	return start;
+}
+
+int merge(int[] a, run_t first, run_t second) {
+	int tmp_start = binary_search(a, a[second->start], first);
+	int tmp_end = binary_search(a, a[first->end - 1], second);
+	int tmp_len = len(run(tmp_start, tmp_end));
+	int[] tmp = alloc_array(int,tmp_len);
+
+	int i = tmp_start;
+	int j = second->start;
+	int k = 0;
+	while (k < tmp_len) { 
+		if (j == tmp_end || i < first->end && a[i] < a[j]) {
+			tmp[k] = a[i];
+			i++;
+		} else {
+			tmp[k] = a[j];
+			j++;
+		}
+		k++;
+	}
+
+	for (i = 0; i < tmp_len; i++)
+	a[i + tmp_start] = tmp[i];
+	return 0;
+}
+
+int push(stack_t stack, run_t run) {
+	stack->body[stack->top] = run;
+	stack->top++;
+	return 0;
+}
+
+run_t peek(stack_t stack, int i) {
+	return stack->body[stack->top - 1 - i];
+}
+
+run_t pop(stack_t stack) {
+	stack->top--;
+	return stack->body[stack->top];
+}
+
+int collapse(int[] a, stack_t stack, bool force) {
+	while (stack->top > 1) {
+		run_t first = peek(stack, 1);
+		run_t second = peek(stack, 0);
+		if (len(second) * 2 <= len(first) || force) {
+			merge(a, first, second);
+			pop(stack);
+			pop(stack);
+			push(stack, run(first->start, second->end));
+			continue;
+		}
+		break;
+	}
+	return 0;
+}
+
+int extend(int[] a, int len, run_t run) {
+	for (int i = run->end; i > run->start && a[i] < a[i - 1]; i--)
+	swap(a, i, i - 1);
+	run->end++;
+	return 0;
+}
+
+int min(int a, int b) {
+	return a < b ? a : b;
+}
+
+int boost(int[] a, int len_, run_t run_,
+		int min_run_len) {
+	int diff = min(min_run_len, len(run(run_->start, len_))) - len(run_);
+	for (int i = 0; i < diff; i++)
+	extend(a, len_, run_);
+	return 0;
+}
+
+stack_t stack(int n) {
+	stack_t s = alloc(struct stack_struct);
+	s->body = alloc_array(run_t,n);
+	s->top = 0;
+	return s;
+}
+
+int reverse(int[] a, run_t run) {
+	int len = run->end - run->start;
+	int half = run->start + len / 2;
+	for (int i = run->start; i < half; i++)
+	swap(a, i, run->start + run->end - 1 - i);
+	return 0;
+}
+
+int push_runs(int[] a, int len, stack_t s,
+		int min_run_len) {
+	for (int i = 0; i < len;) {
+		int start = i;
+		int end;
+		for (end = start + 1; end < len && a[end] >= a[end - 1]; end++){}
+		run_t r = run(start, end);
+		if (end == start + 1) {
+			for (end = start + 1; end < len && a[end] <= a[end - 1]; end++){}
+			r = run(start, end);
+			reverse(a, r);
+		}
+		// if (end - start < min_run_len)
+		boost(a, len, r, min_run_len);
+		push(s, r);
+		collapse(a, s, false);
+		i = r->end;
+	}
+	return 0;
+}
+
+int bob_sort(int[] a,int len){
+	int min_run_len = 8;
+	stack_t s = stack((len / min_run_len) + 1); /* conservative bound */
+	push_runs(a, len, s, min_run_len);
+	collapse(a, s, true);
+	return 0;
+}
+
+int[] fill(int len){
+	int[] a=alloc_array(int,len);
+	
+	for(int i=0;i<len;i++)
+		a[i]=readint();
+	
+	return a;
+}
+
+int main() {
+	int len = readint();
+	int[] a=fill(len);
+	bob_sort(a, len);
+	for (int i = 0; i < len; i++) {
+		printint(a[i]);
+		printchar(0xa);
+	}
+	return 0;
+}

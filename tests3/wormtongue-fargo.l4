@@ -1,0 +1,7 @@
+//test exception 11
+// allocing negative space!
+
+int main() {
+    int[] burp = alloc_array(int, ~5);
+    return 1;
+}

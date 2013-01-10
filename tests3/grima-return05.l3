@@ -1,0 +1,71 @@
+//test return 31
+/* Test if callee-save register are properly saved and restored */
+
+bool test0( int a, int b, int c, int d)
+{
+    return (a + b < c + d);
+}
+
+int test1( int n1, int n2, int n3 )
+{
+   int a = readint();
+   int b = readint();
+   int c = readint();
+   int d = readint();
+   int e = readint();
+   int f = readint();
+   int g = readint();
+
+   a = a / n1;
+   b = b / n2;
+   c = c / n3;
+   d = d / n1;
+   e = e / n2;
+   f = f / n3;
+
+   return a + b + c + d + e + f;
+}
+
+int test2( int n1, int n2, int n3 )
+{
+   int a = readint();
+   int b = readint();
+   int c = readint();
+   int d = readint();
+   int e = readint();
+   int f = readint();
+   int g = readint();
+
+   a = a % n1;
+   b = b % n2;
+   c = c % n3;
+   d = d % n1;
+   e = e % n2;
+   f = f % n3;
+
+   return a + b + c + d + e + f;
+}
+
+int main ()
+{
+    int x0 = readint();
+    int x1 = readint();
+    int x2 = readint();
+    int x3 = readint();
+    int x4 = readint();
+    int x5 = readint();
+    int x6 = readint();
+    int x7 = readint();
+    int x8 = readint();
+    int x9 = readint();
+    int x10 = readint();
+
+    int z;
+
+    if( test0( x0,x1,x2,x3 ) )
+      z = test1(x4,x6,x7) + test2(x8,x9,x10);
+    else
+      z = test2(x4,x6,x7) + test1(x8,x9,x10);
+
+    return z;
+}

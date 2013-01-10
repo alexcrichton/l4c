@@ -1,0 +1,18 @@
+//test return -1541419569
+
+int myfunc(int var, int scale) {
+   int i;
+   int k = var + scale;
+   
+   for(i=0; i<200000*100*10; i++) {
+      k = k * 35 + 3532 + 5732 * 23623/4;
+   }
+   
+   return k;
+}
+
+int main() {
+   int var = 23623;
+   int scale = 6585736;
+   return myfunc(var, scale);
+}

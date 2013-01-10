@@ -1,0 +1,16 @@
+//test exception 11
+
+struct t {
+  int[] A;
+  bool d;
+};
+
+struct s {
+  struct t t1;
+  struct t t2;
+};
+
+int main() {
+  struct t * b = alloc(struct t);
+  return b->A[1];
+}

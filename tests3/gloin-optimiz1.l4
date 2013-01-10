@@ -1,0 +1,41 @@
+//test return 10
+//having cfold, cprop, and conditional constant elimination will make this test both run and compile faster.
+
+int main(){
+    int a = 10;
+    int b = a+10+10+10+10;
+    for(int i=0;i<1000000;i++){
+        if(a+b == 60)
+            continue;
+        int []arr = alloc_array(int, 1000);
+        for(int j=0;j<1000;j++){
+            arr[j] = j;
+        }
+        int []arr2 = alloc_array(int, 1000);
+        for(int j=0;j<1000;j++){
+            arr2[j] = arr[999-j] + j;
+        }
+        int []arr3 = alloc_array(int, 1000);
+        for(int j=0;j<1000;j++){
+            arr3[j] = arr[999-j] + arr2[j] + j;
+        }
+        int []arr4 = alloc_array(int, 1000);
+        for(int j=0;j<1000;j++){
+            arr4[j] = arr[999-j] + arr2[j] + arr3[999-j] + j;
+        }
+        int []arr5 = alloc_array(int, 1000);
+        for(int j=0;j<1000;j++){
+            arr5[j] = arr[999-j] + arr2[j] + arr3[999-j] + arr4[j] + j;
+        }
+        int []arr6 = alloc_array(int, 1000);
+        for(int j=0;j<1000;j++){
+            arr6[j] = arr[999-j] + arr2[j] + arr3[999-j] + arr4[j] + arr5[999-j] + j;
+        }
+        int []arr7 = alloc_array(int, 1000);
+        for(int j=0;j<1000;j++){
+            arr7[j] = arr[999-j] + arr2[j] + arr3[999-j] + arr4[j] + arr5[999-j] + arr6[j] + j;
+        }
+        i+= arr7[50];
+    }
+    return a;
+}

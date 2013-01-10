@@ -1,0 +1,36 @@
+//test return 4
+
+bool func1(int y) {
+     y = 3;
+  return true || true || false;
+}
+
+int func2() {
+    int y = 7;
+  return 3;
+}
+
+int main() {
+  int y;
+  while (true) {
+    if (true) {
+      break;
+    } else {
+      break;
+    }
+    for (int i = 0; i < 4; y++) {
+      i += 2;
+    }
+  }
+  //haha jk
+
+  while (false) {
+    continue;
+    y += 0xDEADFEED;
+    if (func1(y)) {
+      return func1(5)?1:2;
+    }
+  }
+
+  return 4;
+}

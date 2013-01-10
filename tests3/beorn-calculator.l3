@@ -1,0 +1,110 @@
+//test return 75
+// author: Joon-Sup Han
+//
+// A very simple calculator that can only handle 1 digit numbers and the
+// +, -, *, and / operators. Note that the language needs to be extremely
+// simple, as we cannot even construct a stack machine (at least not
+// easily). So programs must be of this form:
+//
+// 3+4*5/3*4+9;
+//
+// There must be exactly one binary operator in between single digits, and
+// programs need to end in a semicolon. Input programs are read from stdin,
+// and we assume that input programs are well-formed. If there is an error
+// with the computation, we return the exact quantity 1337 because we do not
+// have sum types. Care should be taken so that programs do not in fact
+// compute to 1337. The program returns the value of the computed program
+// otherwise.
+//
+// Notice that this "programming language" does not have a normal operator
+// precedence: everything is strictly left-to-right.
+
+// Return 1 for int, 2 for operator, 3 for semicolon, -1 for error
+int
+get_type(int c)
+{
+    // Some constants
+    int int_t = 1;
+    int op_t = 2;
+    int err_t = -1;
+    int semi_t = 3;
+    int plus = 0x2b;
+    int minus = 0x2d;
+    int times = 0x2a;
+    int divide = 0x2f;
+    int semi = 0x3b;
+
+    if (c == plus || c == minus || c == times || c == divide) {
+        return op_t;
+    } else if (c >= 0x30 && c < 0x4a) {
+        return int_t;
+    } else if (c == semi) {
+        return semi_t;
+    }
+    return err_t;
+}
+
+// Raises exception if |c| isn't a number
+int
+c2i(int c)
+{
+    int int_t = 1;
+    if (get_type(c) != int_t) {
+        return 1 / 0;
+    }
+    return c - 0x30;
+}
+
+int
+main()
+{
+    int int_t = 1;
+    int op_t = 2;
+    int err_t = -1;
+    int semi_t = 3;
+    int plus = 0x2b;
+    int minus = 0x2d;
+    int times = 0x2a;
+    int divide = 0x2f;
+
+    int running_count = 0;
+    int op = 0;
+    int next_num = 0;
+
+    if (eof()) {
+        return 1337;
+    }
+
+    running_count = readchar();
+    if (get_type(running_count) != int_t) {
+        return 1337;
+    }
+    running_count = c2i(running_count);
+
+    int count = 0;
+    while (true) {
+        op = readchar();
+        if (get_type(op) != op_t) {
+            break;
+        }
+
+        next_num = readchar();
+        if (get_type(next_num) != int_t) {
+            return 1337;
+        }
+        next_num = c2i(next_num);
+
+        if (op == plus) {
+            running_count += next_num;
+        } else if (op == minus) {
+            running_count -= next_num;
+        } else if (op == times) {
+            running_count *= next_num;
+        } else if (op == divide) {
+            running_count /= next_num;
+        } else {
+            return 1337;
+        }
+    }
+    return running_count;
+}

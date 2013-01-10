@@ -1,0 +1,46 @@
+//test return -704260032
+// Excerise common subexpression elimination
+
+
+int fun_a()
+{
+  return readint();
+}
+
+int fun_b()
+{
+  return readint();
+}
+
+int f(int x, int y, int z, int a, int b, int i)
+{
+  int p = (x * y * a ) / b;
+  int q = x * y + i;
+  int r = y * a;
+  int o = x * y * y * a;
+  int l = x * a + y / b;
+  z *= y / b;
+  x += i * 2;
+  y += x + 3;
+  return p + q + r + l + o;
+}
+
+
+int main()
+{
+  int sum = 0;
+
+  int a = fun_a();
+  int b = fun_b();
+
+  int x = a;
+  int y = x + b;
+  int z = a + b - 4;
+
+  for(int i = 0; i < 10000000; i++)
+  {
+     sum += f(x,y,z,a,b,i);
+  }
+
+  return sum;
+}

@@ -1,0 +1,33 @@
+//test return 10000000
+
+struct A {
+  struct A *n;
+  int d;
+};
+
+int main() {
+  struct A *a = alloc(struct A);
+  a->n = alloc(struct A);
+  a->n->n = alloc(struct A);
+  a->n->n->n = alloc(struct A);
+  a->n->n->n->n = alloc(struct A);
+  a->n->n->n->n->n = alloc(struct A);
+  a->n->n->n->n->n->n = alloc(struct A);
+  a->n->n->n->n->n->n->n = alloc(struct A);
+  a->n->n->n->n->n->n->n->n = alloc(struct A);
+  a->n->n->n->n->n->n->n->n->n = alloc(struct A);
+  a->n->n->n->n->n->n->n->n->n->n = alloc(struct A);
+  a->n->n->n->n->n->n->n->n->n->n->n = alloc(struct A);
+  a->n->n->n->n->n->n->n->n->n->n->n->n = alloc(struct A);
+  a->n->n->n->n->n->n->n->n->n->n->n->n->n = alloc(struct A);
+  a->n->n->n->n->n->n->n->n->n->n->n->n->n->n = alloc(struct A);
+  a->n->n->n->n->n->n->n->n->n->n->n->n->n->n->n = alloc(struct A);
+  a->n->n->n->n->n->n->n->n->n->n->n->n->n->n->n->n = alloc(struct A);
+  a->n->n->n->n->n->n->n->n->n->n->n->n->n->n->n->n->n = alloc(struct A);
+  a->n->n->n->n->n->n->n->n->n->n->n->n->n->n->n->n->n->n = alloc(struct A);
+  for (int i = 0; i < 10000000; i++) {
+    a->n->n->n->n->n->n->n->n->n->n->n->n->n->n->n->n->n->n->d++;
+  }
+  return a->n->n->n->n->n->n->n->n->n->n->n->n->n->n->n->n->n->n->d;
+}
+

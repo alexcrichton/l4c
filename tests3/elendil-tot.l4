@@ -1,0 +1,882 @@
+//test return 42
+
+int main() {
+  return 42;
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < j; j++) {
+        for (int l = 0; l < k + j; l++) {
+          int x = 3;
+
+          if ( i == 3 )
+            main();
+
+          else 
+            return 42;
+
+          return 42;
+
+        }
+      }
+    }
+  }
+
+}

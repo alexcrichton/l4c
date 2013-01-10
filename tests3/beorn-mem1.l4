@@ -1,0 +1,12 @@
+//test exception 11
+
+struct s {
+    struct s* z;
+};
+
+int main() {
+    struct s* x = alloc(struct s);
+    x->z->z = alloc(struct s);
+
+    return -1;
+}

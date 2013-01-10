@@ -1,0 +1,102 @@
+//test return -1431655766
+
+struct randstate {
+    int seed;
+    bool []memory;
+    int n;
+};
+
+typedef struct randstate randstate;
+
+randstate *seed(int seed);
+int rand_r(randstate *state);
+
+
+int main() {
+    randstate *state = seed(42);
+
+    // Take 3 random numbers
+    return rand_r(state) - rand_r(state) + rand_r(state);
+}
+
+bool execute_iter(randstate *state) {
+    bool []next = alloc_array(bool, 8);
+    next[0] = false;
+    next[1] = true;
+    next[2] = true;
+    next[3] = true;
+    next[4] = true;
+    next[5] = false;
+    next[6] = false;
+    next[7] = false;
+
+    bool prior = state->memory[0];
+
+    for (int i = 1; i < state->n - 1; i++) {
+        int window =
+            (booltoint(prior) << 2)
+            | (booltoint(state->memory[i]) << 1)
+            | (booltoint(state->memory[i+1]));
+
+        prior = state->memory[i];
+        state->memory[i] = next[window];
+    }
+
+    // Dummy return because L4 doesn't have void functions
+    return true;
+}
+
+randstate *seed(int seed) {
+    int N = 1000;
+
+    randstate *state = alloc(randstate);
+    state->seed = seed;
+    state->memory = alloc_array(bool, N);
+    state->n = N;
+
+    state->memory[N / 2] = true;
+
+    // Set up the randomness
+    for (int i = 0; i < 10000; i++)
+        execute_iter(state);
+
+    return state;
+}
+
+int convert_to_int(bool []mem, int len, int startidx) {
+    int n = 0;
+
+    for (int i = 0; i < 32; i++) {
+        int idx = (i + startidx) % len;
+        n |= booltoint(mem[idx]) << i;
+    }
+
+    return n;
+}
+
+int abs(int n) {
+    int TMIN = -2147483648;
+
+    if (n == TMIN) {
+        1 / 0;
+        return n;
+    }
+
+    if (n < 0)
+        return -n;
+
+    return n;
+}
+
+int rand_r(randstate *state) {
+    int niters = (state->seed & 0xFF) + 1;
+
+    for (int i = 0; i < niters; i++)
+        execute_iter(state);
+
+    int startidx = abs(state->seed % state->n);
+    state->seed = convert_to_int(state->memory, state->n, startidx);
+
+    return state->seed;
+}
+

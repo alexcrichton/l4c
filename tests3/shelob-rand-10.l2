@@ -1,0 +1,40 @@
+//test return 2
+int
+main ()
+{
+  int v0 = (((2)));
+  int v1 = (v0);
+  while (((v0) == (v1)))
+    {
+      int v2 = (~-v1);
+      int v3 = ((~7));
+      int v4 = (v2);
+      int v5 = (~v0);
+      {
+	int v6 = 5;
+	v1++;
+	continue;
+	{
+	  int v7 = (1 / v6);
+	  if ((((((v2)) >= (3))) && ((((7)) != (4)))))
+	    {
+	      int v8 = (v0);
+	    }
+	  else
+	    {
+	      int v8 = (5);
+	      break;
+	      v2 += -(9);
+	    }
+	}
+      }
+      {
+	int v6 = (5);
+	int v7 = ~3;
+	v3 -= (v1 + (((6))));
+	{
+	  int v8 = v1;
+	  v2++;
+	  v7++;
+    }}} return (2);
+}

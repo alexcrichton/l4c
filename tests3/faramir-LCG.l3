@@ -1,0 +1,24 @@
+//test exception
+//oops, I forgot to seed
+
+int lcg(int m, int a, int c, int x);
+
+int main() {
+    int m = readint();
+    int a = readint();
+    int c = readint();
+    int x0 = readint();
+
+    //make sure the invariants hold
+    if(m <= 0) return 1/0;
+    if(a >= m || a <= 0) return 1/0;
+    if(c < 0 || c >= m) return 1/0;
+    if(x0 < 0 || x0 >= m) return 1/0;
+
+    return lcg(m,a,c,x0);
+}
+
+int lcg(int m, int a, int c, int x) {
+    printint(x);
+    return lcg(m, a, c, (a * x + c) % m);
+}

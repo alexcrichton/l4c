@@ -1,0 +1,30 @@
+//test return 26
+int
+main()
+{
+    int x = 26;
+    int y = 12;
+    int x1 = x;
+    int y1 = y;
+
+    while (true) {
+        if (y1 == 0) break;
+
+        x1 *= x1;
+        y1 /= 2;
+
+    }
+
+    int y2 = y;
+    for (int x2 = x; true; ) {
+
+        y2 *= y2;
+        x2 /= 2;
+
+        if (x2 != 0) continue;
+        else break;
+
+    }
+
+    return x1 > y2 ? x : y;
+}

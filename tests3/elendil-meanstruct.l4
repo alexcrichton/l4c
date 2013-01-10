@@ -1,0 +1,10 @@
+//test exception 11
+
+struct s {
+  int[] i;
+};
+
+int main() {
+  struct s *mys = alloc(struct s);
+  return mys->i[1000000];
+}

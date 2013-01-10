@@ -1,0 +1,7 @@
+//test exception
+//array bounds error in alloc in hex
+
+int main() {
+    int[] b = alloc_array(int, 0xf0000000);
+    return 0;
+}

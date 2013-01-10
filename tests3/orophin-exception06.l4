@@ -1,0 +1,6 @@
+//test exception 11
+//  access 1st entry of allocated 0 array entries
+int main() {
+  int [] a = alloc_array(int, 0);
+  return a[0];
+}

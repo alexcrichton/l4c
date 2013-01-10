@@ -1,0 +1,10 @@
+//test exception
+
+int myfunc(int[] arr) {
+   return arr[-1];
+}
+
+int main() {
+   int[] arr = alloc_array(int, 100);
+   return myfunc(arr);
+}

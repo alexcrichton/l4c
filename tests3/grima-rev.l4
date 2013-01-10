@@ -1,0 +1,75 @@
+//test return 0
+// read all lines from the input, the output their reverse
+
+struct node{
+  int data;
+  struct node* next;
+};
+
+struct stack{
+  struct node* head;
+};
+
+int push(struct stack* st, int d)
+{
+  struct node *p = alloc(struct node);
+  
+  if( p == NULL )
+    return -1;
+
+  p->data = d;
+  p->next = st->head;
+  st->head = p;
+
+  return 0;
+}
+
+int pop(struct stack* st)
+{
+  int d;
+
+  if( st->head == NULL )
+    return -1;
+
+  d = st->head->data;
+  st->head = st->head->next;
+
+  return d;
+}
+
+int empty(struct stack* st)
+{
+  st->head = NULL;
+  return 0;
+}
+
+int main()
+{
+  struct stack* stack = alloc(struct stack);
+
+
+  while( !eof() )
+  {
+     int c = readchar();
+     while( c != 0xA )
+     {
+        push(stack,c);
+        c = readchar();
+     }
+     
+     c = pop(stack);
+
+     while( c != -1 )
+     {
+       printchar(c);
+       c = pop(stack);
+     }
+     printchar(0xA);
+
+     empty(stack);
+  }
+
+  return 0;
+}
+
+

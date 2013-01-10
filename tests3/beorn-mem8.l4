@@ -1,0 +1,21 @@
+//test return 5
+
+int
+confuse(int *tag1)
+{
+    (*tag1)++;
+    return *tag1;
+}
+
+int
+main ()
+{
+    int *tag1 = alloc(int);
+    *tag1 = 2;
+    int [][]tester = alloc_array(int [], 5);
+    for (int i = 0; i < 5; i++)
+        tester[i] = alloc_array(int, 5);
+
+    tester[confuse(tag1)][confuse(tag1)] += confuse(tag1);
+    return tester[3][4];
+}

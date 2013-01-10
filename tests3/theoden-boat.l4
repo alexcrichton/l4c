@@ -1,0 +1,91 @@
+//test return 42
+
+// so it turns out a boat is an implicit doubly linked list of integers,
+// implemented in an array
+
+struct boat{
+  int data;
+  int prev;
+  int next;
+};
+
+typedef struct boat boat;
+
+struct ocean{
+  boat *[] fleet;
+  int size;
+};
+
+typedef struct ocean *ocean;
+
+boat *boat_new(int data, int prev, int next)
+{
+  boat *b = alloc(boat);
+  b->data = data;
+  b->prev = prev;
+  b->next = next;
+  return b;
+}
+
+ocean let_there_be_water(int size)
+{
+  ocean sea = alloc(struct ocean);
+  sea->size = size;
+  sea->fleet = alloc_array(boat *, size);
+  return sea;
+}
+
+int walk_the_plank(ocean S)
+{
+  boat *p = S->fleet[0];
+
+  while(p != NULL && p->next != 0)
+    {
+      printint(p->data);
+      printchar(10);
+      p = S->fleet[p->next];
+    }
+
+  if(p == NULL)
+    {
+      printchar(78);
+      printchar(85);
+      printchar(76);
+      printchar(76);
+      return printchar(10);
+    }
+  else
+    {
+      printint(p->data);
+      return printchar(10);
+    }
+}
+
+int main()
+{
+  int big = 1<<18;
+  ocean S = let_there_be_water(big);
+  
+  S->fleet[0] = boat_new(0, 0, 0);
+
+  int f1 = 0; int f2 = 1;
+  for(int i = 1; i < S->size; i++)
+    {
+      int f = f1 + f2;
+      f2 = f1;
+      f1 = f;
+
+      f = f % i;
+      f = f < 0 ? f + i : f;
+
+      boat *b = boat_new(i, f, S->fleet[f]->next);
+      S->fleet[b->prev]->next = i;
+      S->fleet[b->next]->prev = i;
+
+      S->fleet[i] = b;
+    }
+  
+  walk_the_plank(S);
+
+  return 42;
+}

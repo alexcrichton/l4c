@@ -1,0 +1,100 @@
+//test return -770053776
+// Tests constant folding and propagation, and deadcode elimination
+
+int f(int x)
+{
+  int a = x * 1;
+  int b = x + 1;
+  int c = x - 1;
+  int d = x;
+
+  a = a + c + b + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+  d = x + a;
+  a = a + c + b + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+  a = a + c + b + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+  a = a + c + b + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+  a = a + c + b + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+  a = a + c + b + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+  a = a + c + b + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+  a = a + c + b + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+  a = a + c + b + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+  a = a + c + b + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+  a = a + c + b + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+  a = a + c + b + x;
+  b = a + a + c * x;
+  c = b + a + d + x;
+
+  return d;
+}
+
+
+int main()
+{
+  int x = 3;
+
+  int sum = 0;
+
+
+  for( int i = 0; i < 100000; i++)
+  {
+      sum += f(i);
+  }
+
+  return sum;
+}

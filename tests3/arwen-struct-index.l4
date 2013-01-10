@@ -1,0 +1,13 @@
+//test return 10
+//Checks memory safety when arrays are used with structs
+
+struct a {
+  int x;
+};
+
+int main() {
+  struct a[] arr = alloc_array(struct a, 10000);
+  arr[400].x = 10;
+  arr[200].x = arr[400].x;
+  return arr[200].x;
+}

@@ -1,0 +1,10 @@
+//test error
+// Make sure we can't redefine a header function.
+
+int readchar() {
+	return 1;
+}
+
+int main() {
+	return readchar();
+}

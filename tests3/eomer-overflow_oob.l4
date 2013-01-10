@@ -1,0 +1,25 @@
+//test exception 11
+
+int eight_bit_plus(int a, int b) {
+    int actual = a + b;
+    bool negbit = ((1 << 7) & actual) != 0;
+    int lower8 = actual & 0xFF;
+    if(negbit) return lower8 ^ (~0xFF);
+    else return lower8;
+}
+
+int incr(int a) {
+    return eight_bit_plus(a, 1);
+}
+
+int main() {
+    int[] foo = alloc_array(int, 512);
+    int[] A = alloc_array(int, 128);
+
+    for(int i = 0; i < 128; i = incr(i)) {
+        A[i] = i;
+    }
+    
+    return 0;
+}
+

@@ -1,0 +1,10 @@
+//test exception 11
+
+int main() {
+    int[] foo = alloc_array(int, 100);
+    for(int i = 0; i <= 100; i++) {
+        foo[i] = 4*i*i*i + i*i + 5*i + 1;
+    }
+
+    return 0;
+}

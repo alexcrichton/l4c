@@ -1,0 +1,19 @@
+//test error
+//Uses a struct as an lvalue
+
+struct small {
+  int x;
+};
+
+struct big {
+  struct small s1;
+  struct small s2;
+  bool b;
+};
+
+int main () {
+  struct big *big= alloc(struct big);
+  big->s2.x = 10;
+  big->s1 = big->s2;
+  return big->s1.x;
+}

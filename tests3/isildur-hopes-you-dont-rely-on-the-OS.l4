@@ -1,0 +1,19 @@
+//test exception 11
+
+// 59835477 is way too big
+struct b {
+    struct s *v;
+};
+
+struct s {
+    int[] v;
+    int alpha;
+};
+
+int main() {
+    struct s *m = alloc(struct s);
+    struct b *beta = alloc(struct b);
+    beta->v = m;
+    int a = beta->v->alpha;
+    return a + beta->v->v[59835477];
+}

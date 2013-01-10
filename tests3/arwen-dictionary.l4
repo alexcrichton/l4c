@@ -1,0 +1,103 @@
+//test return 11
+//Constructs a trie from a dictionary, and then counts the number of two letter words
+
+struct n;
+
+typedef struct n node;
+typedef struct s mystring;
+
+struct n {
+  node *[] children;
+  bool word;  //If true this path in the trie is a word
+};
+
+struct s {
+  int [] word;
+  int length;
+};
+
+node *make_node() {
+  node *t = alloc(node);
+  t->children = alloc_array(node *, 26);
+  return t;
+}
+
+int letter_to_int(int c) {
+  return c - 97;
+}
+
+int add_word_helper(node *trie, mystring *str, int index) {
+  int letter = str->word[index];
+  node *next = trie->children[letter];
+  if (next == NULL) {
+    next = make_node();
+    trie->children[letter] = next;
+  }
+  if (str->length - 1 == index) {
+    next->word = true;
+    return 0;
+  }
+  return add_word_helper(next, str, index+1);
+}
+
+int add_word(node *trie, mystring *str) {
+  return add_word_helper(trie, str, 0);
+}
+
+bool is_newline(int x) {
+  return (x == 10) ? true : false;
+}
+
+bool query_helper(node *trie, mystring *str, int index) {
+  int letter = str->word[index];
+  node *next = trie->children[letter];
+  if (next == NULL) {
+    return false;
+  }
+  if (str->length - 1 == index) {
+    return next->word;
+  }
+  return query_helper(next, str, index+1);
+}
+
+
+bool query_trie(node *trie, mystring *str) {
+  return query_helper(trie, str, 0);
+}
+
+int num_two_letter_words(node *trie, mystring *str) {
+  int count = 0;
+  int i;
+  int j;
+  str->length = 2;
+  for (i=0;i<26;i++) {
+    str->word[0] = i;
+    for (j=0;j<26;j++) {
+      str->word[1] = j;
+      count += booltoint(query_trie(trie, str));
+    }
+  }
+  return count;
+}
+
+int main() {
+  int MAX_LENGTH = 100;
+  mystring *buf = alloc(mystring);
+  buf->word = alloc_array(int, MAX_LENGTH);
+  int index;
+  int c;
+  node *trie = make_node();
+
+  while (!eof()) {
+    index = 0;
+    c = readchar();
+    while (!is_newline(c)) {
+      buf->word[index] = letter_to_int(c);
+      index++;
+      c = readchar();
+    }
+    buf->length = index;
+    add_word(trie, buf);
+  }
+  return num_two_letter_words(trie, buf);
+}

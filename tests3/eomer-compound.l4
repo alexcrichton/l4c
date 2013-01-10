@@ -1,0 +1,24 @@
+//test return 42
+// Do you expand compound assignment and evaluate the left side twice?
+
+int devious(bool *done);
+
+int main() {
+    int []a = alloc_array(int, 10);
+    bool *done = alloc(bool);
+
+    *done = false;
+    a[devious(done)]++;
+
+    *done = false;
+    a[devious(done)] *= 42;
+
+    return a[0];
+}
+
+int devious(bool *done) {
+    while (*done) { }
+    *done = true;
+    return 0;
+}
+
