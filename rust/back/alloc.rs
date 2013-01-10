@@ -294,9 +294,6 @@ impl Allocator {
     for self.f.cfg.each_node |id, ins| {
       let ins = vec::build(|push| {
         if id == self.f.root {
-          push(@BinaryOp(Sub, @Register(ESP, ir::Pointer),
-                         @Immediate(self.max_slot * 8 as i32, ir::Pointer),
-                         @Register(ESP, ir::Pointer)));
           for self.colors.each |_, color| {
             let reg = arch::num_reg(color);
             if arch::callee_reg(reg) && !self.callee_saved.contains(&color) {
@@ -304,6 +301,9 @@ impl Allocator {
               push(@Raw(fmt!("push %s", reg.size(ir::Pointer))));
             }
           }
+          push(@BinaryOp(Sub, @Register(ESP, ir::Pointer),
+                         @Immediate(self.max_slot * 8 as i32, ir::Pointer),
+                         @Register(ESP, ir::Pointer)));
         }
         for ins.each |&ins| {
           self.alloc_ins(ins, push);
