@@ -16,11 +16,17 @@ pub fn contains<T : Eq IterBytes Hash Const Copy>(s : map::Set<T>, t : T) -> boo
   s.contains_key(t)
 }
 
-/* returns number of new elements in the set */
 pub fn union<T : Eq IterBytes Hash Const Copy>(s1 : map::Set<T>,
                                                s2 : map::Set<T>) {
   for s2.each_key |k| {
     add(s1, k);
+  }
+}
+
+pub fn difference<T : Eq IterBytes Hash Const Copy>(s1 : map::Set<T>,
+                                                    s2 : map::Set<T>) {
+  for s2.each_key |k| {
+    remove(s1, k);
   }
 }
 

@@ -88,6 +88,7 @@ impl Allocator {
 
       /* If we found a pcopy, and we're not constrained, keep going */
       if pcopy.is_some() {
+        let banned = map::HashMap();
         match ins {
           @BinaryOp(op, dst, op1, _) if op.constrained() => {
             match op {
@@ -102,6 +103,8 @@ impl Allocator {
                   @Temp(t) => { self.colors.insert(t, arch::reg_num(dreg)); },
                   _        => fail(fmt!("not tmp dst %?", dst))
                 }
+                set::add(banned, arch::reg_num(EAX));
+                set::add(banned, arch::reg_num(EDX));
               },
               _ => fail(fmt!("implement %?", op))
             }
@@ -112,6 +115,7 @@ impl Allocator {
 
         match pcopy {
           Some(@PCopy(ref copies)) => {
+            set::union(registers, banned);
             for copies.each |&(dst, src)| {
               assert dst != src;
               assert self.colors.contains_key(src);
@@ -126,6 +130,7 @@ impl Allocator {
                 self.colors.insert(dst, self.colors[src]);
               }
             }
+            set::difference(registers, banned);
           }
           _ => unreachable()
         }
