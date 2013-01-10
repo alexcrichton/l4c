@@ -393,7 +393,7 @@ impl Allocator {
           /* d = d op s2, perfect! */
           _ if s1 == d => push(@BinaryOp(op, d, s2, s1)),
           /* d = s1 op d, can commute */
-          _ if s2 == d && op.commutative() => push(@BinaryOp(op, d, s2, s1)),
+          _ if s2 == d && op.commutative() => push(@BinaryOp(op, d, s1, s2)),
           /* should be handled elsewhere */
           _ if s2 == d => fail(~"shouldn't happen now"),
           /* catch-all last resort, generate a move */
