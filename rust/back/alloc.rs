@@ -222,20 +222,32 @@ impl Allocator {
   }
 
   fn resolve_perm(result : &[uint], incoming : &[uint]) -> ~[@Instruction] {
-    /* build up some small conversion maps */
     use sim = std::smallintmap;
+    /* TODO: remove this once this works */
+    let regs = sim::mk();
+    for uint::range(1, arch::num_regs + 1) |i| {
+      regs.insert(i, i);
+    }
+
+    let mkreg = |i : uint| @Register(arch::num_reg(i), ir::Pointer);
+    let mut ins = ~[];
+
+    /* build up some small conversion maps */
     let src_dst = sim::mk();
     for vec::each2(result, incoming) |&a, &b| {
-      src_dst.insert(b, a);
+      if !src_dst.contains_key(b) {
+        src_dst.insert(b, a);
+      }
     }
 
     /* Permute the registers by following cycles */
-    let mkreg = |i : uint| @Register(arch::num_reg(i), ir::Pointer);
-    let mut ins = ~[];
     for incoming.each |&src| {
       while src_dst.contains_key(src) {
         let dst = src_dst[src];
         if dst != src {
+          let tmp = regs[src];
+          regs.insert(src, regs[dst]);
+          regs.insert(dst, tmp);
           ins.push(@Raw(fmt!("xchg %s, %s", mkreg(dst).pp(), mkreg(src).pp())));
         }
         match src_dst.find(dst) {
@@ -248,7 +260,23 @@ impl Allocator {
       }
     }
 
+    /* now resolve copies of values */
+    src_dst.clear();
+    for vec::each2(result, incoming) |&a, &b| {
+      if src_dst.contains_key(b) {
+        regs.insert(a, b);
+        ins.push(@Move(mkreg(a), mkreg(src_dst[b])));
+      } else {
+        src_dst.insert(b, a);
+      }
+    }
+
     info!("perm %? -> %? yielded %?", incoming, result, ins);
+
+    for vec::each2(incoming, result) |&a, &b| {
+      debug!("%? %? %?", a, b, regs[b]);
+      assert regs[b] == a;
+    }
     return ins;
   }
 
