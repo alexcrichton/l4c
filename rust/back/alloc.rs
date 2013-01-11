@@ -192,6 +192,9 @@ impl Allocator {
           _ => unreachable()
         }
         process(dest, registers, self.colors);
+        if !set::contains(tmplive, dest) {
+          set::remove(registers, self.colors[dest]);
+        }
         pcopy = None;
       } else {
         /* normal coloration of each instruction */
