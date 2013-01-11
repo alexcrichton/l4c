@@ -282,6 +282,10 @@ impl Spiller {
     let mut max = bottom.size();
     for vec::rev_eachi(*block) |i, &ins| {
       let mut delta = ~[];
+      match ins {
+        @PCopy(*) => { deltas.push(delta); loop; }
+        _ => ()
+      }
       /* If we define a temp, then the distance to the next use from the start
          is infinity because it's just not relevant */
       for ins.each_def |tmp| {
@@ -374,27 +378,8 @@ impl Spiller {
       assert(regs.size() <= max);
     };
 
-    debug!("%s", map_to_str(next_use));
-    let mut i = 0;
-    for vec::each2(*self.f.cfg[n], *self.deltas[n]) |&ins, delta| {
-      debug!("%2d %30s  %s %s", i, ins.pp(), map_to_str(next_use),
-             str::connect(delta.map(|a| fmt!("%?", a)), ~", "));
-
-      if !ins.is_phi() {
-        /* Determine what needs to be reloaded */
-        for ins.each_use |tmp| {
-          if regs.contains_key(tmp) { loop }
-          reloaded.push(tmp);
-          set::add(regs, tmp);
-          set::add(spill, tmp);
-        }
-        debug!("making room for operands");
-        /* This limit is relative to the next_use of this instruction */
-        limit(arch::num_regs, |t| block.push(@Spill(t, self.congruence[t])));
-      }
-
-      /* The next limit is relative to the next_use of the next instruction, so
-         for each delta if the value is None, then that means the liveness has
+    let apply_delta = |delta : &~[(Temp, Option<uint>)]| {
+      /* For each delta if the value is None, then that means the liveness has
          stopped. Otherwise the next_use value is updated with what it should be
          for down the road. We iterate in reverse order in case one instruction
          uses the same operand more than once. In this case the first listed
@@ -405,30 +390,77 @@ impl Spiller {
           Some(d) => { next_use.insert(tmp, d); }
         }
       }
+    };
 
-      if !ins.is_phi() {
-        let mut defs = 0;
-        for ins.each_def |_| { defs += 1; }
-        debug!("making room for results");
-        limit(arch::num_regs - defs,
-              |t| block.push(@Spill(t, self.congruence[t])));
+    debug!("%s", map_to_str(next_use));
+    let mut i = 0;
+    for vec::each2(*self.f.cfg[n], *self.deltas[n]) |&ins, delta| {
+      debug!("%2d %30s  %s %s", i, ins.pp(), map_to_str(next_use),
+             str::connect(delta.map(|a| fmt!("%?", a)), ~", "));
 
-        /* Add all defined temps to the set of those in regs */
-        for ins.each_def |tmp| {
-          set::add(regs, tmp);
+      match ins {
+        /* If the destination of a phi is not currently in the registers, then
+           we don't need the phi instruction because it's been spilled and we
+           don't want to put register moves onto the incoming edges */
+        @Phi(tmp, _) => {
+          if set::contains(regs, tmp) {
+            block.push(ins);
+          }
+          apply_delta(delta);
+        }
+
+        @PCopy(ref copies, n) => {
+          limit(arch::num_regs - n,
+                |t| block.push(@Spill(t, self.congruence[t])));
+          let newcopies = do copies.filter |&(dst, src)| {
+            assert(dst == src);
+            set::contains(regs, src)
+          };
+          block.push(@PCopy(newcopies, n));
+          apply_delta(delta);
+        }
+
+        _ => {
+          /* Determine what needs to be reloaded */
+          for ins.each_use |tmp| {
+            debug!("%? %?", tmp, next_use[tmp]);
+            assert next_use[tmp] == i as uint;
+            if regs.contains_key(tmp) { loop }
+            reloaded.push(tmp);
+            set::add(regs, tmp);
+            set::add(spill, tmp);
+          }
+          /* This limit is relative to the next_use of this instruction */
+          debug!("making room for operands");
+          limit(arch::num_regs, |t| block.push(@Spill(t, self.congruence[t])));
+
+          /* The next limit is relative to the next instruction */
+          apply_delta(delta);
+          let mut defs = 0;
+          for ins.each_def |_| { defs += 1; }
+          match ins {
+            @BinaryOp(Div, _, _, _) | @BinaryOp(Mod, _, _, _) => { defs += 1; }
+            _ => ()
+          }
+          debug!("making room for results");
+          limit(arch::num_regs - defs,
+                |t| block.push(@Spill(t, self.congruence[t])));
+
+          /* Add all defined temps to the set of those in regs */
+          for ins.each_def |tmp| {
+            set::add(regs, tmp);
+          }
+          assert(regs.size() <= arch::num_regs);
+
+          /* Finally reload all operands as necessary, and then run ins */
+          for reloaded.each |&tmp| {
+            block.push(@Reload(tmp, self.congruence[tmp]));
+          }
+          reloaded.truncate(0);
+          block.push(ins);
         }
       }
-      assert(regs.size() <= arch::num_regs);
 
-      /* Finally reload all operands as necessary, and then run ins */
-      for reloaded.each |&tmp| {
-        block.push(@Reload(tmp, self.congruence[tmp]));
-      }
-      reloaded.truncate(0);
-      match ins {
-        @Phi(tmp, _) => { if set::contains(regs, tmp) { block.push(ins); } }
-        _            => { block.push(ins); }
-      }
       i += 1;
     }
 
@@ -560,13 +592,13 @@ impl Spiller {
     let mut append = ~[];
     let pred_regs_exit = self.regs_end[pred];
     let pred_spill_exit = self.spill_exit[pred];
-    for set::each(pred_regs_exit) |tmp| {
-      let mine = self.my_name(tmp, pred, succ);
-      if !pred_spill_exit.contains_key(tmp) &&
-         !succ_regs.contains_key(mine) {
-        append.push(@Spill(tmp, self.congruence[tmp]));
-      }
-    }
+    /*for set::each(pred_regs_exit) |tmp| {*/
+    /*  let mine = self.my_name(tmp, pred, succ);*/
+    /*  if !pred_spill_exit.contains_key(tmp) &&*/
+    /*     !succ_regs.contains_key(mine) {*/
+    /*    append.push(@Spill(tmp, self.congruence[tmp]));*/
+    /*  }*/
+    /*}*/
     for set::each(succ_spill) |tmp| {
       let theirs = self.their_name(tmp, pred, succ);
       if !pred_spill_exit.contains_key(theirs) &&
