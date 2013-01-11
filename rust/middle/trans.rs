@@ -393,8 +393,8 @@ impl AstTranslator {
 
     /* connect everything together */
     self.f.cfg.add_edge(cond_id, true_id, ir::True);
-    self.f.cfg.add_edge(cond_id, false_id, ir::False);
-    self.f.cfg.add_edge(true_end, self.cur_id, ir::Always);
+    self.f.cfg.add_edge(cond_id, false_id, ir::FBranch);
+    self.f.cfg.add_edge(true_end, self.cur_id, ir::Branch);
     self.f.cfg.add_edge(false_end, self.cur_id, ir::Always);
 
     @ir::Temp(result)
