@@ -537,12 +537,12 @@ impl Spiller {
       let visited = map::HashMap();
       set::add(visited, n);     /* don't loop back to the start */
       set::add(visited, end);   /* don't go outside the loop */
-      let free = arch::num_regs - self.max_pressure(body, visited);
+      let free = (arch::num_regs - self.max_pressure(body, visited)) as int;
       debug!("live through loop: %s %?", set::to_str(live_through), free);
       if free > 0 {
         let sorted = sort(live_through, self.next_use[n]);
         debug!("%?", sorted);
-        for sorted.view(0, uint::min(free, sorted.len())).each |&tmp| {
+        for sorted.view(0, uint::min(free as uint, sorted.len())).each |&tmp| {
           set::add(cand, tmp);
         }
       }
