@@ -430,20 +430,22 @@ impl Spiller {
             set::add(regs, tmp);
             set::add(spill, tmp);
           }
+          /* TODO: extract this logic */
+          let extra = match ins {
+            @BinaryOp(Div, _, _, _) | @BinaryOp(Mod, _, _, _) => 1,
+            _ => 0
+          };
           /* This limit is relative to the next_use of this instruction */
           debug!("making room for operands");
-          limit(arch::num_regs, |t| block.push(@Spill(t, self.congruence[t])));
+          limit(arch::num_regs - extra,
+                |t| block.push(@Spill(t, self.congruence[t])));
 
           /* The next limit is relative to the next instruction */
           apply_delta(delta);
           let mut defs = 0;
           for ins.each_def |_| { defs += 1; }
-          match ins {
-            @BinaryOp(Div, _, _, _) | @BinaryOp(Mod, _, _, _) => { defs += 1; }
-            _ => ()
-          }
           debug!("making room for results");
-          limit(arch::num_regs - defs,
+          limit(arch::num_regs - defs - extra,
                 |t| block.push(@Spill(t, self.congruence[t])));
 
           /* Add all defined temps to the set of those in regs */

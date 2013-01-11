@@ -20,6 +20,7 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
                    tmpclone : &fn(Temp) -> Temp,
                    ins : @~[@Instruction]) -> ~[@Instruction] {
   let mut new = ~[];
+  let mut synthetic = ~[];
   let live_in = live;
   let live_out = map::HashMap();
   for live_in.each |k, v| { live_out.insert(k, v); }
@@ -32,6 +33,26 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
     }
     @PCopy(list, n)
   }
+
+  /* If a constrained use is also always clobbered as a result of an
+     instruction, then it needs to be moved into a temporary before the
+     instruction runs to not destroy the actual value. We push this move
+     before the PCopy as well for ease later on */
+  macro_rules! constrain_clobber(
+    ($op:expr) => (
+      match $op {
+        @Temp(t) if set::contains(live_out, t) => {
+          let dup = tmpclone(t);
+          let dst = @Temp(dup);
+          new.push(@Move(dst, $op));
+          assert set::add(live_in, dup);
+          synthetic.push(dup);
+          dst
+        }
+        _ => $op
+      }
+    );
+  );
 
   for vec::each2(*ins, *delta) |&ins, delta| {
     live_out.apply(delta);
@@ -46,21 +67,16 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
               new.push(pcopy(live_in, 0));
             }
             new.push(ins);
+            match o2 {
+              @Temp(t) => new.push(@Use(t)),
+              _ => ()
+            }
           }
 
-          /* div/mod both use and define edx/eax. If the first operand is live
-             after the div instruction, then we have to use a copy of it because
-             the operand's register will be clobbered */
+          /* div/mod both use and define edx/eax */
           Div | Mod => {
+            let o1 = constrain_clobber!(o1);
             new.push(pcopy(live_in, 1));
-            let o1 = match o1 {
-              @Temp(t) if set::contains(live_out, t) => {
-                let dst = @Temp(tmpclone(t));
-                new.push(@Move(dst, o1));
-                dst
-              }
-              _ => o1
-            };
             new.push(@BinaryOp(op, dest, o1, o2));
           }
 
@@ -110,6 +126,10 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
     }
 
     live_in.apply(delta);
+    for synthetic.each |&tmp| {
+      set::remove(live_in, tmp);
+    }
+    synthetic.truncate(0);
   }
   return new;
 }

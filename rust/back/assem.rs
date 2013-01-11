@@ -244,7 +244,7 @@ impl Instruction : PrettyPrint {
         Lsh | Rsh if s1.reg() => {
           match s1 {
             @Register(ECX, _) => (),
-            _                 => fail(fmt!("expected edx, not %?", s1))
+            _                 => fail(fmt!("expected ecx, not %?", s1))
           }
           fmt!("%s %%cl, %s", binop.pp(), dest.pp())
         }

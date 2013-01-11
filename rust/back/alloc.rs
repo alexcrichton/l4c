@@ -43,6 +43,14 @@ pub fn color(p : &Program) {
   }
 }
 
+fn min_vacant(colors : map::Set<uint>) -> uint {
+  let mut i = 1;
+  while set::contains(colors, i) {
+    i += 1;
+  }
+  return i;
+}
+
 impl Allocator {
 
   /**
@@ -87,29 +95,44 @@ impl Allocator {
           registers.clear();
           loop;
         }
+        /* Be sure spills/reloads are always colored */
+        @Spill(_, t) => {
+          let slot = match self.slots.find(t) {
+            None => {
+              let slot = min_vacant(slots);
+              self.slots.insert(t, slot);
+              self.max_slot = uint::max(slot, self.max_slot) + 1;
+              slot
+            }
+            Some(s) => s
+          };
+          set::add(slots, slot);
+        }
+        @Reload(_, t) => {
+          if !set::contains(slotlive, t) {
+            set::remove(slots, self.slots[t]);
+          }
+        }
         _ => ()
       }
 
       /* If we found a pcopy, and we're not constrained, keep going */
       if pcopy.is_some() {
         let banned = map::HashMap();
-        let color = |t : Temp, r : Register, colors : ColorMap| {
-          let num = arch::reg_num(r);
-          colors.insert(t, num);
-        };
         let dest = match ins {
           @BinaryOp(op, dst, op1, op2) if op.constrained() => {
             match op {
               Div | Mod => {
                 match op1 {
-                  @Temp(t) => color(t, EAX, self.colors),
+                  @Temp(t) => { self.colors.insert(t, arch::reg_num(EAX)); }
                   _        => fail(fmt!("not tmp op1 %?", dst))
                 }
                 set::add(banned, arch::reg_num(EDX));
                 set::add(banned, arch::reg_num(EAX));
                 match dst {
                   @Temp(t) => {
-                    color(t, match op { Div => EAX, _ => EDX }, self.colors);
+                    let reg = match op { Div => EAX, _ => EDX };
+                    self.colors.insert(t, arch::reg_num(reg));
                     t
                   }
                   _ => fail(fmt!("not tmp dst %?", dst))
@@ -118,7 +141,7 @@ impl Allocator {
 
               Rsh | Lsh => {
                 match op2 {
-                  @Temp(t) => color(t, ECX, self.colors),
+                  @Temp(t) => { self.colors.insert(t, arch::reg_num(ECX)); }
                   _        => fail(~"shouldn't be constrained")
                 }
                 set::add(banned, arch::reg_num(ECX));
@@ -135,34 +158,40 @@ impl Allocator {
           _ => loop
         };
 
+        let process = |t : Temp, banned : map::Set<uint>, colors : ColorMap| {
+          let color = match colors.find(t) {
+            Some(c) => c,
+            None    => min_vacant(banned)
+          };
+          debug!("assigning %s %? %s", t.pp(), color, set::to_str(banned));
+          assert color <= arch::num_regs;
+          colors.insert(t, color);
+          set::add(banned, color);
+          if set::contains(tmplive, t) {
+            set::add(registers, color);
+          }
+        };
+
+        /* Next, we need to color all of the pcopy destinations, and the rest of
+           our own operands (that aren't precolored). After adding in our uses
+           (which have the specific interferences), we add in all pcopy
+           destinations (preventing them from being our precolored colors).
+           Finally we add the destination in whatever register is remaining */
+        debug!("processing used temporaries");
+        for ins.each_use |tmp| {
+          process(tmp, banned, self.colors);
+        }
+        debug!("processing previous pcopy");
         match pcopy {
           Some(@PCopy(ref copies, _)) => {
             for copies.each |&(dst, src)| {
               assert dst != src;
-              assert self.colors.contains_key(src);
-              let color = if self.colors.contains_key(dst) {
-                self.colors[dst]
-              } else if set::contains(banned, self.colors[src]) {
-                self.min_vacant(banned)
-              } else {
-                self.colors[src]
-              };
-              assert color <= arch::num_regs;
-              self.colors.insert(dst, color);
-              set::add(banned, color);
-              if set::contains(tmplive, dst) {
-                set::add(registers, color);
-              }
-            }
-            if !self.colors.contains_key(dest) {
-              self.colors.insert(dest, self.min_vacant(banned));
-            }
-            if set::contains(tmplive, dest) {
-              set::add(registers, self.colors[dest]);
+              process(dst, banned, self.colors);
             }
           }
           _ => unreachable()
         }
+        process(dest, registers, self.colors);
         pcopy = None;
       } else {
         /* normal coloration of each instruction */
@@ -175,32 +204,12 @@ impl Allocator {
         }
         for ins.each_def |tmp| {
           debug!("%? %?", registers.size(), tmplive.size());
-          let color = self.min_vacant(registers);
+          let color = min_vacant(registers);
           assert(color <= arch::num_regs);
           assert(self.colors.insert(tmp, color));
           if set::contains(tmplive, tmp) {
             set::add(registers, color);
           }
-        }
-        match ins {
-          @Spill(_, t) => {
-            let slot = match self.slots.find(t) {
-              None => {
-                let slot = self.min_vacant(slots);
-                self.slots.insert(t, slot);
-                self.max_slot = uint::max(slot, self.max_slot) + 1;
-                slot
-              }
-              Some(s) => s
-            };
-            set::add(slots, slot);
-          }
-          @Reload(_, t) => {
-            if !set::contains(slotlive, t) {
-              set::remove(slots, self.slots[t]);
-            }
-          }
-          _ => ()
         }
       }
       debug!("after %s %s", set::to_str(tmplive), set::to_str(registers));
@@ -210,14 +219,6 @@ impl Allocator {
     for set::each(idominated[n]) |id| {
       self.color(id, idominated, tmpdata, slotdata);
     }
-  }
-
-  fn min_vacant(colors : map::Set<uint>) -> uint {
-    let mut i = 1;
-    while set::contains(colors, i) {
-      i += 1;
-    }
-    return i;
   }
 
   fn remove_phis() {
@@ -299,7 +300,9 @@ impl Allocator {
       }
     }
 
-    info!("perm %? -> %? yielded %?", incoming, result, ins);
+    info!("perm %? -v", incoming);
+    info!("     %?", result);
+    info!("     %?", ins);
 
     for vec::each2(incoming, result) |&a, &b| {
       debug!("%? %? %?", a, b, regs[b]);
@@ -398,7 +401,7 @@ impl Allocator {
           /* d = s1 op d, can commute */
           _ if s2 == d && op.commutative() => push(@BinaryOp(op, d, s1, s2)),
           /* should be handled elsewhere */
-          _ if s2 == d => fail(~"shouldn't happen now"),
+          _ if s2 == d => fail(fmt!("shouldn't happen now %?", i)),
           /* catch-all last resort, generate a move */
           _ => {
             push(@Move(d, s1));
@@ -412,6 +415,7 @@ impl Allocator {
              args.map(|&arg| self.alloc_op(arg)))),
 
       @PCopy(ref copies, _) => {
+        debug!("%?", copies);
         let (dsts, srcs) = vec::unzip(vec::map(*copies, |&(d, s)|
           (self.colors[d], self.colors[s])
         ));
