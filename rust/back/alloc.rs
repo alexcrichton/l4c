@@ -73,8 +73,9 @@ impl Allocator {
     for self.f.cfg[n].eachi |i, &ins| {
       /* examine data for next instruction for last use information */
       debug!("%s", ins.pp());
-      debug!("%? %?", tmpdelta[i], slotdelta[i]);
-      debug!("%s %s", set::to_str(tmplive), set::to_str(slotlive));
+      debug!("deltas %? %?", tmpdelta[i], slotdelta[i]);
+      debug!("before %s %s %s", set::to_str(tmplive), set::to_str(registers),
+             set::to_str(slotlive));
       tmplive.apply(&tmpdelta[i]);
       slotlive.apply(&slotdelta[i]);
 
@@ -95,26 +96,23 @@ impl Allocator {
         let color = |t : Temp, r : Register, colors : ColorMap| {
           let num = arch::reg_num(r);
           colors.insert(t, num);
-          set::add(registers, num);
         };
-        match ins {
+        let dest = match ins {
           @BinaryOp(op, dst, op1, op2) if op.constrained() => {
             match op {
               Div | Mod => {
-                let dreg = match op { Div => EAX, _ => EDX };
-                set::add(registers, arch::reg_num(dreg));
                 match op1 {
                   @Temp(t) => color(t, EAX, self.colors),
-                  _        => ()
+                  _        => fail(fmt!("not tmp op1 %?", dst))
                 }
+                set::add(banned, arch::reg_num(EDX));
+                set::add(banned, arch::reg_num(EAX));
                 match dst {
-                  @Temp(t) => color(t, match op { Div => EAX, _ => EDX },
-                                    self.colors),
-                  _        => fail(fmt!("not tmp dst %?", dst))
-                }
-                match op {
-                  Div => { set::add(banned, arch::reg_num(EDX)); }
-                  _   => { set::add(banned, arch::reg_num(EAX)); }
+                  @Temp(t) => {
+                    color(t, match op { Div => EAX, _ => EDX }, self.colors);
+                    t
+                  }
+                  _ => fail(fmt!("not tmp dst %?", dst))
                 }
               }
 
@@ -123,13 +121,9 @@ impl Allocator {
                   @Temp(t) => color(t, ECX, self.colors),
                   _        => fail(~"shouldn't be constrained")
                 }
-                /* TODO: extract this logic to elsewhere */
+                set::add(banned, arch::reg_num(ECX));
                 match dst {
-                  @Temp(t) => {
-                    let color = self.min_vacant(registers);
-                    set::add(registers, color);
-                    self.colors.insert(t, color);
-                  }
+                  @Temp(t) => t,
                   _ => fail(fmt!("not tmp dst %?", dst))
                 }
               }
@@ -139,26 +133,33 @@ impl Allocator {
           }
           @Call(*) => fail(~"implement call constraints"),
           _ => loop
-        }
+        };
 
         match pcopy {
-          Some(@PCopy(ref copies)) => {
-            set::union(registers, banned);
+          Some(@PCopy(ref copies, _)) => {
             for copies.each |&(dst, src)| {
               assert dst != src;
               assert self.colors.contains_key(src);
-              if self.colors.contains_key(dst) { loop }
-              if set::contains(registers, self.colors[src]) {
-                let color = self.min_vacant(registers);
-                assert(color <= arch::num_regs);
-                set::add(registers, color);
-                self.colors.insert(dst, color);
+              let color = if self.colors.contains_key(dst) {
+                self.colors[dst]
+              } else if set::contains(banned, self.colors[src]) {
+                self.min_vacant(banned)
               } else {
-                set::add(registers, self.colors[src]);
-                self.colors.insert(dst, self.colors[src]);
+                self.colors[src]
+              };
+              assert color <= arch::num_regs;
+              self.colors.insert(dst, color);
+              set::add(banned, color);
+              if set::contains(tmplive, dst) {
+                set::add(registers, color);
               }
             }
-            set::difference(registers, banned);
+            if !self.colors.contains_key(dest) {
+              self.colors.insert(dest, self.min_vacant(banned));
+            }
+            if set::contains(tmplive, dest) {
+              set::add(registers, self.colors[dest]);
+            }
           }
           _ => unreachable()
         }
@@ -173,6 +174,7 @@ impl Allocator {
           }
         }
         for ins.each_def |tmp| {
+          debug!("%? %?", registers.size(), tmplive.size());
           let color = self.min_vacant(registers);
           assert(color <= arch::num_regs);
           assert(self.colors.insert(tmp, color));
@@ -201,7 +203,8 @@ impl Allocator {
           _ => ()
         }
       }
-      debug!("%s %s", set::to_str(tmplive), set::to_str(slotlive));
+      debug!("after %s %s", set::to_str(tmplive), set::to_str(registers));
+      assert(registers.size() == tmplive.size());
     }
 
     for set::each(idominated[n]) |id| {
@@ -408,7 +411,7 @@ impl Allocator {
         push(@Call(dst, self.alloc_op(fun),
              args.map(|&arg| self.alloc_op(arg)))),
 
-      @PCopy(ref copies) => {
+      @PCopy(ref copies, _) => {
         let (dsts, srcs) = vec::unzip(vec::map(*copies, |&(d, s)|
           (self.colors[d], self.colors[s])
         ));
