@@ -317,7 +317,7 @@ impl Allocator {
    * because x86 is so awesome.
    */
   fn remove_temps() {
-    for self.f.cfg.each_node |id, ins| {
+    for self.f.cfg.each_rev_postorder(self.f.root) |&id| {
       let ins = vec::build(|push| {
         if id == self.f.root {
           for self.colors.each |_, color| {
@@ -331,7 +331,7 @@ impl Allocator {
                          @Immediate(self.max_slot * 8 as i32, ir::Pointer),
                          @Register(ESP, ir::Pointer)));
         }
-        for ins.each |&ins| {
+        for self.f.cfg[id].each |&ins| {
           self.alloc_ins(ins, push);
         }
       });
