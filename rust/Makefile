@@ -3,6 +3,8 @@ SOURCES = $(shell find . -name '*.rs' -or -name '*.rc')
 
 all: l4c
 l4c: bin/l4c
+opt: l4c
+opt: RUSTC = rustc --opt-level=3
 
 bin/l4c: parse/parser $(SOURCES)
 	@mkdir -p bin
@@ -10,7 +12,7 @@ bin/l4c: parse/parser $(SOURCES)
 .PHONY: l4c
 
 clean: parseclean
-	rm -rf *.dSYM l4c l4c-test
+	rm -rf bin
 
 test:
 	$(RUSTC) --test l4c.rc -o bin/l4c-test
