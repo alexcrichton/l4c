@@ -136,7 +136,7 @@ impl Allocator {
         };
 
         match pcopy {
-          Some(@PCopy(ref copies, _)) => {
+          Some(@PCopy(ref copies)) => {
             for copies.each |&(dst, src)| {
               assert dst != src;
               assert self.colors.contains_key(src);
@@ -411,7 +411,7 @@ impl Allocator {
         push(@Call(dst, self.alloc_op(fun),
              args.map(|&arg| self.alloc_op(arg)))),
 
-      @PCopy(ref copies, _) => {
+      @PCopy(ref copies) => {
         let (dsts, srcs) = vec::unzip(vec::map(*copies, |&(d, s)|
           (self.colors[d], self.colors[s])
         ));

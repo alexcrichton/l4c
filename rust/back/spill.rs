@@ -409,14 +409,13 @@ impl Spiller {
           apply_delta(delta);
         }
 
-        @PCopy(ref copies, n) => {
-          limit(arch::num_regs - n,
-                |t| block.push(@Spill(t, self.congruence[t])));
+        @PCopy(ref copies) => {
+          limit(arch::num_regs, |t| block.push(@Spill(t, self.congruence[t])));
           let newcopies = do copies.filter |&(dst, src)| {
             assert(dst == src);
             set::contains(regs, src)
           };
-          block.push(@PCopy(newcopies, n));
+          block.push(@PCopy(newcopies));
           apply_delta(delta);
         }
 
