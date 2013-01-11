@@ -52,6 +52,7 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
              after the div instruction, then we have to use a copy of it because
              the operand's register will be clobbered */
           Div | Mod => {
+            new.push(pcopy(live_in));
             let o1 = match o1 {
               @Temp(t) if set::contains(live_out, t) => {
                 let dst = @Temp(tmpclone(t));
