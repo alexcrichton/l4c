@@ -538,9 +538,10 @@ impl Spiller {
       set::add(visited, n);     /* don't loop back to the start */
       set::add(visited, end);   /* don't go outside the loop */
       let free = arch::num_regs - self.max_pressure(body, visited);
-      debug!("live through loop: %s", set::to_str(live_through));
+      debug!("live through loop: %s %?", set::to_str(live_through), free);
       if free > 0 {
         let sorted = sort(live_through, self.next_use[n]);
+        debug!("%?", sorted);
         for sorted.view(0, uint::min(free, sorted.len())).each |&tmp| {
           set::add(cand, tmp);
         }
@@ -592,13 +593,19 @@ impl Spiller {
     let mut append = ~[];
     let pred_regs_exit = self.regs_end[pred];
     let pred_spill_exit = self.spill_exit[pred];
-    /*for set::each(pred_regs_exit) |tmp| {*/
-    /*  let mine = self.my_name(tmp, pred, succ);*/
-    /*  if !pred_spill_exit.contains_key(tmp) &&*/
-    /*     !succ_regs.contains_key(mine) {*/
-    /*    append.push(@Spill(tmp, self.congruence[tmp]));*/
-    /*  }*/
-    /*}*/
+
+    /* All registers they had which we don't have which we may eventually use
+       need to be spilled */
+    for set::each(pred_regs_exit) |tmp| {
+      let mine = self.my_name(tmp, pred, succ);
+      if !pred_spill_exit.contains_key(tmp) &&
+         !succ_regs.contains_key(mine) &&
+         self.next_use[succ].contains_key(mine) {
+        append.push(@Spill(tmp, self.congruence[tmp]));
+      }
+    }
+
+    /* Each register we want spilled that they haven't spilled needs a spill */
     for set::each(succ_spill) |tmp| {
       let theirs = self.their_name(tmp, pred, succ);
       if !pred_spill_exit.contains_key(theirs) &&
@@ -607,6 +614,7 @@ impl Spiller {
       }
     }
 
+    /* Each register we have which they don't have needs a reload */
     for set::each(succ_regs) |tmp| {
       let theirs = self.their_name(tmp, pred, succ);
       if !pred_regs_exit.contains_key(theirs) {
