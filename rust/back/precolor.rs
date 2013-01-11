@@ -25,12 +25,12 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
   for live_in.each |k, v| { live_out.insert(k, v); }
 
   /* SSA will deal with these renamings later? */
-  fn pcopy(live : liveness::LiveIn) -> @Instruction {
+  fn pcopy(live : liveness::LiveIn, n : uint) -> @Instruction {
     let mut list = ~[];
     for set::each(live) |tmp| {
       list.push((tmp, tmp));
     }
-    @PCopy(list)
+    @PCopy(list, n)
   }
 
   for vec::each2(*ins, *delta) |&ins, delta| {
@@ -43,7 +43,7 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
              argument is an immediate */
           Lsh | Rsh => {
             if !o2.imm() {
-              new.push(pcopy(live_in));
+              new.push(pcopy(live_in, 0));
             }
             new.push(ins);
           }
@@ -52,7 +52,7 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
              after the div instruction, then we have to use a copy of it because
              the operand's register will be clobbered */
           Div | Mod => {
-            new.push(pcopy(live_in));
+            new.push(pcopy(live_in, 1));
             let o1 = match o1 {
               @Temp(t) if set::contains(live_out, t) => {
                 let dst = @Temp(tmpclone(t));
@@ -82,7 +82,7 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
          registers and we will have to put our first few arguments in very
          specific registers */
       @Call(dst, fun, ref args) => {
-        new.push(pcopy(live_in)); /* break liveness of all variables */
+        new.push(pcopy(live_in, 0)); /* break liveness of all variables */
 
         let args = do args.mapi |i, &arg| {
           /* the first few arguments in registers need to be copied because all
