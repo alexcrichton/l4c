@@ -119,37 +119,37 @@ impl Allocator {
       /* If we found a pcopy, and we're not constrained, keep going */
       if pcopy.is_some() {
         let banned = map::HashMap();
+        let precolor = |o : @Operand, r : Register, colors : ColorMap| {
+          match o {
+            @Temp(t) => { assert colors.insert(t, arch::reg_num(r)); }
+            _        => fail(fmt!("not a tmp %?", o))
+          }
+        };
         match ins {
           @BinaryOp(op, dst, op1, op2) if op.constrained() => {
             match op {
               Div | Mod => {
-                match op1 {
-                  @Temp(t) => { self.colors.insert(t, arch::reg_num(EAX)); }
-                  _        => fail(fmt!("not tmp op1 %?", dst))
-                }
+                precolor(op1, EAX, self.colors);
+                precolor(dst, match op { Div => EAX, _ => EDX }, self.colors);
                 set::add(banned, arch::reg_num(EDX));
                 set::add(banned, arch::reg_num(EAX));
-                match dst {
-                  @Temp(t) => {
-                    let reg = match op { Div => EAX, _ => EDX };
-                    self.colors.insert(t, arch::reg_num(reg));
-                  }
-                  _ => fail(fmt!("not tmp dst %?", dst))
-                }
               }
-
               Rsh | Lsh => {
-                match op2 {
-                  @Temp(t) => { self.colors.insert(t, arch::reg_num(ECX)); }
-                  _        => fail(~"shouldn't be constrained")
-                }
+                precolor(op2, ECX, self.colors);
                 set::add(banned, arch::reg_num(ECX));
               }
-
               _ => fail(fmt!("implement %?", op))
             }
           }
-          @Call(*) => fail(~"implement call constraints"),
+          @Call(dst, _, ref args) => {
+            self.colors.insert(dst, arch::reg_num(EAX));
+            for args.eachi |i, &arg| {
+              precolor(arg, arch::arg_reg(i), self.colors);
+            }
+            for arch::each_caller |r| {
+              set::add(banned, arch::reg_num(r));
+            }
+          }
           _ => loop
         };
 

@@ -98,16 +98,18 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
          registers and we will have to put our first few arguments in very
          specific registers */
       @Call(dst, fun, ref args) => {
-        let args = do args.mapi |i, &arg| {
+        let mut i = 0;
+        let args = do args.filter_map |&arg| {
+          i += 1;
           /* the first few arguments in registers need to be copied because all
              argument registers are caller-saved registers */
-          if i < arch::arg_regs {
-            constrain_clobber!(arg)
+          if i - 1 < arch::arg_regs {
+            Some(constrain_clobber!(arg))
           } else {
             /* TODO: remove arg from live_in if it's not in live_out? In theory
                      it shouldn't be part of the pcopy generated... */
             new.push(@Store(@Stack((i - arch::arg_regs) * arch::ptrsize), arg));
-            arg
+            None
           }
         };
 

@@ -6,7 +6,7 @@ pub const arg_regs : uint = 6;
 pub const ptrsize : uint = 8;
 pub const intsize : uint = 4;
 pub const ret_reg : Register = EAX;
-pub const num_regs : uint = 13;
+pub const num_regs : uint = 15;
 
 pub fn arg_reg(i : uint) -> Register {
   match i {
@@ -28,13 +28,15 @@ pub fn reg_num(r : Register) -> uint {
     EDX  => 4,
     ESI  => 5,
     EDI  => 6,
-    EAX  => 7,
-    EBX  => 8,
-    R12D => 9,
-    R13D => 10,
-    R14D => 11,
-    R15D => 12,
-    EBP  => 13,
+    R10D => 7,
+    R11D => 8,
+    EAX  => 9,
+    EBX  => 10,
+    R12D => 11,
+    R13D => 12,
+    R14D => 13,
+    R15D => 14,
+    EBP  => 15,
     _    => fail(fmt!("no num assigned %?", r))
   }
 }
@@ -47,15 +49,21 @@ pub fn num_reg(i : uint) -> Register {
      4 => EDX,
      5 => ESI,
      6 => EDI,
-     7 => EAX,
-     8 => EBX,
-     9 => R12D,
-    10 => R13D,
-    11 => R14D,
-    12 => R15D,
-    13 => EBP,
+     7 => R10D,
+     8 => R11D,
+     9 => EAX,
+    10 => EBX,
+    11 => R12D,
+    12 => R13D,
+    13 => R14D,
+    14 => R15D,
+    15 => EBP,
     _ => fail(fmt!("%u is not a register", i))
   }
+}
+
+pub fn each_caller(f : &fn(Register) -> bool) {
+  f(EAX); f(ECX); f(EDX); f(ESI); f(EDI); f(R8D); f(R9D); f(R10D); f(R11D);
 }
 
 pub fn callee_reg(r : Register) -> bool {
