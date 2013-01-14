@@ -179,7 +179,7 @@ impl Allocator {
         for ins.each_use |tmp| {
           if !set::contains(tmplive, tmp) {
             debug!("removing %?", tmp);
-            assert set::remove(banned, self.colors[tmp]);
+            set::remove(banned, self.colors[tmp]);
           }
         }
         debug!("processing previous pcopy");
@@ -222,7 +222,7 @@ impl Allocator {
           debug!("found use %?", tmp);
           if !set::contains(tmplive, tmp) {
             debug!("removing %? %?", tmp, self.colors[tmp]);
-            assert set::remove(registers, self.colors[tmp]);
+            set::remove(registers, self.colors[tmp]);
           }
         }
         for ins.each_def |tmp| {
