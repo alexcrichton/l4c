@@ -24,6 +24,7 @@ fn translate(f : &ir::Function) -> assem::Function {
   let cfg = f.cfg.map(
     |id, stms|
       @vec::build(|push| {
+        debug!("block %?", id);
         if id == f.root {
           cg.load_args(*f.args, |ins| arch::constrain(ins, push, &cg));
         }
@@ -51,7 +52,7 @@ impl CodeGenerator {
     for args.eachi |i, &tmp| {
       let tmp = self.tmp(tmp);
       if i < arch::arg_regs {
-        let reg = @assem::Register(arch::arg_reg(i), self.f.types[tmp]);
+        let reg = @assem::Register(arch::arg_reg(i), self.sizes[tmp]);
         push(@assem::Move(@assem::Temp(tmp), reg));
       } else {
         let loc = @assem::StackArg(i - arch::arg_regs);
