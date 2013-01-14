@@ -12,6 +12,7 @@ struct Allocator {
   colors : ColorMap,
   slots : map::HashMap<Tag, uint>,
   mut max_slot : uint,
+  mut max_call_stack : uint,
   callee_saved : dvec::DVec<uint>,
 }
 
@@ -21,6 +22,7 @@ pub fn color(p : &Program) {
                        slots: map::HashMap(),
                        f: f,
                        max_slot: 0,
+                       max_call_stack: 0,
                        callee_saved: dvec::DVec() };
 
     /* Color the graph completely */
@@ -112,6 +114,9 @@ impl Allocator {
           if !set::contains(slotlive, t) {
             set::remove(slots, self.slots[t]);
           }
+        }
+        @Store(@Stack(pos), _) => {
+          self.max_call_stack = uint::max(pos, self.max_call_stack);
         }
         _ => ()
       }
@@ -353,7 +358,7 @@ impl Allocator {
             }
           }
           push(@BinaryOp(Sub, @Register(ESP, ir::Pointer),
-                         @Immediate(self.max_slot * 8 as i32, ir::Pointer),
+                         @Immediate(self.stack_size(), ir::Pointer),
                          @Register(ESP, ir::Pointer)));
         }
         for self.f.cfg[id].each |&ins| {
@@ -368,13 +373,11 @@ impl Allocator {
     match i {
       @Spill(tmp, tag) => {
         let reg = @Register(arch::num_reg(self.colors[tmp]), self.f.sizes[tmp]);
-        let slot = @Stack(self.slots[tag] * arch::ptrsize);
-        push(@Store(slot, reg));
+        push(@Store(self.stack_pos(tag), reg));
       }
       @Reload(dst, tag) => {
         let reg = @Register(arch::num_reg(self.colors[dst]), self.f.sizes[dst]);
-        let slot = @Stack(self.slots[tag] * arch::ptrsize);
-        push(@Load(reg, slot));
+        push(@Load(reg, self.stack_pos(tag)));
       }
       @Load(dst, @MOp(addr)) =>
         push(@Load(self.alloc_op(dst), @MOp(self.alloc_op(addr)))),
@@ -392,7 +395,7 @@ impl Allocator {
 
       @Return => {
         push(@BinaryOp(Add, @Register(ESP, ir::Pointer),
-                       @Immediate(self.max_slot * 8 as i32, ir::Pointer),
+                       @Immediate(self.stack_size(), ir::Pointer),
                        @Register(ESP, ir::Pointer)));
         for self.callee_saved.rev_each |&color| {
           push(@Raw(fmt!("pop %s", arch::num_reg(color).size(ir::Pointer))));
@@ -446,6 +449,16 @@ impl Allocator {
         }
       }
     }
+  }
+
+  fn stack_pos(tag : Tag) -> @Address {
+    @Stack(self.slots[tag] * arch::ptrsize + self.max_call_stack)
+  }
+
+  fn stack_size() -> i32 {
+    let slots = self.max_slot * 8;
+    let calls = self.max_call_stack;
+    arch::align_stack(slots + calls) as i32
   }
 
   fn alloc_op(o : @Operand) -> @Operand {

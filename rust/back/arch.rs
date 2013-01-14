@@ -66,6 +66,10 @@ pub fn each_caller(f : &fn(Register) -> bool) {
   f(EAX); f(ECX); f(EDX); f(ESI); f(EDI); f(R8D); f(R9D); f(R10D); f(R11D);
 }
 
+pub fn align_stack(size : uint) -> uint {
+  ((size - 8) / 16) * 16 + 24
+}
+
 pub fn callee_reg(r : Register) -> bool {
   match r { EBX | R12D | R13D | R14D | R15D | EBP => true, _ => false }
 }
