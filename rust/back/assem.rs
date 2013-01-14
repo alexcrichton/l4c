@@ -212,8 +212,11 @@ impl Instruction : PrettyPrint {
         fmt!("cmp %s, %s // %s", o2.pp(), o1.pp(), c.suffix()),
       Load(dst, addr) =>
         fmt!("mov %s, %s", addr.pp(), dst.pp()),
-      Store(addr, src) =>
-        fmt!("mov %s, %s", src.pp(), addr.pp()),
+      Store(addr, src) => match src {
+        @Immediate(_, ir::Pointer) => fmt!("movq %s, %s", src.pp(), addr.pp()),
+        @Immediate(_, ir::Int)     => fmt!("movl %s, %s", src.pp(), addr.pp()),
+        _                          => fmt!("mov %s, %s", src.pp(), addr.pp()),
+      },
       Move(o1, o2) =>
         if o1.size() != o2.size() && !o2.imm() {
           ~"movslq " + o2.pp() + ~", " + o1.pp()
