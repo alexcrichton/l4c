@@ -247,8 +247,7 @@ impl Allocator {
         /* there are no critical edges in the graph, so we can just append */
         let ins = self.resolve_perm(phi_vars, perm);
         if ins.len() == 0 { loop }
-        let prev = cfg[pred];
-        cfg.update_node(pred, @(prev + ins));
+        cfg.update_node(pred, @(cfg[pred] + ins));
       }
     }
   }
@@ -363,13 +362,13 @@ impl Allocator {
       @Store(@MOp(addr), src) =>
         push(@Store(@MOp(self.alloc_op(addr)), self.alloc_op(src))),
       @Store(addr, src) => push(@Store(addr, self.alloc_op(src))),
-      @Raw(*) | @Phi(*) => push(i),
+      @Raw(*) => push(i),
       @Condition(c, o1, o2) =>
         push(@Condition(c, self.alloc_op(o1), self.alloc_op(o2))),
       @Die(c, o1, o2) =>
         push(@Die(c, self.alloc_op(o1), self.alloc_op(o2))),
       @Move(o1, o2) => push(@Move(self.alloc_op(o1), self.alloc_op(o2))),
-      @Use(_) => (),
+      @Use(_) | @Phi(*) => (),
 
       @Return => {
         push(@BinaryOp(Add, @Register(ESP, ir::Pointer),
@@ -417,7 +416,7 @@ impl Allocator {
         push(@Call(dst, self.alloc_op(fun),
              args.map(|&arg| self.alloc_op(arg)))),
 
-      @PCopy(ref copies, _) => {
+      @PCopy(ref copies) => {
         debug!("%?", copies);
         let (dsts, srcs) = vec::unzip(vec::map(*copies, |&(d, s)|
           (self.colors[d], self.colors[s])

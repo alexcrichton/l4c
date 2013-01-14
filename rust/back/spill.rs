@@ -409,14 +409,12 @@ impl Spiller {
           apply_delta(delta);
         }
 
-        @PCopy(ref copies, n) => {
-          limit(arch::num_regs - n,
-                |t| block.push(@Spill(t, self.congruence[t])));
+        @PCopy(ref copies) => {
           let newcopies = do copies.filter |&(dst, src)| {
             assert(dst == src);
             set::contains(regs, src)
           };
-          block.push(@PCopy(newcopies, n));
+          block.push(@PCopy(newcopies));
           apply_delta(delta);
         }
 
@@ -445,7 +443,7 @@ impl Spiller {
           let mut defs = 0;
           for ins.each_def |_| { defs += 1; }
           debug!("making room for results");
-          limit(arch::num_regs - defs - extra,
+          limit(arch::num_regs - defs,
                 |t| block.push(@Spill(t, self.congruence[t])));
 
           /* Add all defined temps to the set of those in regs */

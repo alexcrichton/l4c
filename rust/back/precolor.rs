@@ -26,12 +26,12 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
   for live_in.each |k, v| { live_out.insert(k, v); }
 
   /* SSA will deal with these renamings later? */
-  fn pcopy(live : liveness::LiveIn, n : uint) -> @Instruction {
+  fn pcopy(live : liveness::LiveIn) -> @Instruction {
     let mut list = ~[];
     for set::each(live) |tmp| {
       list.push((tmp, tmp));
     }
-    @PCopy(list, n)
+    @PCopy(list)
   }
 
   /* If a constrained use is also always clobbered as a result of an
@@ -64,7 +64,7 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
              argument is an immediate */
           Lsh | Rsh => {
             if !o2.imm() {
-              new.push(pcopy(live_in, 0));
+              new.push(pcopy(live_in));
             }
             new.push(ins);
             match o2 {
@@ -76,7 +76,7 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
           /* div/mod both use and define edx/eax */
           Div | Mod => {
             let o1 = constrain_clobber!(o1);
-            new.push(pcopy(live_in, 1));
+            new.push(pcopy(live_in));
             new.push(@BinaryOp(op, dest, o1, o2));
           }
 
@@ -98,7 +98,7 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
          registers and we will have to put our first few arguments in very
          specific registers */
       @Call(dst, fun, ref args) => {
-        new.push(pcopy(live_in, 0)); /* break liveness of all variables */
+        new.push(pcopy(live_in)); /* break liveness of all variables */
 
         let args = do args.mapi |i, &arg| {
           /* the first few arguments in registers need to be copied because all
