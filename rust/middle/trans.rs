@@ -32,6 +32,7 @@ pub fn translate(p : &ast::Program, safe : bool) -> ir::Program {
                       structs: map::HashMap(),
                       temps:   temp::new(),
                       safe:    safe };
+  debug!("translating");
   t.translate(p)
 }
 
@@ -69,6 +70,7 @@ impl Translator {
         None
       }
       @ast::Function(_, id, ref args, body) => {
+        debug!("translating %s", id.val);
         let fun = ir::Function(copy id.val);
         self.trans_fun(id, args, body, &fun);
         Some(fun)

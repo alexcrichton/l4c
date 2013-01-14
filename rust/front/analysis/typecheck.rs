@@ -17,6 +17,7 @@ pub fn check(a : &Program) {
                         vars: map::HashMap(),
                         loops: 0,
                         ret: @Nullp};
+  debug!("typechecking");
   tc.check(a);
   tc.err.check();
 }

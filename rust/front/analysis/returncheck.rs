@@ -6,6 +6,7 @@ struct ReturnChecker {
 
 pub fn check(a : &Program) {
   let rc = ReturnChecker{ err: error::new() };
+  debug!("returnchecking");
   rc.check(a);
   rc.err.check();
 }

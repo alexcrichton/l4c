@@ -6,6 +6,7 @@ struct MainChecker {
 
 pub fn check(a : &Program) {
   let mc = MainChecker{ err: error::new() };
+  debug!("mainchecking");
   mc.check(a);
   mc.err.check();
 }

@@ -8,6 +8,7 @@ struct Initchecker {
 
 pub fn check(a : &Program) {
   let ic = Initchecker{ err: error::new(), step: @Nop };
+  debug!("initchecking");
   ic.check(a);
   ic.err.check();
 }
