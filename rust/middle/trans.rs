@@ -336,12 +336,12 @@ impl AstTranslator {
         let elsize = self.constp(self.typ_size(t.get()) as i32);
         let offset = @ir::BinaryOp(ir::Mul, idx, elsize);
         let address = @ir::BinaryOp(ir::Add, base, offset);
+        self.check_null(base);
+        self.check_bounds(base, idx);
         if addr {
           return address;
         }
         let dest = self.tmp(self.typ(t.get()));
-        self.check_null(base);
-        self.check_bounds(base, idx);
         self.stms.push(@ir::Load(dest, address));
         @ir::Temp(dest)
       }
@@ -350,22 +350,22 @@ impl AstTranslator {
         let base = self.exp(e, true);
         let (typ, size) = self.t.structs.get(s.get()).first().get(id);
         let address = @ir::BinaryOp(ir::Add, base, self.constp(size as i32));
+        self.check_null(address);
         if addr {
           return address;
         }
         let dest = self.tmp(typ);
-        self.check_null(address);
         self.stms.push(@ir::Load(dest, address));
         @ir::Temp(dest)
       }
 
       @ast::Deref(e, ref t) => {
         let address = self.exp(e, false);
+        self.check_null(address);
         if addr {
           return address;
         }
         let dest = self.tmp(self.typ(t.get()));
-        self.check_null(address);
         self.stms.push(@ir::Load(dest, address));
         @ir::Temp(dest)
       }
