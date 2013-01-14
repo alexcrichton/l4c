@@ -119,7 +119,7 @@ impl Allocator {
       /* If we found a pcopy, and we're not constrained, keep going */
       if pcopy.is_some() {
         let banned = map::HashMap();
-        let dest = match ins {
+        match ins {
           @BinaryOp(op, dst, op1, op2) if op.constrained() => {
             match op {
               Div | Mod => {
@@ -133,7 +133,6 @@ impl Allocator {
                   @Temp(t) => {
                     let reg = match op { Div => EAX, _ => EDX };
                     self.colors.insert(t, arch::reg_num(reg));
-                    t
                   }
                   _ => fail(fmt!("not tmp dst %?", dst))
                 }
@@ -145,10 +144,6 @@ impl Allocator {
                   _        => fail(~"shouldn't be constrained")
                 }
                 set::add(banned, arch::reg_num(ECX));
-                match dst {
-                  @Temp(t) => t,
-                  _ => fail(fmt!("not tmp dst %?", dst))
-                }
               }
 
               _ => fail(fmt!("implement %?", op))
@@ -158,42 +153,67 @@ impl Allocator {
           _ => loop
         };
 
-        let process = |t : Temp, banned : map::Set<uint>, colors : ColorMap| {
-          let color = match colors.find(t) {
-            Some(c) => c,
-            None    => min_vacant(banned)
-          };
-          debug!("assigning %s %? %s", t.pp(), color, set::to_str(banned));
-          assert color <= arch::num_regs;
-          colors.insert(t, color);
-          set::add(banned, color);
-          if set::contains(tmplive, t) {
-            set::add(registers, color);
+        let process = |t : Temp, regs : map::Set<uint>, colors : ColorMap| {
+          match colors.find(t) {
+            Some(c) => { assert set::contains(regs, c); }
+            None => {
+              let color = min_vacant(regs);
+              debug!("assigning %s %? %s", t.pp(), color, set::to_str(regs));
+              assert color <= arch::num_regs;
+              assert colors.insert(t, color);
+              assert set::add(regs, color);
+            }
           }
         };
 
-        /* Next, we need to color all of the pcopy destinations, and the rest of
-           our own operands (that aren't precolored). After adding in our uses
-           (which have the specific interferences), we add in all pcopy
-           destinations (preventing them from being our precolored colors).
-           Finally we add the destination in whatever register is remaining */
-        debug!("processing used temporaries");
+        /* TODO: cleanup? */
+        debug!("coloring uses");
         for ins.each_use |tmp| {
           process(tmp, banned, self.colors);
         }
+        debug!("processing live-out temporaries");
+        for set::each(tmplive) |tmp| {
+          process(tmp, banned, self.colors);
+        }
+        debug!("pruning dead uses");
+        for ins.each_use |tmp| {
+          if !set::contains(tmplive, tmp) {
+            debug!("removing %?", tmp);
+            assert set::remove(banned, self.colors[tmp]);
+          }
+        }
         debug!("processing previous pcopy");
         match pcopy {
-          Some(@PCopy(ref copies, _)) => {
+          Some(@PCopy(ref copies)) => {
+            let regstmp = map::HashMap();
             for copies.each |&(dst, src)| {
               assert dst != src;
-              process(dst, banned, self.colors);
+              match self.colors.find(dst) {
+                Some(c) => { set::add(regstmp, c); }
+                None    => ()
+              }
+            }
+            for copies.each |&(dst, _)| {
+              process(dst, regstmp, self.colors);
             }
           }
           _ => unreachable()
         }
-        process(dest, registers, self.colors);
-        if !set::contains(tmplive, dest) {
-          set::remove(registers, self.colors[dest]);
+        debug!("adding in all live-out temps");
+        for set::each(tmplive) |tmp| {
+          match self.colors.find(tmp) {
+            Some(c) => { assert set::add(registers, c); }
+            None => ()
+          }
+        }
+        debug!("processing defs");
+        for ins.each_def |tmp| {
+          if !self.colors.contains_key(tmp) {
+            process(tmp, registers, self.colors);
+            if !set::contains(tmplive, tmp) {
+              assert set::remove(registers, self.colors[tmp]);
+            }
+          }
         }
         pcopy = None;
       } else {
@@ -201,17 +221,17 @@ impl Allocator {
         for ins.each_use |tmp| {
           debug!("found use %?", tmp);
           if !set::contains(tmplive, tmp) {
-            debug!("removing %?", tmp);
-            set::remove(registers, self.colors[tmp]);
+            debug!("removing %? %?", tmp, self.colors[tmp]);
+            assert set::remove(registers, self.colors[tmp]);
           }
         }
         for ins.each_def |tmp| {
           debug!("%? %?", registers.size(), tmplive.size());
           let color = min_vacant(registers);
-          assert(color <= arch::num_regs);
-          assert(self.colors.insert(tmp, color));
+          assert color <= arch::num_regs;
+          assert self.colors.insert(tmp, color);
           if set::contains(tmplive, tmp) {
-            set::add(registers, color);
+            assert set::add(registers, color);
           }
         }
       }
