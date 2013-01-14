@@ -92,6 +92,22 @@ pub fn constrain(ins : @Instruction,
         _ => push(ins)
       }
     }
+
+    /* When invoking functions, all argument registers must be actual registers,
+       not immediates */
+    @Call(dst, fun, ref args) => {
+      let args = args.mapi(|i, &arg| {
+        match arg {
+          @Immediate(_, size) if i < arch::arg_regs => {
+            let tmp = cg.tmpnew(size);
+            push(@Move(tmp, arg));
+            tmp
+          }
+          _ => arg
+        }
+      });
+      push(@Call(dst, fun, args));
+    }
     _ => push(ins)
   }
 }
