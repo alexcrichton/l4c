@@ -4,12 +4,13 @@ use std::json::*;
 struct Parser {
   priv mut file :  @~str,
   syms : symbol::Symtab,
+  main : ~str
 }
 
-pub fn from_str(s : ~str) -> ast::Program {
-  let parser = Parser{syms: symbol::Symtab(), file: @~"" };
+pub fn from_str(s : ~str, main : ~str) -> ast::Program {
+  let parser = Parser{syms: symbol::Symtab(), file: @~"", main: main };
   match json::from_str(s) {
-    result::Ok(j) => parser.parse(j),
+    result::Ok(j)  => parser.parse(j),
     result::Err(e) => fail(fmt!("JSON parse error: %?", e.msg))
   }
 }
@@ -78,12 +79,16 @@ impl Parser {
                                    self.to_id(fields.get_ref(&~"name")),
                                    self.to_pairs(fields.get_ref(&~"args")),
                                    self.to_stm(fields.get_ref(&~"body"))),
-      ~"intdecl" => @ast::FunIDecl(self.to_typ(fields.get_ref(&~"ret")),
-                                   self.to_id(fields.get_ref(&~"name")),
-                                   self.to_pairs(fields.get_ref(&~"args"))),
-      ~"extdecl" => @ast::FunEDecl(self.to_typ(fields.get_ref(&~"ret")),
-                                   self.to_id(fields.get_ref(&~"name")),
-                                   self.to_pairs(fields.get_ref(&~"args"))),
+      ~"intdecl" | ~"extdecl" => {
+        let ret = self.to_typ(fields.get_ref(&~"ret"));
+        let name = self.to_id(fields.get_ref(&~"name"));
+        let args = self.to_pairs(fields.get_ref(&~"args"));
+        if self.main == *self.file {
+          @ast::FunIDecl(ret, name, args)
+        } else {
+          @ast::FunEDecl(ret, name, args)
+        }
+      }
       ~"struct"  => @ast::StructDef(self.to_id(fields.get_ref(&~"val")),
                                     self.to_pairs(fields.get_ref(&~"fields"))),
       ~"strdecl" => @ast::StructDecl(self.to_id(fields.get_ref(&~"val"))),

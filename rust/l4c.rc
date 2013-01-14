@@ -104,7 +104,7 @@ fn main() {
   }
   let out = get_json(matches);
 
-  let ast = parse::from_str(out).elaborate();
+  let ast = parse::from_str(out, matches.free[0]).elaborate();
   if opt_present(matches, "dump-ast") {
     io::println(ast.pp());
   }
