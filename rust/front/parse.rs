@@ -17,18 +17,19 @@ pub fn from_str(s : ~str) -> ast::Program {
 impl Parser {
   fn parse(j : Json) -> ast::Program {
     match j {
-      Object(ref data) => {
-        let decls = vec::build(|push|
-          for data.each |k, v| {
-            self.file = @(copy *k);
-            match *v {
-              List(ref data) => {
-                for data.each |j| { push(self.to_gdecl(j)); }
+      List(ref data) => {
+        let mut decls = ~[];
+        for data.each |&j| {
+          match j {
+            List([String(copy s), List(ref data)]) => {
+              self.file = @s;
+              for data.each |j| {
+                decls.push(self.to_gdecl(j));
               }
-              _ => fail(~"expected list")
             }
+            _ => fail(~"malformed json")
           }
-        );
+        }
         return ast::new(decls);
       }
       _ => fail(~"expected object")

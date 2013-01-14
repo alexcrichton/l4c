@@ -96,7 +96,7 @@ fn main() {
     optflag("j"), optflag("json"),
   ];
   let matches = &match getopts(vec::tail(os::args()), flags) {
-    result::Ok(m) => m,
+    result::Ok(m)  => m,
     result::Err(e) => fail(fail_str(e))
   };
   if matches.free.len() == 0 {

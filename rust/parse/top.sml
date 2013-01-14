@@ -15,15 +15,16 @@ struct
 
   fun pp_json [] = ()
     | pp_json [a] =
-         (print ("\"" ^ a ^ "\":");
-          Ast.Print.pp_program (Parse.parse a))
+         (print ("[\"" ^ a ^ "\",");
+          Ast.Print.pp_program (Parse.parse a);
+          print "]")
     | pp_json (a :: b :: L) =
         (pp_json [a]; print ","; pp_json (b ::L))
 
   fun main (name, args) = (
-    print "{";
+    print "[";
     pp_json args;
-    print "}";
+    print "]";
     OS.Process.success)
 
 end
