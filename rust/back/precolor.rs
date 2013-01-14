@@ -20,7 +20,6 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
                    tmpclone : &fn(Temp) -> Temp,
                    ins : @~[@Instruction]) -> ~[@Instruction] {
   let mut new = ~[];
-  let mut synthetic = ~[];
   let live_in = live;
   let live_out = map::HashMap();
   for live_in.each |k, v| { live_out.insert(k, v); }
@@ -42,11 +41,8 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
     ($op:expr) => (
       match $op {
         @Temp(t) if set::contains(live_out, t) => {
-          let dup = tmpclone(t);
-          let dst = @Temp(dup);
+          let dst = @Temp(tmpclone(t));
           new.push(@Move(dst, $op));
-          assert set::add(live_in, dup);
-          synthetic.push(dup);
           dst
         }
         _ => $op
@@ -67,6 +63,8 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
               new.push(pcopy(live_in));
             }
             new.push(ins);
+            /* o2 is forced to be in %ecx, so we wouldn't want the destination
+               to be assumed it can be in %ecx if o2 dies here */
             match o2 {
               @Temp(t) => new.push(@Use(t)),
               _ => ()
@@ -75,8 +73,8 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
 
           /* div/mod both use and define edx/eax */
           Div | Mod => {
-            let o1 = constrain_clobber!(o1);
             new.push(pcopy(live_in));
+            let o1 = constrain_clobber!(o1);
             new.push(@BinaryOp(op, dest, o1, o2));
           }
 
@@ -126,10 +124,6 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
     }
 
     live_in.apply(delta);
-    for synthetic.each |&tmp| {
-      set::remove(live_in, tmp);
-    }
-    synthetic.truncate(0);
   }
   return new;
 }
