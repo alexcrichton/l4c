@@ -240,7 +240,15 @@ impl Typechecker {
           }
         }
       }
-      None => for args.each |&(_, typ)| { self.tc_small(typ); }
+      None => {
+        let names = map::HashMap();
+        for args.each |&(name, typ)| {
+          if !set::add(names, name) {
+            self.err.add(fmt!("Duplicate argument: %s", name.val));
+          }
+          self.tc_small(typ);
+        }
+      }
     }
 
     if prev == self.err.size() {
