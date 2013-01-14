@@ -65,6 +65,10 @@ impl Translator {
         self.structs.insert(id, (table, size));
         None
       }
+      @ast::FunIDecl(_, id, _) => {
+        self.funs.insert(id, @ir::LabelExp(label::Internal(copy id.val)));
+        None
+      }
       @ast::FunEDecl(_, id, _) => {
         self.funs.insert(id, @ir::LabelExp(label::External(copy id.val)));
         None
