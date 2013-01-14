@@ -357,9 +357,11 @@ impl Allocator {
               push(@Raw(fmt!("push %s", reg.size(ir::Pointer))));
             }
           }
-          push(@BinaryOp(Sub, @Register(ESP, ir::Pointer),
-                         @Immediate(self.stack_size(), ir::Pointer),
-                         @Register(ESP, ir::Pointer)));
+          if self.stack_size() != 0 {
+            push(@BinaryOp(Sub, @Register(ESP, ir::Pointer),
+                           @Immediate(self.stack_size(), ir::Pointer),
+                           @Register(ESP, ir::Pointer)));
+          }
         }
         for self.f.cfg[id].each |&ins| {
           self.alloc_ins(ins, push);
@@ -394,9 +396,11 @@ impl Allocator {
       @Use(_) | @Phi(*) => (),
 
       @Return => {
-        push(@BinaryOp(Add, @Register(ESP, ir::Pointer),
-                       @Immediate(self.stack_size(), ir::Pointer),
-                       @Register(ESP, ir::Pointer)));
+        if self.stack_size() != 0 {
+          push(@BinaryOp(Add, @Register(ESP, ir::Pointer),
+                         @Immediate(self.stack_size(), ir::Pointer),
+                         @Register(ESP, ir::Pointer)));
+        }
         for self.callee_saved.rev_each |&color| {
           push(@Raw(fmt!("pop %s", arch::num_reg(color).size(ir::Pointer))));
         }
@@ -458,7 +462,8 @@ impl Allocator {
   fn stack_size() -> i32 {
     let slots = self.max_slot * 8;
     let calls = self.max_call_stack;
-    arch::align_stack(slots + calls) as i32
+    let saves = self.callee_saved.len() * arch::ptrsize;
+    (arch::align_stack(slots + calls + saves) - saves) as i32
   }
 
   fn alloc_op(o : @Operand) -> @Operand {

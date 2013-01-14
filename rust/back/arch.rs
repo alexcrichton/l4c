@@ -66,10 +66,6 @@ pub fn each_caller(f : &fn(Register) -> bool) {
   f(EAX); f(ECX); f(EDX); f(ESI); f(EDI); f(R8D); f(R9D); f(R10D); f(R11D);
 }
 
-pub fn align_stack(size : uint) -> uint {
-  ((size - 8) / 16) * 16 + 24
-}
-
 pub fn callee_reg(r : Register) -> bool {
   match r { EBX | R12D | R13D | R14D | R15D | EBP => true, _ => false }
 }
@@ -136,4 +132,21 @@ fn constrain_cmp(c : Cond, o1 : @Operand, o2 : @Operand,
     (@Immediate(*), _) => push(@f(c.flip(), o2, o1)),
     _ => push(@f(c, o1, o2))
   }
+}
+
+pub fn align_stack(size : uint) -> uint {
+  /* must be on a 16-byte boundary, but the call address pushes 8 bytes for a
+     call instruction, so the size of a stack should be 8 bytes off a multiple
+     of 16 */
+  (size / 16) * 16 + 8
+}
+
+#[test]
+fn test_stack_alignment() {
+  assert align_stack(0) == 8;
+  assert align_stack(8) == 8;
+  assert align_stack(16) == 24;
+  assert align_stack(24) == 24;
+  assert align_stack(32) == 40;
+  assert align_stack(40) == 40;
 }
