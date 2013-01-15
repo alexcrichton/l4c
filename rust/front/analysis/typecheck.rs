@@ -249,6 +249,7 @@ impl Typechecker {
           }
           self.tc_small(typ);
         }
+        self.tc_small(ret);
       }
     }
 
