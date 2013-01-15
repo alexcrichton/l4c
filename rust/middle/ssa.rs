@@ -63,31 +63,41 @@ pub fn convert<T : Statement>(cfg : &CFG<T>,
 impl<T : Statement> Converter<T> {
   fn convert(live_in : &[Temp]) {
     /* prepare the graph */
-    self.prune_unreachable();
+    do profile::dbg("pruning") { self.prune_unreachable() }
 
     /* Do all the heavy work of finding where phis go */
-    self.find_defs();
+    do profile::dbg("find defs") { self.find_defs() }
 
     /* perform liveness analysis */
-    let (live, _) = liveness::calculate(self.cfg, self.root);
-    self.find_phis(live);
+    let (live, _) = do profile::dbg("liveness") {
+      liveness::calculate(self.cfg, self.root)
+    };
+    do profile::dbg("finding phis") { self.find_phis(live) }
 
     /* Re-number the entire graph */
-    let mut map = tmap::init();
-    for live_in.each |&tmp| {
-      self.bump(&mut map, tmp);
+    do profile::dbg("renumbering temps") {
+      let mut map = tmap::init();
+      for live_in.each |&tmp| {
+        self.bump(&mut map, tmp);
+      }
+      self.versions.insert(self.root, map);
+      for self.cfg.each_rev_postorder(self.root) |&id| {
+        do profile::dbg(fmt!("node %?", id)) {
+          self.map_temps(id);
+        }
+      }
     }
-    self.versions.insert(self.root, map);
-    for self.cfg.each_rev_postorder(self.root) |&id| {
-      self.map_temps(id);
-    }
-    for self.cfg.each_node |id, _| {
-      self.map_phi_temps(id);
+    do profile::dbg("mapping phis") {
+      for self.cfg.each_node |id, _| {
+        self.map_phi_temps(id);
+      }
     }
 
     /* Finally place our new phi nodes */
-    for self.phi_temps.each |k, v| {
-      self.place_phis(k, v);
+    do profile::dbg("placing phis") {
+      for self.phi_temps.each |k, v| {
+        self.place_phis(k, v);
+      }
     }
     info!("ssa finished");
   }
