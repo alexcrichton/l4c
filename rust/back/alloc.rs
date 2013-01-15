@@ -364,9 +364,9 @@ impl Allocator {
               push(@Raw(fmt!("push %s", reg.size(ir::Pointer))));
             }
           }
-          if self.stack_size() != 0 {
+          if self.stack_size(false) != 0 {
             push(@BinaryOp(Sub, @Register(ESP, ir::Pointer),
-                           @Immediate(self.stack_size(), ir::Pointer),
+                           @Immediate(self.stack_size(false) as i32, ir::Pointer),
                            @Register(ESP, ir::Pointer)));
           }
         }
@@ -390,6 +390,9 @@ impl Allocator {
       }
       @Load(dst, @MOp(addr)) =>
         push(@Load(self.alloc_op(dst), @MOp(self.alloc_op(addr)))),
+      @Load(dst, @StackArg(idx)) =>
+        push(@Load(self.alloc_op(dst),
+             @Stack((idx + 1) * arch::ptrsize + self.stack_size(true)))),
       @Load(dst, addr) => push(@Load(self.alloc_op(dst), addr)),
       @Store(@MOp(addr), src) =>
         push(@Store(@MOp(self.alloc_op(addr)), self.alloc_op(src))),
@@ -400,12 +403,12 @@ impl Allocator {
       @Die(c, o1, o2) =>
         push(@Die(c, self.alloc_op(o1), self.alloc_op(o2))),
       @Move(o1, o2) => push(@Move(self.alloc_op(o1), self.alloc_op(o2))),
-      @Use(_) | @Phi(*) => (),
+      @Use(*) | @Phi(*) | @Arg(*) => (),
 
       @Return => {
-        if self.stack_size() != 0 {
+        if self.stack_size(false) != 0 {
           push(@BinaryOp(Add, @Register(ESP, ir::Pointer),
-                         @Immediate(self.stack_size(), ir::Pointer),
+                         @Immediate(self.stack_size(false) as i32, ir::Pointer),
                          @Register(ESP, ir::Pointer)));
         }
         for self.callee_saved.rev_each |&color| {
@@ -466,11 +469,12 @@ impl Allocator {
     @Stack(self.slots[tag] * arch::ptrsize + self.max_call_stack)
   }
 
-  fn stack_size() -> i32 {
+  fn stack_size(with_saves : bool) -> uint {
     let slots = self.max_slot * 8;
     let calls = self.max_call_stack;
     let saves = self.callee_saved.len() * arch::ptrsize;
-    (arch::align_stack(slots + calls + saves) - saves) as i32
+    let alter = if with_saves { saves } else { 0 };
+    (arch::align_stack(slots + calls + saves) - alter)
   }
 
   fn alloc_op(o : @Operand) -> @Operand {
