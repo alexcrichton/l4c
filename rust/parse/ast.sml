@@ -128,9 +128,6 @@ struct
       | appi2 f n (x :: L) = (f (n, x); appi2 f (n + 1) L)
 
     val q = "\""
-    fun pp_field f (a, b) =
-      (print (q ^ a ^ "\":");
-       if a = "typ" then print (q ^ b ^ q) else f b)
     fun pp_hash L =
       (print "{";
        appi (fn (i, (k, v)) => (if i = 0 then () else print ",";

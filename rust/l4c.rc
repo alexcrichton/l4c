@@ -95,7 +95,6 @@ fn main() {
     optflag("safe"), optflag("unsafe"),
     optopt("O"), optopt("optimize"),
     optopt("m"), optopt("arch"),
-    optflag("j"), optflag("json"),
   ];
   let m = &match getopts(vec::tail(os::args()), flags) {
     result::Ok(m)  => m,
@@ -105,8 +104,11 @@ fn main() {
     help();
   }
 
-  let out = do prof(m, "gen json") { get_json(m) };
-  let ast = do prof(m, "parsing") { parse::from_str(copy out, copy m.free[0]) };
+  /* front */
+  let prog = get_json(m);
+  let ast = do prof(m, "parsing") {
+    parse::from_rdr(prog.output(), copy m.free[0])
+  };
   do prof(m, "elaborating") { ast.elaborate(); }
   if opt_present(m, "dump-ast") {
     io::println(ast.pp());
@@ -116,11 +118,13 @@ fn main() {
   do prof(m, "maincheck")   { analysis::maincheck::check(&ast)   }
   do prof(m, "initcheck")   { analysis::initcheck::check(&ast)   }
 
+  /* middle */
   let safe = opt_present(m, "safe") && !opt_present(m, "unsafe");
   let ir = do prof(m, "trans") { trans::translate(&ast, safe) };
   if opt_present(m, "dot-ir")  { ir.dot(io::stdout()); }
   pass(ir::ssa, &ir, m, "dot-ssa");
 
+  /* backend */
   let assem = do prof(m, "codegen") { codegen::codegen(&ir) };
   if opt_present(m, "dot-assem") { assem.dot(io::stdout()); }
   pass(precolor::constrain, &assem, m, "dot-precolor");
@@ -153,25 +157,14 @@ fn prof<U>(m : &std::getopts::Matches, s : &str, f : &fn() -> U) -> U {
 }
 
 #[allow(non_implicitly_copyable_typarams)]
-fn get_json(m : &std::getopts::Matches) -> ~str {
+fn get_json(m : &std::getopts::Matches) -> run::Program {
   use std::getopts::*;
-
-  if opt_present(m, "json") || opt_present(m, "j") {
-    match io::read_whole_file_str(&path::Path(m.free[0])) {
-      result::Ok(s) => s,
-      result::Err(s) => fail(s)
-    }
-  } else {
-    let header = option::or(opt_maybe_str(m, "l"), opt_maybe_str(m, "header"));
-    let files = &match header {
-      None => m.free,
-      Some(file) => vec::append(~[file], m.free)
-    };
-    let {status, out, _} = run::program_output("parse/parser", *files);
-    if status != 0 {
-      io::print(out);
-      libc::exit(1);
-    }
-    out
-  }
+  let header = option::or(opt_maybe_str(m, "l"), opt_maybe_str(m, "header"));
+  let files = &match header {
+    None => m.free,
+    Some(file) => vec::append(~[file], m.free)
+  };
+  let prog = run::start_program("parse/parser", *files);
+  prog.close_input();
+  return prog;
 }
