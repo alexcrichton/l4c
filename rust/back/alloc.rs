@@ -118,6 +118,13 @@ impl Allocator {
         @Store(@Stack(pos), _) => {
           self.max_call_stack = uint::max(pos, self.max_call_stack);
         }
+        @Arg(tmp, i) => {
+          self.colors.insert(tmp, arch::reg_num(arch::arg_reg(i)));
+          if set::contains(tmplive, tmp) {
+            set::add(registers, self.colors[tmp]);
+          }
+          loop;
+        }
         _ => ()
       }
 

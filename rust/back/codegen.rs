@@ -52,8 +52,7 @@ impl CodeGenerator {
     for args.eachi |i, &tmp| {
       let tmp = self.tmp(tmp);
       if i < arch::arg_regs {
-        let reg = @assem::Register(arch::arg_reg(i), self.sizes[tmp]);
-        push(@assem::Move(@assem::Temp(tmp), reg));
+        push(@assem::Arg(tmp, i));
       } else {
         let loc = @assem::StackArg(i - arch::arg_regs);
         push(@assem::Load(@assem::Temp(tmp), loc));

@@ -42,6 +42,7 @@ pub enum Instruction {
   Spill(Temp, Tag),
   Use(Temp),              /* used when constraining non-commutative ops */
   PCopy(~[(Temp, Temp)]), /* parallel copy of temps */
+  Arg(Temp, uint),        /* nth argument is wired to this temp */
 }
 
 pub enum Operand {
@@ -78,7 +79,8 @@ impl Instruction : ssa::Statement {
       Phi(t, _) |
       Load(@Temp(t), _) |
       Call(t, _, _) |
-      Reload(t, _)
+      Reload(t, _) |
+      Arg(t, _)
         => { f(t); }
 
       PCopy(ref copies) => {
@@ -186,6 +188,7 @@ impl Instruction : ssa::Statement {
       }
       @Use(t) => @Use(uses(t)),
       @Return | @Raw(*) => self,
+      @Arg(t, n) => @Arg(defs(t), n),
       @PCopy(ref copies) =>
         @PCopy(copies.map(|&(dst, src)| {
           let src = uses(src);
@@ -203,6 +206,7 @@ impl Instruction : PrettyPrint {
   pure fn pp() -> ~str {
     match self {
       Raw(copy s) => s,
+      Arg(t, i) => fmt!("%s = arg[%?]", t.pp(), i),
       Return => ~"ret",
       Use(t) => fmt!("use %s", t.pp()),
       Die(c, o1, o2) =>
