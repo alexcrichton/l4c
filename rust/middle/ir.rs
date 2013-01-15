@@ -91,6 +91,7 @@ impl Function {
     match e {
       @Const(_, size) => size,
       @LabelExp(_) => Pointer,
+      @BinaryOp(Eq, _, _) | @BinaryOp(Neq, _, _) => Int,
       @BinaryOp(_, e1, e2) => {
         match self.size(e1) {
           Int => self.size(e2),
