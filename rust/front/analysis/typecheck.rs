@@ -229,6 +229,14 @@ impl Typechecker {
 
   fn bind_fun(id : Ident, ret : @Type, args : &~[(Ident, @Type)]) -> bool {
     let prev = self.err.size();
+    let names = map::HashMap();
+    for args.each |&(name, typ)| {
+      if !set::add(names, name) {
+        self.err.add(fmt!("Duplicate argument: %s", name.val));
+      }
+      self.tc_small(typ);
+    }
+    self.tc_small(ret);
 
     match self.funs.find(id) {
       Some((retp, argsp)) => {
@@ -241,16 +249,7 @@ impl Typechecker {
           }
         }
       }
-      None => {
-        let names = map::HashMap();
-        for args.each |&(name, typ)| {
-          if !set::add(names, name) {
-            self.err.add(fmt!("Duplicate argument: %s", name.val));
-          }
-          self.tc_small(typ);
-        }
-        self.tc_small(ret);
-      }
+      None => ()
     }
 
     if prev == self.err.size() {
