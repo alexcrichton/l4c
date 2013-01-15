@@ -120,14 +120,14 @@ void raise_segv() {
   *(int*)NULL = 0;
 }
 
-void *salloc(size_t elems, size_t bytes) {
+void *salloc(int32_t elems, size_t bytes) {
   void *ptr = calloc(elems, bytes);
   if (ptr == NULL)
     raise_segv();
   return ptr;
 }
 
-void *salloc_array(ssize_t elems, size_t bytes) {
+void *salloc_array(int32_t elems, size_t bytes) {
   if (elems < 0)
     raise_segv();
   size_t s = elems * bytes;
