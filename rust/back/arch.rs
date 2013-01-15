@@ -102,11 +102,20 @@ pub fn constrain(ins : @Instruction,
     }
 
     /* When invoking functions, all argument registers must be actual registers,
-       not immediates */
+       not immediates. Also the same register can't be an argument twice because
+       it has to be in two different places */
     @Call(dst, fun, ref args) => {
+      let temps = map::HashMap();
       let args = args.mapi(|i, &arg| {
         match arg {
-          @Immediate(_, size) if i < arch::arg_regs => {
+          /* If we have first saw this temp, or the immediates/labels need to be
+             stored on the stack, then no copy is needed */
+          @Temp(t) if set::add(temps, t) => arg,
+          @Immediate(*) | @LabelOp(*) if i >= arch::arg_regs => arg,
+
+          /* Otherwise we need to create a temp to store this argument */
+          _ if i < arch::arg_regs => {
+            let size = match arg { @Temp(t) => cg.sizes[t], _ => arg.size()};
             let tmp = cg.tmpnew(size);
             push(@Move(tmp, arg));
             tmp
