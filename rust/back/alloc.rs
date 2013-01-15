@@ -473,8 +473,8 @@ impl Allocator {
     let slots = self.max_slot * 8;
     let calls = self.max_call_stack;
     let saves = self.callee_saved.len() * arch::ptrsize;
-    let alter = if with_saves { saves } else { 0 };
-    (arch::align_stack(slots + calls + saves) - alter)
+    let alter = if with_saves { 0 } else { saves };
+    return arch::align_stack(slots + calls + saves) - alter;
   }
 
   fn alloc_op(o : @Operand) -> @Operand {
