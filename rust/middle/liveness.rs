@@ -109,8 +109,8 @@ impl LiveIn : LivenessDelta {
   fn apply(delta : &Delta) {
     for delta.each |&e| {
       match e {
-        Right(tmp) => { assert set::remove(self, tmp); }
-        Left(tmp)  => { assert set::add(self, tmp); }
+        Right(tmp) => { set::remove(self, tmp); }
+        Left(tmp)  => { set::add(self, tmp); }
       }
     }
   }

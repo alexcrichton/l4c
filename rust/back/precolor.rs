@@ -106,9 +106,12 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
           if i < arch::arg_regs {
             Some(constrain_clobber!(arg))
           } else {
-            /* TODO: remove arg from live_in if it's not in live_out? In theory
-                     it shouldn't be part of the pcopy generated... */
             new.push(@Store(@Stack((i - arch::arg_regs) * arch::ptrsize), arg));
+            match arg {
+              @Temp(t) if !set::contains(live_out, t) =>
+                { set::remove(live_in, t); }
+              _ => ()
+            }
             None
           }
         };
