@@ -1,6 +1,5 @@
 use std::map;
 use middle::temp::Temp;
-use tmap = std::fun_treemap;
 
 pub trait Statement : PrettyPrint {
   fn each_def<T>(&fn(Temp) -> T);
@@ -9,7 +8,7 @@ pub trait Statement : PrettyPrint {
   fn phi_map() -> Option<PhiMap>;
 }
 
-type TempMap = tmap::Treemap<Temp, Temp>;
+type TempMap = map::HashMap<Temp, Temp>;
 type DomFrontiers = map::HashMap<graph::NodeId, graph::NodeSet>;
 pub type Idominators = map::HashMap<graph::NodeId, graph::NodeId>;
 pub type Idominated = map::HashMap<graph::NodeId, map::Set<graph::NodeId>>;
@@ -76,9 +75,9 @@ impl<T : Statement> Converter<T> {
 
     /* Re-number the entire graph */
     do profile::dbg("renumbering temps") {
-      let mut map = tmap::init();
+      let map = map::HashMap();
       for live_in.each |&tmp| {
-        self.bump(&mut map, tmp);
+        self.bump(map, tmp);
       }
       self.versions.insert(self.root, map);
       for self.cfg.each_rev_postorder(self.root) |&id| {
@@ -321,7 +320,10 @@ impl<T : Statement> Converter<T> {
    * This function does, however, prepare for phi functions to be placed
    */
   fn map_temps(n : graph::NodeId) {
-    let mut map = self.versions[self.idoms[n]];
+    let map = map::HashMap();
+    for self.versions[self.idoms[n]].each |k, v| {
+      map.insert(k, v);
+    }
 
     /* Bump all temp numbers which have phi functions at this location */
     debug!("bumping temps for phis at %d", n as int);
@@ -332,7 +334,7 @@ impl<T : Statement> Converter<T> {
            be placed correctly in the next step */
         let mapping = map::HashMap();
         for set::each(temps) |tmp| {
-          mapping.insert(tmp, self.bump(&mut map, tmp));
+          mapping.insert(tmp, self.bump(map, tmp));
         }
         self.phi_temps.insert(n, mapping);
       }
@@ -342,8 +344,8 @@ impl<T : Statement> Converter<T> {
     debug!("mapping statements at %d", n as int);
     let stms = self.cfg[n].map(|&s| {
       debug!("%s", s.pp());
-      s.map_temps(|usage| tmap::find(map, usage).get(),
-                  |def|   self.bump(&mut map, def))
+      s.map_temps(|usage| map.get(usage),
+                  |def|   self.bump(map, def))
     });
     self.versions.insert(n, map);
 
@@ -352,12 +354,12 @@ impl<T : Statement> Converter<T> {
   }
 
   /* Alter the temp mapping for a specified non-ssa temp */
-  fn bump(vars : &mut TempMap, t : Temp) -> Temp {
+  fn bump(vars : TempMap, t : Temp) -> Temp {
     let ret = self.temps.new();
     /* TODO: will rust make this able to be one line? */
     let foo = self.remap;
     foo(t, ret);
-    *vars = tmap::insert(*vars, t, ret);
+    vars.insert(t, ret);
     return ret;
   }
 
@@ -372,7 +374,7 @@ impl<T : Statement> Converter<T> {
         Some(map) => {
           let mut new = ~[];
           for map.each |pred, tmp| {
-            new.push((pred, tmap::find(self.versions[pred], tmp).get()));
+            new.push((pred, self.versions[pred].get(tmp)));
           }
           map.clear();
           for new.each |&(a, b)| {
@@ -397,13 +399,10 @@ impl<T : Statement> Converter<T> {
       /* Our phi function operates on the last known ssa-temp for this node's
          non-ssa temp at each of our predecessors */
       for self.cfg.each_pred(n) |p| {
-        match tmap::find(self.versions[p], tmp_before) {
-          Some(t) => { preds.insert(p, t); }
-          None => ()
-        }
+        assert self.versions[p].contains_key(tmp_before);
+        preds.insert(p, self.versions[p][tmp_before]);
       }
 
-      assert(preds.size() == self.cfg.num_pred(n));
       /* The result of the phi node is the ssa-temp, not the non-ssa temp */
       let maker = self.phi_maker;
       block.push(maker(tmp_after, preds));
