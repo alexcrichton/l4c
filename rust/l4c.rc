@@ -11,6 +11,7 @@ mod utils {
   pub mod set;
   pub mod graph;
   pub mod bitv;
+  pub mod profile;
 
   pub trait PrettyPrint {
     pure fn pp() -> ~str;
@@ -85,6 +86,7 @@ fn main() {
   let flags = ~[
     optflag("v"), optflag("verbose"),
     optflag("dump-ast"),
+    optflag("profile"),
     optflag("f"), optflag("profile"),
     optopt("header"), optopt("l"),
     optflag("dot-ir"), optflag("dot-ssa"),
@@ -95,50 +97,59 @@ fn main() {
     optopt("m"), optopt("arch"),
     optflag("j"), optflag("json"),
   ];
-  let matches = &match getopts(vec::tail(os::args()), flags) {
+  let m = &match getopts(vec::tail(os::args()), flags) {
     result::Ok(m)  => m,
     result::Err(e) => fail(fail_str(e))
   };
-  if matches.free.len() == 0 {
+  if m.free.len() == 0 {
     help();
   }
-  let out = get_json(matches);
 
-  let ast = parse::from_str(out, matches.free[0]).elaborate();
-  if opt_present(matches, "dump-ast") {
+  let out = do prof(m, "gen json") { get_json(m) };
+  let ast = do prof(m, "parsing") { parse::from_str(copy out, copy m.free[0]) };
+  do prof(m, "elaborating") { ast.elaborate(); }
+  if opt_present(m, "dump-ast") {
     io::println(ast.pp());
   }
-  analysis::typecheck::check(&ast);
-  analysis::returncheck::check(&ast);
-  analysis::maincheck::check(&ast);
-  analysis::initcheck::check(&ast);
+  do prof(m, "typecheck")   { analysis::typecheck::check(&ast)   }
+  do prof(m, "returncheck") { analysis::returncheck::check(&ast) }
+  do prof(m, "maincheck")   { analysis::maincheck::check(&ast)   }
+  do prof(m, "initcheck")   { analysis::initcheck::check(&ast)   }
 
-  let safe = opt_present(matches, "safe") &&
-             !opt_present(matches, "unsafe");
-  let ir = trans::translate(&ast, safe);
-  if opt_present(matches, "dot-ir")  { ir.dot(io::stdout()); }
-  pass(ir::ssa, &ir, opt_present(matches, "dot-ssa"));
+  let safe = opt_present(m, "safe") && !opt_present(m, "unsafe");
+  let ir = do prof(m, "trans") { trans::translate(&ast, safe) };
+  if opt_present(m, "dot-ir")  { ir.dot(io::stdout()); }
+  pass(ir::ssa, &ir, m, "dot-ssa");
 
-  let assem = codegen::codegen(&ir);
-  if opt_present(matches, "dot-assem") { assem.dot(io::stdout()); }
-  pass(precolor::constrain, &assem, opt_present(matches, "dot-precolor"));
-  pass(spill::spill,        &assem, opt_present(matches, "dot-spilled"));
-  pass(ressa::convert,      &assem, opt_present(matches, "dot-ressa"));
-  pass(alloc::color,        &assem, opt_present(matches, "dot-colored"));
+  let assem = do prof(m, "codegen") { codegen::codegen(&ir) };
+  if opt_present(m, "dot-assem") { assem.dot(io::stdout()); }
+  pass(precolor::constrain, &assem, m, "dot-precolor");
+  pass(spill::spill,        &assem, m, "dot-spilled");
+  pass(ressa::convert,      &assem, m, "dot-ressa");
+  pass(alloc::color,        &assem, m, "dot-colored");
 
-  let output = Path(matches.free[0]).with_filetype("s");
+  let output = Path(m.free[0]).with_filetype("s");
   match io::file_writer(&output, ~[io::Truncate, io::Create]) {
     result::Ok(f)  => assem.output(f),
     result::Err(e) => fail(e)
   }
 }
 
-fn pass<T : Graphable, U>(f : &fn(&T) -> U, p : &T, dump : bool) -> U {
-  let ret = f(p);
-  if dump {
+fn pass<T : Graphable, U>(f : &fn(&T) -> U, p : &T,
+                          m : &std::getopts::Matches, s : &str) -> U {
+  let ret = do prof(m, s) { f(p) };
+  if std::getopts::opt_present(m, s) {
     p.dot(io::stdout());
   }
   return ret;
+}
+
+fn prof<U>(m : &std::getopts::Matches, s : &str, f : &fn() -> U) -> U {
+  if std::getopts::opt_present(m, "profile") {
+    profile::run(f, s)
+  } else {
+    f()
+  }
 }
 
 #[allow(non_implicitly_copyable_typarams)]
