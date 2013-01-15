@@ -207,21 +207,21 @@ impl Typechecker {
 
     /* Build up the table of field => type information */
     let table = map::HashMap();
-    for fields.each |&(id, typ)| {
-      if table.contains_key(id) {
-        self.err.add(fmt!("Duplicate field: '%s'", id.val));
+    for fields.each |&(field, typ)| {
+      if table.contains_key(field) {
+        self.err.add(fmt!("Duplicate field: '%s'", field.val));
         loop;
       }
       /* Make sure structs are all defined and not recursive */
       match typ {
         @Struct(id2) =>
-          if id.eq(id2) {
+          if id == id2 {
             self.err.add(~"Cannot define a nested structure"); loop;
           },
         _ => ()
       }
       if self.tc_defined(typ) {
-        table.insert(id, typ);
+        table.insert(field, typ);
       }
     }
     self.structs.insert(id, Some(table));
