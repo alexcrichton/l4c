@@ -138,20 +138,6 @@ impl Instruction : ssa::Statement {
     }
   }
 
-  fn each_spill<T>(f : &fn(Tag) -> T) {
-    match self {
-      Spill(_, t) => { f(t); },
-      _ => ()
-    }
-  }
-
-  fn each_reload<T>(f : &fn(Tag) -> T) {
-    match self {
-      Reload(_, t) => { f(t); },
-      _ => ()
-    }
-  }
-
   fn phi_map() -> Option<ssa::PhiMap> {
     match self {
       Phi(_, m) => Some(m),

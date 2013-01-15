@@ -5,8 +5,6 @@ use tmap = std::fun_treemap;
 pub trait Statement : PrettyPrint {
   fn each_def<T>(&fn(Temp) -> T);
   fn each_use<T>(&fn(Temp) -> T);
-  fn each_spill<T>(&fn(uint) -> T);
-  fn each_reload<T>(&fn(uint) -> T);
   fn map_temps(@self, u: &fn(Temp) -> Temp, d: &fn(Temp) -> Temp) -> @self;
   fn phi_map() -> Option<PhiMap>;
 }
@@ -71,7 +69,7 @@ impl<T : Statement> Converter<T> {
     self.find_defs();
 
     /* perform liveness analysis */
-    let (live, _) = liveness::calculate(self.cfg, self.root, 0);
+    let (live, _) = liveness::calculate(self.cfg, self.root);
     self.find_phis(live);
 
     /* Re-number the entire graph */

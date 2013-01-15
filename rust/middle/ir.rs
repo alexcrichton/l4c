@@ -140,9 +140,6 @@ impl Statement : ssa::Statement {
     }
   }
 
-  fn each_spill<T>(_ : &fn(uint) -> T) { fail(~"shouldn't be here"); }
-  fn each_reload<T>(_ : &fn(uint) -> T) { fail(~"shouldn't be here"); }
-
   fn map_temps(@self, uses: &fn(Temp) -> Temp,
                defs: &fn(Temp) -> Temp) -> @Statement {
     match self {

@@ -27,14 +27,9 @@ pub fn color(p : &Program) {
 
     /* Color the graph completely */
     info!("coloring: %s", f.name);
-    let tmpdata = liveness::calculate(&f.cfg, f.root, 0);
-                                      /*|ins, f| ins.each_def(f),*/
-                                      /*|ins, f| ins.each_use(f));*/
-    let slotdata = liveness::calculate(&f.cfg, f.root, 1);
-                                       /*|ins, f| ins.each_spill(f),*/
-                                       /*|ins, f| ins.each_reload(f));*/
+    let tmpdata = liveness::calculate(&f.cfg, f.root);
 
-    a.color(f.root, f.idominated, tmpdata, slotdata);
+    a.color(f.root, f.idominated, tmpdata);
     for a.colors.each |tmp, color| {
       debug!("%s => %?", tmp.to_str(), color);
     }
@@ -62,62 +57,45 @@ impl Allocator {
    * definitions as they are seen with the first available color.
    */
   fn color(n : graph::NodeId, idominated : ssa::Idominated,
-           tmpdata : liveness::Data, slotdata : liveness::Data) {
+           tmpdata : liveness::Data) {
     debug!("coloring %?", n);
     let (tmplive, tmpdelta) = tmpdata;
-    let (slotlive, slotdelta) = slotdata;
     let tmplive = tmplive[n];
-    let slotlive = slotlive[n];
     let tmpdelta = tmpdelta[n];
-    let slotdelta = slotdelta[n];
     let registers = map::HashMap();
-    let slots = map::HashMap();
+    debug!("%s", set::to_str(tmplive))
     for set::each(tmplive) |t| {
       set::add(registers, self.colors[t as Temp]);
-    }
-    for set::each(slotlive) |t| {
-      set::add(slots, self.slots[t as Tag]);
     }
 
     let mut pcopy = None;
     for self.f.cfg[n].eachi |i, &ins| {
       /* examine data for next instruction for last use information */
       debug!("%s", ins.pp());
-      debug!("deltas %? %?", tmpdelta[i], slotdelta[i]);
-      debug!("before %s %s %s", set::to_str(tmplive), set::to_str(registers),
-             set::to_str(slotlive));
+      debug!("deltas %?", tmpdelta[i]);
+      debug!("before %s %s", set::to_str(tmplive), set::to_str(registers));
       tmplive.apply(&tmpdelta[i]);
-      slotlive.apply(&slotdelta[i]);
 
-      /* If we found a pcopy, then we're breaking liveness */
       match ins {
+        /* If we found a pcopy, then we're breaking liveness */
         @PCopy(*) => {
           assert(pcopy.is_none());
           pcopy = Some(ins);
           registers.clear();
           loop;
         }
-        /* Be sure spills/reloads are always colored */
+        /* Be sure we always assign stack slots */
         @Spill(_, t) => {
-          let slot = match self.slots.find(t) {
-            None => {
-              let slot = min_vacant(slots);
-              self.slots.insert(t, slot);
-              self.max_slot = uint::max(slot, self.max_slot) + 1;
-              slot
-            }
-            Some(s) => s
-          };
-          set::add(slots, slot);
-        }
-        @Reload(_, t) => {
-          if !set::contains(slotlive, t) {
-            set::remove(slots, self.slots[t]);
+          if !self.slots.contains_key(t) {
+            self.slots.insert(t, self.max_slot);
+            self.max_slot += 1;
           }
         }
+        /* Keep track of the maximum number of args passed to called funs */
         @Store(@Stack(pos), _) => {
           self.max_call_stack = uint::max(pos + 8, self.max_call_stack);
         }
+        /* do simple precoloring of args up front */
         @Arg(tmp, i) => {
           self.colors.insert(tmp, arch::reg_num(arch::arg_reg(i)));
           if set::contains(tmplive, tmp) {
@@ -128,7 +106,7 @@ impl Allocator {
         _ => ()
       }
 
-      /* If we found a pcopy, and we're not constrained, keep going */
+      /* If we found a pcopy, we need to think about being constrained */
       if pcopy.is_some() {
         let banned = map::HashMap();
         let precolor = |o : @Operand, r : Register, colors : ColorMap| {
@@ -137,15 +115,19 @@ impl Allocator {
             _        => fail(fmt!("not a tmp %?", o))
           }
         };
+
         match ins {
           @BinaryOp(op, dst, op1, op2) if op.constrained() => {
             match op {
+              /* div/mod both clobber eax/edx, and have the result in one */
               Div | Mod => {
                 precolor(op1, EAX, self.colors);
                 precolor(dst, match op { Div => EAX, _ => EDX }, self.colors);
                 set::add(banned, arch::reg_num(EDX));
                 set::add(banned, arch::reg_num(EAX));
               }
+
+              /* shifting is easy, the second op is just in ecx */
               Rsh | Lsh => {
                 precolor(op2, ECX, self.colors);
                 set::add(banned, arch::reg_num(ECX));
@@ -153,6 +135,9 @@ impl Allocator {
               _ => fail(fmt!("implement %?", op))
             }
           }
+
+          /* Calls precolor the result and arguments, and the caller-saved
+             registers are all banned for this instruction */
           @Call(dst, _, ref args) => {
             self.colors.insert(dst, arch::reg_num(EAX));
             for args.eachi |i, &arg| {
@@ -162,6 +147,10 @@ impl Allocator {
               set::add(banned, arch::reg_num(r));
             }
           }
+
+          /* All unconstrained instructions between a pcopy and the constrained
+             instruction are spills/reloads and we can ignore them (we'll color
+             them later */
           _ => loop
         };
 
@@ -251,8 +240,9 @@ impl Allocator {
       assert(registers.size() == tmplive.size());
     }
 
+    debug!("%s", set::to_str(idominated[n]));
     for set::each(idominated[n]) |id| {
-      self.color(id, idominated, tmpdata, slotdata);
+      self.color(id, idominated, tmpdata);
     }
   }
 

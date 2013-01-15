@@ -22,26 +22,20 @@ struct Liveness<T> {
   deltas : DeltaMap,
   cfg : &CFG<T>,
   phi_out : LiveMap,
-
-  typ : uint,
 }
 
-/* TODO: if 'f' is passed as callbacks, the generated binary segfaults? */
-pub fn calculate<S : Statement>(cfg : &CFG<S>, root : NodeId, f : uint) -> Data {
-  debug!("calculating liveness %?...", f);
+pub fn calculate<S : Statement>(cfg : &CFG<S>, root : NodeId) -> Data {
+  debug!("calculating liveness");
   let l = Liveness { live_in: map::HashMap(),
                      phi_out: map::HashMap(),
                      deltas: map::HashMap(),
-                     cfg: cfg,
-                     typ: f };
+                     cfg: cfg };
 
-  if f == 0 {
-    for cfg.each_node |id, _| {
-      l.phi_out.insert(id, map::HashMap());
-    }
-    for cfg.each_node |id, _| {
-      l.lookup_phis(id);
-    }
+  for cfg.each_node |id, _| {
+    l.phi_out.insert(id, map::HashMap());
+  }
+  for cfg.each_node |id, _| {
+    l.lookup_phis(id);
   }
 
   /* perform liveness analysis until nothing changes */
@@ -72,9 +66,7 @@ impl<T : Statement> Liveness<T> {
 
   fn liveness(n : NodeId) -> bool {
     let live = map::HashMap();
-    if self.typ == 0 {
-      set::union(live, self.phi_out[n]);
-    }
+    set::union(live, self.phi_out[n]);
     for self.cfg.each_succ(n) |succ| {
       match self.live_in.find(succ) {
         Some(s) => { set::union(live, s); }
@@ -84,27 +76,14 @@ impl<T : Statement> Liveness<T> {
     let mut my_deltas = ~[];
     for vec::rev_each(*self.cfg[n]) |&ins| {
       let mut delta = ~[];
-      if self.typ == 0 {
-        for ins.each_def |def| {
-          if set::remove(live, def) {
-            delta.push(Left(def));
-          }
+      for ins.each_def |def| {
+        if set::remove(live, def) {
+          delta.push(Left(def));
         }
-        for ins.each_use |tmp| {
-          if set::add(live, tmp) {
-            delta.push(Right(tmp));
-          }
-        }
-      } else {
-        for ins.each_spill |def| {
-          if set::remove(live, def) {
-            delta.push(Left(def));
-          }
-        }
-        for ins.each_reload |tmp| {
-          if set::add(live, tmp) {
-            delta.push(Right(tmp));
-          }
+      }
+      for ins.each_use |tmp| {
+        if set::add(live, tmp) {
+          delta.push(Right(tmp));
         }
       }
       my_deltas.push(delta);
