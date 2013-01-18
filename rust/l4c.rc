@@ -50,10 +50,11 @@ mod back {
   mod alloc;
   mod arch;
   mod assem;
+  mod coalesce;
   mod codegen;
+  mod precolor;
   mod ressa;
   mod spill;
-  mod precolor;
 }
 
 fn help() {

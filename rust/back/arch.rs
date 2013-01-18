@@ -8,6 +8,10 @@ pub const intsize : uint = 4;
 pub const ret_reg : Register = EAX;
 pub const num_regs : uint = 15;
 
+pub fn each_reg(f: &fn(uint) -> bool) {
+  uint::range(1, num_regs + 1, f)
+}
+
 pub fn arg_reg(i : uint) -> Register {
   match i {
     0 => EDI,

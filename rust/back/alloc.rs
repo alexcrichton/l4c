@@ -16,11 +16,17 @@ struct Allocator {
   callee_saved : dvec::DVec<uint>,
   analysis: &ssa::Analysis,
   liveness: liveness::Analysis,
+
+  /* data needed for coalescing */
+  precolored : map::Set<Temp>,
+  constraints : map::HashMap<Temp, Constraint>,
 }
 
 pub fn color(p : &Program) {
   for p.funs.each |f| {
     let a = Allocator{ colors: map::HashMap(),
+                       precolored: map::HashMap(),
+                       constraints: map::HashMap(),
                        slots: map::HashMap(),
                        f: f,
                        max_slot: 0,
@@ -37,6 +43,8 @@ pub fn color(p : &Program) {
     for a.colors.each |tmp, color| {
       debug!("%s => %?", tmp.to_str(), color);
     }
+
+    coalesce::optimize(f, a.colors, a.precolored, a.constraints);
 
     /* Finally remove all phi nodes and all temps */
     a.remove_phis();
@@ -111,27 +119,33 @@ impl Allocator {
       /* If we found a pcopy, we need to think about being constrained */
       if pcopy.is_some() {
         let banned = map::HashMap();
-        let precolor = |o : @Operand, r : Register, colors : ColorMap| {
-          match o {
-            @Temp(t) => { assert colors.insert(t, arch::reg_num(r)); }
-            _        => fail(fmt!("not a tmp %?", o))
+        macro_rules! precolor(($o:expr, $r:expr) => (
+          match $o {
+            @Temp(t) => {
+              assert self.colors.insert(t, arch::reg_num($r));
+              assert set::add(self.precolored, t);
+            }
+            _ => fail(fmt!("not a tmp %?", $o))
           }
-        };
+        ););
 
         match ins {
           @BinaryOp(op, dst, op1, op2) if op.constrained() => {
             match op {
               /* div/mod both clobber eax/edx, and have the result in one */
               Div | Mod => {
-                precolor(op1, EAX, self.colors);
-                precolor(dst, match op { Div => EAX, _ => EDX }, self.colors);
+                precolor!(op1, EAX);
+                precolor!(dst, match op { Div => EAX, _ => EDX });
                 set::add(banned, arch::reg_num(EDX));
                 set::add(banned, arch::reg_num(EAX));
+                for set::each(tmplive) |tmp| {
+                  assert self.constraints.insert(tmp, Idiv);
+                }
               }
 
               /* shifting is easy, the second op is just in ecx */
               Rsh | Lsh => {
-                precolor(op2, ECX, self.colors);
+                precolor!(op2, ECX);
                 set::add(banned, arch::reg_num(ECX));
               }
               _ => fail(fmt!("implement %?", op))
@@ -142,11 +156,15 @@ impl Allocator {
              registers are all banned for this instruction */
           @Call(dst, _, ref args) => {
             self.colors.insert(dst, arch::reg_num(EAX));
+            assert set::add(self.precolored, dst);
             for args.eachi |i, &arg| {
-              precolor(arg, arch::arg_reg(i), self.colors);
+              precolor!(arg, arch::arg_reg(i));
             }
             for arch::each_caller |r| {
               set::add(banned, arch::reg_num(r));
+            }
+            for set::each(tmplive) |tmp| {
+              assert self.constraints.insert(tmp, Caller);
             }
           }
 

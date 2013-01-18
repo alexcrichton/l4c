@@ -72,6 +72,23 @@ pub enum Register {
   R8D, R9D, R10D, R11D, R12D, R13D, R14D, R15D
 }
 
+pub enum Constraint { Caller, Idiv }
+
+impl Constraint {
+  fn allows(self, r: Register) -> bool{
+    match (self, r) {
+      (Idiv, EAX) | (Idiv, EDX) => false,
+      (Idiv, _) => true,
+      (Caller, _) => {
+        for arch::each_caller |reg| {
+          if reg == r { return false; }
+        }
+        return true;
+      }
+    }
+  }
+}
+
 impl Instruction : ssa::Statement {
   fn each_def<T>(f : &fn(Temp) -> T) {
     match self {
