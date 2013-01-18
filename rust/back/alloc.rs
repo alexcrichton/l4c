@@ -39,16 +39,18 @@ pub fn color(p : &Program) {
     /* Color the graph completely */
     info!("coloring: %s", f.name);
 
-    a.color(f.root);
+    do profile::dbg("coloring") { a.color(f.root); }
     for a.colors.each |tmp, color| {
       debug!("%s => %?", tmp.to_str(), color);
     }
 
-    coalesce::optimize(f, a.colors, a.precolored, a.constraints);
+    do profile::dbg("coalescing") {
+      coalesce::optimize(f, a.colors, a.precolored, a.constraints);
+    }
 
     /* Finally remove all phi nodes and all temps */
-    a.remove_phis();
-    a.remove_temps();
+    do profile::dbg("removing phis") { a.remove_phis(); }
+    do profile::dbg("removing tmps") { a.remove_temps(); }
   }
 }
 
