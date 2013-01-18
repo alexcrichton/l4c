@@ -105,6 +105,7 @@ impl Coalescer {
     let mut maxi = 0;
     let mut weights : ~[uint] = ~[]; /* TODO: why is this annotation necessary*/
     let mut subsets = ~[];
+
     /* Iterate over the set of temps and partition as we go */
     for set::each(s) |tmp| {
       if self.colors[tmp] != c { loop }
@@ -318,7 +319,7 @@ impl Coalescer {
     };
 
     let (bdef, bline) = self.defs[b];
-    if set::contains(self.f.analysis.liveness.out[bdef], t) {
+    if set::contains(self.f.liveness.out[bdef], t) {
       return true;
     }
 
@@ -342,7 +343,7 @@ impl Coalescer {
 
   fn find_interferences(x: Temp, n: NodeId, set: TempSet, visited: NodeSet) {
     set::add(visited, n);
-    let L = self.f.analysis.liveness.out[n];
+    let L = self.f.liveness.out[n];
     for vec::rev_each(*self.f.cfg[n]) |&ins| {
       for ins.each_def |tmp| { set::remove(L, tmp); }
       for ins.each_use |tmp| { set::add(L, tmp); }
@@ -363,8 +364,8 @@ impl Coalescer {
       return aline < bline;
     }
     let mut cur = b;
-    while cur != self.f.analysis.idominator[cur] {
-      cur = self.f.analysis.idominator[cur];
+    while cur != self.f.ssa.idominator[cur] {
+      cur = self.f.ssa.idominator[cur];
       if cur == a { return true; }
     }
     return false;

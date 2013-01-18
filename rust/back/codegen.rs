@@ -1,4 +1,4 @@
-use middle::{ir, temp, ssa};
+use middle::{ir, temp, ssa, liveness};
 use std::map;
 
 type Builder = &fn(@assem::Instruction);
@@ -43,7 +43,8 @@ fn translate(f : &ir::Function) -> assem::Function {
                     temps: cg.temps.cnt(),
                     sizes: cg.sizes,
                     loops: f.loops,
-                    analysis: ssa::Analysis() }
+                    ssa: ssa::Analysis(),
+                    liveness: liveness::Analysis() }
 }
 
 impl CodeGenerator {

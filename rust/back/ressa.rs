@@ -13,7 +13,7 @@ fn ressa(f : &assem::Function) {
   let newsizes = map::HashMap();
 
   /* And, convert! */
-  ssa::convert(&f.cfg, f.root, ~[], &f.analysis, |old, new| {
+  ssa::convert(&f.cfg, f.root, ~[], &f.ssa, |old, new| {
     info!("%? => %?", old, new);
     newsizes.insert(new, oldsizes[old]);
   }, |tmp, map| @assem::Phi(tmp, map));

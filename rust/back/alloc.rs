@@ -14,8 +14,6 @@ struct Allocator {
   mut max_slot : uint,
   mut max_call_stack : uint,
   callee_saved : dvec::DVec<uint>,
-  analysis: &ssa::Analysis,
-  liveness: liveness::Analysis,
 
   /* data needed for coalescing */
   precolored : map::Set<Temp>,
@@ -31,10 +29,8 @@ pub fn color(p : &Program) {
                        f: f,
                        max_slot: 0,
                        max_call_stack: 0,
-                       callee_saved: dvec::DVec(),
-                       analysis: &f.analysis,
-                       liveness: liveness::Analysis() };
-    liveness::calculate(&f.cfg, f.root, &a.liveness);
+                       callee_saved: dvec::DVec() };
+    liveness::calculate(&f.cfg, f.root, &f.liveness);
 
     /* Color the graph completely */
     info!("coloring: %s", f.name);
@@ -72,8 +68,8 @@ impl Allocator {
    */
   fn color(n : graph::NodeId) {
     debug!("coloring %?", n);
-    let tmplive = self.liveness.in[n];
-    let tmpdelta = self.liveness.deltas[n];
+    let tmplive = self.f.liveness.in[n];
+    let tmpdelta = self.f.liveness.deltas[n];
     let registers = map::HashMap();
     debug!("%s", set::to_str(tmplive))
     for set::each(tmplive) |t| {
@@ -172,7 +168,7 @@ impl Allocator {
 
           /* returns just have their argument precolored to EAX */
           @Return(op) => {
-            precolor(op, EAX, self.colors);
+            precolor!(op, EAX);
             set::add(banned, arch::reg_num(EAX));
           }
 
@@ -268,7 +264,7 @@ impl Allocator {
       assert(registers.size() == tmplive.size());
     }
 
-    let idominated = self.analysis.idominated;
+    let idominated = self.f.ssa.idominated;
     debug!("%s", set::to_str(idominated[n]));
     for set::each(idominated[n]) |id| {
       self.color(id);

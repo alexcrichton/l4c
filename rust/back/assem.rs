@@ -1,7 +1,5 @@
 use middle::temp::Temp;
-use middle::label;
-use middle::ir;
-use middle::ssa;
+use middle::{label, ir, ssa, liveness};
 use std::map;
 use io::WriterUtil;
 
@@ -21,7 +19,8 @@ pub struct Function {
   cfg : CFG,
   sizes : map::HashMap<Temp, Size>,
   mut temps : uint,
-  analysis: ssa::Analysis,
+  ssa: ssa::Analysis,
+  liveness: liveness::Analysis,
 
   loops : map::HashMap<graph::NodeId, (graph::NodeId, graph::NodeId)>,
 }
