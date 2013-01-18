@@ -6,7 +6,6 @@ pub struct Analysis {
   idominated : Idominated,
   /* idoms[a] = b => immediate dominator of a is b */
   idominator : Idominators,
-  liveness : liveness::Analysis,
 }
 
 pub trait Statement : PrettyPrint {
@@ -44,12 +43,12 @@ struct Converter<T> {
   phi_maker : @fn(Temp, PhiMap) -> @T,
 
   /* results of the analysis */
-  analysis: &Analysis
+  analysis: &Analysis,
+  liveness : &liveness::Analysis,
 }
 
 pub fn Analysis() -> Analysis {
-  Analysis { idominated: map::HashMap(), idominator: map::HashMap(),
-             liveness: liveness::Analysis() }
+  Analysis { idominated: map::HashMap(), idominator: map::HashMap() }
 }
 
 pub fn convert<T : Statement>(cfg : &CFG<T>,
@@ -59,8 +58,9 @@ pub fn convert<T : Statement>(cfg : &CFG<T>,
                               remap : @fn(Temp, Temp),
                               phi : @fn(Temp, PhiMap) -> @T) {
 
+  let live = liveness::Analysis();
   do profile::dbg("liveness") {
-    liveness::calculate(cfg, root, &results.liveness)
+    liveness::calculate(cfg, root, &live)
   }
   let converter = Converter { cfg: cfg,
                               root: root,
@@ -70,6 +70,7 @@ pub fn convert<T : Statement>(cfg : &CFG<T>,
                               versions: map::HashMap(),
                               temps: temp::new(),
                               analysis: results,
+                              liveness: &live,
                               remap: remap,
                               phi_maker: phi };
   converter.convert(live_in);
@@ -169,7 +170,7 @@ impl<T : Statement> Converter<T> {
        to determine the optimal placement of phi functions */
 
     let frontiers = self.dom_frontiers();
-    let live_in = self.analysis.liveness.in;
+    let live_in = self.liveness.in;
 
     for self.defs.each |tmp, defs| {
       debug!("idf for tmp: %s", tmp.pp());

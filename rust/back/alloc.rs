@@ -15,6 +15,7 @@ struct Allocator {
   mut max_call_stack : uint,
   callee_saved : dvec::DVec<uint>,
   analysis: &ssa::Analysis,
+  liveness: liveness::Analysis,
 }
 
 pub fn color(p : &Program) {
@@ -25,7 +26,9 @@ pub fn color(p : &Program) {
                        max_slot: 0,
                        max_call_stack: 0,
                        callee_saved: dvec::DVec(),
-                       analysis: &f.analysis };
+                       analysis: &f.analysis,
+                       liveness: liveness::Analysis() };
+    liveness::calculate(&f.cfg, f.root, &a.liveness);
 
     /* Color the graph completely */
     info!("coloring: %s", f.name);
@@ -59,8 +62,8 @@ impl Allocator {
    */
   fn color(n : graph::NodeId) {
     debug!("coloring %?", n);
-    let tmplive = self.analysis.liveness.in[n];
-    let tmpdelta = self.analysis.liveness.deltas[n];
+    let tmplive = self.liveness.in[n];
+    let tmpdelta = self.liveness.deltas[n];
     let registers = map::HashMap();
     debug!("%s", set::to_str(tmplive))
     for set::each(tmplive) |t| {
