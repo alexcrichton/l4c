@@ -3,6 +3,20 @@ use cmp::Eq;
 use to_bytes::IterBytes;
 use hash::Hash;
 
+pub fn singleton<T : Eq IterBytes Hash Const Copy>(t : T) -> map::Set<T> {
+  let set = map::HashMap();
+  add(set, t);
+  return set;
+}
+
+pub fn clone<T : Eq IterBytes Hash Const Copy>(s: map::Set<T>) -> map::Set<T> {
+  let set = map::HashMap();
+  for each(s) |t| {
+    add(set, t);
+  }
+  return set;
+}
+
 /* returns true if item didn't already existed in the map */
 pub fn add<T : Eq IterBytes Hash Const Copy>(s : map::Set<T>, t : T) -> bool {
   s.insert(t, ())
