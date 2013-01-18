@@ -125,6 +125,17 @@ pub fn constrain(ins : @Instruction,
       });
       push(@Call(dst, fun, args));
     }
+
+    /* The return value must be placed in the %eax register */
+    @Return(op) => match op {
+      @Temp(*) => push(ins),
+      _ => {
+        let tmp = cg.tmpnew(op.size());
+        push(@Move(tmp, op));
+        push(@Return(tmp));
+      }
+    },
+
     _ => push(ins)
   }
 }

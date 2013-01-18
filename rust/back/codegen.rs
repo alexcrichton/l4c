@@ -138,11 +138,7 @@ impl CodeGenerator {
         push(@assem::Die(self.cond(cond), self.half(e1, push),
                          self.half(e2, push))),
       @ir::Die(_) => fail(~"invalid die"),
-      @ir::Return(e) => {
-        push(@assem::Move(@assem::Register(assem::EAX, self.f.size(e)),
-                          self.half(e, push)));
-        push(@assem::Return);
-      }
+      @ir::Return(e) => push(@assem::Return(self.half(e, push))),
       @ir::Call(tmp, fun, ref args) => {
         let fun = self.half(fun, push);
         let args = args.map(|&arg| self.half(arg, push));

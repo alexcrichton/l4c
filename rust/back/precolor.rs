@@ -121,6 +121,12 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
         new.push(@Call(dst, fun, args));
       }
 
+      /* x86 forces the return register to be %eax */
+      @Return(*) => {
+        new.push(pcopy(live_in));
+        new.push(ins);
+      }
+
       _ => new.push(ins)
     }
 

@@ -33,7 +33,7 @@ pub enum Instruction {
   Store(@Address, @Operand),
   Condition(Cond, @Operand, @Operand),
   Die(Cond, @Operand, @Operand),
-  Return,
+  Return(@Operand),
   Call(Temp, @Operand, ~[@Operand]),
   Raw(~str),
 
@@ -113,7 +113,8 @@ impl Instruction : ssa::Statement {
       BinaryOp(_, _, _, @Temp(t)) |
       Move(_, @Temp(t)) |
       Spill(t, _) |
-      Use(t)
+      Use(t) |
+      Return(@Temp(t))
         => { f(t); }
 
       Call(_, fun, ref args) => {
@@ -174,7 +175,8 @@ impl Instruction : ssa::Statement {
         @Call(defs(dst), fun, args)
       }
       @Use(t) => @Use(uses(t)),
-      @Return | @Raw(*) => self,
+      @Return(t) => @Return(t.map_temps(uses)),
+      @Raw(*) => self,
       @Arg(t, n) => @Arg(defs(t), n),
       @PCopy(ref copies) =>
         @PCopy(copies.map(|&(dst, src)| {
@@ -194,7 +196,7 @@ impl Instruction : PrettyPrint {
     match self {
       Raw(copy s) => s,
       Arg(t, i) => fmt!("%s = arg[%?]", t.pp(), i),
-      Return => ~"ret",
+      Return(t) => fmt!("ret // %s", t.pp()),
       Use(t) => fmt!("use %s", t.pp()),
       Die(c, o1, o2) =>
         fmt!("cmp %s, %s; j%s %sraise_segv", o2.pp(), o1.pp(),

@@ -150,6 +150,12 @@ impl Allocator {
             }
           }
 
+          /* returns just have their argument precolored to EAX */
+          @Return(op) => {
+            precolor(op, EAX, self.colors);
+            set::add(banned, arch::reg_num(EAX));
+          }
+
           /* All unconstrained instructions between a pcopy and the constrained
              instruction are spills/reloads and we can ignore them (we'll color
              them later */
@@ -398,7 +404,7 @@ impl Allocator {
       @Move(o1, o2) => push(@Move(self.alloc_op(o1), self.alloc_op(o2))),
       @Use(*) | @Phi(*) | @Arg(*) => (),
 
-      @Return => {
+      @Return(_) => {
         if self.stack_size(false) != 0 {
           push(@BinaryOp(Add, @Register(ESP, ir::Pointer),
                          @Immediate(self.stack_size(false) as i32, ir::Pointer),
