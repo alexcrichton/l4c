@@ -14,6 +14,7 @@ pub struct Function {
   types : map::HashMap<Temp, Type>,
 
   loops : map::HashMap<graph::NodeId, (graph::NodeId, graph::NodeId)>,
+  analysis : ssa::Analysis,
 }
 
 pub enum Statement {
@@ -56,7 +57,8 @@ pub fn Function(name : ~str) -> Function {
             root: 0,
             types: map::HashMap(),
             args: @~[],
-            loops: map::HashMap() }
+            loops: map::HashMap(),
+            analysis: ssa::Analysis() }
 }
 
 impl Program : Graphable {
@@ -265,7 +267,7 @@ priv fn ssa_fun(f : &ir::Function) {
   }
 
   /* And, convert! */
-  ssa::convert(&f.cfg, f.root, *f.args, |old, new| {
+  ssa::convert(&f.cfg, f.root, *f.args, &f.analysis, |old, new| {
     newtypes.insert(new, oldtypes[old]);
     match args.find(old) {
       Some(Some(_)) => (),

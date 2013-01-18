@@ -5,7 +5,7 @@ use back::assem::*;
 use utils::bitv::Bitv;
 
 type CFG = graph::Graph<@~[@assem::Instruction], ir::Edge>;
-type ColorMap = map::HashMap<Temp, uint>;
+pub type ColorMap = map::HashMap<Temp, uint>;
 
 struct Allocator {
   f : &Function,
@@ -14,6 +14,7 @@ struct Allocator {
   mut max_slot : uint,
   mut max_call_stack : uint,
   callee_saved : dvec::DVec<uint>,
+  analysis: &ssa::Analysis,
 }
 
 pub fn color(p : &Program) {
@@ -23,13 +24,13 @@ pub fn color(p : &Program) {
                        f: f,
                        max_slot: 0,
                        max_call_stack: 0,
-                       callee_saved: dvec::DVec() };
+                       callee_saved: dvec::DVec(),
+                       analysis: &f.analysis };
 
     /* Color the graph completely */
     info!("coloring: %s", f.name);
-    let tmpdata = liveness::calculate(&f.cfg, f.root);
 
-    a.color(f.root, f.idominated, tmpdata);
+    a.color(f.root);
     for a.colors.each |tmp, color| {
       debug!("%s => %?", tmp.to_str(), color);
     }
@@ -56,12 +57,10 @@ impl Allocator {
    * A top-down traversal of the dominator tree is done, coloring all
    * definitions as they are seen with the first available color.
    */
-  fn color(n : graph::NodeId, idominated : ssa::Idominated,
-           tmpdata : liveness::Data) {
+  fn color(n : graph::NodeId) {
     debug!("coloring %?", n);
-    let (tmplive, tmpdelta) = tmpdata;
-    let tmplive = tmplive[n];
-    let tmpdelta = tmpdelta[n];
+    let tmplive = self.analysis.liveness.in[n];
+    let tmpdelta = self.analysis.liveness.deltas[n];
     let registers = map::HashMap();
     debug!("%s", set::to_str(tmplive))
     for set::each(tmplive) |t| {
@@ -240,9 +239,10 @@ impl Allocator {
       assert(registers.size() == tmplive.size());
     }
 
+    let idominated = self.analysis.idominated;
     debug!("%s", set::to_str(idominated[n]));
     for set::each(idominated[n]) |id| {
-      self.color(id, idominated, tmpdata);
+      self.color(id);
     }
   }
 

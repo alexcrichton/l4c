@@ -3,10 +3,11 @@ use middle::{liveness, temp};
 
 pub fn constrain(p : &Program) {
   for p.funs.each |f| {
-    let (live_in, deltas) = liveness::calculate(&f.cfg, f.root);
+    let live = liveness::Analysis();
+    liveness::calculate(&f.cfg, f.root, &live);
     let temps = temp::new_init(f.temps);
     for f.cfg.each_node |id, &stms| {
-      let blk = constrain_block(live_in[id], deltas[id], |t| {
+      let blk = constrain_block(live.in[id], live.deltas[id], |t| {
         let tmp = temps.new();
         f.sizes.insert(tmp, f.sizes[t]);
         tmp

@@ -9,6 +9,7 @@ pub type Label = label::Label;
 pub type Edge = ir::Edge;
 pub type Size = ir::Type;
 pub type Tag = uint;
+pub type CFG = graph::Graph<@~[@Instruction], Edge>;
 
 pub struct Program {
   funs : ~[Function]
@@ -17,10 +18,10 @@ pub struct Program {
 pub struct Function {
   name : ~str,
   root : graph::NodeId,
-  cfg : graph::Graph<@~[@Instruction], Edge>,
+  cfg : CFG,
   sizes : map::HashMap<Temp, Size>,
   mut temps : uint,
-  mut idominated : ssa::Idominated,
+  analysis: ssa::Analysis,
 
   loops : map::HashMap<graph::NodeId, (graph::NodeId, graph::NodeId)>,
 }

@@ -1,6 +1,14 @@
 use std::map;
 use middle::temp::Temp;
 
+pub struct Analysis {
+  /* idoms[a] = b => all elements of b are immeidately dominated by a */
+  idominated : Idominated,
+  /* idoms[a] = b => immediate dominator of a is b */
+  idominator : Idominators,
+  liveness : liveness::Analysis,
+}
+
 pub trait Statement : PrettyPrint {
   fn each_def<T>(&fn(Temp) -> T);
   fn each_use<T>(&fn(Temp) -> T);
@@ -29,21 +37,31 @@ struct Converter<T> {
   versions : map::HashMap<graph::NodeId, TempMap>,
   /* (re-)Allocator for temps */
   temps : temp::Allocator,
-  /* idoms[a] = b => immediate dominator of a is b */
-  idoms : Idominators,
-  /* idoms[a] = b => all elements of b are immeidately dominated by a */
-  idominated : Idominated,
 
   /* callback to invoke whenever altering a temp's name */
   remap : @fn(Temp, Temp),
   /* callback for creating phi functions */
   phi_maker : @fn(Temp, PhiMap) -> @T,
+
+  /* results of the analysis */
+  analysis: &Analysis
+}
+
+pub fn Analysis() -> Analysis {
+  Analysis { idominated: map::HashMap(), idominator: map::HashMap(),
+             liveness: liveness::Analysis() }
 }
 
 pub fn convert<T : Statement>(cfg : &CFG<T>,
-                              root : graph::NodeId, live_in : &[Temp],
+                              root : graph::NodeId,
+                              live_in : &[Temp],
+                              results: &Analysis,
                               remap : @fn(Temp, Temp),
-                              phi : @fn(Temp, PhiMap) -> @T) -> Idominated {
+                              phi : @fn(Temp, PhiMap) -> @T) {
+
+  do profile::dbg("liveness") {
+    liveness::calculate(cfg, root, &results.liveness)
+  }
   let converter = Converter { cfg: cfg,
                               root: root,
                               defs: map::HashMap(),
@@ -51,12 +69,10 @@ pub fn convert<T : Statement>(cfg : &CFG<T>,
                               phi_temps : map::HashMap(),
                               versions: map::HashMap(),
                               temps: temp::new(),
-                              idoms: map::HashMap(),
-                              idominated: map::HashMap(),
+                              analysis: results,
                               remap: remap,
                               phi_maker: phi };
   converter.convert(live_in);
-  return converter.idominated;
 }
 
 impl<T : Statement> Converter<T> {
@@ -66,12 +82,7 @@ impl<T : Statement> Converter<T> {
 
     /* Do all the heavy work of finding where phis go */
     do profile::dbg("find defs") { self.find_defs() }
-
-    /* perform liveness analysis */
-    let (live, _) = do profile::dbg("liveness") {
-      liveness::calculate(self.cfg, self.root)
-    };
-    do profile::dbg("finding phis") { self.find_phis(live) }
+    do profile::dbg("finding phis") { self.find_phis() }
 
     /* Re-number the entire graph */
     do profile::dbg("renumbering temps") {
@@ -152,12 +163,13 @@ impl<T : Statement> Converter<T> {
   }
 
   /* Find where all phi functions need to go */
-  fn find_phis(live_in : liveness::LiveMap) {
+  fn find_phis() {
     /* Use the iterated dominance frontier algorithm, shown here:
           http://symbolaris.com/course/Compilers12/11-ssa.pdf
        to determine the optimal placement of phi functions */
 
     let frontiers = self.dom_frontiers();
+    let live_in = self.analysis.liveness.in;
 
     for self.defs.each |tmp, defs| {
       debug!("idf for tmp: %s", tmp.pp());
@@ -181,7 +193,7 @@ impl<T : Statement> Converter<T> {
   /* Calculate the immediate dominators of every node */
   pub fn idoms() {
     debug!("calculating idoms");
-    let idoms = self.idoms;
+    let idoms = self.analysis.idominator;
     let (order, postorder) = self.cfg.postorder(self.root);
     debug!("%?", order);
     idoms.insert(self.root, self.root);
@@ -241,11 +253,12 @@ impl<T : Statement> Converter<T> {
   fn dom_frontiers() -> DomFrontiers {
     /* calculate all immediate dominators */
     self.idoms();
-    let idominated = self.idominated;
-    for self.idoms.each |a, _| {
+    let idoms = self.analysis.idominator;
+    let idominated = self.analysis.idominated;
+    for idoms.each |a, _| {
       idominated.insert(a, map::HashMap());
     }
-    for self.idoms.each |a, b| {
+    for idoms.each |a, b| {
       if a != b {
         set::add(idominated[b], a);
       }
@@ -263,7 +276,7 @@ impl<T : Statement> Converter<T> {
       /* df_local[a] */
       debug!("df_local[%d]...", a as int);
       for self.cfg.each_succ(a) |b| {
-        if self.idoms[b] != a {
+        if idoms[b] != a {
           set::add(frontier, b);
         }
       }
@@ -275,7 +288,7 @@ impl<T : Statement> Converter<T> {
 
         /* df_up[a, c] */
         for set::each(frontiers[c]) |b| {
-          if self.idoms[b] != a {
+          if idoms[b] != a {
             set::add(frontier, b);
           }
         }
@@ -321,7 +334,7 @@ impl<T : Statement> Converter<T> {
    */
   fn map_temps(n : graph::NodeId) {
     let map = map::HashMap();
-    for self.versions[self.idoms[n]].each |k, v| {
+    for self.versions[self.analysis.idominator[n]].each |k, v| {
       map.insert(k, v);
     }
 

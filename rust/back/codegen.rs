@@ -1,5 +1,4 @@
-use middle::ir;
-use middle::temp;
+use middle::{ir, temp, ssa};
 use std::map;
 
 type Builder = &fn(@assem::Instruction);
@@ -42,9 +41,9 @@ fn translate(f : &ir::Function) -> assem::Function {
                     cfg: cfg,
                     root: f.root,
                     temps: cg.temps.cnt(),
-                    idominated: map::HashMap(),
                     sizes: cg.sizes,
-                    loops: f.loops }
+                    loops: f.loops,
+                    analysis: ssa::Analysis() }
 }
 
 impl CodeGenerator {
