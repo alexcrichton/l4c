@@ -88,7 +88,8 @@ impl Coalescer {
 
   fn recolor_chunk(Chunk(tmps, cost): Chunk, pq: &mut PriorityQueue<Chunk>) {
     assert tmps.size() > 0;
-    debug!("coloring chunk %s %?", set::to_str(tmps), cost);
+    debug!("-------------------------------------------------------------");
+    info!("coloring chunk %s %?", set::to_str(tmps), cost);
     let mut best_cost = 0;
     let mut best_color = -1;
     let mut best_set = map::HashMap();
@@ -119,11 +120,11 @@ impl Coalescer {
       }
     }
     if best_color == -1 {
-      debug!("utterly impossible %s", set::to_str(best_set));
+      info!("utterly impossible %s", set::to_str(best_set));
       return;
     }
     debug!("-------------------------------------------------------------");
-    debug!("selected %? for %s", best_color, set::to_str(best_set));
+    info!("selected %? for %s", best_color, set::to_str(best_set));
     docolor!(best_set, best_color);
     set::difference(tmps, best_set);
     if tmps.size() > 0 {
