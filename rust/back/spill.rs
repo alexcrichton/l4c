@@ -374,6 +374,18 @@ impl Spiller {
               block.push(@Spill(tmp, self.congruence[tmp]));
             } else {
               debug!("removing %?", tmp);
+              /* If after a pcopy a temp was spilled, then we don't need to
+                 actually preserve the temp over the pcopy if we spilled it
+                 before it's next use relative to the pcopy */
+              match last_pcopy {
+                None => (),
+                Some((map, next_use)) => {
+                  if map.contains_key(tmp) && next_use[tmp] > i {
+                    debug!("ignoring %? from previous pcopy", tmp);
+                    map.remove(tmp);
+                  }
+                }
+              }
             }
             set::remove(regs, tmp);
             set::remove(spill, tmp);
@@ -399,8 +411,9 @@ impl Spiller {
 
     debug!("%s", map_to_str(next_use));
     let mut i = 0;
+    let mut last_pcopy = None;
     for vec::each2(*self.f.cfg[n], *self.deltas[n]) |&ins, delta| {
-      debug!("%2d %30s  %s %s", i, ins.pp(), map_to_str(next_use),
+      debug!("%2? %30s  %s %s", i, ins.pp(), map_to_str(next_use),
              str::connect(delta.map(|a| fmt!("%?", a)), ~", "));
 
       match ins {
@@ -422,7 +435,12 @@ impl Spiller {
               newcopies.insert(dst, src);
             }
           }
+          let dup = map::HashMap();
+          for next_use.each |k, v| {
+            dup.insert(k, v);
+          }
           block.push(@PCopy(newcopies));
+          last_pcopy = Some((newcopies, dup));
           apply_delta(delta);
         }
 
@@ -430,7 +448,7 @@ impl Spiller {
           /* Determine what needs to be reloaded */
           for ins.each_use |tmp| {
             debug!("%? %?", tmp, next_use[tmp]);
-            assert next_use[tmp] == i as uint;
+            assert next_use[tmp] == i;
             if regs.contains_key(tmp) { loop }
             reloaded.push(tmp);
             set::add(regs, tmp);
