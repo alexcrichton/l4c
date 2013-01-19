@@ -384,6 +384,7 @@ impl Coalescer {
   fn interferences(t: Temp) -> TempSet {
     let set = map::HashMap();
     let visited = map::HashMap();
+    assert self.uses.contains_key(t);
     for set::each(self.uses[t]) |(block, _)| {
       self.find_interferences(t, block, set, visited);
     }
