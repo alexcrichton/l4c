@@ -338,7 +338,7 @@ impl Coalescer {
           }
         }
         @assem::PCopy(ref copies) => {
-          for copies.each |&(a, b)| {
+          for copies.each |a, b| {
             affine!(a, b);
           }
         }

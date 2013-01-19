@@ -28,11 +28,11 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
 
   /* SSA will deal with these renamings later? */
   fn pcopy(live : liveness::LiveIn) -> @Instruction {
-    let mut list = ~[];
+    let dup = map::HashMap();
     for set::each(live) |tmp| {
-      list.push((tmp, tmp));
+      dup.insert(tmp, tmp);
     }
-    @PCopy(list)
+    @PCopy(dup)
   }
 
   /* If a constrained use is also always clobbered as a result of an

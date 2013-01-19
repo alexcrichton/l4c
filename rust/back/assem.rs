@@ -41,7 +41,7 @@ pub enum Instruction {
   Reload(Temp, Tag),
   Spill(Temp, Tag),
   Use(Temp),              /* used when constraining non-commutative ops */
-  PCopy(~[(Temp, Temp)]), /* parallel copy of temps */
+  PCopy(map::HashMap<Temp, Temp>), /* parallel copy of temps */
   Arg(Temp, uint),        /* nth argument is wired to this temp */
 }
 
@@ -100,11 +100,7 @@ impl Instruction : ssa::Statement {
       Arg(t, _)
         => { f(t); }
 
-      PCopy(ref copies) => {
-        for copies.each |&(dst, _)| {
-          f(dst);
-        }
-      }
+      PCopy(copies) => for copies.each_key |t| { f(t); },
 
       _ => ()
     }
@@ -146,11 +142,7 @@ impl Instruction : ssa::Statement {
         }
       }
 
-      PCopy(ref copies) => {
-        for copies.each |&(_, src)| {
-          f(src);
-        }
-      }
+      PCopy(copies) => for copies.each_value |t| { f(t); },
 
       _ => ()
     }
@@ -194,11 +186,14 @@ impl Instruction : ssa::Statement {
       @Return(t) => @Return(t.map_temps(uses)),
       @Raw(*) => self,
       @Arg(t, n) => @Arg(defs(t), n),
-      @PCopy(ref copies) =>
-        @PCopy(copies.map(|&(dst, src)| {
+      @PCopy(copies) => {
+        let map = map::HashMap();
+        for copies.each |dst, src| {
           let src = uses(src);
-          (defs(dst), src)
-        }))
+          map.insert(defs(dst), src);
+        }
+        @PCopy(map)
+      }
     }
   }
 }
@@ -284,8 +279,13 @@ impl Instruction : PrettyPrint {
       }
       Spill(t, tag) => fmt!("SPILL %s -> %?", t.pp(), tag),
       Reload(t, tag) => fmt!("RELOAD %s <= %?", t.pp(), tag),
-      PCopy(ref copies) =>
-        str::connect(copies.map(|&(a, b)| fmt!("(%? <= %?)", a, b)), ~", ")
+      PCopy(copies) => {
+        let mut s = ~"{";
+        for copies.each |k, v| {
+          s += fmt!("(%? => %?) ", k, v);
+        }
+        s + ~"}"
+      }
     }
   }
 }

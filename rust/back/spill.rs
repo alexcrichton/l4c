@@ -415,10 +415,13 @@ impl Spiller {
         }
 
         @PCopy(ref copies) => {
-          let newcopies = do copies.filter |&(dst, src)| {
+          let newcopies = map::HashMap();
+          for copies.each |dst, src| {
             assert(dst == src);
-            set::contains(regs, src)
-          };
+            if set::contains(regs, src) {
+              newcopies.insert(dst, src);
+            }
+          }
           block.push(@PCopy(newcopies));
           apply_delta(delta);
         }

@@ -213,16 +213,16 @@ impl Allocator {
         }
         debug!("processing previous pcopy");
         match pcopy {
-          Some(@PCopy(ref copies)) => {
+          Some(@PCopy(copies)) => {
             let regstmp = map::HashMap();
-            for copies.each |&(dst, src)| {
+            for copies.each |dst, src| {
               assert dst != src;
               match self.colors.find(dst) {
                 Some(c) => { set::add(regstmp, c); }
                 None    => ()
               }
             }
-            for copies.each |&(dst, _)| {
+            for copies.each_key |dst| {
               process(dst, regstmp, self.colors);
             }
           }
@@ -472,11 +472,14 @@ impl Allocator {
         push(@Call(dst, self.alloc_op(fun),
              args.map(|&arg| self.alloc_op(arg)))),
 
-      @PCopy(ref copies) => {
+      @PCopy(copies) => {
         debug!("%?", copies);
-        let (dsts, srcs) = vec::unzip(vec::map(*copies, |&(d, s)|
-          (self.colors[d], self.colors[s])
-        ));
+        let mut dsts = ~[];
+        let mut srcs = ~[];
+        for copies.each |dst, src| {
+          dsts.push(self.colors[dst]);
+          srcs.push(self.colors[src]);
+        }
         for self.resolve_perm(dsts, srcs).each |&ins| {
           push(ins);
         }
