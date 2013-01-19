@@ -362,21 +362,26 @@ impl Spiller {
 
     /* Limit the amount of variables in registers by spilling those which are
        used the farthest away */
-    let limit = |max : uint, spiller : &fn(Temp)| {
-      if regs.size() >= max {
-        let sorted = sort(regs, next_use);
-        debug!("%? %s", sorted, map_to_str(next_use));
-        for sorted.view(max, sorted.len()).each |&tmp| {
-          if !set::contains(spill, tmp) && next_use.contains_key(tmp) {
-            debug!("spilling %?", tmp);
-            spiller(tmp);
+    macro_rules! limit (
+      ($max:expr) =>
+      ({
+        if regs.size() >= $max {
+          let sorted = sort(regs, next_use);
+          debug!("%? %s", sorted, map_to_str(next_use));
+          for sorted.view($max, sorted.len()).each |&tmp| {
+            if !set::contains(spill, tmp) && next_use.contains_key(tmp) {
+              debug!("spilling %?", tmp);
+              block.push(@Spill(tmp, self.congruence[tmp]));
+            } else {
+              debug!("removing %?", tmp);
+            }
+            set::remove(regs, tmp);
+            set::remove(spill, tmp);
           }
-          set::remove(regs, tmp);
-          set::remove(spill, tmp);
         }
-      }
-      assert(regs.size() <= max);
-    };
+        assert(regs.size() <= $max);
+      })
+    );
 
     let apply_delta = |delta : &~[(Temp, Option<uint>)]| {
       /* For each delta if the value is None, then that means the liveness has
@@ -436,16 +441,14 @@ impl Spiller {
           };
           /* This limit is relative to the next_use of this instruction */
           debug!("making room for operands");
-          limit(arch::num_regs - extra,
-                |t| block.push(@Spill(t, self.congruence[t])));
+          limit!(arch::num_regs - extra);
 
           /* The next limit is relative to the next instruction */
           apply_delta(delta);
           let mut defs = 0;
           for ins.each_def |_| { defs += 1; }
           debug!("making room for results");
-          limit(arch::num_regs - defs,
-                |t| block.push(@Spill(t, self.congruence[t])));
+          limit!(arch::num_regs - defs);
 
           /* Add all defined temps to the set of those in regs */
           for ins.each_def |tmp| {
