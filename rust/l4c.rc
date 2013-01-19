@@ -83,6 +83,8 @@ fn main() {
   use middle::*;
   use back::*;
   use std::getopts::*;
+  use std::json;
+  use io::ReaderUtil;
 
   let flags = ~[
     optflag("v"), optflag("verbose"),
@@ -107,8 +109,19 @@ fn main() {
 
   /* front */
   let prog = get_json(m);
-  let ast = do prof(m, "parsing") {
-    parse::from_rdr(prog.output(), copy m.free[0])
+  let json = do prof(m, "reading/parsing json") {
+    match (json::from_reader(prog.output()), prog.finish()) {
+      (result::Ok(j), 0)  => j,
+      (result::Err(e), 0) => fail(fmt!("JSON parse error: %?", e.msg)),
+      _ => {
+        io::stderr().write(prog.err().read_whole_stream());
+        libc::exit(1);
+        fail(~"TODO: can this go away now?");
+      }
+    }
+  };
+  let ast = do prof(m, "generating ast") {
+    parse::from_json(&json, copy m.free[0])
   };
   do prof(m, "elaborating") { ast.elaborate(); }
   if opt_present(m, "dump-ast") {

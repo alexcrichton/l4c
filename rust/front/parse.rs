@@ -7,18 +7,14 @@ struct Parser {
   main : ~str
 }
 
-pub fn from_rdr(rdr : io::Reader, main : ~str) -> ast::Program {
+pub fn from_json(j : &Json, main : ~str) -> ast::Program {
   let parser = Parser{syms: symbol::Symtab(), file: @~"", main: main };
-  let res = do profile::dbg("parse json") { json::from_reader(rdr) };
-  match res {
-    result::Ok(j)  => parser.parse(j),
-    result::Err(e) => fail(fmt!("JSON parse error: %?", e.msg))
-  }
+  return parser.parse(j);
 }
 
 impl Parser {
-  fn parse(j : Json) -> ast::Program {
-    match j {
+  fn parse(j : &Json) -> ast::Program {
+    match *j {
       List(ref data) => {
         let mut decls = ~[];
         for data.each |&j| {
