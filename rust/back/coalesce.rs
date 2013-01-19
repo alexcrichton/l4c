@@ -393,13 +393,13 @@ impl Coalescer {
 
   fn find_interferences(x: Temp, n: NodeId, set: TempSet, visited: NodeSet) {
     set::add(visited, n);
-    let L = self.f.liveness.out[n];
+    let L = set::clone(self.f.liveness.out[n]);
     for vec::rev_each(*self.f.cfg[n]) |&ins| {
-      for ins.each_def |tmp| { set::remove(L, tmp); }
-      for ins.each_use |tmp| { set::add(L, tmp); }
       if set::contains(L, x) {
         set::union(set, L);
       }
+      for ins.each_def |tmp| { set::remove(L, tmp); }
+      for ins.each_use |tmp| { set::add(L, tmp); }
     }
     let def = self.defs[x];
     for self.f.cfg.each_pred(n) |pred| {
