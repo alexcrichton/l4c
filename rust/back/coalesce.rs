@@ -155,7 +155,7 @@ impl Coalescer {
         while queue.len() > 0 {
           debug!("%?", queue);
           let tmp = queue.pop();
-          assert set::add(subset, tmp);
+          set::add(subset, tmp);
           assert self.affinities.contains_key(tmp);
           for self.affinities[tmp].each |next, weight| {
             debug!("%? affine with %? cost %?", tmp, next, weight);
