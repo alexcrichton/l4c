@@ -117,15 +117,18 @@ impl Allocator {
       /* If we found a pcopy, we need to think about being constrained */
       if pcopy.is_some() {
         let banned = map::HashMap();
-        macro_rules! precolor(($o:expr, $r:expr) => (
-          match $o {
-            @Temp(t) => {
-              assert self.colors.insert(t, arch::reg_num($r));
-              assert set::add(self.precolored, t);
+        macro_rules! precolor(
+          ($o:expr, $r:expr) =>
+          (
+            match $o {
+              @Temp(t) => {
+                assert self.colors.insert(t, arch::reg_num($r));
+                assert set::add(self.precolored, t);
+              }
+              _ => fail(fmt!("not a tmp %?", $o))
             }
-            _ => fail(fmt!("not a tmp %?", $o))
-          }
-        ););
+          )
+        );
 
         match ins {
           @BinaryOp(op, dst, op1, op2) if op.constrained() => {
