@@ -275,13 +275,14 @@ impl Coalescer {
 
     /* Finally insert all chunks into a priority queue */
     let mut ret = PriorityQueue::new();
-    for chunks.each |_, c| {
-      let Chunk(tmps, _) = c;
-      for set::each(tmps) |t| {
-        chunks.insert(t, empty);
-      }
-      if tmps.size() > 0 {
+    while chunks.size() > 0 {
+      for chunks.each |_, c| {
+        let Chunk(tmps, _) = c;
+        for set::each(tmps) |t| {
+          chunks.remove(t);
+        }
         ret.push(c);
+        break;
       }
     }
     return ret;
