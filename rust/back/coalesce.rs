@@ -139,16 +139,18 @@ impl Coalescer {
            to everything in the set */
         for set::each(set) |s| {
           let (a, b) = if tmp < s { (tmp, s) } else { (s, tmp) };
+          debug!("%? %? %? %?", s, tmp, a, b);
           assert self.affinities.contains_key(a);
           match self.affinities[a].find(b) {
             Some(weight) => {
               weights[i] += weight;
               set::add(set, tmp);
-              added = true; /* don't break, we may satisfy more edges */
+              added = true;
               if weights[i] > maxweight {
                 maxi = i;
                 maxweight = weights[i];
               }
+              break;
             }
             None => ()
           }
