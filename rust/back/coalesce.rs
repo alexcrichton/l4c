@@ -136,53 +136,52 @@ impl Coalescer {
 
   fn best_subset(s: TempSet, c: uint) -> Option<(TempSet, uint)> {
     let mut maxweight = 0;
-    let mut maxi = 0;
-    let mut weights : ~[uint] = ~[]; /* TODO: why is this annotation necessary*/
-    let mut subsets = ~[];
-    debug!("subset of %s %?", set::to_str(s), c);
-    debug!("%s", set::to_str(self.precolored));
+    let mut maxset = map::HashMap();
+    let left = map::HashMap();
+    for set::each(s) |tmp| {
+      if self.colors[tmp] == c {
+        set::add(left, tmp);
+      }
+    }
+    debug!("best of %s in %s for %?", set::to_str(left), set::to_str(s), c);
 
     /* Iterate over the set of temps and partition as we go */
-    for set::each(s) |tmp| {
-      debug!("%? %? %?", tmp, c, self.colors[tmp]);
-      if self.colors[tmp] != c { loop }
-      debug!("selection for %?", tmp);
-
-      let mut added = false;
-      /* Try to add tmp to each subset we have so far */
-      for subsets.eachi |i, &set| {
-        /* If tmp is directly affine to anything in this set, then it's affine
-           to everything in the set */
-        for set::each(set) |s| {
-          let (a, b) = if tmp < s { (tmp, s) } else { (s, tmp) };
-          debug!("%? %? %? %?", s, tmp, a, b);
-          assert self.affinities.contains_key(a);
-          match self.affinities[a].find(b) {
-            Some(weight) => {
-              weights[i] += weight;
-              set::add(set, tmp);
-              added = true;
-              if weights[i] > maxweight {
-                maxi = i;
-                maxweight = weights[i];
-              }
-              break;
+    while left.size() > 0 {
+      let subset = map::HashMap();
+      let mut qweight = 1;
+      /* pop off the first temp and build its entire subset */
+      for set::each(left) |tmp| {
+        let mut queue = ~[tmp];
+        while queue.len() > 0 {
+          debug!("%?", queue);
+          let tmp = queue.pop();
+          assert set::add(subset, tmp);
+          assert self.affinities.contains_key(tmp);
+          for self.affinities[tmp].each |next, weight| {
+            debug!("%? affine with %? cost %?", tmp, next, weight);
+            if set::contains(left, next) && !set::contains(subset, next) {
+              debug!("adding %?", next);
+              queue.push(next);
+              qweight += weight;
             }
-            None => ()
           }
         }
-        if added { break }
+        break;
       }
-      /* If we didn't add the temp to any set, then we have a new subset */
-      if !added {
-        subsets.push(set::singleton(tmp));
-        weights.push(0);
+
+      assert subset.size() > 0;
+      set::difference(left, subset);
+      if qweight > maxweight {
+        maxweight = qweight;
+        maxset = subset;
       }
     }
-    if subsets.len() == 0 {
+    if maxweight == -1 {
+      debug!("no good subset");
       return None;
     }
-    return Some((subsets[maxi], maxweight));
+    debug!("found %s %?", set::to_str(maxset), maxweight);
+    return Some((maxset, maxweight));
   }
 
   /* Algorithm 4.4 */
@@ -323,8 +322,8 @@ impl Coalescer {
     macro_rules! affine(
       ($a:expr, $b:expr) =>
       ({
-        let (a, b) = if $a < $b { ($a, $b) } else { ($b, $a) };
-        (find_set!(self.affinities, a)).insert(b, weight);
+        (find_set!(self.affinities, $a)).insert($b, weight);
+        (find_set!(self.affinities, $b)).insert($a, weight);
         pq.push(Affinity($a, $b, weight));
       })
     );
