@@ -42,6 +42,21 @@ pub fn optimize(f: &assem::Function,
   c.coalesce();
 }
 
+macro_rules! find_set(
+  ($map:expr, $key:expr) =>
+  (
+    match $map.find($key) {
+      Some(s) => s,
+      None => {
+        let m = map::HashMap();
+        ignore(m); /* TODO: is this a bad rust thing? */
+        $map.insert($key, m);
+        m
+      }
+    }
+  )
+)
+
 impl Coalescer {
   fn build_use_def(n : NodeId, ins: @~[@assem::Instruction]) {
     for ins.eachi |i, &ins| {
@@ -308,17 +323,8 @@ impl Coalescer {
       ($a:expr, $b:expr) =>
       ({
         let (a, b) = if $a < $b { ($a, $b) } else { ($b, $a) };
-        debug!("affine %? %?", a, b);
-        let map = match self.affinities.find(a) {
-          Some(m) => m,
-          _ => {
-            let m = map::HashMap();
-            self.affinities.insert(a, m);
-            m
-          }
-        };
-        map.insert(b, weight);
-        pq.push(Affinity(a, b, weight));
+        (find_set!(self.affinities, a)).insert(b, weight);
+        pq.push(Affinity($a, $b, weight));
       })
     );
 
