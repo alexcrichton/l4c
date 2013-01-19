@@ -290,14 +290,22 @@ impl Coalescer {
 
   fn find_affinities(n: NodeId, weight: uint, pq: &mut PriorityQueue<Affinity>,
                      visited: NodeSet) {
-    let affine = |a: Temp, b: Temp, aff: Affinities, pq: &mut PriorityQueue<Affinity>| {
-      let (a, b) = if a < b { (a, b) } else { (b, a) };
-      let map = match aff.find(a) {
-        Some(m) => m, _ => map::HashMap()
-      };
-      map.insert(b, weight);
-      pq.push(Affinity(a, b, weight));
-    };
+    macro_rules! affine(
+      ($a:expr, $b:expr) =>
+      ({
+        let (a, b) = if $a < $b { ($a, $b) } else { ($b, $a) };
+        let map = match self.affinities.find(a) {
+          Some(m) => m,
+          _ => {
+            let m = map::HashMap();
+            self.affinities.insert(a, m);
+            m
+          }
+        };
+        map.insert(b, weight);
+        pq.push(Affinity(a, b, weight));
+      })
+    );
 
     set::add(visited, n);
     let weight = weight + if self.f.loops.contains_key(n) { 1 } else { 0 };
@@ -305,12 +313,12 @@ impl Coalescer {
       match ins {
         @assem::Phi(def, map) => {
           for map.each_value |tmp| {
-            affine(def, tmp, self.affinities, pq);
+            affine!(def, tmp);
           }
         }
         @assem::PCopy(ref copies) => {
           for copies.each |&(a, b)| {
-            affine(a, b, self.affinities, pq);
+            affine!(a, b);
           }
         }
         _ => ()
