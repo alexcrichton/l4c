@@ -106,6 +106,7 @@ impl Allocator {
         /* do simple precoloring of args up front */
         @Arg(tmp, i) => {
           self.colors.insert(tmp, arch::reg_num(arch::arg_reg(i)));
+          set::add(self.precolored, tmp);
           if set::contains(tmplive, tmp) {
             set::add(registers, self.colors[tmp]);
           }
