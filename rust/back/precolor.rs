@@ -40,7 +40,8 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
      instruction runs to not destroy the actual value. We push this move
      before the PCopy as well for ease later on */
   macro_rules! constrain_clobber(
-    ($op:expr) => (
+    ($op:expr) =>
+    (
       match $op {
         @Temp(t) if set::contains(live_out, t) => {
           let dup = tmpclone(t);
@@ -52,7 +53,7 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
         }
         _ => $op
       }
-    );
+    )
   );
 
   for vec::each2(*ins, *delta) |&ins, delta| {
