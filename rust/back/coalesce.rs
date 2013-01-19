@@ -92,12 +92,20 @@ impl Coalescer {
     for arch::each_reg |r| {
       debug!("trying %?", r);
       docolor!(tmps, r);
-      let (M, mcost) = self.best_subset(tmps, r);
-      if mcost > best_cost {
-        best_color = r;
-        best_cost = mcost;
-        best_set = M;
+      match self.best_subset(tmps, r) {
+        None => (),
+        Some((M, mcost)) => {
+          if mcost > best_cost {
+            best_color = r;
+            best_cost = mcost;
+            best_set = M;
+          }
+        }
       }
+    }
+    if best_color == -1 {
+      debug!("utterly impossible %s", set::to_str(best_set));
+      return;
     }
     debug!("-------------------------------------------------------------");
     debug!("selected %? for %s", best_color, set::to_str(best_set));
@@ -110,12 +118,13 @@ impl Coalescer {
     debug!("-------------------------------------------------------------");
   }
 
-  fn best_subset(s: TempSet, c: uint) -> (TempSet, uint) {
+  fn best_subset(s: TempSet, c: uint) -> Option<(TempSet, uint)> {
     let mut maxweight = 0;
     let mut maxi = 0;
     let mut weights : ~[uint] = ~[]; /* TODO: why is this annotation necessary*/
     let mut subsets = ~[];
     debug!("subset of %s %?", set::to_str(s), c);
+    debug!("%s", set::to_str(self.precolored));
 
     /* Iterate over the set of temps and partition as we go */
     for set::each(s) |tmp| {
@@ -152,7 +161,10 @@ impl Coalescer {
         weights.push(0);
       }
     }
-    return (subsets[maxi], maxweight);
+    if subsets.len() == 0 {
+      return None;
+    }
+    return Some((subsets[maxi], maxweight));
   }
 
   /* Algorithm 4.4 */
@@ -294,6 +306,7 @@ impl Coalescer {
       ($a:expr, $b:expr) =>
       ({
         let (a, b) = if $a < $b { ($a, $b) } else { ($b, $a) };
+        debug!("affine %? %?", a, b);
         let map = match self.affinities.find(a) {
           Some(m) => m,
           _ => {
