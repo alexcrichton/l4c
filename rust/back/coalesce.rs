@@ -366,6 +366,7 @@ impl Coalescer {
     for set::each(self.uses[t]) |(block, _)| {
       self.find_interferences(t, block, set, visited);
     }
+    set::remove(set, t);
     return set;
   }
 
