@@ -64,15 +64,15 @@ impl Coalescer {
         assert self.defs.insert(tmp, (n, i as int));
       }
       for ins.each_use |tmp| {
-        let set = match self.uses.find(tmp) {
-          Some(s) => s,
-          None => {
-            let s = map::HashMap();
-            self.uses.insert(tmp, s);
-            s
+        set::add(find_set!(self.uses, tmp), (n, i as int));
+      }
+      match ins.phi_map() {
+        None => (),
+        Some(m) => {
+          for m.each |pred, tmp| {
+            set::add(find_set!(self.uses, tmp), (pred, int::max_value));
           }
-        };
-        set::add(set, (n, i as int));
+        }
       }
     }
   }
