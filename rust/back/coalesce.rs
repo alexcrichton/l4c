@@ -72,19 +72,25 @@ impl Coalescer {
   }
 
   fn recolor_chunk(Chunk(tmps, cost): Chunk, pq: &mut PriorityQueue<Chunk>) {
+    assert tmps.size() > 0;
+    debug!("coloring chunk %s %?", set::to_str(tmps), cost);
     let mut best_cost = 0;
     let mut best_color = -1;
     let mut best_set = map::HashMap();
-    macro_rules! docolor(($set:expr, $color:expr) => (
-      /* Unfix all temps */
-      for set::each($set) |tmp| { set::remove(self.fixed, tmp); }
-      for set::each($set) |tmp| {
-        self.recolor(tmp, $color);
-        set::add(self.fixed, tmp);
-      }
-    ););
+    macro_rules! docolor(
+      ($set:expr, $color:expr) =>
+      ({
+        /* Unfix all temps */
+        for set::each($set) |tmp| { set::remove(self.fixed, tmp); }
+        for set::each($set) |tmp| {
+          self.recolor(tmp, $color);
+          set::add(self.fixed, tmp);
+        }
+      })
+    );
 
-    for uint::range(1, arch::num_regs + 1) |r| {
+    for arch::each_reg |r| {
+      debug!("trying %?", r);
       docolor!(tmps, r);
       let (M, mcost) = self.best_subset(tmps, r);
       if mcost > best_cost {
@@ -93,11 +99,15 @@ impl Coalescer {
         best_set = M;
       }
     }
+    debug!("-------------------------------------------------------------");
+    debug!("selected %? for %s", best_color, set::to_str(best_set));
     docolor!(best_set, best_color);
     set::difference(tmps, best_set);
     if tmps.size() > 0 {
+      debug!("re-adding %?", set::to_str(tmps));
       pq.push(Chunk(tmps, cost - best_cost));
     }
+    debug!("-------------------------------------------------------------");
   }
 
   fn best_subset(s: TempSet, c: uint) -> (TempSet, uint) {
@@ -105,10 +115,13 @@ impl Coalescer {
     let mut maxi = 0;
     let mut weights : ~[uint] = ~[]; /* TODO: why is this annotation necessary*/
     let mut subsets = ~[];
+    debug!("subset of %s %?", set::to_str(s), c);
 
     /* Iterate over the set of temps and partition as we go */
     for set::each(s) |tmp| {
+      debug!("%? %? %?", tmp, c, self.colors[tmp]);
       if self.colors[tmp] != c { loop }
+      debug!("selection for %?", tmp);
 
       let mut added = false;
       /* Try to add tmp to each subset we have so far */
@@ -144,14 +157,15 @@ impl Coalescer {
 
   /* Algorithm 4.4 */
   fn recolor(t: Temp, c: uint) {
-    if !self.admissible(t, c) { return }
-    if !set::contains(self.fixed, t) { return }
+    if !self.admissible(t, c) { debug!("not admissible %? %?", t, c); return }
+    if set::contains(self.fixed, t) { debug!("fixed %?", t); return }
     let changed = map::HashMap();
     self.set_color(t, c, changed);
+    debug!("recoloring %? to %?", t, c);
 
     let others = self.interferences(t);
     for set::each(others) |tmp| {
-      if self.colors[tmp] != c { loop }
+      debug!("recoloring %? interfering with %?", tmp, t);
       if !self.avoid_color(tmp, c, changed) {
         for set::each(changed) |tmp| {
           assert self.old_color.contains_key(tmp);
@@ -165,6 +179,7 @@ impl Coalescer {
   }
 
   fn set_color(t: Temp, c: uint, changed: TempSet) {
+    debug!("setting %? to %?", t, c);
     assert set::add(self.fixed, t);
     self.old_color.insert(t, self.colors[t]);
     assert set::add(changed, t);
@@ -172,9 +187,12 @@ impl Coalescer {
   }
 
   fn avoid_color(t: Temp, c: uint, changed: TempSet) -> bool {
-    if self.colors[t] != c { return true }
-    if set::contains(self.fixed, t) { return false }
-    if set::contains(self.precolored, t) && c != self.colors[t] { return false }
+    if self.colors[t] != c { debug!("pre avoided %? %?", t, c); return true }
+    if set::contains(self.fixed, t) { debug!("fixed %?", t); return false }
+    if set::contains(self.precolored, t) && c != self.colors[t] {
+      debug!("%? fixed elsewhere (%? %?)", t, c, self.colors[t]);
+      return false
+    }
     let color = if set::contains(self.precolored, t) {
       c
     } else {
@@ -183,6 +201,7 @@ impl Coalescer {
     self.set_color(t, color, changed);
     for set::each(self.interferences(t)) |tmp| {
       if !self.avoid_color(tmp, color, changed) {
+        debug!("failed to avoid on interference %?", tmp);
         return false;
       }
     }
