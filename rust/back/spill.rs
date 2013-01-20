@@ -372,7 +372,7 @@ impl Spiller {
             if !set::contains(spill, tmp) && next_use.contains_key(tmp) {
               debug!("spilling %?", tmp);
               block.push(@Spill(tmp, self.congruence[tmp]));
-            } else {
+            } else if set::contains(spill, tmp) {
               debug!("removing %?", tmp);
               /* If after a pcopy a temp was spilled, then we don't need to
                  actually preserve the temp over the pcopy if we spilled it
