@@ -21,6 +21,10 @@ struct Coalescer {
   old_color : map::HashMap<Temp, uint>,
   precolored : TempSet,
   constraints : map::HashMap<Temp, assem::Constraint>,
+  interference_cache: map::HashMap<Temp, TempSet>,
+  interferences_cache: map::HashMap<(Temp, Temp), bool>,
+  admissible_cache: map::HashMap<(Temp, uint), bool>,
+  dominates_cache: map::HashMap<(Location, Location), bool>,
 }
 
 pub fn optimize(f: &assem::Function,
@@ -35,9 +39,15 @@ pub fn optimize(f: &assem::Function,
                       colors: colors,
                       old_color: map::HashMap(),
                       precolored: precolored,
-                      constraints: constraints, };
-  for f.cfg.each_node |id, &ins| {
-    c.build_use_def(id, ins);
+                      constraints: constraints,
+                      interference_cache: map::HashMap(),
+                      interferences_cache: map::HashMap(),
+                      admissible_cache: map::HashMap(),
+                      dominates_cache: map::HashMap() };
+  do profile::dbg("building use/def") {
+    for f.cfg.each_node |id, &ins| {
+      c.build_use_def(id, ins);
+    }
   }
   c.coalesce();
 }
@@ -79,10 +89,16 @@ impl Coalescer {
 
   /* Algorithm 4.3 */
   fn coalesce() {
-    let mut pq = self.build_chunks();
-    while !pq.is_empty() {
-      let chunk = pq.pop();
-      self.recolor_chunk(chunk, &mut pq);
+    let mut pq = do profile::dbg("building chunks") {
+      self.build_chunks()
+    };
+    do profile::dbg("recoloring") {
+      while !pq.is_empty() {
+        let chunk = pq.pop();
+        do profile::dbg("recoloring chunk") {
+          self.recolor_chunk(chunk, &mut pq);
+        }
+      }
     }
   }
 
@@ -105,16 +121,20 @@ impl Coalescer {
       })
     );
 
-    for arch::each_reg |r| {
-      debug!("trying %?", r);
-      docolor!(tmps, r);
-      match self.best_subset(tmps, r) {
-        None => (),
-        Some((M, mcost)) => {
-          if mcost > best_cost {
-            best_color = r;
-            best_cost = mcost;
-            best_set = M;
+    do profile::dbg("trying regs") {
+      for arch::each_reg |r| {
+        debug!("trying %?", r);
+        do profile::dbg("coloring") { docolor!(tmps, r); }
+        do profile::dbg("best set") {
+          match self.best_subset(tmps, r) {
+            None => (),
+            Some((M, mcost)) => {
+              if mcost > best_cost {
+                best_color = r;
+                best_cost = mcost;
+                best_set = M;
+              }
+            }
           }
         }
       }
@@ -123,15 +143,18 @@ impl Coalescer {
       info!("utterly impossible %s", set::to_str(best_set));
       return;
     }
-    debug!("-------------------------------------------------------------");
-    info!("selected %? for %s", best_color, set::to_str(best_set));
-    docolor!(best_set, best_color);
-    set::difference(tmps, best_set);
-    if tmps.size() > 0 {
-      debug!("re-adding %?", set::to_str(tmps));
-      pq.push(Chunk(tmps, cost - best_cost));
+
+    do profile::dbg("selecting a color") {
+      debug!("-------------------------------------------------------------");
+      info!("selected %? for %s", best_color, set::to_str(best_set));
+      do profile::dbg("coloring") { docolor!(best_set, best_color); }
+      set::difference(tmps, best_set);
+      if tmps.size() > 0 {
+        debug!("re-adding %?", set::to_str(tmps));
+        pq.push(Chunk(tmps, cost - best_cost));
+      }
+      debug!("-------------------------------------------------------------");
     }
-    debug!("-------------------------------------------------------------");
   }
 
   fn best_subset(s: TempSet, c: uint) -> Option<(TempSet, uint)> {
@@ -193,12 +216,14 @@ impl Coalescer {
     debug!("recoloring %? to %?", t, c);
 
     let others = self.interferences(t);
-    for set::each(others) |tmp| {
-      debug!("recoloring %? interfering with %?", tmp, t);
-      if !self.avoid_color(tmp, c, changed) {
-        for set::each(changed) |tmp| {
-          assert self.old_color.contains_key(tmp);
-          self.colors.insert(tmp, self.old_color[tmp]);
+    do profile::dbg("fixing interferes") {
+      for set::each(others) |tmp| {
+        debug!("recoloring %? interfering with %?", tmp, t);
+        if !self.avoid_color(tmp, c, changed) {
+          for set::each(changed) |tmp| {
+            assert self.old_color.contains_key(tmp);
+            self.colors.insert(tmp, self.old_color[tmp]);
+          }
         }
       }
     }
@@ -207,6 +232,7 @@ impl Coalescer {
     }
   }
 
+  #[inline(always)]
   fn set_color(t: Temp, c: uint, changed: TempSet) {
     debug!("setting %? to %?", t, c);
     assert set::add(self.fixed, t);
@@ -237,6 +263,7 @@ impl Coalescer {
     return true;
   }
 
+  #[inline(always)]
   fn min_color(t: Temp, ignore: uint) -> uint {
     let mut cnts = vec::from_elem(arch::num_regs, uint::max_value);
     for arch::each_reg |r| {
@@ -262,7 +289,20 @@ impl Coalescer {
     return mini + 1;
   }
 
+  #[inline(always)]
   fn admissible(t: Temp, color: uint) -> bool {
+    /* TODO: remove this cache */
+    match self.admissible_cache.find((t, color)) {
+      Some(a) => return a,
+      None => ()
+    }
+    let b = self.admissible_impl(t, color);
+    self.admissible_cache.insert((t, color), b);
+    return b;
+  }
+
+  #[inline(always)]
+  fn admissible_impl(t: Temp, color: uint) -> bool {
     if set::contains(self.precolored, t) { return color == self.colors[t] }
     match self.constraints.find(t) {
       None => true,
@@ -356,7 +396,21 @@ impl Coalescer {
   }
 
   /* Algorithm 4.6 */
+  #[inline(always)]
   fn interferes(x: Temp, y: Temp) -> bool {
+    /* TODO: remove this cache */
+    match self.interferences_cache.find((x, y)) {
+      Some(b) => return b,
+      None => (),
+    }
+    let b = self.interferes_impl(x, y);
+    self.interferences_cache.insert((x, y), b);
+    self.interferences_cache.insert((y, x), b);
+    return b;
+  }
+
+  #[inline(always)]
+  fn interferes_impl(x: Temp, y: Temp) -> bool {
     let xdef = self.defs[x];
     let ydef = self.defs[y];
     let (t, b) = if self.dominates(ydef, xdef) {
@@ -381,7 +435,12 @@ impl Coalescer {
   }
 
   /* Algorithm 4.7 */
+  #[inline(always)]
   fn interferences(t: Temp) -> TempSet {
+    match self.interference_cache.find(t) {
+      Some(s) => return s,
+      None => ()
+    }
     let set = map::HashMap();
     let visited = map::HashMap();
     assert self.uses.contains_key(t);
@@ -389,6 +448,7 @@ impl Coalescer {
       self.find_interferences(t, block, set, visited);
     }
     set::remove(set, t);
+    self.interference_cache.insert(t, set);
     return set;
   }
 
@@ -410,7 +470,19 @@ impl Coalescer {
     }
   }
 
-  fn dominates((a, aline): Location, (b, bline): Location) -> bool {
+  #[inline(always)]
+  fn dominates(a: Location, b:Location) -> bool {
+    match self.dominates_cache.find((a, b)) {
+      Some(s) => return s,
+      None => ()
+    }
+    let c = self.dominates_impl(a, b);
+    self.dominates_cache.insert((a, b), c);
+    return c;
+  }
+
+  #[inline(always)]
+  fn dominates_impl((a, aline): Location, (b, bline): Location) -> bool {
     if a == b {
       return aline < bline;
     }
@@ -424,19 +496,27 @@ impl Coalescer {
 }
 
 impl Affinity : cmp::Ord {
+  #[inline(always)]
   pure fn lt(&self, other: &Affinity) -> bool {
     match (self, other) { (&Affinity(_, _, a), &Affinity(_, _, b)) => a < b }
   }
+  #[inline(always)]
   pure fn le(&self, other: &Affinity) -> bool { !other.lt(self) }
+  #[inline(always)]
   pure fn gt(&self, other: &Affinity) -> bool { !self.le(other) }
+  #[inline(always)]
   pure fn ge(&self, other: &Affinity) -> bool { !self.lt(other) }
 }
 
 impl Chunk : cmp::Ord {
+  #[inline(always)]
   pure fn lt(&self, other: &Chunk) -> bool {
     match (self, other) { (&Chunk(_, a), &Chunk(_, b)) => a < b }
   }
+  #[inline(always)]
   pure fn le(&self, other: &Chunk) -> bool { !other.lt(self) }
+  #[inline(always)]
   pure fn gt(&self, other: &Chunk) -> bool { !self.le(other) }
+  #[inline(always)]
   pure fn ge(&self, other: &Chunk) -> bool { !self.lt(other) }
 }

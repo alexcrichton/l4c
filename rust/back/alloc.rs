@@ -140,12 +140,12 @@ impl Allocator {
                 precolor!(dst, match op { Div => EAX, _ => EDX });
                 set::add(banned, arch::reg_num(EDX));
                 set::add(banned, arch::reg_num(EAX));
+                for set::each(tmplive) |tmp| {
+                  assert self.constraints.insert(tmp, Idiv);
+                }
                 match op2 {
                   @Temp(t) => { self.constraints.insert(t, Idiv); }
                   _ => fail(~"not a tmp")
-                }
-                for set::each(tmplive) |tmp| {
-                  assert self.constraints.insert(tmp, Idiv);
                 }
               }
 
