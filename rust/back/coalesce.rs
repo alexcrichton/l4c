@@ -436,7 +436,7 @@ impl Chunk : cmp::Ord {
   pure fn lt(&self, other: &Chunk) -> bool {
     match (self, other) { (&Chunk(_, a), &Chunk(_, b)) => a < b }
   }
-  pure fn le(&self, other: &Affinity) -> bool { !other.lt(self) }
-  pure fn gt(&self, other: &Affinity) -> bool { !self.le(other) }
-  pure fn ge(&self, other: &Affinity) -> bool { !self.lt(other) }
+  pure fn le(&self, other: &Chunk) -> bool { !other.lt(self) }
+  pure fn gt(&self, other: &Chunk) -> bool { !self.le(other) }
+  pure fn ge(&self, other: &Chunk) -> bool { !self.lt(other) }
 }
