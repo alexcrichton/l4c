@@ -1,5 +1,4 @@
 use core::util::with;
-use std::map;
 use front::error;
 use front::ast::*;
 
