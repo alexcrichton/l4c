@@ -3,21 +3,22 @@ use std::map;
 use front::error;
 use front::ast::*;
 use utils::set;
+use core::send_map::linear::LinearMap;
 
 struct Typechecker {
-  err :     ~error::List,
-  funs :    map::HashMap<Ident, (@Type, @~[@Type])>,
-  structs : map::HashMap<Ident, Option<map::HashMap<Ident, @Type>>>,
-  vars :    map::HashMap<Ident, @Type>,
-  mut loops : int,
-  mut ret : @Type
+  err :         ~error::List,
+  mut funs :    LinearMap<Ident, (@Type, @~[@Type])>,
+  mut structs : LinearMap<Ident, Option<map::HashMap<Ident, @Type>>>,
+  mut vars :    LinearMap<Ident, @Type>,
+  mut loops :   int,
+  mut ret :     @Type
 }
 
 pub fn check(a : &Program) {
   let tc = Typechecker{ err: error::new(),
-                        funs: map::HashMap(),
-                        structs: map::HashMap(),
-                        vars: map::HashMap(),
+                        funs: LinearMap(),
+                        structs: LinearMap(),
+                        vars: LinearMap(),
                         loops: 0,
                         ret: @Nullp};
   debug!("typechecking");
@@ -37,7 +38,7 @@ impl Typechecker {
       @Markedg(ref m) => self.err.with(m, |x| self.tc_gdecl(x)),
       @Typedef(_, _) => (),
       @StructDecl(id) =>
-        match self.structs.find(id) {
+        match self.structs.find(&id) {
           None => { self.structs.insert(id, None); },
           _ => ()
         },
@@ -99,12 +100,12 @@ impl Typechecker {
       @Declare(id, typ, init, stm) => {
         self.tc_small(typ);
         init.iter(|x| self.tc_ensure(*x, typ));
-        match self.vars.find(id) {
+        match self.vars.find(&id) {
           Some(_) => self.err.add(fmt!("Redeclared var '%s'", id.val)),
           None => {
             self.vars.insert(id, typ);
             self.tc_stm(stm);
-            self.vars.remove(id);
+            self.vars.remove(&id);
           }
         }
       }
@@ -117,9 +118,9 @@ impl Typechecker {
       @Const(_) => @Int,
       @Boolean(_) => @Bool,
       @Null => @Nullp,
-      @Var(id) => match self.vars.find(id) {
+      @Var(id) => match self.vars.find(&id) {
         Some(t) => t,
-        None => match self.funs.find(id) {
+        None => match self.funs.find(&id) {
           Some((ret, args)) => @Pointer(@Fun(ret, args)),
           None => self.err.die(fmt!("Unknown variable '%s'", id.val))
         }
@@ -187,7 +188,7 @@ impl Typechecker {
         _ => self.err.die(~"expected a pointer to a function type")
       },
       @Field(e, id, ref r) => match self.tc_exp(e) {
-        @Struct(s) => match self.structs.find(s) {
+        @Struct(s) => match self.structs.find(&s) {
           Some(Some(t)) => match t.find(id) {
             Some(t) => { r.set(s); t },
             None => self.err.die(fmt!("Unknown field '%s'", id.val))
@@ -200,7 +201,7 @@ impl Typechecker {
   }
 
   fn bind_struct(id : Ident, fields : &~[(Ident, @Type)]) {
-    match self.structs.find(id) {
+    match self.structs.find(&id) {
       Some(Some(_)) => {
         self.err.add(~"Redefined struct");
         return;
@@ -241,7 +242,7 @@ impl Typechecker {
     }
     self.tc_small(ret);
 
-    match self.funs.find(id) {
+    match self.funs.find(&id) {
       Some((retp, argsp)) => {
         self.tc_equal(retp, ret);
         if argsp.len() != args.len() {
@@ -267,7 +268,7 @@ impl Typechecker {
 
   fn tc_defined(t : @Type) -> bool {
     match t {
-      @Struct(id) => match self.structs.find(id) {
+      @Struct(id) => match self.structs.find(&id) {
         Some(Some(_)) => true,
         _ => { self.err.add(fmt!("Struct not defined '%s'", id.val)); false }
       },
