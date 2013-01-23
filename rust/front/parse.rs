@@ -1,5 +1,6 @@
 use std::json;
 use std::json::*;
+use front::{ast, symbol, mark};
 
 struct Parser {
   priv mut file :  @~str,
@@ -98,8 +99,8 @@ impl Parser {
       List(ref L) =>
         L.map(|x|
           match *x {
-            Object(o) => (self.to_id(o.get_ref(&~"name")),
-                          self.to_typ(o.get_ref(&~"typ"))),
+            Object(ref o) => (self.to_id(o.get_ref(&~"name")),
+                              self.to_typ(o.get_ref(&~"typ"))),
             _ => fail(~"expected object for each pair")
           }
         ),

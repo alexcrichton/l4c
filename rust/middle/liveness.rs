@@ -2,8 +2,9 @@
 // http://hal.inria.fr/docs/00/58/53/03/PDF/RR-7503.pdf - ssa liveness?
 use either::*;
 use std::map;
-use graph::*;
 use middle::ssa::{CFG, Statement};
+use utils::set;
+use utils::graph::*;
 
 pub type LiveMap = map::HashMap<NodeId, LiveIn>;
 pub type LiveIn = map::Set<uint>;

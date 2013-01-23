@@ -1,6 +1,8 @@
 use io::WriterUtil;
 use std::map;
+use middle::{ssa, label};
 use middle::temp::Temp;
+use utils::{graph, PrettyPrint, Graphable};
 
 pub struct Program {
   funs : ~[Function]
@@ -47,7 +49,7 @@ pub enum Edge {
   LoopOut, FLoopOut         /* break out of a loop */
 }
 
-pub fn Program(f : ~[Function]) -> ir::Program {
+pub fn Program(f : ~[Function]) -> Program {
   Program{ funs : f }
 }
 
@@ -168,7 +170,7 @@ impl Statement : ssa::Statement {
 
   fn phi_map() -> Option<ssa::PhiMap> {
     match self {
-      ir::Phi(_, m) => Some(m),
+      Phi(_, m) => Some(m),
       _             => None
     }
   }
@@ -200,18 +202,18 @@ impl Statement : PrettyPrint {
 impl @Expression {
   fn map_temps(f: &fn(Temp) -> Temp) -> @Expression {
     match self {
-      @ir::Const(*) | @ir::LabelExp(*) => self,
-      @ir::BinaryOp(op, e1, e2) =>
-        @ir::BinaryOp(op, e1.map_temps(f), e2.map_temps(f)),
-      @ir::Temp(tmp) => @ir::Temp(f(tmp))
+      @Const(*) | @LabelExp(*) => self,
+      @BinaryOp(op, e1, e2) =>
+        @BinaryOp(op, e1.map_temps(f), e2.map_temps(f)),
+      @Temp(tmp) => @Temp(f(tmp))
     }
   }
 
   fn each_temp<T>(f: &fn(Temp) -> T) {
     match self {
-      @ir::Const(*) | @ir::LabelExp(*) => (),
-      @ir::BinaryOp(_, e1, e2) => { e1.each_temp(f); e2.each_temp(f); }
-      @ir::Temp(tmp) => { f(tmp); }
+      @Const(*) | @LabelExp(*) => (),
+      @BinaryOp(_, e1, e2) => { e1.each_temp(f); e2.each_temp(f); }
+      @Temp(tmp) => { f(tmp); }
     }
   }
 }
@@ -251,13 +253,13 @@ impl Binop : PrettyPrint {
   }
 }
 
-pub fn ssa(p : &ir::Program) {
+pub fn ssa(p : &Program) {
   for p.funs.each |f| {
     ssa_fun(f);
   }
 }
 
-priv fn ssa_fun(f : &ir::Function) {
+priv fn ssa_fun(f : &Function) {
   /* tables/metadata altered through temp remapping */
   let args = map::HashMap();
   let oldtypes = f.types;
@@ -274,7 +276,7 @@ priv fn ssa_fun(f : &ir::Function) {
       Some(None)    => { args.insert(old, Some(new)); }
       None          => ()
     }
-  }, |tmp, map| @ir::Phi(tmp, map));
+  }, |tmp, map| @Phi(tmp, map));
 
   /* update all type information for the new temps */
   f.types.clear();

@@ -1,5 +1,7 @@
-use front::ast::*;
+use core::util::with;
 use std::map;
+use front::error;
+use front::ast::*;
 
 struct Initchecker {
   err : ~error::List,

@@ -1,4 +1,6 @@
+use core::util::{with, unreachable};
 use io::WriterUtil;
+use front::mark;
 
 pub struct List {
   priv mut coords: Option<@mark::Coords>,
@@ -29,7 +31,7 @@ impl List {
                                l1, c1, l2, c2, s))
         }
       }
-      libc::exit(1);
+      unsafe { libc::exit(1); }
     }
   }
 

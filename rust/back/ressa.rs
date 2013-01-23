@@ -1,4 +1,5 @@
 use middle::ssa;
+use back::assem;
 use std::map;
 
 pub fn convert(p : &assem::Program) {

@@ -1,5 +1,6 @@
 use io::WriterUtil;
 use std::map;
+use utils::set;
 
 pub type NodeId = uint;
 pub type NodeSet = map::Set<NodeId>;
@@ -81,7 +82,7 @@ impl<N : Copy, E : Copy> Graph<N, E> {
     set::add(self.pred[n2], n1);
   }
 
-  fn each_edge(f : &fn(NodeId, NodeId) -> bool) {
+  fn each_edge(f : fn(NodeId, NodeId) -> bool) {
     for self.succ.each |a, map| {
       for map.each_key |b| {
         f(a, b);
@@ -89,34 +90,34 @@ impl<N : Copy, E : Copy> Graph<N, E> {
     }
   }
 
-  fn each_node(f : &fn(NodeId, &N) -> bool) {
+  fn each_node(f : fn(NodeId, &N) -> bool) {
     self.nodes.each_ref(|&a, b| f(a, b));
   }
 
-  fn each_pred(n : NodeId, f : &fn(NodeId) -> bool) {
+  fn each_pred(n : NodeId, f : fn(NodeId) -> bool) {
     self.pred[n].each_key(f)
   }
 
-  fn each_succ(n : NodeId, f : &fn(NodeId) -> bool) {
+  fn each_succ(n : NodeId, f : fn(NodeId) -> bool) {
     self.succ[n].each_key(f)
   }
 
-  fn each_succ_edge(n : NodeId, f : &fn(NodeId, E) -> bool) {
+  fn each_succ_edge(n : NodeId, f : fn(NodeId, E) -> bool) {
     self.succ[n].each(f);
   }
 
-  fn each_postorder(root : NodeId, f : &fn(&NodeId) -> bool) {
+  fn each_postorder(root : NodeId, f : fn(&NodeId) -> bool) {
     let (order, _) = self.postorder(root);
     order.each(f);
   }
 
-  fn each_rev_postorder(root : NodeId, f : &fn(&NodeId) -> bool) {
+  fn each_rev_postorder(root : NodeId, f : fn(&NodeId) -> bool) {
     let (order, _) = self.postorder(root);
     vec::rev_each(order, f);
   }
 
   priv fn dup<V : Copy, V2 : Copy>
-    (m : map::HashMap<NodeId, V>, f : &fn(&V) -> V2) -> map::HashMap<NodeId, V2>
+    (m : map::HashMap<NodeId, V>, f : fn(&V) -> V2) -> map::HashMap<NodeId, V2>
   {
     let ret = map::HashMap();
     for m.each_ref |&k, v| {
@@ -125,8 +126,8 @@ impl<N : Copy, E : Copy> Graph<N, E> {
     return ret;
   }
 
-  fn map<N2 : Copy, E2 : Copy>(n : &fn(NodeId, &N) -> N2,
-                               e : &fn(&E) -> E2) -> Graph<N2, E2> {
+  fn map<N2 : Copy, E2 : Copy>(n : fn(NodeId, &N) -> N2,
+                               e : fn(&E) -> E2) -> Graph<N2, E2> {
     let g2 = Graph();
     g2.next = self.next;
     for self.nodes.each_ref |&k, v| {

@@ -1,7 +1,11 @@
-use middle::temp::Temp;
-use middle::{label, ir, ssa, liveness};
+use core::io::WriterUtil;
+
 use std::map;
-use io::WriterUtil;
+
+use middle::{label, ir, ssa, liveness};
+use middle::temp::Temp;
+use back::arch;
+use utils::{set, graph, Graphable, PrettyPrint};
 
 pub type Label = label::Label;
 pub type Edge = ir::Edge;
@@ -448,7 +452,7 @@ impl Register {
     }
   }
 
-  pure fn size(t : assem::Size) -> ~str {
+  pure fn size(t : Size) -> ~str {
     match (self, t) {
       (EAX, ir::Int)      => ~"%eax",
       (EAX, ir::Pointer)  => ~"%rax",

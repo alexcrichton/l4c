@@ -13,7 +13,7 @@ pub fn run<U>(f : &fn() -> U, name : &str) -> U {
 pub fn dbg<U>(name : &str, f : &fn() -> U) -> U {
   /* apparently local_data_{get,set} are unsafe... */
   unsafe {
-    let lvls = task::local_data::local_data_get(levels_key).get_default(@0);
+    let lvls = task::local_data::local_data_get(levels_key).get_or_default(@0);
     task::local_data::local_data_set(levels_key, @(*lvls + 1));
     let start = time::precise_time_s();
     let ret = f();

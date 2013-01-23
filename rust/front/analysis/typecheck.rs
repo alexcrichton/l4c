@@ -1,5 +1,8 @@
-use front::ast::*;
+use core::util::with;
 use std::map;
+use front::error;
+use front::ast::*;
+use utils::set;
 
 struct Typechecker {
   err :     ~error::List,

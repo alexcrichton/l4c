@@ -1,3 +1,4 @@
+use front::error;
 use front::ast::*;
 
 struct ReturnChecker {

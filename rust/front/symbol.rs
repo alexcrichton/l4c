@@ -1,4 +1,5 @@
 use std::map;
+use core::to_bytes;
 
 pub struct Symbol{
   priv id : uint,

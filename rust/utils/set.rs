@@ -1,7 +1,7 @@
 use std::map;
-use cmp::Eq;
-use to_bytes::IterBytes;
-use hash::Hash;
+use core::cmp::Eq;
+use core::to_bytes::IterBytes;
+use core::hash::Hash;
 
 pub fn singleton<T : Eq IterBytes Hash Const Copy>(t : T) -> map::Set<T> {
   let set = map::HashMap();

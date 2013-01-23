@@ -1,3 +1,5 @@
+use utils::PrettyPrint;
+
 pub type Temp = uint;
 
 pub struct Allocator {

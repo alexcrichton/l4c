@@ -1,4 +1,6 @@
 use std::map;
+use front::{mark, error, symbol};
+use utils::PrettyPrint;
 
 pub struct Program {
   decls: ~[@GDecl],
@@ -105,7 +107,7 @@ impl Program {
   }
 }
 
-impl Program : utils::PrettyPrint {
+impl Program : PrettyPrint {
   pure fn pp() -> ~str {
     str::connect(self.decls.map(|d| d.pp()), "\n")
   }

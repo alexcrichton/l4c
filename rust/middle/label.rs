@@ -1,4 +1,4 @@
-use front::ast;
+use utils::PrettyPrint;
 
 pub enum Label {
   External(~str),

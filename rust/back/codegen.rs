@@ -1,5 +1,6 @@
 use middle::{ir, temp, ssa, liveness};
 use std::map;
+use back::{assem, arch};
 
 type Builder = &fn(@assem::Instruction);
 

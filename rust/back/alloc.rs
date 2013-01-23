@@ -1,10 +1,14 @@
+use core::util::unreachable;
+
 use std::map;
+
 use middle::{ssa, ir, liveness};
 use middle::temp::Temp;
+use back::coalesce;
 use back::assem::*;
-use utils::bitv::Bitv;
+use utils::{bitv, profile};
 
-type CFG = graph::Graph<@~[@assem::Instruction], ir::Edge>;
+type CFG = graph::Graph<@~[@Instruction], ir::Edge>;
 pub type ColorMap = map::HashMap<Temp, uint>;
 
 struct Allocator {

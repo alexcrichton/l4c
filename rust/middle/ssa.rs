@@ -1,5 +1,7 @@
 use std::map;
+use middle::{temp, liveness, ir};
 use middle::temp::Temp;
+use utils::{graph, set, profile, PrettyPrint};
 
 pub struct Analysis {
   /* idoms[a] = b => all elements of b are immeidately dominated by a */

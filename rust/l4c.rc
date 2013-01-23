@@ -4,10 +4,10 @@
 
 extern mod std;
 
-use core::util::*;
+use core::run;
 use utils::*;
 
-mod utils {
+pub mod utils {
   pub mod set;
   pub mod graph;
   pub mod bitv;
@@ -23,11 +23,11 @@ mod utils {
 
 mod front {
   pub mod ast;
-  mod error;
-  mod mark;
+  pub mod error;
+  pub mod mark;
   mod parse;
   mod pp;
-  mod symbol;
+  pub mod symbol;
 
   mod analysis {
     mod initcheck;
@@ -47,10 +47,10 @@ mod middle {
 }
 
 mod back {
-  mod alloc;
-  mod arch;
-  mod assem;
-  mod coalesce;
+  pub mod alloc;
+  pub mod arch;
+  pub mod assem;
+  pub mod coalesce;
   mod codegen;
   mod precolor;
   mod ressa;
@@ -73,7 +73,6 @@ where OPTION is
   -m x64    --arch=x64      architecture to emit ([x64] | x86)
 
 ");
-  libc::exit(0);
 }
 
 #[allow(non_implicitly_copyable_typarams)]
@@ -105,6 +104,7 @@ fn main() {
   };
   if m.free.len() == 0 {
     help();
+    return;
   }
 
   /* front */
@@ -115,8 +115,7 @@ fn main() {
       (result::Err(e), 0) => fail(fmt!("JSON parse error: %?", e.msg)),
       _ => {
         io::stderr().write(prog.err().read_whole_stream());
-        libc::exit(1);
-        fail(~"TODO: can this go away now?");
+        unsafe { libc::exit(1); }
       }
     }
   };

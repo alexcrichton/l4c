@@ -26,6 +26,8 @@ use std::{map, sort};
 use middle::temp::Temp;
 use back::assem::*;
 use utils::graph::*;
+use utils::set;
+use back::arch;
 
 const loop_out_weight : uint = 100000;
 
@@ -514,7 +516,7 @@ impl Spiller {
         /* tmp from pred may be known by a different name in this block if there
            is a phi node for this temp */
         let tmp = self.my_name(tmp, pred, n);
-        freq.insert(tmp, freq.find(tmp).get_default(0) + 1);
+        freq.insert(tmp, freq.find(tmp).get_or_default(0) + 1);
       }
     }
     let preds = self.f.cfg.num_pred(n);
@@ -653,7 +655,7 @@ impl Spiller {
   }
 
   fn my_name(tmp : Temp, from : NodeId, to : NodeId) -> Temp {
-    self.renamings[(from, to)].find(tmp).get_default(tmp)
+    self.renamings[(from, to)].find(tmp).get_or_default(tmp)
   }
 
   fn their_name(tmp : Temp, from : NodeId, to : NodeId) -> Temp {

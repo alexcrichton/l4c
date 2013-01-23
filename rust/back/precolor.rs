@@ -1,5 +1,7 @@
 use back::assem::*;
 use middle::{liveness, temp};
+use utils::set;
+use back::arch;
 
 pub fn constrain(p : &Program) {
   for p.funs.each |f| {

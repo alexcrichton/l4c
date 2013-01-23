@@ -1,5 +1,10 @@
+use core::util::{ignore, with};
+
 use std::map;
+
 use front::ast;
+use middle::{temp, ir, label};
+use utils::graph;
 
 type StructInfo = map::HashMap<ast::Ident, (ir::Type, uint)>;
 
