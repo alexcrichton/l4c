@@ -1,47 +1,48 @@
+use core::send_map::linear::LinearSet;
 use core::util::with;
-use std::map;
+
 use front::error;
 use front::ast::*;
 use utils::set;
 use core::send_map::linear::LinearMap;
 
 struct Typechecker {
-  err :         ~error::List,
-  mut funs :    LinearMap<Ident, (@Type, @~[@Type])>,
-  mut structs : LinearMap<Ident, Option<map::HashMap<Ident, @Type>>>,
-  mut vars :    LinearMap<Ident, @Type>,
-  mut loops :   int,
-  mut ret :     @Type
+  err:     error::List,
+  funs:    LinearMap<Ident, (@Type, @~[@Type])>,
+  structs: LinearMap<Ident, Option<LinearMap<Ident, @Type>>>,
+  vars:    LinearMap<Ident, @Type>,
+  loops:   int,
+  ret:     @Type
 }
 
 pub fn check(a : &Program) {
-  let tc = Typechecker{ err: error::new(),
-                        funs: LinearMap(),
-                        structs: LinearMap(),
-                        vars: LinearMap(),
-                        loops: 0,
-                        ret: @Nullp};
+  let mut tc = Typechecker{ err: error::new(),
+                            funs: LinearMap(),
+                            structs: LinearMap(),
+                            vars: LinearMap(),
+                            loops: 0,
+                            ret: @Nullp};
   debug!("typechecking");
   tc.check(a);
   tc.err.check();
 }
 
 impl Typechecker {
-  fn check(a : &Program) {
+  fn check(&mut self, a : &Program) {
     for a.decls.each |x| {
       self.tc_gdecl(*x)
     }
   }
 
-  fn tc_gdecl(g : @GDecl) {
+  fn tc_gdecl(&mut self, g : @GDecl) {
     match g {
       @Markedg(ref m) => self.err.with(m, |x| self.tc_gdecl(x)),
       @Typedef(_, _) => (),
-      @StructDecl(id) =>
-        match self.structs.find(&id) {
-          None => { self.structs.insert(id, None); },
-          _ => ()
-        },
+      @StructDecl(id) => {
+        if !self.structs.contains_key(&id) {
+          self.structs.insert(id, None);
+        }
+      }
       @StructDef(id, ref fields) => self.bind_struct(id, fields),
       @FunIDecl(ret, id, ref args) => { self.bind_fun(id, ret, args); },
       @FunEDecl(ret, id, ref args) => { self.bind_fun(id, ret, args); },
@@ -58,7 +59,7 @@ impl Typechecker {
     }
   }
 
-  fn tc_stm(s : @Statement) {
+  fn tc_stm(&mut self, s : @Statement) {
     match s {
       @Markeds(ref m) => self.err.with(m, |x| self.tc_stm(x)),
       @Continue | @Break => {
@@ -100,19 +101,18 @@ impl Typechecker {
       @Declare(id, typ, init, stm) => {
         self.tc_small(typ);
         init.iter(|x| self.tc_ensure(*x, typ));
-        match self.vars.find(&id) {
-          Some(_) => self.err.add(fmt!("Redeclared var '%s'", id.val)),
-          None => {
-            self.vars.insert(id, typ);
-            self.tc_stm(stm);
-            self.vars.remove(&id);
-          }
+        if self.vars.contains_key(&id) {
+          self.err.add(fmt!("Redeclared var '%s'", id.val));
+        } else {
+          self.vars.insert(id, typ);
+          self.tc_stm(stm);
+          self.vars.remove(&id);
         }
       }
     }
   }
 
-  fn tc_exp(e : @Expression) -> @Type {
+  fn tc_exp(&mut self, e : @Expression) -> @Type {
     match e {
       @Marked(ref m) => self.err.with(m, |x| self.tc_exp(x)),
       @Const(_) => @Int,
@@ -187,32 +187,38 @@ impl Typechecker {
         },
         _ => self.err.die(~"expected a pointer to a function type")
       },
-      @Field(e, id, ref r) => match self.tc_exp(e) {
-        @Struct(s) => match self.structs.find(&s) {
-          Some(Some(t)) => match t.find(id) {
-            Some(t) => { r.set(s); t },
-            None => self.err.die(fmt!("Unknown field '%s'", id.val))
-          },
-          _ => self.err.die(fmt!("Unknown struct '%s'", s.val))
-        },
-        _ => self.err.die(fmt!("must be a struct type"))
+      @Field(e, id, ref r) => {
+        let err = match self.tc_exp(e) {
+          @Struct(s) => {
+            r.set(s);
+            match self.structs.find_ref(&s) {
+              Some(&Some(ref t)) => match t.find(&id) {
+                Some(t) => { return t; }
+                None => fmt!("Unknown field '%s'", id.val)
+              },
+              _ => fmt!("Unknown struct '%s'", s.val)
+            }
+          }
+          _ => fmt!("must be a struct type")
+        };
+        self.err.die(err);
       }
     }
   }
 
-  fn bind_struct(id : Ident, fields : &~[(Ident, @Type)]) {
-    match self.structs.find(&id) {
-      Some(Some(_)) => {
-        self.err.add(~"Redefined struct");
-        return;
-      },
-      _ => ()
+  fn bind_struct(&mut self, id : Ident, fields : &~[(Ident, @Type)]) {
+    let redefined = match self.structs.find_ref(&id) {
+      Some(&Some(_)) => true, _ => false
     };
+    if redefined {
+      self.err.add(~"Redefined struct");
+      return;
+    }
 
     /* Build up the table of field => type information */
-    let table = map::HashMap();
+    let mut table = LinearMap();
     for fields.each |&(field, typ)| {
-      if table.contains_key(field) {
+      if table.contains_key(&field) {
         self.err.add(fmt!("Duplicate field: '%s'", field.val));
         loop;
       }
@@ -231,11 +237,11 @@ impl Typechecker {
     self.structs.insert(id, Some(table));
   }
 
-  fn bind_fun(id : Ident, ret : @Type, args : &~[(Ident, @Type)]) -> bool {
+  fn bind_fun(&mut self, id : Ident, ret : @Type, args : &~[(Ident, @Type)]) -> bool {
     let prev = self.err.size();
-    let names = map::HashMap();
+    let mut names = LinearSet::new();
     for args.each |&(name, typ)| {
-      if !set::add(names, name) {
+      if !names.insert(name) {
         self.err.add(fmt!("Duplicate argument: %s", name.val));
       }
       self.tc_small(typ);
@@ -262,28 +268,33 @@ impl Typechecker {
     prev == self.err.size()
   }
 
-  fn tc_ensure(e : @Expression, t : @Type) {
+  fn tc_ensure(&mut self, e : @Expression, t : @Type) {
     self.tc_equal(t, self.tc_exp(e));
   }
 
-  fn tc_defined(t : @Type) -> bool {
+  fn tc_defined(&mut self, t : @Type) -> bool {
     match t {
-      @Struct(id) => match self.structs.find(&id) {
-        Some(Some(_)) => true,
-        _ => { self.err.add(fmt!("Struct not defined '%s'", id.val)); false }
+      @Struct(id) => {
+        let defined = match self.structs.find_ref(&id) {
+          Some(&Some(_)) => true, _ => false
+        };
+        if !defined {
+          self.err.add(fmt!("Struct not defined '%s'", id.val));
+        }
+        return defined;
       },
       _ => true
     }
   }
 
-  fn tc_equal(t1 : @Type, t2 : @Type) -> bool {
+  fn tc_equal(&mut self, t1 : @Type, t2 : @Type) -> bool {
     if t1 != t2 {
       self.err.add(fmt!("Type mismatch: expected %s, got %s", t1.pp(), t2.pp()));
     }
     t1 == t2
   }
 
-  fn tc_small(t : @Type) -> bool {
+  fn tc_small(&mut self, t : @Type) -> bool {
     if !t.small() {
       self.err.add(fmt!("Type must be small: '%s'", t.pp()));
     }

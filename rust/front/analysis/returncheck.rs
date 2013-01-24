@@ -2,24 +2,24 @@ use front::error;
 use front::ast::*;
 
 struct ReturnChecker {
-  err : ~error::List,
+  err : error::List,
 }
 
 pub fn check(a : &Program) {
-  let rc = ReturnChecker{ err: error::new() };
+  let mut rc = ReturnChecker{ err: error::new() };
   debug!("returnchecking");
   rc.check(a);
   rc.err.check();
 }
 
 impl ReturnChecker {
-  fn check(a : &Program) {
+  fn check(&mut self, a : &Program) {
     for a.decls.each |x| {
       self.rc_gdecl(*x);
     }
   }
 
-  fn rc_gdecl(g : @GDecl) {
+  fn rc_gdecl(&mut self, g : @GDecl) {
     match g {
       @Markedg(ref m) => self.err.with(m, |x| self.rc_gdecl(x)),
       @Function(_, id, _, body) => {

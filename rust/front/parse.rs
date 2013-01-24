@@ -3,18 +3,18 @@ use std::json::*;
 use front::{ast, symbol, mark};
 
 struct Parser {
-  priv mut file :  @~str,
-  syms : symbol::Symtab,
-  main : ~str
+  file:  @~str,
+  syms: symbol::Symtab,
+  main: ~str
 }
 
 pub fn from_json(j : &Json, main : ~str) -> ast::Program {
-  let parser = Parser{syms: symbol::Symtab(), file: @~"", main: main };
+  let mut parser = Parser{syms: symbol::Symtab(), file: @~"", main: main };
   return parser.parse(j);
 }
 
 impl Parser {
-  fn parse(j : &Json) -> ast::Program {
+  fn parse(&mut self, j : &Json) -> ast::Program {
     match *j {
       List(ref data) => {
         let mut decls = ~[];
@@ -35,7 +35,7 @@ impl Parser {
     }
   }
 
-  fn gettyp(j : &L/Json) -> (~str, &L/~Object) {
+  pure fn gettyp(j : &L/Json) -> (~str, &L/~Object) {
     match *j {
       Object(ref obj) =>
         match *(obj.get_ref(&~"typ")) {
@@ -46,28 +46,28 @@ impl Parser {
     }
   }
 
-  fn to_id(j : &Json) -> ast::Ident {
+  fn to_id(&mut self, j : &Json) -> ast::Ident {
     match *j {
-      String(copy s) => symbol::new(self.syms, s),
+      String(ref s) => symbol::new(&mut self.syms, s),
       _ => fail(~"not a string")
     }
   }
 
-  fn to_mark<T>(o : &~Object, f : fn(j : &Json) -> @T) -> ~mark::Mark<T> {
+  fn to_mark<T>(&mut self, o: &~Object, f: fn(&Json) -> @T) -> ~mark::Mark<T> {
     let left  = self.to_coord(o.get_ref(&~"l"));
     let right = self.to_coord(o.get_ref(&~"r"));
     let data  = f(o.get_ref(&~"d"));
     mark::make(data, @mark::Coords(left, right, self.file))
   }
 
-  fn to_coord(j : &Json) -> (int, int) {
+  pure fn to_coord(j: &Json) -> (int, int) {
     match *j {
       List([Number(a), Number(b)]) => (a as int, b as int),
       _ => fail(~"expected list with two pairs")
     }
   }
 
-  fn to_gdecl(j : &Json) -> @ast::GDecl {
+  fn to_gdecl(&mut self, j : &Json) -> @ast::GDecl {
     let (typ, fields) = self.gettyp(j);
     match typ {
       ~"typedef" => @ast::Typedef(self.to_id(fields.get_ref(&~"id")),
@@ -94,7 +94,7 @@ impl Parser {
     }
   }
 
-  fn to_pairs(j : &Json) -> ~[(ast::Ident, @ast::Type)] {
+  fn to_pairs(&mut self, j: &Json) -> ~[(ast::Ident, @ast::Type)] {
     match *j {
       List(ref L) =>
         L.map(|x|
@@ -108,7 +108,7 @@ impl Parser {
     }
   }
 
-  fn to_typ(j : &Json) -> @ast::Type {
+  fn to_typ(&mut self, j: &Json) -> @ast::Type {
     let (typ, fields) = self.gettyp(j);
     match typ {
       ~"int"      => @ast::Int,
@@ -122,7 +122,7 @@ impl Parser {
     }
   }
 
-  fn to_stm(j : &Json) -> @ast::Statement {
+  fn to_stm(&mut self, j: &Json) -> @ast::Statement {
     let (typ, fields) = self.gettyp(j);
     match typ {
       ~"if"       => @ast::If(self.to_exp(fields.get_ref(&~"cond")),
@@ -155,7 +155,7 @@ impl Parser {
     }
   }
 
-  fn to_exp(j : &Json) -> @ast::Expression {
+  fn to_exp(&mut self, j: &Json) -> @ast::Expression {
     let (typ, fields) = self.gettyp(j);
     match typ {
       ~"var"      => @ast::Var(self.to_id(fields.get_ref(&~"var"))),
@@ -201,7 +201,7 @@ impl Parser {
     }
   }
 
-  fn to_binop(j : &Json) -> ast::Binop {
+  fn to_binop(&mut self, j: &Json) -> ast::Binop {
     match *j {
       String(~"+")  => ast::Plus,
       String(~"-")  => ast::Minus,
@@ -225,7 +225,7 @@ impl Parser {
     }
   }
 
-  fn to_unop(j : &Json) -> ast::Unop {
+  pure fn to_unop(j: &Json) -> ast::Unop {
     match *j {
       String(~"-")  => ast::Negative,
       String(~"~")  => ast::Invert,
@@ -234,7 +234,7 @@ impl Parser {
     }
   }
 
-  fn to_opt<T>(j : &Json, f : fn(j : &Json) -> T) -> Option<T> {
+  fn to_opt<T>(&mut self, j: &Json, f: fn(&Json) -> T) -> Option<T> {
     let (typ, fields) = self.gettyp(j);
     match typ {
       ~"none" => None,

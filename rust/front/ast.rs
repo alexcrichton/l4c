@@ -1,4 +1,4 @@
-use std::map;
+use core::send_map::linear::{LinearSet, LinearMap};
 use front::{mark, error, symbol};
 use utils::PrettyPrint;
 
@@ -7,11 +7,11 @@ pub struct Program {
 }
 
 struct Elaborator {
-  priv efuns:   map::Set<Ident>,
-  priv funs:    map::Set<Ident>,
-  priv structs: map::Set<Ident>,
-  priv types:   map::HashMap<Ident, @Type>,
-  priv err:     ~error::List
+  efuns:   LinearSet<Ident>,
+  funs:    LinearSet<Ident>,
+  structs: LinearSet<Ident>,
+  types:   LinearMap<Ident, @Type>,
+  err:     error::List
 }
 
 pub type Ident = @symbol::Symbol;
@@ -96,11 +96,11 @@ pub fn new(g : ~[@GDecl]) -> Program {
 
 impl Program {
   fn elaborate() -> Program {
-    let e = Elaborator{ efuns:   map::HashMap(),
-                        funs:    map::HashMap(),
-                        structs: map::HashMap(),
-                        types:   map::HashMap(),
-                        err:     error::new() };
+    let mut e = Elaborator{ efuns:   LinearSet::new(),
+                            funs:    LinearSet::new(),
+                            structs: LinearSet::new(),
+                            types:   LinearMap(),
+                            err:     error::new() };
     let prog = new(self.decls.map(|x| e.elaborate(*x)));
     e.err.check();
     prog
@@ -114,11 +114,18 @@ impl Program : PrettyPrint {
 }
 
 impl Elaborator {
-  fn elaborate(g : @GDecl) -> @GDecl {
+  fn elaborate(&mut self, g : @GDecl) -> @GDecl {
+    macro_rules! check_set (
+      ($set:expr, $id:expr, $name:expr) => {
+        if $set.contains(&$id) {
+          self.err.add(fmt!("'%s' already a %s", $id.val, $name));
+        }
+      }
+    );
     match g {
       @FunEDecl(typ, id, ref args) => {
         self.check_id(id);
-        map::set_add(self.efuns, id);
+        self.efuns.insert(id);
         @FunEDecl(self.resolve(typ), id, self.resolve_pairs(args))
       },
       @FunIDecl(typ, id, ref args) => {
@@ -132,28 +139,30 @@ impl Elaborator {
       },
       @Typedef(id, typ) => {
         self.check_id(id);
-        self.check_set(&self.efuns, id, ~"function");
-        self.check_set(&self.funs, id, ~"function");
-        self.types.insert(id, self.resolve(typ));
+        check_set!(self.efuns, id, ~"function");
+        check_set!(self.efuns, id, ~"function");
+        check_set!(self.funs, id, ~"function");
+        let typ = self.resolve(typ);
+        self.types.insert(id, typ);
         g
       },
       @StructDef(id, ref fields) => {
-        self.check_set(&self.structs, id, ~"struct");
-        map::set_add(self.structs, id);
+        check_set!(self.structs, id, ~"struct");
+        self.structs.insert(id);
         @StructDef(id, self.resolve_pairs(fields))
       },
       @Function(ret, id, ref args, body) => {
         self.check_id(id);
-        self.check_set(&self.efuns, id, ~"function");
-        self.check_set(&self.funs, id, ~"function");
-        map::set_add(self.funs, id);
+        check_set!(self.efuns, id, ~"function");
+        check_set!(self.funs, id, ~"function");
+        self.funs.insert(id);
         @Function(self.resolve(ret), id, self.resolve_pairs(args),
                   self.elaborate_stm(body))
       }
     }
   }
 
-  priv fn elaborate_stm(s : @Statement) -> @Statement {
+  fn elaborate_stm(&mut self, s : @Statement) -> @Statement {
     match s {
       @Markeds(ref m) => {
         m.data = self.err.with(m, |x| self.elaborate_stm(x));
@@ -200,7 +209,7 @@ impl Elaborator {
     }
   }
 
-  priv fn elaborate_exp(e : @Expression) -> @Expression {
+  fn elaborate_exp(&mut self, e : @Expression) -> @Expression {
     match e {
       @Marked(ref m) => {
         m.data = self.err.with(m, |x| self.elaborate_exp(x));
@@ -225,25 +234,19 @@ impl Elaborator {
     }
   }
 
-  priv fn check_id(s : Ident) {
-    if self.types.contains_key(s) {
+  fn check_id(&mut self, s : Ident) {
+    if self.types.contains_key(&s) {
       self.err.add(fmt!("'%s' already a type", s.val));
     }
   }
 
-  priv fn check_set(h : &map::Set<Ident>, s : Ident, typ : ~str) {
-    if h.contains_key(s) {
-      self.err.add(fmt!("'%s' already a %s", s.val, typ));
-    }
-  }
-
-  priv fn resolve(t : @Type) -> @Type {
+  fn resolve(&mut self, t : @Type) -> @Type {
     match t {
       @Int | @Bool | @Nullp | @Struct(_) => t,
       @Pointer(t) => @Pointer(self.resolve(t)),
       @Array(t) => @Array(self.resolve(t)),
       @Alias(sym) =>
-        match self.types.find(sym) {
+        match self.types.find(&sym) {
           Some(t) => t,
           None    => {
             self.err.add(fmt!("'%s' is undefined", sym.val));
@@ -255,7 +258,7 @@ impl Elaborator {
     }
   }
 
-  priv fn resolve_pairs(pairs : &~[(Ident, @Type)]) -> ~[(Ident, @Type)] {
+  fn resolve_pairs(&mut self, pairs : &~[(Ident, @Type)]) -> ~[(Ident, @Type)] {
     pairs.map(|&(id, typ)| (id, self.resolve(typ)))
   }
 }
@@ -274,7 +277,7 @@ impl Expression {
 }
 
 impl Type {
-  fn small() -> bool {
+  pure fn small() -> bool {
     match self {
       Struct(_) => false,
       _ => true

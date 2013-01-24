@@ -1,4 +1,4 @@
-use std::map;
+use core::send_map::linear::LinearMap;
 use core::to_bytes;
 
 pub struct Symbol{
@@ -6,7 +6,7 @@ pub struct Symbol{
   val : ~str
 }
 
-pub type Symtab = map::HashMap<~str, @Symbol>;
+pub type Symtab = LinearMap<~str, @Symbol>;
 
 impl Symbol : cmp::Eq {
   pure fn eq(&self, other : &Symbol) -> bool { self.id.eq(&other.id) }
@@ -19,19 +19,16 @@ impl Symbol : to_bytes::IterBytes {
   }
 }
 
-pub fn Symtab() -> Symtab {
-  map::HashMap()
-}
+pub fn Symtab() -> Symtab { LinearMap() }
 
 #[allow(non_implicitly_copyable_typarams)]
-pub fn new(t : Symtab, s : ~str) -> @Symbol {
-  match t.find(s) {
-    Some(s) => s,
-    None => {
-      let sym = @Symbol{id: t.size(), val: copy s};
-      t.insert(s, sym);
-      sym
-    }
+pub fn new(t : &mut Symtab, s : &~str) -> @Symbol {
+  if t.contains_key(s) {
+    t.get(s)
+  } else {
+    let sym = @Symbol{id: t.len(), val: copy *s};
+    t.insert(copy *s, sym);
+    sym
   }
 }
 
