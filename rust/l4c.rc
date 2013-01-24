@@ -10,7 +10,6 @@ use utils::*;
 pub mod utils {
   pub mod set;
   pub mod graph;
-  pub mod bitv;
   pub mod profile;
 
   pub trait PrettyPrint {
