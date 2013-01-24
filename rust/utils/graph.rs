@@ -14,9 +14,9 @@ pub struct Graph<N, E> {
 }
 
 pub fn Graph<N : Copy, E : Copy>() -> Graph<N, E>{
-  Graph{ nodes: LinearMap(),
-         succ:  LinearMap(),
-         pred:  LinearMap(),
+  Graph{ nodes: LinearMap::new(),
+         succ:  LinearMap::new(),
+         pred:  LinearMap::new(),
          next:  0 }
 }
 
@@ -34,7 +34,7 @@ impl<N : Copy, E : Copy> Graph<N, E> {
   fn new_id(&mut self) -> NodeId {
     let ret = self.next;
     self.next += 1;
-    self.succ.insert(ret, LinearMap());
+    self.succ.insert(ret, LinearMap::new());
     self.pred.insert(ret, LinearSet::new());
     ret
   }
@@ -128,7 +128,7 @@ impl<N : Copy, E : Copy> Graph<N, E> {
       g2.pred.insert(k, set);
     }
     for self.succ.each |&k, v| {
-      let map = LinearMap();
+      let map = LinearMap::new();
       for v.each |&k, v| {
         map.insert(k, e(v));
       }
@@ -160,7 +160,7 @@ impl<N : Copy, E : Copy> Graph<N, E> {
   }
 
   fn postorder(root : NodeId) -> (~[NodeId], LinearMap<NodeId, int>) {
-    let mut ordering = LinearMap();
+    let mut ordering = LinearMap::new();
     self.traverse(&mut ordering, root, 0);
     let mut v = ~[];
     vec::grow(&mut v, ordering.len(), &root);
