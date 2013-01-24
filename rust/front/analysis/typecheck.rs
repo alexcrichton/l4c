@@ -215,7 +215,7 @@ impl Typechecker {
     }
 
     /* Build up the table of field => type information */
-    let mut table = LinearMap();
+    let mut table = LinearMap::new();
     for fields.each |&(field, typ)| {
       if table.contains_key(&field) {
         self.err.add(fmt!("Duplicate field: '%s'", field.val));
