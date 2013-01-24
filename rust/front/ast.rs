@@ -99,7 +99,7 @@ impl Program {
     let mut e = Elaborator{ efuns:   LinearSet::new(),
                             funs:    LinearSet::new(),
                             structs: LinearSet::new(),
-                            types:   LinearMap(),
+                            types:   LinearMap::new(),
                             err:     error::new() };
     let prog = new(self.decls.map(|x| e.elaborate(*x)));
     e.err.check();

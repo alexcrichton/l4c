@@ -16,9 +16,9 @@ struct Typechecker {
 
 pub fn check(a : &Program) {
   let mut tc = Typechecker{ err: error::new(),
-                            funs: LinearMap(),
-                            structs: LinearMap(),
-                            vars: LinearMap(),
+                            funs: LinearMap::new(),
+                            structs: LinearMap::new(),
+                            vars: LinearMap::new(),
                             loops: 0,
                             ret: @Nullp};
   debug!("typechecking");

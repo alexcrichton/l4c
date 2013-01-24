@@ -19,7 +19,7 @@ impl Symbol : to_bytes::IterBytes {
   }
 }
 
-pub fn Symtab() -> Symtab { LinearMap() }
+pub fn Symtab() -> Symtab { LinearMap::new() }
 
 #[allow(non_implicitly_copyable_typarams)]
 pub fn new(t : &mut Symtab, s : &~str) -> @Symbol {
