@@ -1,4 +1,4 @@
-use core::send_map::linear::{LinearSet, LinearMap};
+use core::hashmap::linear::{LinearSet, LinearMap};
 use front::{mark, error, symbol};
 use utils::PrettyPrint;
 
@@ -85,7 +85,7 @@ impl<T : Copy> Ref<T> {
     self.val = Some(t);
   }
 
-  pub fn get() -> T {
+  pure fn get() -> T {
     self.val.get()
   }
 }
@@ -110,6 +110,15 @@ impl Program {
 impl Program : PrettyPrint {
   pure fn pp() -> ~str {
     str::connect(self.decls.map(|d| d.pp()), "\n")
+  }
+}
+
+impl GDecl {
+  fn unmark(@self) -> @GDecl {
+    match self {
+      @Markedg(ref m) => m.data.unmark(),
+      _ => self
+    }
   }
 }
 
@@ -247,7 +256,7 @@ impl Elaborator {
       @Array(t) => @Array(self.resolve(t)),
       @Alias(sym) =>
         match self.types.find(&sym) {
-          Some(t) => t,
+          Some(&t) => t,
           None    => {
             self.err.add(fmt!("'%s' is undefined", sym.val));
             t

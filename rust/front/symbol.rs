@@ -1,4 +1,4 @@
-use core::send_map::linear::LinearMap;
+use core::hashmap::linear::LinearMap;
 use core::to_bytes;
 
 pub struct Symbol{
@@ -24,7 +24,7 @@ pub fn Symtab() -> Symtab { LinearMap() }
 #[allow(non_implicitly_copyable_typarams)]
 pub fn new(t : &mut Symtab, s : &~str) -> @Symbol {
   if t.contains_key(s) {
-    t.get(s)
+    *t.get(s)
   } else {
     let sym = @Symbol{id: t.len(), val: copy *s};
     t.insert(copy *s, sym);

@@ -38,7 +38,7 @@ impl Parser {
   pure fn gettyp(j : &L/Json) -> (~str, &L/~Object) {
     match *j {
       Object(ref obj) =>
-        match *(obj.get_ref(&~"typ")) {
+        match *(obj.get(&~"typ")) {
           String(copy s) => (s, obj),
           _ => fail(~"expected string key")
         },
@@ -54,9 +54,9 @@ impl Parser {
   }
 
   fn to_mark<T>(&mut self, o: &~Object, f: fn(&Json) -> @T) -> ~mark::Mark<T> {
-    let left  = self.to_coord(o.get_ref(&~"l"));
-    let right = self.to_coord(o.get_ref(&~"r"));
-    let data  = f(o.get_ref(&~"d"));
+    let left  = self.to_coord(o.get(&~"l"));
+    let right = self.to_coord(o.get(&~"r"));
+    let data  = f(o.get(&~"d"));
     mark::make(data, @mark::Coords(left, right, self.file))
   }
 
@@ -70,26 +70,26 @@ impl Parser {
   fn to_gdecl(&mut self, j : &Json) -> @ast::GDecl {
     let (typ, fields) = self.gettyp(j);
     match typ {
-      ~"typedef" => @ast::Typedef(self.to_id(fields.get_ref(&~"id")),
-                                  self.to_typ(fields.get_ref(&~"type"))),
+      ~"typedef" => @ast::Typedef(self.to_id(fields.get(&~"id")),
+                                  self.to_typ(fields.get(&~"type"))),
       ~"mark"    => @ast::Markedg(self.to_mark(fields, |a| self.to_gdecl(a))),
-      ~"fun"     => @ast::Function(self.to_typ(fields.get_ref(&~"ret")),
-                                   self.to_id(fields.get_ref(&~"name")),
-                                   self.to_pairs(fields.get_ref(&~"args")),
-                                   self.to_stm(fields.get_ref(&~"body"))),
+      ~"fun"     => @ast::Function(self.to_typ(fields.get(&~"ret")),
+                                   self.to_id(fields.get(&~"name")),
+                                   self.to_pairs(fields.get(&~"args")),
+                                   self.to_stm(fields.get(&~"body"))),
       ~"intdecl" | ~"extdecl" => {
-        let ret = self.to_typ(fields.get_ref(&~"ret"));
-        let name = self.to_id(fields.get_ref(&~"name"));
-        let args = self.to_pairs(fields.get_ref(&~"args"));
+        let ret = self.to_typ(fields.get(&~"ret"));
+        let name = self.to_id(fields.get(&~"name"));
+        let args = self.to_pairs(fields.get(&~"args"));
         if self.main == *self.file {
           @ast::FunIDecl(ret, name, args)
         } else {
           @ast::FunEDecl(ret, name, args)
         }
       }
-      ~"struct"  => @ast::StructDef(self.to_id(fields.get_ref(&~"val")),
-                                    self.to_pairs(fields.get_ref(&~"fields"))),
-      ~"strdecl" => @ast::StructDecl(self.to_id(fields.get_ref(&~"val"))),
+      ~"struct"  => @ast::StructDef(self.to_id(fields.get(&~"val")),
+                                    self.to_pairs(fields.get(&~"fields"))),
+      ~"strdecl" => @ast::StructDecl(self.to_id(fields.get(&~"val"))),
       _ => fail(fmt!("Unknown gdecl type: %?", typ))
     }
   }
@@ -99,8 +99,8 @@ impl Parser {
       List(ref L) =>
         L.map(|x|
           match *x {
-            Object(ref o) => (self.to_id(o.get_ref(&~"name")),
-                              self.to_typ(o.get_ref(&~"typ"))),
+            Object(ref o) => (self.to_id(o.get(&~"name")),
+                              self.to_typ(o.get(&~"typ"))),
             _ => fail(~"expected object for each pair")
           }
         ),
@@ -114,10 +114,10 @@ impl Parser {
       ~"int"      => @ast::Int,
       ~"bool"     => @ast::Bool,
       ~"null"     => @ast::Nullp,
-      ~"typedef"  => @ast::Alias(self.to_id(fields.get_ref(&~"of"))),
-      ~"struct"   => @ast::Struct(self.to_id(fields.get_ref(&~"id"))),
-      ~"ptr"      => @ast::Pointer(self.to_typ(fields.get_ref(&~"to"))),
-      ~"array"    => @ast::Array(self.to_typ(fields.get_ref(&~"of"))),
+      ~"typedef"  => @ast::Alias(self.to_id(fields.get(&~"of"))),
+      ~"struct"   => @ast::Struct(self.to_id(fields.get(&~"id"))),
+      ~"ptr"      => @ast::Pointer(self.to_typ(fields.get(&~"to"))),
+      ~"array"    => @ast::Array(self.to_typ(fields.get(&~"of"))),
       _           => fail(~"invalid type")
     }
   }
@@ -125,32 +125,32 @@ impl Parser {
   fn to_stm(&mut self, j: &Json) -> @ast::Statement {
     let (typ, fields) = self.gettyp(j);
     match typ {
-      ~"if"       => @ast::If(self.to_exp(fields.get_ref(&~"cond")),
-                              self.to_stm(fields.get_ref(&~"true")),
-                              self.to_stm(fields.get_ref(&~"false"))),
-      ~"while"    => @ast::While(self.to_exp(fields.get_ref(&~"cond")),
-                                 self.to_stm(fields.get_ref(&~"body"))),
-      ~"for"      => @ast::For(self.to_stm(fields.get_ref(&~"init")),
-                               self.to_exp(fields.get_ref(&~"cond")),
-                               self.to_stm(fields.get_ref(&~"step")),
-                               self.to_stm(fields.get_ref(&~"body"))),
+      ~"if"       => @ast::If(self.to_exp(fields.get(&~"cond")),
+                              self.to_stm(fields.get(&~"true")),
+                              self.to_stm(fields.get(&~"false"))),
+      ~"while"    => @ast::While(self.to_exp(fields.get(&~"cond")),
+                                 self.to_stm(fields.get(&~"body"))),
+      ~"for"      => @ast::For(self.to_stm(fields.get(&~"init")),
+                               self.to_exp(fields.get(&~"cond")),
+                               self.to_stm(fields.get(&~"step")),
+                               self.to_stm(fields.get(&~"body"))),
       ~"continue" => @ast::Continue,
       ~"break"    => @ast::Break,
       ~"nop"      => @ast::Nop,
-      ~"seq"      => @ast::Seq(self.to_stm(fields.get_ref(&~"s1")),
-                               self.to_stm(fields.get_ref(&~"s2"))),
-      ~"return"   => @ast::Return(self.to_exp(fields.get_ref(&~"exp"))),
-      ~"express"  => @ast::Express(self.to_exp(fields.get_ref(&~"exp"))),
-      ~"declare"  => @ast::Declare(self.to_id(fields.get_ref(&~"id")),
-                                   self.to_typ(fields.get_ref(&~"type")),
-                                   self.to_opt(fields.get_ref(&~"eopt"),
+      ~"seq"      => @ast::Seq(self.to_stm(fields.get(&~"s1")),
+                               self.to_stm(fields.get(&~"s2"))),
+      ~"return"   => @ast::Return(self.to_exp(fields.get(&~"exp"))),
+      ~"express"  => @ast::Express(self.to_exp(fields.get(&~"exp"))),
+      ~"declare"  => @ast::Declare(self.to_id(fields.get(&~"id")),
+                                   self.to_typ(fields.get(&~"type")),
+                                   self.to_opt(fields.get(&~"eopt"),
                                                |x| self.to_exp(x)),
-                                   self.to_stm(fields.get_ref(&~"rest"))),
+                                   self.to_stm(fields.get(&~"rest"))),
       ~"mark"     => @ast::Markeds(self.to_mark(fields, |a| self.to_stm(a))),
-      ~"assign"   => @ast::Assign(self.to_exp(fields.get_ref(&~"e1")),
-                                  self.to_opt(fields.get_ref(&~"extra"),
+      ~"assign"   => @ast::Assign(self.to_exp(fields.get(&~"e1")),
+                                  self.to_opt(fields.get(&~"extra"),
                                               |x| self.to_binop(x)),
-                                  self.to_exp(fields.get_ref(&~"e2"))),
+                                  self.to_exp(fields.get(&~"e2"))),
       _           => fail(fmt!("invalid stm: %?", typ))
     }
   }
@@ -158,40 +158,40 @@ impl Parser {
   fn to_exp(&mut self, j: &Json) -> @ast::Expression {
     let (typ, fields) = self.gettyp(j);
     match typ {
-      ~"var"      => @ast::Var(self.to_id(fields.get_ref(&~"var"))),
-      ~"const"    => match *fields.get_ref(&~"val") {
+      ~"var"      => @ast::Var(self.to_id(fields.get(&~"var"))),
+      ~"const"    => match *fields.get(&~"val") {
                        Number(f) => @ast::Const(f as i32),
                        _         => fail(~"expected number")
                      },
-      ~"bool"     => match *fields.get_ref(&~"val") {
+      ~"bool"     => match *fields.get(&~"val") {
                        Boolean(b) => @ast::Boolean(b),
                        _          => fail(~"expected boolean")
                      },
       ~"null"     => @ast::Null,
-      ~"deref"    => @ast::Deref(self.to_exp(fields.get_ref(&~"e")),
+      ~"deref"    => @ast::Deref(self.to_exp(fields.get(&~"e")),
                                  ast::Ref()),
-      ~"field"    => @ast::Field(self.to_exp(fields.get_ref(&~"e")),
-                                 self.to_id(fields.get_ref(&~"field")),
+      ~"field"    => @ast::Field(self.to_exp(fields.get(&~"e")),
+                                 self.to_id(fields.get(&~"field")),
                                  ast::Ref()),
-      ~"arrsub"   => @ast::ArrSub(self.to_exp(fields.get_ref(&~"e1")),
-                                  self.to_exp(fields.get_ref(&~"e2")),
+      ~"arrsub"   => @ast::ArrSub(self.to_exp(fields.get(&~"e1")),
+                                  self.to_exp(fields.get(&~"e2")),
                                   ast::Ref()),
-      ~"alloc"    => @ast::Alloc(self.to_typ(fields.get_ref(&~"type"))),
-      ~"allocarr" => @ast::AllocArray(self.to_typ(fields.get_ref(&~"type")),
-                                      self.to_exp(fields.get_ref(&~"e"))),
-      ~"binop"    => @ast::BinaryOp(self.to_binop(fields.get_ref(&~"oper")),
-                                    self.to_exp(fields.get_ref(&~"e1")),
-                                    self.to_exp(fields.get_ref(&~"e2"))),
-      ~"unop"     => @ast::UnaryOp(self.to_unop(fields.get_ref(&~"unop")),
-                                   self.to_exp(fields.get_ref(&~"e"))),
-      ~"ternary"  => @ast::Ternary(self.to_exp(fields.get_ref(&~"e1")),
-                                   self.to_exp(fields.get_ref(&~"e2")),
-                                   self.to_exp(fields.get_ref(&~"e3")),
+      ~"alloc"    => @ast::Alloc(self.to_typ(fields.get(&~"type"))),
+      ~"allocarr" => @ast::AllocArray(self.to_typ(fields.get(&~"type")),
+                                      self.to_exp(fields.get(&~"e"))),
+      ~"binop"    => @ast::BinaryOp(self.to_binop(fields.get(&~"oper")),
+                                    self.to_exp(fields.get(&~"e1")),
+                                    self.to_exp(fields.get(&~"e2"))),
+      ~"unop"     => @ast::UnaryOp(self.to_unop(fields.get(&~"unop")),
+                                   self.to_exp(fields.get(&~"e"))),
+      ~"ternary"  => @ast::Ternary(self.to_exp(fields.get(&~"e1")),
+                                   self.to_exp(fields.get(&~"e2")),
+                                   self.to_exp(fields.get(&~"e3")),
                                    ast::Ref()),
       ~"mark"     => @ast::Marked(self.to_mark(fields, |a| self.to_exp(a))),
       ~"call"     => {
-        match *fields.get_ref(&~"args") {
-          List(ref L) => @ast::Call(self.to_exp(fields.get_ref(&~"fun")),
+        match *fields.get(&~"args") {
+          List(ref L) => @ast::Call(self.to_exp(fields.get(&~"fun")),
                                     L.map(|x| self.to_exp(x)),
                                     ast::Ref()),
           _ => fail(~"expected list")
@@ -238,7 +238,7 @@ impl Parser {
     let (typ, fields) = self.gettyp(j);
     match typ {
       ~"none" => None,
-      ~"some" => Some(f(fields.get_ref(&~"val"))),
+      ~"some" => Some(f(fields.get(&~"val"))),
       _       => fail(fmt!("invalid extra: %?", typ))
     }
   }

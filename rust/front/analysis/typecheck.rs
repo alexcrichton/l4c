@@ -1,10 +1,9 @@
-use core::send_map::linear::LinearSet;
+use core::hashmap::linear::{LinearMap, LinearSet};
 use core::util::with;
 
 use front::error;
 use front::ast::*;
 use utils::set;
-use core::send_map::linear::LinearMap;
 
 struct Typechecker {
   err:     error::List,
@@ -119,9 +118,9 @@ impl Typechecker {
       @Boolean(_) => @Bool,
       @Null => @Nullp,
       @Var(id) => match self.vars.find(&id) {
-        Some(t) => t,
+        Some(&t) => t,
         None => match self.funs.find(&id) {
-          Some((ret, args)) => @Pointer(@Fun(ret, args)),
+          Some(&(ret, args)) => @Pointer(@Fun(ret, args)),
           None => self.err.die(fmt!("Unknown variable '%s'", id.val))
         }
       },
@@ -191,9 +190,9 @@ impl Typechecker {
         let err = match self.tc_exp(e) {
           @Struct(s) => {
             r.set(s);
-            match self.structs.find_ref(&s) {
+            match self.structs.find(&s) {
               Some(&Some(ref t)) => match t.find(&id) {
-                Some(t) => { return t; }
+                Some(&t) => { return t; }
                 None => fmt!("Unknown field '%s'", id.val)
               },
               _ => fmt!("Unknown struct '%s'", s.val)
@@ -207,7 +206,7 @@ impl Typechecker {
   }
 
   fn bind_struct(&mut self, id : Ident, fields : &~[(Ident, @Type)]) {
-    let redefined = match self.structs.find_ref(&id) {
+    let redefined = match self.structs.find(&id) {
       Some(&Some(_)) => true, _ => false
     };
     if redefined {
@@ -249,7 +248,7 @@ impl Typechecker {
     self.tc_small(ret);
 
     match self.funs.find(&id) {
-      Some((retp, argsp)) => {
+      Some(&(retp, argsp)) => {
         self.tc_equal(retp, ret);
         if argsp.len() != args.len() {
           self.err.add(~"Different number of arguments than before");
@@ -275,7 +274,7 @@ impl Typechecker {
   fn tc_defined(&mut self, t : @Type) -> bool {
     match t {
       @Struct(id) => {
-        let defined = match self.structs.find_ref(&id) {
+        let defined = match self.structs.find(&id) {
           Some(&Some(_)) => true, _ => false
         };
         if !defined {
