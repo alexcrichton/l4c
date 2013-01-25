@@ -1,5 +1,6 @@
+use core::hashmap::linear::LinearMap;
+
 use io::WriterUtil;
-use std::map;
 use middle::{ssa, label};
 use middle::temp::Temp;
 use utils::{graph, PrettyPrint, Graphable};
@@ -9,17 +10,17 @@ pub struct Program {
 }
 
 pub struct Function {
-  name : ~str,
-  cfg : graph::Graph<@~[@Statement], Edge>,
-  mut root : graph::NodeId,
-  mut args : @~[Temp],         // TODO: iterate mutable vector?
-  types : map::HashMap<Temp, Type>,
+  name: ~str,
+  cfg: graph::Graph<@~[@Statement], Edge>,
+  root: graph::NodeId,
+  types: LinearMap<Temp, Type>,
 
-  loops : map::HashMap<graph::NodeId, (graph::NodeId, graph::NodeId)>,
-  analysis : ssa::Analysis,
+  loops: LinearMap<graph::NodeId, (graph::NodeId, graph::NodeId)>,
+  analysis: ssa::Analysis,
 }
 
 pub enum Statement {
+  Arguments(~[Temp]),
   Move(Temp, @Expression),
   Load(Temp, @Expression),
   Call(Temp, @Expression, ~[@Expression]),
@@ -57,9 +58,8 @@ pub fn Function(name : ~str) -> Function {
   Function{ cfg: graph::Graph(),
             name: name,
             root: 0,
-            types: map::HashMap(),
-            args: @~[],
-            loops: map::HashMap(),
+            types: LinearMap::new(),
+            loops: LinearMap::new(),
             analysis: ssa::Analysis() }
 }
 
@@ -102,7 +102,7 @@ impl Function {
           Pointer => Pointer
         }
       },
-      @Temp(t) => self.types[t]
+      @Temp(ref t) => *self.types.get(t)
     }
   }
 }
@@ -124,9 +124,14 @@ impl Binop {
 }
 
 impl Statement : ssa::Statement {
+  static fn phi(t: Temp, map: ssa::PhiMap) -> @Statement { @Phi(t, map) }
+
   fn each_def<T>(f : &fn(Temp) -> T) {
     match self {
       Load(tmp, _) | Move(tmp, _) | Call(tmp, _, _) | Phi(tmp, _) => {f(tmp);}
+      Arguments(ref tmps) => {
+        for tmps.each |&t| { f(t); }
+      }
       _ => ()
     }
   }
@@ -140,7 +145,8 @@ impl Statement : ssa::Statement {
         e.each_temp(f);
         for args.each |&e| { e.each_temp(f); }
       }
-      Phi(_, _) => fail(~"shouldn't see phi nodes yet")
+      Phi(_, _) => fail(~"shouldn't see phi nodes yet"),
+      Arguments(*) => ()
     }
   }
 
@@ -164,7 +170,8 @@ impl Statement : ssa::Statement {
         let args = args.map(|&x| x.map_temps(uses));
         @Call(defs(tmp), e, args)
       }
-      @Phi(_, _) => fail(~"shouldn't see phi nodes yet")
+      @Phi(_, _) => fail(~"shouldn't see phi nodes yet"),
+      @Arguments(ref tmps) => @Arguments(tmps.map(|&t| defs(t)))
     }
   }
 
@@ -195,6 +202,8 @@ impl Statement : PrettyPrint {
         }
         s + ~")"
       }
+      Arguments(ref tmps) =>
+        fmt!("args %s", str::connect(tmps.map(|&t| t.pp()), ", ")),
     }
   }
 }
@@ -253,39 +262,24 @@ impl Binop : PrettyPrint {
   }
 }
 
-pub fn ssa(p : &Program) {
-  for p.funs.each |f| {
+pub fn ssa(p : &mut Program) {
+  for vec::each_mut(p.funs) |f| {
     ssa_fun(f);
   }
 }
 
-priv fn ssa_fun(f : &Function) {
+priv fn ssa_fun(f : &mut Function) {
   /* tables/metadata altered through temp remapping */
-  let args = map::HashMap();
-  let oldtypes = f.types;
-  let newtypes = map::HashMap();
-  for f.args.each |&tmp| {
-    args.insert(tmp, None);
-  }
+  let mut newtypes = LinearMap::new();
 
   /* And, convert! */
-  ssa::convert(&f.cfg, f.root, *f.args, &f.analysis, |old, new| {
-    newtypes.insert(new, oldtypes[old]);
-    match args.find(old) {
-      Some(Some(_)) => (),
-      Some(None)    => { args.insert(old, Some(new)); }
-      None          => ()
-    }
-  }, |tmp, map| @Phi(tmp, map));
-
+  let mapping = ssa::convert(&mut f.cfg, f.root, &mut f.analysis);
+  for mapping.each |&new, old| {
+    newtypes.insert(new, *f.types.get(old));
+  }
   /* update all type information for the new temps */
   f.types.clear();
-  for newtypes.each |k, v| {
+  do newtypes.consume |k, v| {
     f.types.insert(k, v);
   }
-  /* remap our args */
-  f.args = @f.args.map(|&arg| {
-    assert args.contains_key(arg) && args[arg].is_some();
-    args[arg].get()
-  });
 }

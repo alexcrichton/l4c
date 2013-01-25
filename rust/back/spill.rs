@@ -36,7 +36,7 @@ type NextUse = map::HashMap<Temp, uint>;
 type TempSet = map::Set<Temp>;
 
 struct Spiller {
-  f : &Function,
+  f : &mut Function,
   /* next_use information for each node in the graph */
   next_use : map::HashMap<NodeId, NextUse>,
   /* Delta information for next_use as a block is traversed top down */
@@ -65,8 +65,8 @@ struct Spiller {
   congruence_sets : map::HashMap<Temp, TempSet>,
 }
 
-pub fn spill(p : &Program) {
-  for p.funs.each |f| {
+pub fn spill(p : &mut Program) {
+  for vec::each_mut(p.funs) |f| {
     let s = Spiller{ f: f,
                      next_use: map::HashMap(),
                      deltas: map::HashMap(),
@@ -83,7 +83,7 @@ pub fn spill(p : &Program) {
 
     /* Build up phi renaming maps */
     s.eliminate_critical();
-    for f.cfg.each_node |n, _| {
+    for s.f.cfg.each_node |n, _| {
       s.build_renamings(n);
     }
     s.set_congruence();
@@ -92,13 +92,13 @@ pub fn spill(p : &Program) {
     let mut changed = true;
     while changed {
       changed = false;
-      for f.cfg.each_postorder(f.root) |&id| {
+      for s.f.cfg.each_postorder(s.f.root) |&id| {
         changed = s.build_next_use(id) || changed;
       }
     }
 
     /* In reverse postorder, spill everything! */
-    for f.cfg.each_rev_postorder(f.root) |&id| {
+    for s.f.cfg.each_rev_postorder(s.f.root) |&id| {
       s.spill(id);
     }
   }
@@ -151,7 +151,7 @@ impl Spiller {
   fn eliminate_critical() {
     /* can't modify the graph during traversal */
     let mut critical = ~[];
-    let cfg = &self.f.cfg;
+    let cfg = &mut self.f.cfg;
     for cfg.each_edge |n1, n2| {
       /* critical edges are defined as those whose source has multiple out edges
          and whose target has multiple in edges */

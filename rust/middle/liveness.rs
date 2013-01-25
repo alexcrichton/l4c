@@ -1,17 +1,16 @@
+use core::hashmap::linear::{LinearMap, LinearSet};
 
 // http://hal.inria.fr/docs/00/58/53/03/PDF/RR-7503.pdf - ssa liveness?
 use either::*;
 use std::map;
+use middle::temp::TempSet;
 use middle::ssa::{CFG, Statement};
-use utils::set;
 use utils::graph::*;
 
-pub type LiveMap = map::HashMap<NodeId, LiveIn>;
-pub type LiveIn = map::Set<uint>;
-pub type DeltaMap = map::HashMap<NodeId, @~[Delta]>;
-pub type DeltaList = @~[Delta];
+pub type LiveMap = LinearMap<NodeId, TempSet>;
+pub type DeltaMap = LinearMap<NodeId, ~[Delta]>;
+pub type DeltaList = ~[Delta];
 pub type Delta = ~[Either<uint, uint>];
-pub type Generator<S> = &fn(@S, &fn(uint));
 
 pub struct Analysis {
   in: LiveMap,
@@ -20,25 +19,27 @@ pub struct Analysis {
 }
 
 trait LivenessDelta {
-  fn apply(&Delta);
+  fn apply(&mut self, &Delta);
 }
 
 struct Liveness<T> {
-  a : &Analysis,
+  a : &mut Analysis,
   cfg : &CFG<T>,
-  phi_out : LiveMap,
+  /* TODO: figure out how to modify a set in a map */
+  phi_out : LinearMap<NodeId, ~mut TempSet>,
 }
 
 pub fn Analysis() -> Analysis {
-  Analysis { in: map::HashMap(), out: map::HashMap(), deltas: map::HashMap() }
+  Analysis { in: LinearMap::new(), out: LinearMap::new(),
+             deltas: LinearMap::new() }
 }
 
 pub fn calculate<S : Statement>(cfg : &CFG<S>, root : NodeId,
-                                result: &Analysis) {
+                                result: &mut Analysis) {
   debug!("calculating liveness");
-  let l = Liveness { a: result, phi_out: map::HashMap(), cfg: cfg };
+  let mut l = Liveness { a: result, phi_out: LinearMap::new(), cfg: cfg };
   for cfg.each_node |id, _| {
-    l.phi_out.insert(id, map::HashMap());
+    l.phi_out.insert(id, ~mut LinearSet::new());
   }
   for cfg.each_node |id, _| {
     l.lookup_phis(id);
@@ -55,12 +56,12 @@ pub fn calculate<S : Statement>(cfg : &CFG<S>, root : NodeId,
 }
 
 impl<T : Statement> Liveness<T> {
-  fn lookup_phis(n : NodeId) {
+  fn lookup_phis(&mut self, n : NodeId) {
     for self.cfg[n].each |&stm| {
       match stm.phi_map() {
         Some(map) => {
           for map.each |pred, tmp| {
-            set::add(self.phi_out[pred], tmp);
+            self.phi_out.get(&pred).insert(tmp);
           }
         }
         None => ()
@@ -68,26 +69,32 @@ impl<T : Statement> Liveness<T> {
     }
   }
 
-  fn liveness(n : NodeId) -> bool {
-    let live = map::HashMap();
-    set::union(live, self.phi_out[n]);
+  fn liveness(&mut self, n : NodeId) -> bool {
+    let mut live = LinearSet::new();
+    for self.phi_out.get(&n).each |&t| {
+      live.insert(t);
+    }
     for self.cfg.each_succ(n) |succ| {
-      match self.a.in.find(succ) {
-        Some(s) => { set::union(live, s); }
-        None    => ()
+      match self.a.in.find(&succ) {
+        Some(ref s) => {
+          for s.each |&t| { live.insert(t); }
+        }
+        None => ()
       }
     }
-    self.a.out.insert(n, set::clone(live));
+    let mut dup = LinearSet::new();
+    for live.each |&t| { dup.insert(t); }
+    self.a.out.insert(n, dup);
     let mut my_deltas = ~[];
     for vec::rev_each(*self.cfg[n]) |&ins| {
       let mut delta = ~[];
       for ins.each_def |def| {
-        if set::remove(live, def) {
+        if live.remove(&def) {
           delta.push(Left(def));
         }
       }
       for ins.each_use |tmp| {
-        if set::add(live, tmp) {
+        if live.insert(tmp) {
           delta.push(Right(tmp));
         }
       }
@@ -95,27 +102,27 @@ impl<T : Statement> Liveness<T> {
     }
     /* only return true if something has changed from before */
     vec::reverse(my_deltas);
-    match self.a.in.find(n) {
+    match self.a.in.find(&n) {
       None    => (),
       Some(s) => {
-        if set::eq(s, live) && *self.a.deltas[n] == my_deltas {
+        /* TODO: why can't this be '==' */
+        if live.eq(s) && my_deltas.eq(self.a.deltas.get(&n)) {
           return false;
         }
       }
     }
-    debug!("%? %s %?", n, set::to_str(live), my_deltas);
     self.a.in.insert(n, live);
-    self.a.deltas.insert(n, @my_deltas);
+    self.a.deltas.insert(n, my_deltas);
     return true;
   }
 }
 
-impl LiveIn : LivenessDelta {
-  fn apply(delta : &Delta) {
+impl TempSet : LivenessDelta {
+  fn apply(&mut self, delta: &Delta) {
     for delta.each |&e| {
       match e {
-        Right(tmp) => { set::remove(self, tmp); }
-        Left(tmp)  => { set::add(self, tmp); }
+        Right(tmp) => { self.remove(&tmp); }
+        Left(tmp)  => { self.insert(tmp); }
       }
     }
   }

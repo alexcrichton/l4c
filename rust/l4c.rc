@@ -118,7 +118,7 @@ fn main() {
       }
     }
   };
-  let ast = do prof(m, "generating ast") {
+  let mut ast = do prof(m, "generating ast") {
     parse::from_json(&json, copy m.free[0])
   };
   do prof(m, "elaborating") { ast.elaborate(); }
@@ -132,17 +132,17 @@ fn main() {
 
   /* middle */
   let safe = opt_present(m, "safe") && !opt_present(m, "unsafe");
-  let ir = do prof(m, "trans") { trans::translate(&ast, safe) };
+  let mut ir = trans::translate(ast, safe);
   if opt_present(m, "dot-ir")  { ir.dot(io::stdout()); }
-  pass(ir::ssa, &ir, m, "dot-ssa");
+  pass(ir::ssa, &mut ir, m, "dot-ssa");
 
   /* backend */
-  let assem = do prof(m, "codegen") { codegen::codegen(&ir) };
+  let mut assem = codegen::codegen(ir);
   if opt_present(m, "dot-assem") { assem.dot(io::stdout()); }
-  pass(precolor::constrain, &assem, m, "dot-precolor");
-  pass(spill::spill,        &assem, m, "dot-spilled");
-  pass(ressa::convert,      &assem, m, "dot-ressa");
-  pass(alloc::color,        &assem, m, "dot-colored");
+  pass(precolor::constrain, &mut assem, m, "dot-precolor");
+  pass(spill::spill,        &mut assem, m, "dot-spilled");
+  pass(ressa::convert,      &mut assem, m, "dot-ressa");
+  pass(alloc::color,        &mut assem, m, "dot-colored");
 
   let output = Path(m.free[0]).with_filetype("s");
   match io::file_writer(&output, ~[io::Truncate, io::Create]) {
@@ -151,9 +151,10 @@ fn main() {
   }
 }
 
-fn pass<T : Graphable, U>(f : &fn(&T) -> U, p : &T,
+fn pass<T : Graphable, U>(f : &fn(&mut T) -> U, p : &mut T,
                           m : &std::getopts::Matches, s : &str) -> U {
-  let ret = do prof(m, s) { f(p) };
+  /* TODO: why need '&mut *' here? */
+  let ret = do prof(m, s) { f(&mut *p) };
   if std::getopts::opt_present(m, s) {
     p.dot(io::stdout());
   }

@@ -1,188 +1,193 @@
-use std::map;
-use middle::{ir, ssa, liveness};
-use middle::temp::Temp;
-use graph::NodeId;
+use core::util::ignore;
+use core::hashmap::linear::{LinearMap, LinearSet};
+
+use std::{map, bitv};
 use std::priority_queue::PriorityQueue;
 
+use middle::{ir, ssa, liveness};
+use middle::temp::Temp;
+use back::{assem, arch, alloc};
+use utils::{set, profile};
+use utils::graph::{NodeSet, NodeId};
+
 type Location = (NodeId, int);
-type TempSet = map::Set<Temp>;
-type NodeSet = map::Set<NodeId>;
-type Affinities = map::HashMap<Temp, map::HashMap<Temp, uint>>;
+type TempSet = bitv::Bitv;
+type Affinities = LinearMap<Temp, LinearMap<Temp, uint>>;
 struct Affinity(Temp, Temp, uint);
 struct Chunk(TempSet, uint);
 
 struct Coalescer {
-  defs : map::HashMap<Temp, Location>,
-  uses : map::HashMap<Temp, map::Set<Location>>,
-  f : &assem::Function,
+  defs : LinearMap<Temp, Location>,
+  uses : LinearMap<Temp, LinearSet<Location>>,
+  f : &mut assem::Function,
   fixed : TempSet,
   affinities : Affinities,
-  colors : map::HashMap<Temp, uint>,
-  old_color : map::HashMap<Temp, uint>,
-  precolored : TempSet,
-  constraints : map::HashMap<Temp, assem::Constraint>,
-  interference_cache: map::HashMap<Temp, TempSet>,
-  interferences_cache: map::HashMap<(Temp, Temp), bool>,
-  admissible_cache: map::HashMap<(Temp, uint), bool>,
-  dominates_cache: map::HashMap<(Location, Location), bool>,
+  colors : LinearMap<Temp, uint>,
+  old_color : LinearMap<Temp, uint>,
+  precolored : &TempSet,
+  constraints : LinearMap<Temp, assem::Constraint>,
+  interference_cache: LinearMap<Temp, TempSet>,
+  interferences_cache: LinearMap<(Temp, Temp), bool>,
+  admissible_cache: LinearMap<(Temp, uint), bool>,
+  dominates_cache: LinearMap<(Location, Location), bool>,
 }
 
-pub fn optimize(f: &assem::Function,
+pub fn optimize(f: &mut assem::Function,
                 colors: alloc::ColorMap,
-                precolored: TempSet,
-                constraints: map::HashMap<Temp, assem::Constraint>) {
-  let c = Coalescer { defs: map::HashMap(),
-                      uses: map::HashMap(),
-                      f: f,
-                      fixed: map::HashMap(),
-                      affinities: map::HashMap(),
-                      colors: colors,
-                      old_color: map::HashMap(),
-                      precolored: precolored,
-                      constraints: constraints,
-                      interference_cache: map::HashMap(),
-                      interferences_cache: map::HashMap(),
-                      admissible_cache: map::HashMap(),
-                      dominates_cache: map::HashMap() };
+                precolored: &TempSet,
+                constraints: LinearMap<Temp, assem::Constraint>) {
+  let mut c = Coalescer { defs: LinearMap::new(),
+                          uses: LinearMap::new(),
+                          fixed: bitv::Bitv(f.ssa.temps, false),
+                          f: f,
+                          affinities: LinearMap::new(),
+                          colors: colors,
+                          old_color: LinearMap::new(),
+                          precolored: precolored,
+                          constraints: constraints,
+                          interference_cache: LinearMap::new(),
+                          interferences_cache: LinearMap::new(),
+                          admissible_cache: LinearMap::new(),
+                          dominates_cache: LinearMap::new() };
   do profile::dbg("building use/def") {
-    for f.cfg.each_node |id, &ins| {
+    for c.f.cfg.each_node |id, &ins| {
       c.build_use_def(id, ins);
     }
   }
   c.coalesce();
 }
 
-macro_rules! find_set(
-  ($map:expr, $key:expr) =>
-  (
-    match $map.find($key) {
+macro_rules! find_default(
+  ($map:expr, $key:expr, $default:expr) => (
+    match $map.find(&$key) {
       Some(s) => s,
       None => {
-        let m = map::HashMap();
-        ignore(m); /* TODO: is this a bad rust thing? */
-        $map.insert($key, m);
-        m
+        $map.insert($key, $default);
+        $map.get(&$key)
       }
     }
   )
 )
 
 impl Coalescer {
-  fn build_use_def(n : NodeId, ins: @~[@assem::Instruction]) {
+  fn build_use_def(&mut self, n : NodeId, ins: @~[@assem::Instruction]) {
+    macro_rules! find_set(($map:expr, $key:expr) =>
+      (find_default!($map, $key, ~mut LinearSet::new())))
+
+    let mut uses = LinearMap::new();
+
     for ins.eachi |i, &ins| {
       for ins.each_def |tmp| {
         assert self.defs.insert(tmp, (n, i as int));
       }
       for ins.each_use |tmp| {
-        set::add(find_set!(self.uses, tmp), (n, i as int));
+        (find_set!(uses, tmp)).insert((n, i as int));
       }
       match ins.phi_map() {
         None => (),
         Some(m) => {
           for m.each |pred, tmp| {
-            set::add(find_set!(self.uses, tmp), (pred, int::max_value));
+            (find_set!(uses, tmp)).insert((pred, int::max_value));
           }
         }
       }
     }
+
+    /* TODO: figure out how to mutate a set in a map */
+    do uses.consume |k, v| {
+      self.uses.insert(k, *v);
+    }
   }
 
   /* Algorithm 4.3 */
-  fn coalesce() {
-    let mut pq = do profile::dbg("building chunks") {
-      self.build_chunks()
-    };
-    do profile::dbg("recoloring") {
-      while !pq.is_empty() {
-        let chunk = pq.pop();
-        do profile::dbg("recoloring chunk") {
-          self.recolor_chunk(chunk, &mut pq);
-        }
+  fn coalesce(&mut self) {
+    let mut pq = self.build_chunks();
+    while !pq.is_empty() {
+      do profile::dbg("recoloring chunk") {
+        self.recolor_chunk(pq.pop(), &mut pq);
       }
     }
   }
 
-  fn recolor_chunk(Chunk(tmps, cost): Chunk, pq: &mut PriorityQueue<Chunk>) {
-    assert tmps.size() > 0;
+  fn recolor_chunk(&mut self, Chunk(tmps, cost): Chunk,
+                   pq: &mut PriorityQueue<Chunk>) {
     debug!("-------------------------------------------------------------");
-    info!("coloring chunk %s %?", set::to_str(tmps), cost);
+    /*info!("coloring chunk %s %?", set::to_str(tmps), cost);*/
     let mut best_cost = 0;
     let mut best_color = -1;
-    let mut best_set = map::HashMap();
+    let mut best_set = bitv::Bitv(self.f.ssa.temps, false);
     macro_rules! docolor(
       ($set:expr, $color:expr) =>
       ({
         /* Unfix all temps */
-        for set::each($set) |tmp| { set::remove(self.fixed, tmp); }
-        for set::each($set) |tmp| {
+        for $set.ones |tmp| { self.fixed.set(tmp, false); }
+        for $set.ones |tmp| {
           self.recolor(tmp, $color);
-          set::add(self.fixed, tmp);
+          self.fixed.set(tmp, true);
         }
       })
     );
 
-    do profile::dbg("trying regs") {
-      for arch::each_reg |r| {
-        debug!("trying %?", r);
-        do profile::dbg("coloring") { docolor!(tmps, r); }
-        do profile::dbg("best set") {
-          match self.best_subset(tmps, r) {
-            None => (),
-            Some((M, mcost)) => {
-              if mcost > best_cost {
-                best_color = r;
-                best_cost = mcost;
-                best_set = M;
-              }
-            }
+    for arch::each_reg |r| {
+      debug!("trying %?", r);
+      docolor!(tmps, r);
+      match self.best_subset(&tmps, r) {
+        None => (),
+        Some((M, mcost)) => {
+          if mcost > best_cost {
+            best_color = r;
+            best_cost = mcost;
+            best_set = M;
           }
         }
       }
     }
     if best_color == -1 {
-      info!("utterly impossible %s", set::to_str(best_set));
+      /*info!("utterly impossible %s", set::to_str(best_set));*/
       return;
     }
 
-    do profile::dbg("selecting a color") {
-      debug!("-------------------------------------------------------------");
-      info!("selected %? for %s", best_color, set::to_str(best_set));
-      do profile::dbg("coloring") { docolor!(best_set, best_color); }
-      set::difference(tmps, best_set);
-      if tmps.size() > 0 {
-        debug!("re-adding %?", set::to_str(tmps));
-        pq.push(Chunk(tmps, cost - best_cost));
-      }
-      debug!("-------------------------------------------------------------");
+    debug!("-------------------------------------------------------------");
+    /*info!("selected %? for %s", best_color, set::to_str(best_set));*/
+    docolor!(best_set, best_color);
+    tmps.difference(&best_set);
+    let mut nonzero = false;
+    for tmps.ones |_| { nonzero = true; }
+    if nonzero {
+      pq.push(Chunk(tmps, cost - best_cost));
     }
+    debug!("-------------------------------------------------------------");
   }
 
-  fn best_subset(s: TempSet, c: uint) -> Option<(TempSet, uint)> {
+  fn best_subset(s: &TempSet, c: uint) -> Option<(TempSet, uint)> {
     let mut maxweight = 0;
-    let mut maxset = map::HashMap();
-    let left = map::HashMap();
-    for set::each(s) |tmp| {
-      if self.colors[tmp] == c {
-        set::add(left, tmp);
+    let mut maxset = bitv::Bitv(self.f.ssa.temps, false);
+    let left = bitv::Bitv(self.f.ssa.temps, false);
+    for s.ones |tmp| {
+      if *self.colors.get(&tmp) == c {
+        left.set(tmp, true);
       }
     }
-    debug!("best of %s in %s for %?", set::to_str(left), set::to_str(s), c);
+    /*debug!("best of %s in %s for %?", set::to_str(left), set::to_str(s), c);*/
 
     /* Iterate over the set of temps and partition as we go */
-    while left.size() > 0 {
-      let subset = map::HashMap();
+    loop {
+      let mut any = false;
+      for left.ones |_| { any = true; break; }
+      if !any { break; }
+      let subset = bitv::Bitv(self.f.ssa.temps, false);
       let mut qweight = 1;
       /* pop off the first temp and build its entire subset */
-      for set::each(left) |tmp| {
+      for left.ones |tmp| {
         let mut queue = ~[tmp];
         while queue.len() > 0 {
           debug!("%?", queue);
           let tmp = queue.pop();
-          set::add(subset, tmp);
-          assert self.affinities.contains_key(tmp);
-          for self.affinities[tmp].each |next, weight| {
+          subset.set(tmp, true);
+          assert self.affinities.contains_key(&tmp);
+          for self.affinities.get(&tmp).each |&next, &weight| {
             debug!("%? affine with %? cost %?", tmp, next, weight);
-            if set::contains(left, next) && !set::contains(subset, next) {
+            if left.get(next) && !subset.get(next) {
               debug!("adding %?", next);
               queue.push(next);
               qweight += weight;
@@ -192,8 +197,7 @@ impl Coalescer {
         break;
       }
 
-      assert subset.size() > 0;
-      set::difference(left, subset);
+      left.difference(&subset);
       if qweight > maxweight {
         maxweight = qweight;
         maxset = subset;
@@ -203,58 +207,54 @@ impl Coalescer {
       debug!("no good subset");
       return None;
     }
-    debug!("found %s %?", set::to_str(maxset), maxweight);
+    /*debug!("found %s %?", set::to_str(maxset), maxweight);*/
     return Some((maxset, maxweight));
   }
 
   /* Algorithm 4.4 */
-  fn recolor(t: Temp, c: uint) {
+  fn recolor(&mut self, t: Temp, c: uint) {
     if !self.admissible(t, c) { debug!("not admissible %? %?", t, c); return }
-    if set::contains(self.fixed, t) { debug!("fixed %?", t); return }
-    let changed = map::HashMap();
-    self.set_color(t, c, changed);
+    if self.fixed.get(t) { debug!("fixed %?", t); return }
+    let changed = bitv::Bitv(self.f.ssa.temps, false);
+    self.set_color(t, c, &changed);
     debug!("recoloring %? to %?", t, c);
 
-    let others = self.interferences(t);
-    do profile::dbg("fixing interferes") {
-      for set::each(others) |tmp| {
-        debug!("recoloring %? interfering with %?", tmp, t);
-        if !self.avoid_color(tmp, c, changed) {
-          for set::each(changed) |tmp| {
-            assert self.old_color.contains_key(tmp);
-            self.colors.insert(tmp, self.old_color[tmp]);
-          }
+    for self.interferences(t) |tmp| {
+      debug!("recoloring %? interfering with %?", tmp, t);
+      if !self.avoid_color(tmp, c, &changed) {
+        for changed.ones |tmp| {
+          assert self.old_color.contains_key(&tmp);
+          self.colors.insert(tmp, *self.old_color.get(&tmp));
         }
       }
     }
-    for set::each(changed) |tmp| {
-      assert set::remove(self.fixed, tmp);
+    for changed.ones |tmp| {
+      self.fixed.set(tmp, false);
     }
   }
 
-  #[inline(always)]
-  fn set_color(t: Temp, c: uint, changed: TempSet) {
+  fn set_color(&mut self, t: Temp, c: uint, changed: &TempSet) {
     debug!("setting %? to %?", t, c);
-    assert set::add(self.fixed, t);
-    self.old_color.insert(t, self.colors[t]);
-    assert set::add(changed, t);
+    self.fixed.set(t, true);
+    self.old_color.insert(t, *self.colors.get(&t));
+    changed.set(t, true);
     self.colors.insert(t, c);
   }
 
-  fn avoid_color(t: Temp, c: uint, changed: TempSet) -> bool {
-    if self.colors[t] != c { debug!("pre avoided %? %?", t, c); return true }
-    if set::contains(self.fixed, t) { debug!("fixed %?", t); return false }
-    if set::contains(self.precolored, t) && c != self.colors[t] {
-      debug!("%? fixed elsewhere (%? %?)", t, c, self.colors[t]);
+  fn avoid_color(&mut self, t: Temp, c: uint, changed: &TempSet) -> bool {
+    if *self.colors.get(&t) != c { debug!("avoided %? %?", t, c); return true }
+    if self.fixed.get(t) { debug!("fixed %?", t); return false }
+    if self.precolored.get(t) && c != *self.colors.get(&t) {
+      debug!("%? fixed elsewhere (%? %?)", t, c, self.colors.get(&t));
       return false
     }
-    let color = if set::contains(self.precolored, t) {
+    let color = if self.precolored.get(t) {
       c
     } else {
       self.min_color(t, c)
     };
     self.set_color(t, color, changed);
-    for set::each(self.interferences(t)) |tmp| {
+    for self.interferences(t) |tmp| {
       if !self.avoid_color(tmp, color, changed) {
         debug!("failed to avoid on interference %?", tmp);
         return false;
@@ -263,8 +263,7 @@ impl Coalescer {
     return true;
   }
 
-  #[inline(always)]
-  fn min_color(t: Temp, ignore: uint) -> uint {
+  fn min_color(&mut self, t: Temp, ignore: uint) -> uint {
     let mut cnts = vec::from_elem(arch::num_regs, uint::max_value);
     for arch::each_reg |r| {
       if r != ignore && self.admissible(t, r) {
@@ -272,8 +271,8 @@ impl Coalescer {
       }
     }
 
-    for set::each(self.interferences(t)) |tmp| {
-      let idx = self.colors[tmp] - 1;
+    for self.interferences(t) |tmp| {
+      let idx = *self.colors.get(&tmp) - 1;
       if cnts[idx] != uint::max_value {
         cnts[idx] += 1;
       }
@@ -289,11 +288,10 @@ impl Coalescer {
     return mini + 1;
   }
 
-  #[inline(always)]
-  fn admissible(t: Temp, color: uint) -> bool {
+  fn admissible(&mut self, t: Temp, color: uint) -> bool {
     /* TODO: remove this cache */
-    match self.admissible_cache.find((t, color)) {
-      Some(a) => return a,
+    match self.admissible_cache.find(&(t, color)) {
+      Some(&a) => return a,
       None => ()
     }
     let b = self.admissible_impl(t, color);
@@ -301,106 +299,132 @@ impl Coalescer {
     return b;
   }
 
-  #[inline(always)]
   fn admissible_impl(t: Temp, color: uint) -> bool {
-    if set::contains(self.precolored, t) { return color == self.colors[t] }
-    match self.constraints.find(t) {
+    if self.precolored.get(t) { return color == *self.colors.get(&t) }
+    match self.constraints.find(&t) {
       None => true,
       Some(c) => c.allows(arch::num_reg(color))
     }
   }
 
   /* Algorithm 4.5 */
-  fn build_chunks() -> PriorityQueue<Chunk> {
-    let mut pq = PriorityQueue::new();
-    self.find_affinities(self.f.root, 1, &mut pq, map::HashMap());
-    let empty = Chunk(map::HashMap(), 0);
-    let chunks = map::HashMap();
+  fn build_chunks(&mut self) -> PriorityQueue<Chunk> {
+    let mut pq = self.find_affinities();
+    let mut chunks = LinearMap::new();
+    let mut temp_chunks = LinearMap::new();
+    let mut next_chunk = 1;
+    chunks.insert(0, Chunk(bitv::Bitv(self.f.ssa.temps, false), 0));
 
     while !pq.is_empty() {
       let Affinity(x, y, w) = pq.pop();
-      let Chunk(xs, xw) = chunks.find(x).get_default(empty);
-      let Chunk(ys, yw) = chunks.find(y).get_default(empty);
-      let mut interferes = false;
-      /* v.chunk = x.chunk */
-      for set::each(xs) |v| {
-        /* w.chunk = y.chunk */
-        for set::each(ys) |w| {
-          interferes = interferes || self.interferes(v, w);
-        }
+      let xc, yc;
+      {
+        /* constrain the immutable_loan of temp_chunks to just this area */
+        xc = temp_chunks.find(&x).map_default(0, |&x| *x);
+        yc = temp_chunks.find(&y).map_default(0, |&x| *x);
       }
-      if interferes { loop }
+      {
+        /* In a separate scope, see if we should skip merging the two chunks of
+           these two variables */
+        let &Chunk(ref xs, _) = chunks.get(&xc);
+        let &Chunk(ref ys, _) = chunks.get(&yc);
+        let mut interferes = false;
+        /* v.chunk = x.chunk */
+        for xs.ones |v| {
+          /* w.chunk = y.chunk */
+          for ys.ones |w| {
+            interferes = interferes || self.interferes(v, w);
+            if interferes { break }
+          }
+          if interferes { break }
+        }
+        if interferes { loop }
+      }
+      /* Now in a separate scope (where chunks is mutable), merge the two scopes
+         together */
+      let Chunk(ref xs, xw) = chunks.pop(&xc).unwrap();
+      let Chunk(ref ys, yw) = chunks.pop(&yc).unwrap();
 
       /* no element of the two chunks interfere, merge the chunks */
-      let merge = map::HashMap();
-      set::add(merge, x);
-      set::add(merge, y);
-      set::union(merge, xs);
-      set::union(merge, ys);
-      for set::each(merge) |tmp| {
-        chunks.insert(tmp, Chunk(merge, xw + yw + w));
+      let merge = bitv::Bitv(self.f.ssa.temps, false);
+      merge.set(x, true);
+      merge.set(y, true);
+      merge.union(xs);
+      merge.union(ys);
+      let num = next_chunk;
+      next_chunk += 1;
+      for merge.ones |tmp| {
+        temp_chunks.insert(tmp, num);
       }
+      chunks.insert(num, Chunk(merge, w + xw + yw));
     }
 
     /* Finally insert all chunks into a priority queue */
     let mut ret = PriorityQueue::new();
-    while chunks.size() > 0 {
-      for chunks.each |_, c| {
-        let Chunk(tmps, _) = c;
-        for set::each(tmps) |t| {
-          chunks.remove(t);
-        }
-        ret.push(c);
-        break;
-      }
+    do chunks.consume |_, c| {
+      ret.push(c);
     }
     return ret;
   }
 
-  fn find_affinities(n: NodeId, weight: uint, pq: &mut PriorityQueue<Affinity>,
-                     visited: NodeSet) {
+  fn find_affinities(&mut self) -> PriorityQueue<Affinity> {
+    macro_rules! find_map(($map:expr, $key:expr) =>
+      (find_default!($map, $key, ~mut LinearMap::new())));
     macro_rules! affine(
-      ($a:expr, $b:expr) =>
-      ({
-        (find_set!(self.affinities, $a)).insert($b, weight);
-        (find_set!(self.affinities, $b)).insert($a, weight);
+      ($a:expr, $b:expr) => ({
+        (find_map!(affinities, $a)).insert($b, weight);
+        (find_map!(affinities, $b)).insert($a, weight);
         pq.push(Affinity($a, $b, weight));
       })
     );
 
-    set::add(visited, n);
-    let weight = weight + if self.f.loops.contains_key(n) { 1 } else { 0 };
-    for self.f.cfg[n].each |&ins| {
-      match ins {
-        @assem::Phi(def, map) => {
-          for map.each_value |tmp| {
-            affine!(def, tmp);
+    let mut pq = PriorityQueue::new();
+    let mut to_visit = ~[(self.f.root, 1)];
+    let mut visited = LinearSet::new();
+    let mut affinities = LinearMap::new();
+
+    while to_visit.len() > 0 {
+      let (n, weight) = to_visit.pop();
+      assert visited.insert(n);
+      let weight = weight + if self.f.loops.contains_key(n) { 1 } else { 0 };
+      for self.f.cfg[n].each |&ins| {
+        match ins {
+          @assem::Phi(def, map) => {
+            for map.each_value |tmp| {
+              affine!(def, tmp);
+            }
           }
-        }
-        @assem::PCopy(ref copies) => {
-          for copies.each |a, b| {
-            affine!(a, b);
+          @assem::PCopy(ref copies) => {
+            for copies.each |a, b| {
+              affine!(a, b);
+            }
           }
+          _ => ()
         }
-        _ => ()
+      }
+
+      for self.f.cfg.each_succ_edge(n) |succ, edge| {
+        if visited.contains(&succ) { loop }
+        let weight = match edge {
+          ir::FLoopOut | ir::LoopOut => weight - 1, _ => weight
+        };
+        to_visit.push((succ, weight));
       }
     }
 
-    for self.f.cfg.each_succ_edge(n) |succ, edge| {
-      if set::contains(visited, succ) { loop }
-      let weight = match edge {
-        ir::FLoopOut | ir::LoopOut => weight - 1, _ => weight
-      };
-      self.find_affinities(succ, weight, pq, visited);
+    /* TODO: figure out how to mutate a set in a map */
+    do affinities.consume |k, v| {
+      self.affinities.insert(k, *v);
     }
+
+    return pq;
   }
 
   /* Algorithm 4.6 */
-  #[inline(always)]
-  fn interferes(x: Temp, y: Temp) -> bool {
+  fn interferes(&mut self, x: Temp, y: Temp) -> bool {
     /* TODO: remove this cache */
-    match self.interferences_cache.find((x, y)) {
-      Some(b) => return b,
+    match self.interferences_cache.find(&(x, y)) {
+      Some(&b) => return b,
       None => (),
     }
     let b = self.interferes_impl(x, y);
@@ -409,10 +433,9 @@ impl Coalescer {
     return b;
   }
 
-  #[inline(always)]
-  fn interferes_impl(x: Temp, y: Temp) -> bool {
-    let xdef = self.defs[x];
-    let ydef = self.defs[y];
+  fn interferes_impl(&mut self, x: Temp, y: Temp) -> bool {
+    let &xdef = self.defs.get(&x);
+    let &ydef = self.defs.get(&y);
     let (t, b) = if self.dominates(ydef, xdef) {
       (y, x)
     } else if self.dominates(xdef, ydef) {
@@ -421,12 +444,12 @@ impl Coalescer {
       return false;
     };
 
-    let (bdef, bline) = self.defs[b];
-    if set::contains(self.f.liveness.out[bdef], t) {
+    let &(bdef, bline) = self.defs.get(&b);
+    if self.f.liveness.out.get(&bdef).contains(&t) {
       return true;
     }
 
-    for set::each(self.uses[t]) |loc| {
+    for self.uses.get(&t).each |&loc| {
       if self.dominates((bdef, bline), loc) {
         return true;
       }
@@ -435,45 +458,47 @@ impl Coalescer {
   }
 
   /* Algorithm 4.7 */
-  #[inline(always)]
-  fn interferences(t: Temp) -> TempSet {
-    match self.interference_cache.find(t) {
-      Some(s) => return s,
+  fn interferences(&mut self, t: Temp, f: &fn(Temp) -> bool) {
+    match self.interference_cache.find(&t) {
+      Some(ref s) => { s.ones(f); return }
       None => ()
     }
-    let set = map::HashMap();
-    let visited = map::HashMap();
-    assert self.uses.contains_key(t);
-    for set::each(self.uses[t]) |(block, _)| {
-      self.find_interferences(t, block, set, visited);
+    let set = bitv::Bitv(self.f.ssa.temps, false);
+    let mut visited = LinearSet::new();
+    assert self.uses.contains_key(&t);
+    for self.uses.get(&t).each |&(block, _)| {
+      self.find_interferences(t, block, &set, &mut visited);
     }
-    set::remove(set, t);
+    set.set(t, false);
+    set.ones(f);
     self.interference_cache.insert(t, set);
-    return set;
   }
 
-  fn find_interferences(x: Temp, n: NodeId, set: TempSet, visited: NodeSet) {
-    set::add(visited, n);
-    let L = set::clone(self.f.liveness.out[n]);
+  fn find_interferences(&mut self, x: Temp, n: NodeId, set: &TempSet,
+                        visited: &mut NodeSet) {
+    visited.insert(n);
+    let L = bitv::Bitv(self.f.ssa.temps, false);
+    for self.f.liveness.out.get(&n).each |&tmp| {
+      L.set(tmp, true);
+    }
     for vec::rev_each(*self.f.cfg[n]) |&ins| {
-      if set::contains(L, x) {
-        set::union(set, L);
+      if L.get(x) {
+        set.union(&L);
       }
-      for ins.each_def |tmp| { set::remove(L, tmp); }
-      for ins.each_use |tmp| { set::add(L, tmp); }
+      for ins.each_def |tmp| { L.set(tmp, false); }
+      for ins.each_use |tmp| { L.set(tmp, true); }
     }
-    let def = self.defs[x];
+    let &def = self.defs.get(&x);
     for self.f.cfg.each_pred(n) |pred| {
-      if !set::contains(visited, pred) && self.dominates(def, (pred, 0)) {
-        self.find_interferences(x, pred, set, visited);
+      if !visited.contains(&pred) && self.dominates(def, (pred, 0)) {
+        self.find_interferences(x, pred, set, &mut *visited);
       }
     }
   }
 
-  #[inline(always)]
-  fn dominates(a: Location, b:Location) -> bool {
-    match self.dominates_cache.find((a, b)) {
-      Some(s) => return s,
+  fn dominates(&mut self, a: Location, b:Location) -> bool {
+    match self.dominates_cache.find(&(a, b)) {
+      Some(&s) => return s,
       None => ()
     }
     let c = self.dominates_impl(a, b);
@@ -481,14 +506,13 @@ impl Coalescer {
     return c;
   }
 
-  #[inline(always)]
-  fn dominates_impl((a, aline): Location, (b, bline): Location) -> bool {
+  fn dominates_impl((ref a, aline): Location, (ref b, bline): Location) -> bool {
     if a == b {
       return aline < bline;
     }
     let mut cur = b;
-    while cur != self.f.ssa.idominator[cur] {
-      cur = self.f.ssa.idominator[cur];
+    while cur != self.f.ssa.idominator.get(cur) {
+      cur = self.f.ssa.idominator.get(cur);
       if cur == a { return true; }
     }
     return false;
@@ -496,27 +520,19 @@ impl Coalescer {
 }
 
 impl Affinity : cmp::Ord {
-  #[inline(always)]
   pure fn lt(&self, other: &Affinity) -> bool {
     match (self, other) { (&Affinity(_, _, a), &Affinity(_, _, b)) => a < b }
   }
-  #[inline(always)]
   pure fn le(&self, other: &Affinity) -> bool { !other.lt(self) }
-  #[inline(always)]
   pure fn gt(&self, other: &Affinity) -> bool { !self.le(other) }
-  #[inline(always)]
   pure fn ge(&self, other: &Affinity) -> bool { !self.lt(other) }
 }
 
 impl Chunk : cmp::Ord {
-  #[inline(always)]
   pure fn lt(&self, other: &Chunk) -> bool {
     match (self, other) { (&Chunk(_, a), &Chunk(_, b)) => a < b }
   }
-  #[inline(always)]
   pure fn le(&self, other: &Chunk) -> bool { !other.lt(self) }
-  #[inline(always)]
   pure fn gt(&self, other: &Chunk) -> bool { !self.le(other) }
-  #[inline(always)]
   pure fn ge(&self, other: &Chunk) -> bool { !self.lt(other) }
 }

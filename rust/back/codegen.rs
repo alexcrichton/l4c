@@ -11,25 +11,22 @@ pub struct CodeGenerator {
   priv tmap : map::HashMap<temp::Temp, temp::Temp>,
 }
 
-pub fn codegen(p : &ir::Program) -> assem::Program {
+pub fn codegen(p : ir::Program) -> assem::Program {
   assem::Program{ funs: p.funs.map(translate) }
 }
 
 fn translate(f : &ir::Function) -> assem::Function {
   info!("codegen of %s", f.name);
-  let cg = CodeGenerator { f: f,
-                           temps: temp::new(),
-                           tmap: map::HashMap(),
-                           sizes: map::HashMap() };
+  let mut cg = CodeGenerator { f: f,
+                               temps: temp::new(),
+                               tmap: map::HashMap(),
+                               sizes: map::HashMap() };
   let cfg = f.cfg.map(
     |id, stms|
       @vec::build(|push| {
         debug!("block %?", id);
-        if id == f.root {
-          cg.load_args(*f.args, |ins| arch::constrain(ins, push, &cg));
-        }
         for stms.each |&s| {
-          cg.stm(s, |ins| arch::constrain(ins, push, &cg));
+          cg.stm(s, |ins| arch::constrain(ins, push, &mut cg));
         }
       }),
     |&edge| edge
@@ -38,29 +35,21 @@ fn translate(f : &ir::Function) -> assem::Function {
   for f.types.each |k, v| {
     debug!("%? sized %?", k, v);
   }
+  let loops = map::HashMap();
+  for f.loops.each |&k, &v| {
+    loops.insert(k, v);
+  }
   assem::Function { name: copy f.name,
                     cfg: cfg,
                     root: f.root,
                     temps: cg.temps.cnt(),
                     sizes: cg.sizes,
-                    loops: f.loops,
+                    loops: loops,
                     ssa: ssa::Analysis(),
                     liveness: liveness::Analysis() }
 }
 
 impl CodeGenerator {
-  fn load_args(args : &[temp::Temp], push : Builder) {
-    for args.eachi |i, &tmp| {
-      let tmp = self.tmp(tmp);
-      if i < arch::arg_regs {
-        push(@assem::Arg(tmp, i));
-      } else {
-        let loc = @assem::StackArg(i - arch::arg_regs);
-        push(@assem::Load(@assem::Temp(tmp), loc));
-      }
-    }
-  }
-
   fn cond(c : ir::Binop) -> assem::Cond {
     match c {
       ir::Lt  => assem::Lt,
@@ -90,7 +79,7 @@ impl CodeGenerator {
     }
   }
 
-  fn half(e : @ir::Expression, push : Builder) -> @assem::Operand {
+  fn half(&mut self, e : @ir::Expression, push : Builder) -> @assem::Operand {
     match e {
       @ir::Temp(t) => @assem::Temp(self.tmp(t)),
       @ir::Const(c, size) => @assem::Immediate(c, size),
@@ -104,8 +93,19 @@ impl CodeGenerator {
     }
   }
 
-  fn stm(s : @ir::Statement, push : Builder) {
+  fn stm(&mut self, s : @ir::Statement, push : Builder) {
     match s {
+      @ir::Arguments(ref tmps) => {
+        for tmps.eachi |i, &tmp| {
+          let tmp = self.tmp(tmp);
+          if i < arch::arg_regs {
+            push(@assem::Arg(tmp, i));
+          } else {
+            let loc = @assem::StackArg(i - arch::arg_regs);
+            push(@assem::Load(@assem::Temp(tmp), loc));
+          }
+        }
+      }
       @ir::Phi(tmp, map) => {
         let map2 = map::HashMap();
         for map.each |k, v| {
@@ -149,19 +149,19 @@ impl CodeGenerator {
     }
   }
 
-  fn tmp(t : temp::Temp) -> temp::Temp {
+  fn tmp(&mut self, t : temp::Temp) -> temp::Temp {
     match self.tmap.find(t) {
       Some(t) => t,
       None => {
         let ret = self.temps.new();
         self.tmap.insert(t, ret);
-        self.sizes.insert(ret, self.f.types[t]);
+        self.sizes.insert(ret, *self.f.types.get(&t));
         return ret;
       }
     }
   }
 
-  fn tmpnew(s : ir::Type) -> @assem::Operand {
+  fn tmpnew(&mut self, s : ir::Type) -> @assem::Operand {
     let tmp = self.temps.new();
     self.sizes.insert(tmp, s);
     @assem::Temp(tmp)

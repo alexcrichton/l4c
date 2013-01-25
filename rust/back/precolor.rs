@@ -1,37 +1,40 @@
+use core::hashmap::linear::LinearSet;
+
 use back::assem::*;
 use middle::{liveness, temp};
-use utils::set;
 use back::arch;
 
-pub fn constrain(p : &Program) {
-  for p.funs.each |f| {
-    let live = liveness::Analysis();
-    liveness::calculate(&f.cfg, f.root, &live);
-    let temps = temp::new_init(f.temps);
-    for f.cfg.each_node |id, &stms| {
-      let blk = constrain_block(live.in[id], live.deltas[id], |t| {
+pub fn constrain(p : &mut Program) {
+  for vec::each_mut(p.funs) |f| {
+    let mut live = liveness::Analysis();
+    liveness::calculate(&f.cfg, f.root, &mut live);
+    let mut temps = temp::new_init(f.temps);
+    do f.cfg.map_nodes |id, stms| {
+      @constrain_block(live.in.get(&id), live.deltas.get(&id), |t| {
         let tmp = temps.new();
         f.sizes.insert(tmp, f.sizes[t]);
         tmp
-      }, stms);
-      f.cfg.update_node(id, @blk);
+      }, stms)
     }
   }
 }
 
-fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
+fn constrain_block(live : &temp::TempSet, delta : &liveness::DeltaList,
                    tmpclone : &fn(Temp) -> Temp,
                    ins : @~[@Instruction]) -> ~[@Instruction] {
   let mut new = ~[];
   let mut synthetic = ~[];
-  let live_in = live;
-  let live_out = map::HashMap();
-  for live_in.each |k, v| { live_out.insert(k, v); }
+  let mut live_in = LinearSet::new();
+  let mut live_out = LinearSet::new();
+  for live.each |&t| {
+    live_in.insert(t);
+    live_out.insert(t);
+  }
 
-  /* SSA will deal with these renamings later? */
-  fn pcopy(live : liveness::LiveIn) -> @Instruction {
+  /* SSA will deal with these renamings later */
+  fn pcopy(live : &temp::TempSet) -> @Instruction {
     let dup = map::HashMap();
-    for set::each(live) |tmp| {
+    for live.each |&tmp| {
       dup.insert(tmp, tmp);
     }
     @PCopy(dup)
@@ -45,11 +48,11 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
     ($op:expr) =>
     (
       match $op {
-        @Temp(t) if set::contains(live_out, t) => {
+        @Temp(t) if live_out.contains(&t) => {
           let dup = tmpclone(t);
           let dst = @Temp(dup);
           new.push(@Move(dst, $op));
-          assert set::add(live_in, dup);
+          assert live_in.insert(dup);
           synthetic.push(dup);
           dst
         }
@@ -68,7 +71,7 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
              argument is an immediate */
           Lsh | Rsh => {
             if !o2.imm() {
-              new.push(pcopy(live_in));
+              new.push(pcopy(&live_in));
             }
             new.push(ins);
             match o2 {
@@ -80,7 +83,7 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
           /* div/mod both use and define edx/eax */
           Div | Mod => {
             let o1 = constrain_clobber!(o1);
-            new.push(pcopy(live_in));
+            new.push(pcopy(&live_in));
             new.push(@BinaryOp(op, dest, o1, o2));
           }
 
@@ -112,21 +115,20 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
           } else {
             new.push(@Store(@Stack((i - arch::arg_regs) * arch::ptrsize), arg));
             match arg {
-              @Temp(t) if !set::contains(live_out, t) =>
-                { set::remove(live_in, t); }
+              @Temp(ref t) if !live_out.contains(t) => { live_in.remove(t); }
               _ => ()
             }
             None
           }
         };
 
-        new.push(pcopy(live_in));
+        new.push(pcopy(&live_in));
         new.push(@Call(dst, fun, args));
       }
 
       /* x86 forces the return register to be %eax */
       @Return(*) => {
-        new.push(pcopy(live_in));
+        new.push(pcopy(&live_in));
         new.push(ins);
       }
 
@@ -134,8 +136,8 @@ fn constrain_block(live : liveness::LiveIn, delta : liveness::DeltaList,
     }
 
     live_in.apply(delta);
-    for synthetic.each |&tmp| {
-      set::remove(live_in, tmp);
+    for synthetic.each |tmp| {
+      live_in.remove(tmp);
     }
     synthetic.truncate(0);
   }

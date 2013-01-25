@@ -93,6 +93,8 @@ impl Constraint {
 }
 
 impl Instruction : ssa::Statement {
+  static fn phi(t: Temp, map: ssa::PhiMap) -> @Instruction { @Phi(t, map) }
+
   fn each_def<T>(f : &fn(Temp) -> T) {
     match self {
       BinaryOp(_, @Temp(t), _, _) |

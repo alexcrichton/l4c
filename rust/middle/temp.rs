@@ -1,9 +1,11 @@
+use core::hashmap::linear::LinearSet;
 use utils::PrettyPrint;
 
 pub type Temp = uint;
+pub type TempSet = LinearSet<Temp>;
 
 pub struct Allocator {
-  priv mut next : uint
+  priv next : uint
 }
 
 pub fn new() -> Allocator {
@@ -15,17 +17,17 @@ pub fn new_init(next : uint) -> Allocator {
 }
 
 impl Allocator {
-  fn new() -> Temp {
+  fn new(&mut self) -> Temp {
     let ret = self.next;
     self.next += 1;
     return ret;
   }
 
-  fn cnt() -> uint {
+  pure fn cnt(&self) -> uint {
     self.next
   }
 
-  fn reset() {
+  fn reset(&mut self) {
     self.next = 0;
   }
 }

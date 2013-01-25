@@ -1,51 +1,58 @@
+use core::hashmap::linear::{LinearMap, LinearSet};
 use core::util::unreachable;
 
-use std::map;
+use std::{map, bitv};
 
 use middle::{ssa, ir, liveness};
 use middle::temp::Temp;
 use back::coalesce;
 use back::assem::*;
-use utils::{bitv, profile};
+use utils::profile;
 
 type CFG = graph::Graph<@~[@Instruction], ir::Edge>;
-pub type ColorMap = map::HashMap<Temp, uint>;
+type RegisterSet = bitv::Bitv;
+pub type ColorMap = LinearMap<Temp, uint>;
 
 struct Allocator {
-  f : &Function,
+  f : &mut Function,
   colors : ColorMap,
-  slots : map::HashMap<Tag, uint>,
+  slots : LinearMap<Tag, uint>,
   mut max_slot : uint,
   mut max_call_stack : uint,
-  callee_saved : dvec::DVec<uint>,
+  callee_saved : ~[uint],
 
   /* data needed for coalescing */
-  precolored : map::Set<Temp>,
-  constraints : map::HashMap<Temp, Constraint>,
+  precolored : LinearSet<Temp>,
+  constraints : LinearMap<Temp, Constraint>,
 }
 
-pub fn color(p : &Program) {
-  for p.funs.each |f| {
-    let a = Allocator{ colors: map::HashMap(),
-                       precolored: map::HashMap(),
-                       constraints: map::HashMap(),
-                       slots: map::HashMap(),
-                       f: f,
-                       max_slot: 0,
-                       max_call_stack: 0,
-                       callee_saved: dvec::DVec() };
-    liveness::calculate(&f.cfg, f.root, &f.liveness);
+pub fn color(p : &mut Program) {
+  for vec::each_mut(p.funs) |f| {
+    liveness::calculate(&f.cfg, f.root, &mut f.liveness);
+
+    let mut a = Allocator{ colors: LinearMap::new(),
+                           precolored: LinearSet::new(),
+                           constraints: LinearMap::new(),
+                           slots: LinearMap::new(),
+                           f: f,
+                           max_slot: 0,
+                           max_call_stack: 0,
+                           callee_saved: ~[] };
 
     /* Color the graph completely */
-    info!("coloring: %s", f.name);
+    info!("coloring: %s", a.f.name);
 
-    do profile::dbg("coloring") { a.color(f.root); }
+    do profile::dbg("coloring") { a.color(a.f.root); }
     for a.colors.each |tmp, color| {
       debug!("%s => %?", tmp.to_str(), color);
     }
 
+    let foo = bitv::Bitv(a.f.ssa.temps, false);
+    for a.precolored.each |&tmp| {
+      foo.set(tmp, true);
+    }
     do profile::dbg("coalescing") {
-      coalesce::optimize(f, a.colors, a.precolored, a.constraints);
+      coalesce::optimize(a.f, a.colors, &foo, a.constraints);
     }
 
     /* Finally remove all phi nodes and all temps */
@@ -54,9 +61,13 @@ pub fn color(p : &Program) {
   }
 }
 
-fn min_vacant(colors : map::Set<uint>) -> uint {
+fn RegisterSet() -> RegisterSet {
+  bitv::Bitv(arch::num_regs + 1, false)
+}
+
+fn min_vacant(colors : &RegisterSet) -> uint {
   let mut i = 1;
-  while set::contains(colors, i) {
+  while colors.get(i) {
     i += 1;
   }
   return i;
@@ -70,22 +81,25 @@ impl Allocator {
    * A top-down traversal of the dominator tree is done, coloring all
    * definitions as they are seen with the first available color.
    */
-  fn color(n : graph::NodeId) {
+  fn color(&mut self, n : graph::NodeId) {
     debug!("coloring %?", n);
-    let tmplive = self.f.liveness.in[n];
-    let tmpdelta = self.f.liveness.deltas[n];
-    let registers = map::HashMap();
-    debug!("%s", set::to_str(tmplive))
-    for set::each(tmplive) |t| {
-      set::add(registers, self.colors[t as Temp]);
+    let mut tmplive = LinearSet::new();
+    let tmpdelta = self.f.liveness.deltas.get(&n);
+    let registers = RegisterSet();
+    for self.f.liveness.in.get(&n).each |&t| {
+      tmplive.insert(t);
+      registers.set(*self.colors.get(&t), true);
     }
+    /* TODO: set::to_str */
+    /*debug!("%s", set::to_str(tmplive))*/
 
     let mut pcopy = None;
     for self.f.cfg[n].eachi |i, &ins| {
       /* examine data for next instruction for last use information */
       debug!("%s", ins.pp());
       debug!("deltas %?", tmpdelta[i]);
-      debug!("before %s %s", set::to_str(tmplive), set::to_str(registers));
+      /* TODO: set::to_str */
+      /*debug!("before %s %s", set::to_str(tmplive), set::to_str(registers));*/
       tmplive.apply(&tmpdelta[i]);
 
       match ins {
@@ -98,7 +112,7 @@ impl Allocator {
         }
         /* Be sure we always assign stack slots */
         @Spill(_, t) => {
-          if !self.slots.contains_key(t) {
+          if !self.slots.contains_key(&t) {
             self.slots.insert(t, self.max_slot);
             self.max_slot += 1;
           }
@@ -109,10 +123,11 @@ impl Allocator {
         }
         /* do simple precoloring of args up front */
         @Arg(tmp, i) => {
-          self.colors.insert(tmp, arch::reg_num(arch::arg_reg(i)));
-          set::add(self.precolored, tmp);
-          if set::contains(tmplive, tmp) {
-            set::add(registers, self.colors[tmp]);
+          let color = arch::reg_num(arch::arg_reg(i));
+          self.colors.insert(tmp, color);
+          self.precolored.insert(tmp);
+          if tmplive.contains(&tmp) {
+            registers.set(color, true);
           }
           loop;
         }
@@ -121,14 +136,13 @@ impl Allocator {
 
       /* If we found a pcopy, we need to think about being constrained */
       if pcopy.is_some() {
-        let banned = map::HashMap();
+        let banned = RegisterSet();
         macro_rules! precolor(
-          ($o:expr, $r:expr) =>
-          (
+          ($o:expr, $r:expr) => (
             match $o {
               @Temp(t) => {
                 assert self.colors.insert(t, arch::reg_num($r));
-                assert set::add(self.precolored, t);
+                assert self.precolored.insert(t);
               }
               _ => fail(fmt!("not a tmp %?", $o))
             }
@@ -142,9 +156,9 @@ impl Allocator {
               Div | Mod => {
                 precolor!(op1, EAX);
                 precolor!(dst, match op { Div => EAX, _ => EDX });
-                set::add(banned, arch::reg_num(EDX));
-                set::add(banned, arch::reg_num(EAX));
-                for set::each(tmplive) |tmp| {
+                banned.set(arch::reg_num(EDX), true);
+                banned.set(arch::reg_num(EAX), true);
+                for tmplive.each |&tmp| {
                   assert self.constraints.insert(tmp, Idiv);
                 }
                 match op2 {
@@ -156,7 +170,7 @@ impl Allocator {
               /* shifting is easy, the second op is just in ecx */
               Rsh | Lsh => {
                 precolor!(op2, ECX);
-                set::add(banned, arch::reg_num(ECX));
+                banned.set(arch::reg_num(ECX), true);
               }
               _ => fail(fmt!("implement %?", op))
             }
@@ -166,14 +180,14 @@ impl Allocator {
              registers are all banned for this instruction */
           @Call(dst, _, ref args) => {
             self.colors.insert(dst, arch::reg_num(EAX));
-            assert set::add(self.precolored, dst);
+            assert self.precolored.insert(dst);
             for args.eachi |i, &arg| {
               precolor!(arg, arch::arg_reg(i));
             }
             for arch::each_caller |r| {
-              set::add(banned, arch::reg_num(r));
+              banned.set(arch::reg_num(r), true);
             }
-            for set::each(tmplive) |tmp| {
+            for tmplive.each |&tmp| {
               assert self.constraints.insert(tmp, Caller);
             }
           }
@@ -181,7 +195,7 @@ impl Allocator {
           /* returns just have their argument precolored to EAX */
           @Return(op) => {
             precolor!(op, EAX);
-            set::add(banned, arch::reg_num(EAX));
+            banned.set(arch::reg_num(EAX), true);
           }
 
           /* All unconstrained instructions between a pcopy and the constrained
@@ -190,65 +204,68 @@ impl Allocator {
           _ => loop
         };
 
-        let process = |t : Temp, regs : map::Set<uint>, colors : ColorMap| {
-          match colors.find(t) {
-            Some(c) => { assert set::contains(regs, c); }
-            None => {
-              let color = min_vacant(regs);
-              debug!("assigning %s %? %s", t.pp(), color, set::to_str(regs));
-              assert color <= arch::num_regs;
-              assert colors.insert(t, color);
-              assert set::add(regs, color);
+        macro_rules! process(
+          ($t:expr, $regs:expr) => (
+            match self.colors.find(&$t) {
+              Some(&c) => { assert $regs.get(c); }
+              None => {
+                let color = min_vacant(&$regs);
+                /* TODO: set::to_str */
+                /*debug!("assigning %s %? %s", $t.pp(), color, set::to_str(regs));*/
+                assert color <= arch::num_regs;
+                assert self.colors.insert($t, color);
+                $regs.set(color, true);
+              }
             }
-          }
-        };
+          )
+        );
 
         /* TODO: cleanup? */
         debug!("coloring uses");
         for ins.each_use |tmp| {
-          process(tmp, banned, self.colors);
+          process!(tmp, banned)
         }
         debug!("processing live-out temporaries");
-        for set::each(tmplive) |tmp| {
-          process(tmp, banned, self.colors);
+        for tmplive.each |&tmp| {
+          process!(tmp, banned);
         }
         debug!("pruning dead uses");
         for ins.each_use |tmp| {
-          if !set::contains(tmplive, tmp) {
+          if !tmplive.contains(&tmp) {
             debug!("removing %?", tmp);
-            set::remove(banned, self.colors[tmp]);
+            banned.set(*self.colors.get(&tmp), false);
           }
         }
         debug!("processing previous pcopy");
         match pcopy {
           Some(@PCopy(copies)) => {
-            let regstmp = map::HashMap();
+            let regstmp = RegisterSet();
             for copies.each |dst, src| {
               assert dst != src;
-              match self.colors.find(dst) {
-                Some(c) => { set::add(regstmp, c); }
+              match self.colors.find(&dst) {
+                Some(&c) => { regstmp.set(c, true); }
                 None    => ()
               }
             }
             for copies.each_key |dst| {
-              process(dst, regstmp, self.colors);
+              process!(dst, regstmp);
             }
           }
           _ => unreachable()
         }
         debug!("adding in all live-out temps");
-        for set::each(tmplive) |tmp| {
+        for tmplive.each |tmp| {
           match self.colors.find(tmp) {
-            Some(c) => { assert set::add(registers, c); }
+            Some(&c) => { registers.set(c, true); }
             None => ()
           }
         }
         debug!("processing defs");
         for ins.each_def |tmp| {
-          if !self.colors.contains_key(tmp) {
-            process(tmp, registers, self.colors);
-            if !set::contains(tmplive, tmp) {
-              assert set::remove(registers, self.colors[tmp]);
+          if !self.colors.contains_key(&tmp) {
+            process!(tmp, registers);
+            if !tmplive.contains(&tmp) {
+              registers.set(*self.colors.get(&tmp), false);
             }
           }
         }
@@ -257,41 +274,39 @@ impl Allocator {
         /* normal coloration of each instruction */
         for ins.each_use |tmp| {
           debug!("found use %?", tmp);
-          if !set::contains(tmplive, tmp) {
-            debug!("removing %? %?", tmp, self.colors[tmp]);
-            set::remove(registers, self.colors[tmp]);
+          if !tmplive.contains(&tmp) {
+            debug!("removing %? %?", tmp, self.colors.get(&tmp));
+            registers.set(*self.colors.get(&tmp), false);
           }
         }
         for ins.each_def |tmp| {
-          debug!("%? %?", registers.size(), tmplive.size());
-          let color = min_vacant(registers);
+          let color = min_vacant(&registers);
           assert color <= arch::num_regs;
           assert self.colors.insert(tmp, color);
-          if set::contains(tmplive, tmp) {
-            assert set::add(registers, color);
+          if tmplive.contains(&tmp) {
+            registers.set(color, true);
           }
         }
       }
-      debug!("after %s %s", set::to_str(tmplive), set::to_str(registers));
-      assert(registers.size() == tmplive.size());
+      /* TODO: set::to_str */
+      /*debug!("after %s %s", set::to_str(tmplive), set::to_str(registers));*/
+      /*assert(registers.size() == tmplive.size());*/
     }
 
-    let idominated = self.f.ssa.idominated;
-    debug!("%s", set::to_str(idominated[n]));
-    for set::each(idominated[n]) |id| {
+    for self.f.ssa.idominated.get(&n).each |&id| {
       self.color(id);
     }
   }
 
-  fn remove_phis() {
-    let cfg = &self.f.cfg;
+  fn remove_phis(&self) {
+    let cfg = &mut self.f.cfg;
     for cfg.each_node |id, ins| {
       let mut phi_vars = ~[];
       let mut phi_maps = ~[];
       for ins.each |&ins| {
         match ins {
           @Phi(tmp, map) => {
-            phi_vars.push(self.colors[tmp]);
+            phi_vars.push(*self.colors.get(&tmp));
             phi_maps.push(map);
           }
           _ => break
@@ -301,7 +316,7 @@ impl Allocator {
       for cfg.each_pred(id) |pred| {
         let mut perm = ~[];
         for phi_maps.each |map| {
-          perm.push(self.colors[map[pred]]);
+          perm.push(*self.colors.get(&map[pred]));
         }
         /* there are no critical edges in the graph, so we can just append */
         let ins = self.resolve_perm(phi_vars, perm);
@@ -380,11 +395,11 @@ impl Allocator {
    * This also converts all three-operand binary ops to two-operand binops
    * because x86 is so awesome.
    */
-  fn remove_temps() {
+  fn remove_temps(&mut self) {
     for self.f.cfg.each_rev_postorder(self.f.root) |&id| {
       let ins = vec::build(|push| {
         if id == self.f.root {
-          for self.colors.each |_, color| {
+          for self.colors.each |_, &color| {
             let reg = arch::num_reg(color);
             if arch::callee_reg(reg) && !self.callee_saved.contains(&color) {
               self.callee_saved.push(color);
@@ -407,14 +422,8 @@ impl Allocator {
 
   fn alloc_ins(i : @Instruction, push : &pure fn(@Instruction)) {
     match i {
-      @Spill(tmp, tag) => {
-        let reg = @Register(arch::num_reg(self.colors[tmp]), self.f.sizes[tmp]);
-        push(@Store(self.stack_pos(tag), reg));
-      }
-      @Reload(dst, tag) => {
-        let reg = @Register(arch::num_reg(self.colors[dst]), self.f.sizes[dst]);
-        push(@Load(reg, self.stack_pos(tag)));
-      }
+      @Spill(t, tag) => push(@Store(self.stack_pos(tag), self.alloc_tmp(t))),
+      @Reload(t, tag) => push(@Load(self.alloc_tmp(t), self.stack_pos(tag))),
       @Load(dst, @MOp(addr)) =>
         push(@Load(self.alloc_op(dst), @MOp(self.alloc_op(addr)))),
       @Load(dst, @StackArg(idx)) =>
@@ -438,7 +447,7 @@ impl Allocator {
                          @Immediate(self.stack_size(false) as i32, ir::Pointer),
                          @Register(ESP, ir::Pointer)));
         }
-        for self.callee_saved.rev_each |&color| {
+        for vec::rev_each(self.callee_saved) |&color| {
           push(@Raw(fmt!("pop %s", arch::num_reg(color).size(ir::Pointer))));
         }
         push(i);
@@ -485,8 +494,8 @@ impl Allocator {
         let mut dsts = ~[];
         let mut srcs = ~[];
         for copies.each |dst, src| {
-          dsts.push(self.colors[dst]);
-          srcs.push(self.colors[src]);
+          dsts.push(*self.colors.get(&dst));
+          srcs.push(*self.colors.get(&src));
         }
         for self.resolve_perm(dsts, srcs).each |&ins| {
           push(ins);
@@ -496,7 +505,7 @@ impl Allocator {
   }
 
   fn stack_pos(tag : Tag) -> @Address {
-    @Stack(self.slots[tag] * arch::ptrsize + self.max_call_stack)
+    @Stack(*self.slots.get(&tag) * arch::ptrsize + self.max_call_stack)
   }
 
   fn stack_size(with_saves : bool) -> uint {
@@ -510,8 +519,12 @@ impl Allocator {
   fn alloc_op(o : @Operand) -> @Operand {
     match o {
       @Immediate(*) | @LabelOp(*) | @Register(*) => o,
-      @Temp(tmp) =>
-        @Register(arch::num_reg(self.colors[tmp]), self.f.sizes[tmp])
+      @Temp(tmp) => self.alloc_tmp(tmp)
     }
+  }
+
+  fn alloc_tmp(tmp: Temp) -> @Operand {
+    @Register(arch::num_reg(*self.colors.get(&tmp)),
+              self.f.sizes[tmp])
   }
 }

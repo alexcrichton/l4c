@@ -1,139 +1,145 @@
-use core::util::{ignore, with};
-
-use std::map;
+use core::util::{ignore, with, swap, replace};
+use core::hashmap::linear::LinearMap;
 
 use front::ast;
 use middle::{temp, ir, label};
 use utils::graph;
 
-type StructInfo = map::HashMap<ast::Ident, (ir::Type, uint)>;
+type StructInfo = LinearMap<ast::Ident, (ir::Type, uint)>;
+type AllStructInfo = LinearMap<ast::Ident, (StructInfo, uint)>;
+
+struct ProgramInfo {
+  funs: LinearMap<ast::Ident, @ir::Expression>,
+  structs: AllStructInfo,
+}
 
 struct Translator {
-  funs : map::HashMap<ast::Ident, @ir::Expression>,
-  structs : map::HashMap<ast::Ident, (StructInfo, uint)>,
-  temps : temp::Allocator,
-
-  /* different codegen flags */
-  safe : bool,
-}
-
-struct AstTranslator {
-  t : &Translator,
-  f : &ir::Function,
-  vars : map::HashMap<ast::Ident, temp::Temp>,
+  t: &ProgramInfo,
+  f: &mut ir::Function,
+  vars: LinearMap<ast::Ident, temp::Temp>,
+  temps: temp::Allocator,
 
   /* cfg creation */
-  mut cur_id : graph::NodeId,
-  mut stms : ~[@ir::Statement],
+  cur_id: graph::NodeId,
+  stms: ~[@ir::Statement],
 
   /* loop translation */
-  mut break_to : graph::NodeId,
-  mut continue_to : graph::NodeId,
-  mut for_step : @ast::Statement,
+  break_to: graph::NodeId,
+  continue_to: graph::NodeId,
+  for_step: @ast::Statement,
+
+  /* different codegen flags */
+  safe: bool,
 }
 
-pub fn translate(p : &ast::Program, safe : bool) -> ir::Program {
-  let t = Translator{ funs:    map::HashMap(),
-                      structs: map::HashMap(),
-                      temps:   temp::new(),
-                      safe:    safe };
+pub fn translate(p: ast::Program, safe: bool) -> ir::Program {
+  debug!("building translation info");
+  /* TODO: rename to 'info' once it's not a global log level */
+  let mut pi = ProgramInfo { funs: LinearMap::new(), structs: LinearMap::new() };
+  pi.build(&p);
+
   debug!("translating");
-  t.translate(p)
-}
-
-impl Translator {
-  fn translate(p : &ast::Program) -> ir::Program {
-    let mut accum = ~[];
-    for p.decls.each |&d| {
-      match self.trans(d) {
-        None => (),
-        Some(f) => accum.push(f)
+  let mut accum = ~[];
+  for p.decls.each |&d| {
+    match d.unmark() {
+      @ast::Function(_, id, ref args, body) => {
+        let mut f = ir::Function(copy id.val);
+        f.root = f.cfg.new_id();
+        {
+          /* loan f to trans for just this block of code */
+          let mut trans = Translator {
+            t: &pi,
+            f: &mut f,
+            vars: LinearMap::new(),
+            temps: temp::new(),
+            cur_id: f.root,
+            stms: ~[],
+            break_to: 0,
+            continue_to: 0,
+            for_step: @ast::Nop,
+            safe: safe
+          };
+          trans.arguments(args);
+          trans.stm(body);
+        }
+        accum.push(f);
       }
-    }
-    ir::Program(accum)
+      _ => ()
+    };
   }
 
-  fn trans(g : @ast::GDecl) -> Option<ir::Function> {
+  return ir::Program { funs: accum };
+}
+
+pure fn typ(t : @ast::Type) -> ir::Type {
+  match t {
+    @ast::Array(_) | @ast::Struct(_) | @ast::Pointer(_) => ir::Pointer,
+    _ => ir::Int
+  }
+}
+
+pure fn typ_size(t : @ast::Type, structs: &AllStructInfo) -> uint {
+  match t {
+    @ast::Int | @ast::Bool => 4,
+    @ast::Pointer(_) | @ast::Array(_) => 8,
+    @ast::Struct(ref id) => {
+      let &(_, size) = structs.get(id);
+      size
+    }
+    _ => fail(~"bad type to typ_size")
+  }
+}
+
+impl ProgramInfo {
+  fn build(&mut self, p: &ast::Program) {
+    for p.decls.each |&d| {
+      self.build_gdecl(d)
+    }
+  }
+
+  fn build_gdecl(&mut self, g: @ast::GDecl) {
     match g {
-      @ast::Markedg(ref m) => self.trans(m.data),
+      @ast::Markedg(ref m) => self.build_gdecl(m.data),
       @ast::StructDef(id, ref fields) => {
-        let table = map::HashMap();
+        let mut table = LinearMap::new();
         let mut size = 0;
-        for fields.each |&(id, typ)| {
-          let typsize = self.typ_size(typ);
+        for fields.each |&(id, t)| {
+          let typsize = typ_size(t, &self.structs);
           if (size != 0 && size % typsize != 0) {
             size += 4; /* TODO: real math */
           }
-          table.insert(id, (self.typ(typ), size));
+          table.insert(id, (typ(t), size));
           size += typsize;
         }
         self.structs.insert(id, (table, size));
-        None
       }
       @ast::FunIDecl(_, id, _) => {
         self.funs.insert(id, @ir::LabelExp(label::Internal(copy id.val)));
-        None
       }
       @ast::FunEDecl(_, id, _) => {
         self.funs.insert(id, @ir::LabelExp(label::External(copy id.val)));
-        None
       }
-      @ast::Function(_, id, ref args, body) => {
-        debug!("translating %s", id.val);
-        let fun = ir::Function(copy id.val);
-        self.trans_fun(id, args, body, &fun);
-        Some(fun)
+      @ast::Function(_, id, _, _) => {
+        if !self.funs.contains_key(&id) {
+          self.funs.insert(id, @ir::LabelExp(label::Internal(copy id.val)));
+        }
       }
-      _ => None
-    }
-  }
-
-  fn trans_fun(id : ast::Ident, args : &~[(ast::Ident, @ast::Type)],
-               body : @ast::Statement, fun : &ir::Function) {
-    self.temps.reset();
-    let trans = AstTranslator {
-      cur_id: 0,
-      stms: ~[],
-      break_to: 0,
-      continue_to: 0,
-      for_step: @ast::Nop,
-      t: &self,
-      f: fun,
-      vars: map::HashMap()
-    };
-    self.funs.insert(id, @ir::LabelExp(label::Internal(copy id.val)));
-    let mut argtmps = ~[];
-    for args.each |&(id, typ)| {
-      let tmp = self.temps.new();
-      fun.types.insert(tmp, self.typ(typ));
-      trans.vars.insert(id, tmp);
-      argtmps.push(tmp);
-    }
-    trans.cur_id = fun.cfg.new_id();
-    fun.root = trans.cur_id;
-    fun.args = @argtmps;
-    trans.stm(body);
-  }
-
-  fn typ(t : @ast::Type) -> ir::Type {
-    match t {
-      @ast::Array(_) | @ast::Struct(_) | @ast::Pointer(_) => ir::Pointer,
-      _ => ir::Int
-    }
-  }
-
-  fn typ_size(t : @ast::Type) -> uint {
-    match t {
-      @ast::Int | @ast::Bool => 4,
-      @ast::Pointer(_) | @ast::Array(_) => 8,
-      @ast::Struct(id) => self.structs.get(id).second(),
-      _ => fail(~"bad type to typ_size")
+      _ => ()
     }
   }
 }
 
-impl AstTranslator {
-  fn stm(s : @ast::Statement) {
+impl Translator {
+  fn arguments(&mut self, args: &~[(ast::Ident, @ast::Type)]) {
+    let args = args.map(|&(id, t)| {
+      let tmp = self.tmp(typ(t));
+      self.vars.insert(id, tmp);
+      tmp
+    });
+    self.stms.push(@ir::Arguments(args));
+  }
+
+  fn stm(&mut self, s: @ast::Statement) {
     match s {
       @ast::Nop => (),
       @ast::Markeds(ref m) => self.stm(m.data),
@@ -181,8 +187,8 @@ impl AstTranslator {
         self.f.cfg.add_edge(true_end, self.cur_id, ir::Branch);
         self.f.cfg.add_edge(false_end, self.cur_id, ir::Always);
       }
-      @ast::Declare(id, typ, exp, s) => {
-        let tmp = self.tmp(self.typ(typ));
+      @ast::Declare(id, t, exp, s) => {
+        let tmp = self.tmp(typ(t));
         match exp {
           None => (),
           Some(init) => {
@@ -191,15 +197,17 @@ impl AstTranslator {
         }
         self.vars.insert(id, tmp);
         self.stm(s);
-        self.vars.remove(id);
+        self.vars.remove(&id);
       }
       @ast::Assign(e1, op, e2) => {
         let (ismem, leftsize) = match self.unmark(e1) {
           @ast::Var(_) => (false, ir::Int), /* size doesn't matter */
           @ast::Deref(_, ref t) | @ast::ArrSub(_, _, ref t) =>
-            (true, self.typ(t.get())),
-          @ast::Field(_, f, ref s) =>
-            (true, self.t.structs.get(s.get()).first().get(f).first()), /* ... */
+            (true, typ(t.get())),
+          @ast::Field(_, ref f, ref s) => {
+            let &(ref fields, _) = self.t.structs.get(&s.get());
+            (true, fields.get(f).first())
+          }
           _ => fail(~"invalid assign")
         };
         let left = self.exp(e1, true);
@@ -225,14 +233,14 @@ impl AstTranslator {
     }
   }
 
-  fn unmark(e : @ast::Expression) -> @ast::Expression {
+  pure fn unmark(e: @ast::Expression) -> @ast::Expression {
     match e {
       @ast::Marked(ref m) => self.unmark(m.data),
       _ => e
     }
   }
 
-  fn trans_loop(cond : @ast::Expression, body : @ast::Statement) {
+  fn trans_loop(&mut self, cond: @ast::Expression, body: @ast::Statement) {
     let pred = self.commit();
     let condid = self.cur_id;
     let bodyid = self.f.cfg.new_id();
@@ -250,9 +258,9 @@ impl AstTranslator {
     self.f.loops.insert(condid, (bodyid, afterid));
   }
 
-  fn condition(e : @ast::Expression, tid : graph::NodeId, tedge : ir::Edge,
-               fid : graph::NodeId, fedge : ir::Edge,
-               into : graph::NodeId) {
+  fn condition(&mut self, e: @ast::Expression, tid: graph::NodeId,
+               tedge: ir::Edge, fid: graph::NodeId, fedge: ir::Edge,
+               into: graph::NodeId) {
     match e {
       @ast::Marked(ref m) =>
         self.condition(m.data, tid, tedge, fid, fedge, into),
@@ -275,14 +283,14 @@ impl AstTranslator {
     }
   }
 
-  fn exp(e : @ast::Expression, addr : bool) -> @ir::Expression {
+  fn exp(&mut self, e: @ast::Expression, addr: bool) -> @ir::Expression {
     match e {
       @ast::Marked(ref m) => self.exp(m.data, addr),
       @ast::Boolean(b) => self.consti(if b { 1 } else { 0 }),
       @ast::Const(c) => self.consti(c),
-      @ast::Var(id) => match self.vars.find(id) {
-        Some(t) => @ir::Temp(t),
-        None    => self.t.funs.get(id)
+      @ast::Var(ref id) => match self.vars.find(id) {
+        Some(&t) => @ir::Temp(t),
+        None    => *self.t.funs.get(id)
       },
       @ast::Null => self.constp(0),
 
@@ -317,14 +325,14 @@ impl AstTranslator {
       }
 
       @ast::Ternary(e1, e2, e3, ref t) =>
-        self.tern(e1, e2, e3, self.typ(t.get()), addr),
+        self.tern(e1, e2, e3, typ(t.get()), addr),
 
       @ast::Call(e, ref args, ref t) => {
         let (ret, argtyps) = t.get();
         ignore(argtyps); // TODO: remove this entirely?
         let fun = self.exp(e, false);
         let args = args.map(|&e| self.exp(e, false));
-        let typ = self.typ(ret);
+        let typ = typ(ret);
         let tmp = self.tmp(typ);
         self.stms.push(@ir::Call(tmp, fun, args));
         @ir::Temp(tmp)
@@ -338,7 +346,7 @@ impl AstTranslator {
       @ast::ArrSub(arr, idx, ref t) => {
         let base = self.exp(arr, false);
         let idx = self.exp(idx, false);
-        let elsize = self.constp(self.typ_size(t.get()) as i32);
+        let elsize = self.constp(typ_size(t.get(), &self.t.structs) as i32);
         let offset = @ir::BinaryOp(ir::Mul, idx, elsize);
         let address = @ir::BinaryOp(ir::Add, base, offset);
         self.check_null(base);
@@ -346,14 +354,15 @@ impl AstTranslator {
         if addr {
           return address;
         }
-        let dest = self.tmp(self.typ(t.get()));
+        let dest = self.tmp(typ(t.get()));
         self.stms.push(@ir::Load(dest, address));
         @ir::Temp(dest)
       }
 
-      @ast::Field(e, id, ref s) => {
+      @ast::Field(e, ref id, ref s) => {
         let base = self.exp(e, true);
-        let (typ, size) = self.t.structs.get(s.get()).first().get(id);
+        let &(ref fields, _) = self.t.structs.get(&s.get());
+        let &(typ, size) = fields.get(id);
         let address = @ir::BinaryOp(ir::Add, base, self.constp(size as i32));
         self.check_null(address);
         if addr {
@@ -370,25 +379,25 @@ impl AstTranslator {
         if addr {
           return address;
         }
-        let dest = self.tmp(self.typ(t.get()));
+        let dest = self.tmp(typ(t.get()));
         self.stms.push(@ir::Load(dest, address));
         @ir::Temp(dest)
       }
     }
   }
 
-  fn alloc(t : @ast::Type, cnt : @ir::Expression,
+  fn alloc(&mut self, t: @ast::Type, cnt: @ir::Expression,
            safe : ~str) -> @ir::Expression {
-    let fun = label::External(if self.t.safe { safe } else { ~"calloc" });
+    let fun = label::External(if self.safe { safe } else { ~"calloc" });
     let fun = @ir::LabelExp(fun);
     let result = self.tmp(ir::Pointer);
-    let args = ~[cnt, self.constp(self.typ_size(t) as i32)];
+    let args = ~[cnt, self.constp(typ_size(t, &self.t.structs) as i32)];
     self.stms.push(@ir::Call(result, fun, args));
     @ir::Temp(result)
   }
 
-  fn tern(cond : @ast::Expression, t : @ast::Expression, f : @ast::Expression,
-          size : ir::Type, addr : bool) -> @ir::Expression {
+  fn tern(&mut self, cond: @ast::Expression, t: @ast::Expression,
+          f: @ast::Expression, size: ir::Type, addr: bool) -> @ir::Expression {
     /* Translate the conditional, terminating the basic block */
     let result = self.tmp(size);
     let true_id = self.f.cfg.new_id();
@@ -411,14 +420,14 @@ impl AstTranslator {
     @ir::Temp(result)
   }
 
-  fn check_null(e : @ir::Expression) {
-    if !self.t.safe { return; }
+  fn check_null(&mut self, e: @ir::Expression) {
+    if !self.safe { return; }
     let cond = @ir::BinaryOp(ir::Eq, e, self.constp(0));
     self.stms.push(@ir::Die(cond));
   }
 
-  fn check_bounds(base : @ir::Expression, idx : @ir::Expression) {
-    if !self.t.safe { return; }
+  fn check_bounds(&mut self, base: @ir::Expression, idx: @ir::Expression) {
+    if !self.safe { return; }
     let tmp = self.tmp(ir::Int);
     let size = @ir::BinaryOp(ir::Sub, base, self.constp(8));
     self.stms.push(@ir::Load(tmp, size));
@@ -429,7 +438,7 @@ impl AstTranslator {
     self.stms.push(@ir::Die(over));
   }
 
-  fn oper(b : ast::Binop) -> ir::Binop {
+  fn oper(&mut self, b: ast::Binop) -> ir::Binop {
     match b {
       ast::Plus      => ir::Add,
       ast::Minus     => ir::Sub,
@@ -451,27 +460,23 @@ impl AstTranslator {
     }
   }
 
-  fn commit() -> graph::NodeId {
+  fn commit(&mut self) -> graph::NodeId {
     self.commit_with(self.f.cfg.new_id())
   }
 
-  fn consti(c : i32) -> @ir::Expression { @ir::Const(c, ir::Int) }
-  fn constp(c : i32) -> @ir::Expression { @ir::Const(c, ir::Pointer) }
+  pure fn consti(c : i32) -> @ir::Expression { @ir::Const(c, ir::Int) }
+  pure fn constp(c : i32) -> @ir::Expression { @ir::Const(c, ir::Pointer) }
 
-  fn commit_with(next : graph::NodeId) -> graph::NodeId {
-    // TODO: better way to consume vectors?
-    let L = self.stms.map(|x| *x);
-    self.stms.truncate(0);
-    let id = self.cur_id;
+  fn commit_with(&mut self, next : graph::NodeId) -> graph::NodeId {
+    let mut L = ~[];
+    L <-> self.stms; /* swap a new block into place */
+    let id = replace(&mut self.cur_id, next);
     self.f.cfg.add_node(id, @L);
-    self.cur_id = next;
     return id;
   }
 
-  fn typ(t : @ast::Type) -> ir::Type { self.t.typ(t) }
-  fn typ_size(t : @ast::Type) -> uint { self.t.typ_size(t) }
-  fn tmp(t : ir::Type) -> temp::Temp {
-    let tmp = self.t.temps.new();
+  fn tmp(&mut self, t: ir::Type) -> temp::Temp {
+    let tmp = self.temps.new();
     self.f.types.insert(tmp, t);
     return tmp;
   }

@@ -76,7 +76,7 @@ pub fn callee_reg(r : Register) -> bool {
 
 pub fn constrain(ins : @Instruction,
                  push : &pure fn(@Instruction),
-                 cg : &CodeGenerator) {
+                 cg : &mut CodeGenerator) {
   match ins {
     @Condition(c, o1, o2) => constrain_cmp(c, o1, o2, push, cg, Condition),
     @Die(c, o1, o2) => constrain_cmp(c, o1, o2, push, cg, Die),
@@ -145,7 +145,7 @@ pub fn constrain(ins : @Instruction,
 }
 
 fn constrain_cmp(c : Cond, o1 : @Operand, o2 : @Operand,
-                 push : &pure fn(@Instruction), cg : &CodeGenerator,
+                 push : &pure fn(@Instruction), cg : &mut CodeGenerator,
                  f : &fn(Cond, @Operand, @Operand) -> Instruction ) {
   match (o1, o2) {
     (@Immediate(*), @Immediate(*)) => {

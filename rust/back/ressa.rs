@@ -2,22 +2,21 @@ use middle::ssa;
 use back::assem;
 use std::map;
 
-pub fn convert(p : &assem::Program) {
-  for p.funs.each |f| {
+pub fn convert(p : &mut assem::Program) {
+  for vec::each_mut(p.funs) |f| {
     ressa(f);
   }
 }
 
-fn ressa(f : &assem::Function) {
+fn ressa(f : &mut assem::Function) {
   /* tables/metadata altered through temp remapping */
-  let oldsizes = f.sizes;
   let newsizes = map::HashMap();
 
   /* And, convert! */
-  ssa::convert(&f.cfg, f.root, ~[], &f.ssa, |old, new| {
-    info!("%? => %?", old, new);
-    newsizes.insert(new, oldsizes[old]);
-  }, |tmp, map| @assem::Phi(tmp, map));
+  let mut remapping = ssa::convert(&mut f.cfg, f.root, &mut f.ssa);
+  do remapping.consume |new, old| {
+    newsizes.insert(new, f.sizes[old]);
+  }
 
   /* update all type information for the new temps */
   f.sizes.clear();
