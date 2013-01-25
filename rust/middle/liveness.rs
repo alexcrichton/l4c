@@ -1,16 +1,13 @@
 use core::hashmap::linear::{LinearMap, LinearSet};
 
-// http://hal.inria.fr/docs/00/58/53/03/PDF/RR-7503.pdf - ssa liveness?
 use either::*;
-use std::map;
-use middle::temp::TempSet;
+use middle::temp::{Temp, TempSet};
 use middle::ssa::{CFG, Statement};
 use utils::graph::*;
 
 pub type LiveMap = LinearMap<NodeId, TempSet>;
 pub type DeltaMap = LinearMap<NodeId, ~[Delta]>;
-pub type DeltaList = ~[Delta];
-pub type Delta = ~[Either<uint, uint>];
+pub type Delta = ~[Either<Temp, Temp>];
 
 pub struct Analysis {
   in: LiveMap,
@@ -83,9 +80,9 @@ impl<T : Statement> Liveness<T> {
         None => ()
       }
     }
-    let mut dup = LinearSet::new();
-    for live.each |&t| { dup.insert(t); }
-    self.a.out.insert(n, dup);
+    let mut live_out = LinearSet::new();
+    for live.each |&t| { live_out.insert(t); }
+    self.a.out.insert(n, live_out);
     let mut my_deltas = ~[];
     for vec::rev_each(*self.cfg[n]) |&ins| {
       let mut delta = ~[];

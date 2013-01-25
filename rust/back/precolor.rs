@@ -10,7 +10,7 @@ pub fn constrain(p : &mut Program) {
     liveness::calculate(&f.cfg, f.root, &mut live);
     let mut temps = temp::new_init(f.temps);
     do f.cfg.map_nodes |id, stms| {
-      @constrain_block(live.in.get(&id), live.deltas.get(&id), |t| {
+      @constrain_block(live.in.get(&id), *live.deltas.get(&id), |t| {
         let tmp = temps.new();
         f.sizes.insert(tmp, f.sizes[t]);
         tmp
@@ -19,7 +19,7 @@ pub fn constrain(p : &mut Program) {
   }
 }
 
-fn constrain_block(live : &temp::TempSet, delta : &liveness::DeltaList,
+fn constrain_block(live : &temp::TempSet, delta : &[liveness::Delta],
                    tmpclone : &fn(Temp) -> Temp,
                    ins : @~[@Instruction]) -> ~[@Instruction] {
   let mut new = ~[];
@@ -61,7 +61,7 @@ fn constrain_block(live : &temp::TempSet, delta : &liveness::DeltaList,
     )
   );
 
-  for vec::each2(*ins, *delta) |&ins, delta| {
+  for vec::each2(*ins, delta) |&ins, delta| {
     live_out.apply(delta);
 
     match ins {
