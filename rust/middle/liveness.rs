@@ -72,7 +72,8 @@ impl<T : Statement> Liveness<T> {
   fn liveness(&mut self, n : NodeId) -> bool {
     let mut live = LinearSet::new();
     for self.phi_out.get(&n).each |&t| {
-      live.insert(t);
+      /* TODO(purity): this shouldn't be unsafe */
+      unsafe { live.insert(t); }
     }
     for self.cfg.each_succ(n) |succ| {
       match self.a.in.find(&succ) {
