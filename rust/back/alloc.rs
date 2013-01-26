@@ -398,7 +398,8 @@ impl Allocator {
    * because x86 is so awesome.
    */
   fn remove_temps(&mut self) {
-    for self.f.cfg.each_rev_postorder(self.f.root) |&id| {
+    let (order, _) = self.f.cfg.postorder(self.f.root);
+    for vec::rev_each(order) |&id| {
       let ins = vec::build(|push| {
         if id == self.f.root {
           for self.colors.each |_, &color| {
