@@ -49,12 +49,7 @@ pub fn optimize(f: &mut assem::Function,
                           interferences_cache: LinearMap::new(),
                           admissible_cache: LinearMap::new(),
                           dominates_cache: LinearMap::new() };
-  do profile::dbg("building use/def") {
-    for c.f.cfg.each_node |id, &ins| {
-      c.build_use_def(id, ins);
-    }
-  }
-  c.coalesce();
+  c.run();
 }
 
 macro_rules! find_default(
@@ -70,6 +65,16 @@ macro_rules! find_default(
 )
 
 impl Coalescer {
+  fn run(&mut self) {
+    /* TODO: why can't this be above */
+    do profile::dbg("building use/def") {
+      for self.f.cfg.each_node |id, &ins| {
+        self.build_use_def(id, ins);
+      }
+    }
+    self.coalesce();
+  }
+
   fn build_use_def(&mut self, n : NodeId, ins: @~[@assem::Instruction]) {
     macro_rules! find_set(($map:expr, $key:expr) =>
       (find_default!($map, $key, ~mut LinearSet::new())))
