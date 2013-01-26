@@ -38,26 +38,7 @@ pub fn color(p : &mut Program) {
                            max_slot: 0,
                            max_call_stack: 0,
                            callee_saved: ~[] };
-
-    /* Color the graph completely */
-    info!("coloring: %s", a.f.name);
-
-    do profile::dbg("coloring") { a.color(a.f.root); }
-    for a.colors.each |tmp, color| {
-      debug!("%s => %?", tmp.to_str(), color);
-    }
-
-    let foo = bitv::Bitv(a.f.ssa.temps, false);
-    for a.precolored.each |&tmp| {
-      foo.set(tmp, true);
-    }
-    do profile::dbg("coalescing") {
-      coalesce::optimize(a.f, a.colors, &foo, a.constraints);
-    }
-
-    /* Finally remove all phi nodes and all temps */
-    do profile::dbg("removing phis") { a.remove_phis(); }
-    do profile::dbg("removing tmps") { a.remove_temps(); }
+    a.run();
   }
 }
 
@@ -74,6 +55,28 @@ fn min_vacant(colors : &RegisterSet) -> uint {
 }
 
 impl Allocator {
+  fn run(&mut self) {
+    /* TODO: why can't this be above */
+    /* Color the graph completely */
+    info!("coloring: %s", self.f.name);
+
+    do profile::dbg("coloring") { self.color(self.f.root); }
+    for self.colors.each |tmp, color| {
+      debug!("%s => %?", tmp.to_str(), color);
+    }
+
+    let foo = bitv::Bitv(self.f.ssa.temps, false);
+    for self.precolored.each |&tmp| {
+      foo.set(tmp, true);
+    }
+    do profile::dbg("coalescing") {
+      coalesce::optimize(&mut *self.f, &mut self.colors, &foo, &self.constraints);
+    }
+
+    /* Finally remove all phi nodes and all temps */
+    do profile::dbg("removing phis") { self.remove_phis(); }
+    do profile::dbg("removing tmps") { self.remove_temps(); }
+  }
 
   /**
    * Color the functions CFG according to the algorithm outlined in the paper
