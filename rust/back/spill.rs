@@ -688,33 +688,31 @@ impl Spiller {
 }
 
 #[cfg(test)]
-mod test {
-  fn set(v : ~[int]) -> TempSet {
-    let set = map::HashMap();
-    for v.each |&i| {
-      set::add(set, i as Temp);
-    }
-    return set;
+fn set(v : ~[int]) -> TempSet {
+  let set = map::HashMap();
+  for v.each |&i| {
+    set::add(set, i as Temp);
   }
+  return set;
+}
 
-  #[test]
-  fn test_sort_works1() {
-    let map : NextUse = map::HashMap();
-    map.insert(4, 5);
-    map.insert(5, 6);
-    let sorted = sort(set(~[4, 5, 6]), map);
-    assert(sorted[0] == 4);
-    assert(sorted[1] == 5);
-    assert(sorted[2] == 6);
-  }
+#[test]
+fn test_sort_works1() {
+  let map : NextUse = map::HashMap();
+  map.insert(4, 5);
+  map.insert(5, 6);
+  let sorted = sort(set(~[4, 5, 6]), map);
+  assert(sorted[0] == 4);
+  assert(sorted[1] == 5);
+  assert(sorted[2] == 6);
+}
 
-  #[test]
-  fn test_sort_works2() {
-    let map : NextUse = map::HashMap();
-    map.insert(4, 5);
-    map.insert(5, 6);
-    let sorted = sort(set(~[4, 5]), map);
-    assert(sorted[0] == 4);
-    assert(sorted[1] == 5);
-  }
+#[test]
+fn test_sort_works2() {
+  let map : NextUse = map::HashMap();
+  map.insert(4, 5);
+  map.insert(5, 6);
+  let sorted = sort(set(~[4, 5]), map);
+  assert(sorted[0] == 4);
+  assert(sorted[1] == 5);
 }

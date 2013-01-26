@@ -1,4 +1,5 @@
 use core::hashmap::linear::LinearMap;
+use core::managed;
 use core::to_bytes;
 
 pub struct Symbol{
@@ -34,16 +35,16 @@ pub fn new(t : &mut Symtab, s : &~str) -> @Symbol {
 
 #[test]
 fn test_coalesces () {
-  let tab = Symtab();
-  let a = new(tab, ~"a");
-  let b = new(tab, ~"a");
+  let mut tab = Symtab();
+  let a = new(&mut tab, &~"a");
+  let b = new(&mut tab, &~"a");
   assert managed::ptr_eq(a, b)
 }
 
 #[test]
 fn test_different() {
-  let tab = Symtab();
-  let a = new(tab, ~"a");
-  let b = new(tab, ~"b");
+  let mut tab = Symtab();
+  let a = new(&mut tab, &~"a");
+  let b = new(&mut tab, &~"b");
   assert !managed::ptr_eq(a, b)
 }
