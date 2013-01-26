@@ -166,13 +166,16 @@ impl Coalescer {
     debug!("-------------------------------------------------------------");
   }
 
-  fn best_subset(s: &TempSet, c: uint) -> Option<(TempSet, uint)> {
+  fn best_subset(&self, s: &TempSet, c: uint) -> Option<(TempSet, uint)> {
     let mut maxweight = 0;
     let mut maxset = bitv::Bitv(self.f.ssa.temps, false);
     let left = bitv::Bitv(self.f.ssa.temps, false);
     for s.ones |tmp| {
-      if *self.colors.get(&tmp) == c {
-        left.set(tmp, true);
+      /* TODO(purity): this shouldn't have to be unsafe */
+      unsafe {
+        if *self.colors.get(&tmp) == c {
+          left.set(tmp, true);
+        }
       }
     }
     /*debug!("best of %s in %s for %?", set::to_str(left), set::to_str(s), c);*/
@@ -519,8 +522,11 @@ impl Coalescer {
     }
     let mut cur = b;
     while cur != self.f.ssa.idominator.get(cur) {
-      cur = self.f.ssa.idominator.get(cur);
-      if cur == a { return true; }
+      /* TODO(purity): this shouldn't have to be unsafe */
+      unsafe {
+        cur = self.f.ssa.idominator.get(cur);
+        if cur == a { return true; }
+      }
     }
     return false;
   }
