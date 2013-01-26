@@ -22,10 +22,10 @@ struct Coalescer {
   f : &mut assem::Function,
   fixed : TempSet,
   affinities : Affinities,
-  colors : LinearMap<Temp, uint>,
+  colors : &mut LinearMap<Temp, uint>,
   old_color : LinearMap<Temp, uint>,
   precolored : &TempSet,
-  constraints : LinearMap<Temp, assem::Constraint>,
+  constraints : &LinearMap<Temp, assem::Constraint>,
   interference_cache: LinearMap<Temp, TempSet>,
   interferences_cache: LinearMap<(Temp, Temp), bool>,
   admissible_cache: LinearMap<(Temp, uint), bool>,
@@ -33,9 +33,9 @@ struct Coalescer {
 }
 
 pub fn optimize(f: &mut assem::Function,
-                colors: alloc::ColorMap,
+                colors: &mut alloc::ColorMap,
                 precolored: &TempSet,
-                constraints: LinearMap<Temp, assem::Constraint>) {
+                constraints: &LinearMap<Temp, assem::Constraint>) {
   let mut c = Coalescer { defs: LinearMap::new(),
                           uses: LinearMap::new(),
                           fixed: bitv::Bitv(f.ssa.temps, false),
