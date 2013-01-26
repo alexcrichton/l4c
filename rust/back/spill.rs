@@ -185,8 +185,11 @@ impl Spiller {
    * node. This just needs to iterate and look at every phi node in a block.
    */
   fn build_renamings(n : NodeId) {
-    for self.f.cfg.each_pred(n) |pred| {
-      self.renamings.insert((pred, n), map::HashMap());
+    /* TODO(purity): this shouldn't have to be unsafe */
+    unsafe {
+      for self.f.cfg.each_pred(n) |pred| {
+        self.renamings.insert((pred, n), map::HashMap());
+      }
     }
     let phis = map::HashMap();
     self.phis.insert(n, phis);
@@ -270,11 +273,14 @@ impl Spiller {
          account for that here */
       for self.next_use[succ].each |tmp, next| {
         let cost = next + edge_cost;
-        let mytmp = self.their_name(tmp, n, succ);
-        debug!("%? %?", mytmp, tmp);
-        match bottom.find(mytmp) {
-          Some(amt) => { if cost < amt { bottom.insert(mytmp, cost); } }
-          None      => { bottom.insert(mytmp, cost); }
+        /* TODO(purity): shouldn't be unsafe */
+        unsafe {
+          let mytmp = self.their_name(tmp, n, succ);
+          debug!("%? %?", mytmp, tmp);
+          match bottom.find(mytmp) {
+            Some(amt) => { if cost < amt { bottom.insert(mytmp, cost); } }
+            None      => { bottom.insert(mytmp, cost); }
+          }
         }
       }
     }
@@ -347,8 +353,11 @@ impl Spiller {
     self.regs_entry.insert(n, regs_entry);
     self.spill_entry.insert(n, spill_entry);
     /* connect what we can, may not succeed */
-    for self.f.cfg.each_pred(n) |pred| {
-      self.connect_edge(pred, n);
+    /* TODO(purity): this shouldn't be unsafe */
+    unsafe {
+      for self.f.cfg.each_pred(n) |pred| {
+        self.connect_edge(pred, n);
+      }
     }
 
     /* Set up the maps which will become {regs,spill}_exit */
@@ -498,9 +507,12 @@ impl Spiller {
            set::to_str(regs), set::to_str(spill));
 
     /* connect any lingering edges which weren't covered beforehand */
-    for self.f.cfg.each_succ(n) |succ| {
-      if self.spill_entry.contains_key(succ) {
-        self.connect_edge(n, succ);
+    /* TODO(purity): this shouldn't be unsafe */
+    unsafe {
+      for self.f.cfg.each_succ(n) |succ| {
+        if self.spill_entry.contains_key(succ) {
+          self.connect_edge(n, succ);
+        }
       }
     }
   }
@@ -510,13 +522,16 @@ impl Spiller {
     let freq = map::HashMap();
     let take = map::HashMap();
     let cand = map::HashMap();
-    for self.f.cfg.each_pred(n) |pred| {
-      assert(self.regs_end.contains_key(pred));
-      for set::each(self.regs_end[pred]) |tmp| {
-        /* tmp from pred may be known by a different name in this block if there
-           is a phi node for this temp */
-        let tmp = self.my_name(tmp, pred, n);
-        freq.insert(tmp, freq.find(tmp).get_or_default(0) + 1);
+    /* TODO(purity): this shouldn't be unsafe */
+    unsafe {
+      for self.f.cfg.each_pred(n) |pred| {
+        assert(self.regs_end.contains_key(pred));
+        for set::each(self.regs_end[pred]) |tmp| {
+          /* tmp from pred may be known by a different name in this block if there
+             is a phi node for this temp */
+          let tmp = self.my_name(tmp, pred, n);
+          freq.insert(tmp, freq.find(tmp).get_or_default(0) + 1);
+        }
       }
     }
     let preds = self.f.cfg.num_pred(n);
@@ -586,8 +601,11 @@ impl Spiller {
     if set::contains(visited, cur) { return 0; }
     set::add(visited, cur);
     let mut ret = self.max_pressures[cur];
-    for self.f.cfg.each_succ(cur) |succ| {
-      ret = uint::max(ret, self.max_pressure(succ, visited));
+    /* TODO(purity): this shouldn't be unsafe */
+    unsafe {
+      for self.f.cfg.each_succ(cur) |succ| {
+        ret = uint::max(ret, self.max_pressure(succ, visited));
+      }
     }
     return ret;
   }
@@ -596,12 +614,15 @@ impl Spiller {
     debug!("connecting preds: %?", n);
     /* Build up our list of required spilled registers */
     let spill = map::HashMap();
-    for self.f.cfg.each_pred(n) |pred| {
-      if !self.spill_exit.contains_key(pred) { loop }
-      /* Be sure we're using the right name for each temp spilled on the exit of
-         our predecessors because we may be renaming it with a phi node */
-      for set::each(self.spill_exit[pred]) |tmp| {
-        set::add(spill, self.my_name(tmp, pred, n));
+    /* TODO(purity): this shouldn't be unsafe */
+    unsafe {
+      for self.f.cfg.each_pred(n) |pred| {
+        if !self.spill_exit.contains_key(pred) { loop }
+        /* Be sure we're using the right name for each temp spilled on the exit of
+           our predecessors because we may be renaming it with a phi node */
+        for set::each(self.spill_exit[pred]) |tmp| {
+          set::add(spill, self.my_name(tmp, pred, n));
+        }
       }
     }
     set::intersect(spill, entry);
