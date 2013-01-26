@@ -59,8 +59,7 @@ pub fn translate(p: ast::Program, safe: bool) -> ir::Program {
             for_step: @ast::Nop,
             safe: safe
           };
-          trans.arguments(args);
-          trans.stm(body);
+          trans.run(args, body);
         }
         accum.push(f);
       }
@@ -130,6 +129,12 @@ impl ProgramInfo {
 }
 
 impl Translator {
+  fn run(&mut self, args: &~[(ast::Ident, @ast::Type)], body: @ast::Statement) {
+    /* TODO: why can't this be above */
+    self.arguments(args);
+    self.stm(body);
+  }
+
   fn arguments(&mut self, args: &~[(ast::Ident, @ast::Type)]) {
     let args = args.map(|&(id, t)| {
       let tmp = self.tmp(typ(t));

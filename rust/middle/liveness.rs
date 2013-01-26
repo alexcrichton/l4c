@@ -35,24 +35,29 @@ pub fn calculate<S : Statement>(cfg : &CFG<S>, root : NodeId,
                                 result: &mut Analysis) {
   debug!("calculating liveness");
   let mut l = Liveness { a: result, phi_out: LinearMap::new(), cfg: cfg };
-  for cfg.each_node |id, _| {
-    l.phi_out.insert(id, ~mut LinearSet::new());
-  }
-  for cfg.each_node |id, _| {
-    l.lookup_phis(id);
-  }
-
-  /* perform liveness analysis until nothing changes */
-  let mut changed = true;
-  while changed {
-    changed = false;
-    for cfg.each_postorder(root) |&id| {
-      changed = l.liveness(id) || changed;
-    }
-  }
+  l.run(root);
 }
 
 impl<T : Statement> Liveness<T> {
+  fn run(&mut self, root: NodeId) {
+    /* TODO: why can't this be in the calculate() function above */
+    for self.cfg.each_node |id, _| {
+      self.phi_out.insert(id, ~mut LinearSet::new());
+    }
+    for self.cfg.each_node |id, _| {
+      self.lookup_phis(id);
+    }
+
+    /* perform liveness analysis until nothing changes */
+    let mut changed = true;
+    while changed {
+      changed = false;
+      for self.cfg.each_postorder(root) |&id| {
+        changed = self.liveness(id) || changed;
+      }
+    }
+  }
+
   fn lookup_phis(&mut self, n : NodeId) {
     for self.cfg[n].each |&stm| {
       match stm.phi_map() {
