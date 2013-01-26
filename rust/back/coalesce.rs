@@ -109,7 +109,9 @@ impl Coalescer {
     let mut pq = self.build_chunks();
     while !pq.is_empty() {
       do profile::dbg("recoloring chunk") {
-        self.recolor_chunk(pq.pop(), &mut pq);
+        /* TODO: why can't this be on one line? */
+        let chunk = pq.pop();
+        self.recolor_chunk(chunk, &mut pq);
       }
     }
   }
