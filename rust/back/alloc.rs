@@ -209,16 +209,15 @@ impl Allocator {
 
         macro_rules! process(
           ($t:expr, $regs:expr) => (
-            match self.colors.find(&$t) {
-              Some(&c) => { assert $regs.get(c); }
-              None => {
-                let color = min_vacant(&$regs);
-                /* TODO: set::to_str */
-                /*debug!("assigning %s %? %s", $t.pp(), color, set::to_str(regs));*/
-                assert color <= arch::num_regs;
-                assert self.colors.insert($t, color);
-                $regs.set(color, true);
-              }
+            if self.colors.contains_key(&$t) {
+              assert $regs.get(*self.colors.get(&$t));
+            } else {
+              let color = min_vacant(&$regs);
+              /* TODO: set::to_str */
+              /*debug!("assigning %s %? %s", $t.pp(), color, set::to_str(regs));*/
+              assert color <= arch::num_regs;
+              assert self.colors.insert($t, color);
+              $regs.set(color, true);
             }
           )
         );
