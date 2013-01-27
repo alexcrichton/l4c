@@ -25,11 +25,11 @@ pub trait Statement : PrettyPrint {
 
 type TempMap = LinearMap<Temp, Temp>;
 type DomFrontiers = LinearMap<graph::NodeId, graph::NodeSet>;
-type Definitions = LinearMap<Temp, graph::NodeSet>;
-type PhiLocations = LinearMap<graph::NodeId, LinearSet<Temp>>;
+type Definitions = LinearMap<Temp, ~graph::NodeSet>;
+type PhiLocations = LinearMap<graph::NodeId, ~LinearSet<Temp>>;
 type PhiMappings = LinearMap<graph::NodeId, TempMap>;
 pub type Idominators = LinearMap<graph::NodeId, graph::NodeId>;
-pub type Idominated = LinearMap<graph::NodeId, LinearSet<graph::NodeId>>;
+pub type Idominated = LinearMap<graph::NodeId, ~LinearSet<graph::NodeId>>;
 pub type PhiMap = map::HashMap<graph::NodeId, Temp>;
 pub type CFG<T> = graph::Graph<@~[@T], ir::Edge>;
 
@@ -127,30 +127,15 @@ impl<T : Statement> Converter<T> {
     for self.cfg.each_node |id, stms| {
       for stms.each |&s| {
         for s.each_def |tmp| {
-          if !defs.contains_key(&tmp) {
-            defs.insert(tmp, LinearSet::new());
-          }
-          let table = defs.get(&tmp);
-          /*let table = match defs.find(&tmp) {*/
-          /*  Some(t) => t,*/
-          /*  None => {*/
-          /*    defs.insert(tmp, ~mut LinearSet::new());*/
-          /*    defs.get(&tmp)*/
-          /*  }*/
-          /*};*/
-          unsafe { table.insert(id); }
+          let mut set = match defs.pop(&tmp) {
+            Some(s) => s, None => ~LinearSet::new()
+          };
+          set.insert(id);
+          defs.insert(tmp, set);
         }
       }
     }
     info!("found definitions");
-    /* TODO: figure out how to mutate a set in a map */
-    /*let mut actual = LinearMap::new();*/
-    /*do defs.consume |tmp, map| {*/
-    /*  unsafe {*/
-    /*  actual.insert(tmp, *map);*/
-    /*  }*/
-    /*}*/
-    /*return actual;*/
     return defs;
   }
 
@@ -169,27 +154,19 @@ impl<T : Statement> Converter<T> {
       let locs = self.idf(defs);
       for locs.each |n| {
         if !self.liveness.in.get(n).contains(&tmp) { loop }
-        let set = match phis.find(n) {
-          Some(s) => s,
-          None => {
-            phis.insert(*n, ~mut LinearSet::new());
-            phis.get(n)
-          }
+        let mut set = match phis.pop(n) {
+          Some(s) => s, None => ~LinearSet::new()
         };
         set.insert(tmp);
+        phis.insert(*n, set);
       }
     }
     info!("found phis");
-    /* TODO: figure out how to mutate a set in a map */
-    let mut actual = LinearMap::new();
-    do phis.consume |tmp, map| {
-      actual.insert(tmp, *map);
-    }
-    return actual;
+    return phis;
   }
 
   /* Calculate the iterated dominance frontier on a set of nodes */
-  fn idf(&mut self, set: graph::NodeSet) -> graph::NodeSet {
+  fn idf(&mut self, set: ~graph::NodeSet) -> graph::NodeSet {
     let mut ret = LinearSet::new();
     for set.each |&v| {
       ret.insert(v);
@@ -393,18 +370,15 @@ fn analyze<T>(cfg: &CFG<T>, root: graph::NodeId, analysis: &mut Analysis) {
   }
   info!("idoms calculated");
 
-  /* TODO: figure out how to modify a set in a map */
-  let mut idominated = LinearMap::new();
   for idoms.each |&a, _| {
-    idominated.insert(a, ~mut LinearSet::new());
+    analysis.idominated.insert(a, ~LinearSet::new());
   }
   for idoms.each |&a, &b| {
     if a != b {
-      idominated.get(&b).insert(a);
+      let mut set = analysis.idominated.pop(&b).unwrap();
+      set.insert(a);
+      analysis.idominated.insert(b, set);
     }
-  }
-  do idominated.consume |k, v| {
-    analysis.idominated.insert(k, *v);
   }
 }
 
