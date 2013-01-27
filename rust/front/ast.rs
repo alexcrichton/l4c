@@ -124,10 +124,11 @@ impl GDecl {
 
 impl Elaborator {
   fn elaborate(&mut self, g : @GDecl) -> @GDecl {
+    /* TODO(#4653): in this macro, it should be $id instead of 'id' */
     macro_rules! check_set (
       ($set:expr, $id:expr, $name:expr) => {
-        if $set.contains(&$id) {
-          self.err.add(fmt!("'%s' already a %s", $id.val, $name));
+        if $set.contains(&id) {
+          self.err.add(fmt!("'%s' already a %s", id.val, $name));
         }
       }
     );
