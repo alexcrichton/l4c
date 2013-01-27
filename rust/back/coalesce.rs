@@ -1,13 +1,13 @@
 use core::util::ignore;
 use core::hashmap::linear::{LinearMap, LinearSet};
 
-use std::{map, bitv};
+use std::bitv;
 use std::priority_queue::PriorityQueue;
 
 use middle::{ir, ssa, liveness};
 use middle::temp::Temp;
 use back::{assem, arch, alloc};
-use utils::{set, profile};
+use utils::profile;
 use utils::graph::{NodeSet, NodeId};
 
 type Location = (NodeId, int);
