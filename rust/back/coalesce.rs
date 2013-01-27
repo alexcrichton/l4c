@@ -340,8 +340,13 @@ impl Coalescer {
       }
       /* Now in a separate scope (where chunks is mutable), merge the two scopes
          together */
-      let Chunk(ref xs, xw) = chunks.pop(&xc).unwrap();
-      let Chunk(ref ys, yw) = chunks.pop(&yc).unwrap();
+      /* TODO(4653): make this sane again */
+      /*let Chunk(ref xs, xw) = chunks.pop(&xc).unwrap();*/
+      /*let Chunk(ref ys, yw) = chunks.pop(&yc).unwrap();*/
+      let a = chunks.pop(&xc).unwrap();
+      let b = chunks.pop(&yc).unwrap();
+      let (xs, xw) = match a { Chunk(ref s, w) => (s, w) };
+      let (ys, yw) = match b { Chunk(ref s, w) => (s, w) };
 
       /* no element of the two chunks interfere, merge the chunks */
       let merge = bitv::Bitv(self.f.ssa.temps, false);
