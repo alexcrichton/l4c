@@ -6,7 +6,7 @@ use std::priority_queue::PriorityQueue;
 
 use middle::{ir, ssa, liveness};
 use middle::temp::Temp;
-use back::{assem, arch, alloc};
+use back::{assem, arch};
 use utils::profile;
 use utils::graph::{NodeSet, NodeId};
 
@@ -33,7 +33,7 @@ struct Coalescer {
 }
 
 pub fn optimize(f: &mut assem::Function,
-                colors: &mut alloc::ColorMap,
+                colors: &mut LinearMap<Temp, uint>,
                 precolored: &TempSet,
                 constraints: &LinearMap<Temp, assem::Constraint>) {
   let mut c = Coalescer { defs: LinearMap::new(),
