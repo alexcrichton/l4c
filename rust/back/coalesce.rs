@@ -12,13 +12,13 @@ use utils::graph::{NodeSet, NodeId};
 
 type Location = (NodeId, int);
 type TempSet = bitv::Bitv;
-type Affinities = LinearMap<Temp, LinearMap<Temp, uint>>;
+type Affinities = LinearMap<Temp, ~LinearMap<Temp, uint>>;
 struct Affinity(Temp, Temp, uint);
 struct Chunk(TempSet, uint);
 
 struct Coalescer {
   defs : LinearMap<Temp, Location>,
-  uses : LinearMap<Temp, LinearSet<Location>>,
+  uses : LinearMap<Temp, ~LinearSet<Location>>,
   f : &mut assem::Function,
   fixed : TempSet,
   affinities : Affinities,
@@ -52,18 +52,6 @@ pub fn optimize(f: &mut assem::Function,
   c.run();
 }
 
-macro_rules! find_default(
-  ($map:expr, $key:expr, $default:expr) => (
-    match $map.find(&$key) {
-      Some(s) => s,
-      None => {
-        $map.insert($key, $default);
-        $map.get(&$key)
-      }
-    }
-  )
-)
-
 impl Coalescer {
   fn run(&mut self) {
     /* TODO: why can't this be above */
@@ -76,31 +64,30 @@ impl Coalescer {
   }
 
   fn build_use_def(&mut self, n : NodeId, ins: @~[@assem::Instruction]) {
-    macro_rules! find_set(($map:expr, $key:expr) =>
-      (find_default!($map, $key, ~mut LinearSet::new())))
-
-    let mut uses = LinearMap::new();
-
+    macro_rules! add_use(
+      ($tmp:expr, $loc:expr) => ({
+        let mut set = match self.uses.pop(&$tmp) {
+          Some(s) => s, None => ~LinearSet::new()
+        };
+        set.insert($loc);
+        self.uses.insert($tmp, set);
+      })
+    );
     for ins.eachi |i, &ins| {
       for ins.each_def |tmp| {
         assert self.defs.insert(tmp, (n, i as int));
       }
       for ins.each_use |tmp| {
-        (find_set!(uses, tmp)).insert((n, i as int));
+        add_use!(tmp, (n, i as int));
       }
       match ins.phi_map() {
         None => (),
         Some(m) => {
           for m.each |pred, tmp| {
-            (find_set!(uses, tmp)).insert((pred, int::max_value));
+            add_use!(tmp, (pred, int::max_value));
           }
         }
       }
-    }
-
-    /* TODO: figure out how to mutate a set in a map */
-    do uses.consume |k, v| {
-      self.uses.insert(k, *v);
     }
   }
 
@@ -378,20 +365,26 @@ impl Coalescer {
   }
 
   fn find_affinities(&mut self) -> PriorityQueue<Affinity> {
-    macro_rules! find_map(($map:expr, $key:expr) =>
-      (find_default!($map, $key, ~mut LinearMap::new())));
+    macro_rules! add_affine(
+      ($a1:expr, $b1:expr, $weight1:expr) => ({
+        let mut map = match self.affinities.pop(&$a1) {
+          Some(m) => m, None => ~LinearMap::new()
+        };
+        map.insert($b1, $weight1);
+        self.affinities.insert($a1, map);
+      })
+    );
     macro_rules! affine(
-      ($a:expr, $b:expr) => ({
-        (find_map!(affinities, $a)).insert($b, weight);
-        (find_map!(affinities, $b)).insert($a, weight);
-        pq.push(Affinity($a, $b, weight));
+      ($a:expr, $b:expr, $weight:expr) => ({
+        add_affine!($a, $b, $weight);
+        add_affine!($b, $a, $weight);
+        pq.push(Affinity($a, $b, $weight));
       })
     );
 
     let mut pq = PriorityQueue::new();
     let mut to_visit = ~[(self.f.root, 1)];
     let mut visited = LinearSet::new();
-    let mut affinities = LinearMap::new();
 
     while to_visit.len() > 0 {
       let (n, weight) = to_visit.pop();
@@ -401,12 +394,20 @@ impl Coalescer {
         match ins {
           @assem::Phi(def, map) => {
             for map.each_value |tmp| {
-              affine!(def, tmp);
+              /* TODO: when this ICE is fixed, uncomment */
+              /*affine!(def, tmp, weight);*/
+              add_affine!(tmp, def, weight);
+              add_affine!(def, tmp, weight);
+              pq.push(Affinity(tmp, def, weight));
             }
           }
           @assem::PCopy(ref copies) => {
             for copies.each |a, b| {
-              affine!(a, b);
+              /* TODO: when ICE is fixed, uncomment */
+              /*affine!(a, b, weight);*/
+              add_affine!(a, b, weight);
+              add_affine!(b, a, weight);
+              pq.push(Affinity(a, b, weight));
             }
           }
           _ => ()
@@ -420,11 +421,6 @@ impl Coalescer {
         };
         to_visit.push((succ, weight));
       }
-    }
-
-    /* TODO: figure out how to mutate a set in a map */
-    do affinities.consume |k, v| {
-      self.affinities.insert(k, *v);
     }
 
     return pq;
