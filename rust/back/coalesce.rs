@@ -314,14 +314,18 @@ impl Coalescer {
 
     while !pq.is_empty() {
       let Affinity(x, y, w) = pq.pop();
-        /* constrain the immutable_loan of temp_chunks to just this area */
       let xc = temp_chunks.find(&x).map_default(0, |&x| *x);
       let yc = temp_chunks.find(&y).map_default(0, |&x| *x);
       {
         /* In a separate scope, see if we should skip merging the two chunks of
            these two variables */
-        let &Chunk(ref xs, _) = chunks.get(&xc);
-        let &Chunk(ref ys, _) = chunks.get(&yc);
+        /* TODO(#4653): make this sane again */
+        /*let &Chunk(ref xs, _) = chunks.get(&xc);*/
+        /*let &Chunk(ref ys, _) = chunks.get(&yc);*/
+        let a = chunks.get(&xc);
+        let b = chunks.get(&yc);
+        let xs = match *a { Chunk(ref xs, _) => xs };
+        let ys = match *b { Chunk(ref ys, _) => ys };
         let mut interferes = false;
         /* v.chunk = x.chunk */
         for xs.ones |v| {
