@@ -513,16 +513,17 @@ impl Coalescer {
     return c;
   }
 
-  fn dominates_impl((ref a, aline): Location, (ref b, bline): Location) -> bool {
+  /* TODO(4653): make the arguments 'ref a', 'ref b' */
+  fn dominates_impl((a, aline): Location, (b, bline): Location) -> bool {
     if a == b {
       return aline < bline;
     }
-    let mut cur = b;
+    let mut cur = &b;
     while cur != self.f.ssa.idominator.get(cur) {
       /* TODO(purity): this shouldn't have to be unsafe */
       unsafe {
         cur = self.f.ssa.idominator.get(cur);
-        if cur == a { return true; }
+        if *cur == a { return true; }
       }
     }
     return false;
