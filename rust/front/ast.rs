@@ -137,16 +137,16 @@ impl Elaborator {
         self.check_id(id);
         self.efuns.insert(id);
         @FunEDecl(self.resolve(typ), id, self.resolve_pairs(args))
-      },
+      }
       @FunIDecl(typ, id, ref args) => {
         self.check_id(id);
         @FunIDecl(self.resolve(typ), id, self.resolve_pairs(args))
-      },
+      }
       @StructDecl(_) => g,
       @Markedg(ref m) => {
         m.data = self.err.with(m, |x| self.elaborate(x));
         g
-      },
+      }
       @Typedef(id, typ) => {
         self.check_id(id);
         check_set!(self.efuns, id, ~"function");
@@ -155,12 +155,12 @@ impl Elaborator {
         let typ = self.resolve(typ);
         self.types.insert(id, typ);
         g
-      },
+      }
       @StructDef(id, ref fields) => {
         check_set!(self.structs, id, ~"struct");
         self.structs.insert(id);
         @StructDef(id, self.resolve_pairs(fields))
-      },
+      }
       @Function(ret, id, ref args, body) => {
         self.check_id(id);
         check_set!(self.efuns, id, ~"function");
