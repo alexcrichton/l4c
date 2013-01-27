@@ -210,7 +210,10 @@ impl Translator {
           @ast::Deref(_, ref t) | @ast::ArrSub(_, _, ref t) =>
             (true, typ(t.get())),
           @ast::Field(_, ref f, ref s) => {
-            let &(ref fields, _) = self.t.structs.get(&s.get());
+            /* TODO(#4653): make this actually sane */
+            /*let &(ref fields, _) = self.t.structs.get(&s.get());*/
+            let sinfo = self.t.structs.get(&s.get());
+            let fields = match *sinfo { (ref fields, _) => fields };
             (true, fields.get(f).first())
           }
           _ => fail(~"invalid assign")
@@ -366,7 +369,10 @@ impl Translator {
 
       @ast::Field(e, ref id, ref s) => {
         let base = self.exp(e, true);
-        let &(ref fields, _) = self.t.structs.get(&s.get());
+        /* TODO(#4653): make this actually sane */
+        /*let &(ref fields, _) = self.t.structs.get(&s.get());*/
+        let sinfo = self.t.structs.get(&s.get());
+        let fields = match *sinfo { (ref fields, _) => fields };
         let &(typ, size) = fields.get(id);
         let address = @ir::BinaryOp(ir::Add, base, self.constp(size as i32));
         self.check_null(address);
