@@ -21,17 +21,15 @@ impl List {
   }
 
   fn check(&mut self) {
-    if (self.errs.len() > 0) {
+    if self.errs.len() > 0 {
       let out = io::stderr();
-      let msgs = do self.errs.map |&(c, s)| {
+      for self.errs.each |&(c, s)| {
         match c {
-          None => fmt!("error: %s\n", s),
+          None => out.write_str(fmt!("error: %s\n", s)),
           Some(@mark::Coords((l1, c1), (l2, c2), file)) =>
-            fmt!("%s:%d.%d-%d.%d:error: %s\n", *file, l1, c1, l2, c2, s)
+            out.write_str(fmt!("%s:%d.%d-%d.%d:error: %s\n", *file, l1, c1, l2,
+                               c2, s))
         }
-      };
-      do msgs.consume |_, msg| {
-        out.write_str(msg);
       }
       unsafe { libc::exit(1); }
     }
