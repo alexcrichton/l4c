@@ -47,15 +47,21 @@ impl CodeGenerator {
     for self.f.types.each |k, v| {
       debug!("%? sized %?", k, v);
     }
+    /* TODO: don't duplicate this map */
     let mut loops = LinearMap::new();
     for self.f.loops.each |&k, &v| {
       loops.insert(k, v);
+    }
+    /* TODO: don't duplicate this map */
+    let mut sizes = LinearMap::new();
+    for self.sizes.each |k, v| {
+      sizes.insert(k, v);
     }
     assem::Function { name: copy self.f.name,
                       cfg: cfg,
                       root: self.f.root,
                       temps: self.temps.cnt(),
-                      sizes: self.sizes,
+                      sizes: sizes,
                       loops: loops,
                       ssa: ssa::Analysis(),
                       liveness: liveness::Analysis() }

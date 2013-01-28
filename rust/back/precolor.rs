@@ -12,7 +12,10 @@ pub fn constrain(p : &mut Program) {
     do f.cfg.map_nodes |id, stms| {
       @constrain_block(live.in.get(&id), *live.deltas.get(&id), |t| {
         let tmp = temps.new();
-        f.sizes.insert(tmp, f.sizes[t]);
+        /* TODO: these two loans shouldn't conflict? */
+        let size;
+        { size = *f.sizes.get(&t); }
+        f.sizes.insert(tmp, size);
         tmp
       }, stms)
     }

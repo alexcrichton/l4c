@@ -528,6 +528,6 @@ impl Allocator {
 
   fn alloc_tmp(tmp: Temp) -> @Operand {
     @Register(arch::num_reg(*self.colors.get(&tmp)),
-              self.f.sizes[tmp])
+              *self.f.sizes.get(&tmp))
   }
 }

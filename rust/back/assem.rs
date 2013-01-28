@@ -22,7 +22,7 @@ pub struct Function {
   name : ~str,
   root : graph::NodeId,
   cfg : CFG,
-  sizes : map::HashMap<Temp, Size>,
+  sizes : LinearMap<Temp, Size>,
   temps : uint,
   ssa: ssa::Analysis,
   liveness: liveness::Analysis,
