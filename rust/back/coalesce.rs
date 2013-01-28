@@ -316,6 +316,7 @@ impl Coalescer {
       let Affinity(x, y, w) = pq.pop();
       let xc = temp_chunks.find(&x).map_default(0, |&x| *x);
       let yc = temp_chunks.find(&y).map_default(0, |&x| *x);
+      let merge, weight;
       {
         /* In a separate scope, see if we should skip merging the two chunks of
            these two variables */
@@ -324,8 +325,8 @@ impl Coalescer {
         /*let &Chunk(ref ys, _) = chunks.get(&yc);*/
         let a = chunks.get(&xc);
         let b = chunks.get(&yc);
-        let xs = match *a { Chunk(ref xs, _) => xs };
-        let ys = match *b { Chunk(ref ys, _) => ys };
+        let (xs, xw) = match *a { Chunk(ref xs, xw) => (xs, xw) };
+        let (ys, yw) = match *b { Chunk(ref ys, yw) => (ys, yw) };
         let mut interferes = false;
         /* v.chunk = x.chunk */
         for xs.ones |v| {
@@ -337,29 +338,26 @@ impl Coalescer {
           if interferes { break }
         }
         if interferes { loop }
-      }
-      /* Now in a separate scope (where chunks is mutable), merge the two scopes
-         together */
-      /* TODO(4653): make this sane again */
-      /*let Chunk(ref xs, xw) = chunks.pop(&xc).unwrap();*/
-      /*let Chunk(ref ys, yw) = chunks.pop(&yc).unwrap();*/
-      let a = chunks.pop(&xc).unwrap();
-      let b = chunks.pop(&yc).unwrap();
-      let (xs, xw) = match a { Chunk(ref s, w) => (s, w) };
-      let (ys, yw) = match b { Chunk(ref s, w) => (s, w) };
 
-      /* no element of the two chunks interfere, merge the chunks */
-      let merge = bitv::Bitv(self.f.ssa.temps, false);
-      merge.set(x, true);
-      merge.set(y, true);
-      merge.union(xs);
-      merge.union(ys);
+        /* no element of the two chunks interfere, merge the chunks */
+        merge = bitv::Bitv(self.f.ssa.temps, false);
+        merge.set(x, true);
+        merge.set(y, true);
+        merge.union(xs);
+        merge.union(ys);
+        weight = w + xw + yw;
+      }
+
+      /* In another scope where 'chunks' is mutable, insert/remove chunks */
       let num = next_chunk;
       next_chunk += 1;
       for merge.ones |tmp| {
         temp_chunks.insert(tmp, num);
       }
-      chunks.insert(num, Chunk(merge, w + xw + yw));
+      chunks.insert(num, Chunk(merge, weight));
+
+      if xc != 0 { chunks.remove(&xc); }
+      if yc != 0 { chunks.remove(&yc); }
     }
 
     /* Finally insert all chunks into a priority queue */
