@@ -1,5 +1,5 @@
 use core::io::WriterUtil;
-use core::hashmap::linear::LinearMap;
+use core::hashmap::linear::{LinearMap, LinearSet};
 
 use std::map;
 
@@ -545,14 +545,14 @@ impl Function {
 
     /* skipped is a stack of nodes that we have yet to visit */
     let mut skipped = ~[self.root];
-    let visited = map::HashMap();
+    let mut visited = LinearSet::new();
 
     while skipped.len() > 0 {
       let block = skipped.pop();
-      if set::contains(visited, block) { loop }
+      if visited.contains(&block) { loop }
 
       /* Each block has its own label (so it can be jumped to) */
-      set::add(visited, block);
+      visited.insert(block);
       out.write_str(~"L" + lbl(block) + ~":\n");
 
       /* output the actual block */
@@ -588,7 +588,7 @@ impl Function {
       /* Emit jumps and alter our stack of nodes to visit */
       match always {
         /* Always branches to unvisited blocks can just fall through */
-        Some((ir::Always, id)) if !set::contains(visited, id) =>
+        Some((ir::Always, id)) if !visited.contains(&id) =>
           { skipped.push(id); }
         /* Otherwise always branches or edges to visited blocks are jumps */
         Some((_, id)) => {
