@@ -22,6 +22,8 @@
  * throughout the code in this file.
  */
 
+use core::hashmap::linear::LinearMap;
+
 use std::{map, sort};
 use middle::temp::Temp;
 use back::assem::*;
@@ -43,10 +45,10 @@ struct Spiller {
   deltas : map::HashMap<NodeId, @~[~[(Temp, Option<uint>)]]>,
 
   /* Information required by the spilling algorithm */
-  regs_entry : map::HashMap<NodeId, TempSet>,
-  regs_end : map::HashMap<NodeId, TempSet>,
-  spill_entry : map::HashMap<NodeId, TempSet>,
-  spill_exit : map::HashMap<NodeId, TempSet>,
+  regs_entry : LinearMap<NodeId, TempSet>,
+  regs_end : LinearMap<NodeId, TempSet>,
+  spill_entry : LinearMap<NodeId, TempSet>,
+  spill_exit : LinearMap<NodeId, TempSet>,
 
   /* m[(a, b)] => (t1 -> t2) means that any temp known by the name t1 in a
      becomes the temp named t2 in b */
@@ -56,51 +58,34 @@ struct Spiller {
   phis : map::HashMap<NodeId, map::HashMap<Temp, map::HashMap<NodeId, Temp>>>,
 
   /* Maximum register pressure at each basic block */
-  max_pressures : map::HashMap<NodeId, uint>,
+  max_pressures : LinearMap<NodeId, uint>,
   /* Set of edges which have been connected (spills/reloads placed) so far */
-  connected : map::Set<(NodeId, NodeId)>,
+  connected : LinearSet<(NodeId, NodeId)>,
 
   /* phi congruence class of every temp (used for stack slots) */
-  congruence : map::HashMap<Temp, Tag>,
+  congruence : LinearMap<Temp, Tag>,
   congruence_sets : map::HashMap<Temp, TempSet>,
 }
 
 pub fn spill(p : &mut Program) {
   for vec::each_mut(p.funs) |f| {
-    let s = Spiller{ f: f,
-                     next_use: map::HashMap(),
-                     deltas: map::HashMap(),
-                     regs_end: map::HashMap(),
-                     regs_entry: map::HashMap(),
-                     spill_entry: map::HashMap(),
-                     spill_exit: map::HashMap(),
-                     renamings: map::HashMap(),
-                     phis: map::HashMap(),
-                     max_pressures: map::HashMap(),
-                     connected: map::HashMap(),
-                     congruence: map::HashMap(),
-                     congruence_sets: map::HashMap() };
+    eliminate_critical(&mut f.cfg);
 
-    /* Build up phi renaming maps */
-    s.eliminate_critical();
-    for s.f.cfg.each_node |n, _| {
-      s.build_renamings(n);
-    }
-    s.set_congruence();
+    let mut s = Spiller{ f: f,
+                         next_use: map::HashMap(),
+                         deltas: map::HashMap(),
+                         regs_end: LinearMap::new(),
+                         regs_entry: LinearMap::new(),
+                         spill_entry: LinearMap::new(),
+                         spill_exit: LinearMap::new(),
+                         renamings: map::HashMap(),
+                         phis: map::HashMap(),
+                         max_pressures: LinearMap::new(),
+                         connected: LinearSet::new(),
+                         congruence: LinearMap::new(),
+                         congruence_sets: map::HashMap() };
 
-    /* Prepare the graph and build all next_use information */
-    let mut changed = true;
-    while changed {
-      changed = false;
-      for s.f.cfg.each_postorder(s.f.root) |&id| {
-        changed = s.build_next_use(id) || changed;
-      }
-    }
-
-    /* In reverse postorder, spill everything! */
-    for s.f.cfg.each_rev_postorder(s.f.root) |&id| {
-      s.spill(id);
-    }
+    s.run();
   }
 }
 
@@ -142,41 +127,63 @@ fn map_to_str(m : NextUse) -> ~str {
   return s + ~"}";
 }
 
-impl Spiller {
-  /**
-   * Eliminate all critical edges in the graph by splitting them and placing a
-   * basic block on the edge. The fact that there are no critical edges in the
-   * graph is leveraged when spilling registers and removing phi nodes.
-   */
-  fn eliminate_critical() {
-    /* can't modify the graph during traversal */
-    let mut critical = ~[];
-    let cfg = &mut self.f.cfg;
-    for cfg.each_edge |n1, n2| {
-      /* critical edges are defined as those whose source has multiple out edges
-         and whose target has multiple in edges */
-      if cfg.num_succ(n1) > 1 && cfg.num_pred(n2) > 1 {
-        critical.push((n1, n2));
+/**
+ * Eliminate all critical edges in the graph by splitting them and placing a
+ * basic block on the edge. The fact that there are no critical edges in the
+ * graph is leveraged when spilling registers and removing phi nodes.
+ */
+fn eliminate_critical(cfg: &mut CFG) {
+  /* can't modify the graph during traversal */
+  let mut critical = ~[];
+  for cfg.each_edge |n1, n2| {
+    /* critical edges are defined as those whose source has multiple out edges
+       and whose target has multiple in edges */
+    if cfg.num_succ(n1) > 1 && cfg.num_pred(n2) > 1 {
+      critical.push((n1, n2));
+    }
+  }
+  for critical.each |&(n1, n2)| {
+    debug!("splitting critical edge %? %?", n1, n2);
+    let edge = cfg.remove_edge(n1, n2);
+    let new = cfg.new_id();
+    cfg.add_node(new, @~[]);
+    cfg.add_edge(n1, new, edge);
+    cfg.add_edge(new, n2, ir::Always);
+
+    /* Be sure to fix the predecessor of each phi node in our successor */
+    for cfg[n2].each |&ins| {
+      match ins {
+        @Phi(_, map) => {
+          map.insert(new, map[n1]);
+          map.remove(n1);
+        }
+        _ => ()
       }
     }
-    for critical.each |&(n1, n2)| {
-      debug!("splitting critical edge %? %?", n1, n2);
-      let edge = cfg.remove_edge(n1, n2);
-      let new = cfg.new_id();
-      cfg.add_node(new, @~[]);
-      cfg.add_edge(n1, new, edge);
-      cfg.add_edge(new, n2, ir::Always);
+  }
+}
 
-      /* Be sure to fix the predecessor of each phi node in our successor */
-      for cfg[n2].each |&ins| {
-        match ins {
-          @Phi(_, map) => {
-            map.insert(new, map[n1]);
-            map.remove(n1);
-          }
-          _ => ()
-        }
+impl Spiller {
+  fn run(&mut self) {
+    /* TODO: why can't this all be above */
+    /* Build up phi renaming maps */
+    for self.f.cfg.each_node |n, _| {
+      self.build_renamings(n);
+    }
+    self.set_congruence();
+
+    /* Prepare the graph and build all next_use information */
+    let mut changed = true;
+    while changed {
+      changed = false;
+      for self.f.cfg.each_postorder(self.f.root) |&id| {
+        changed = self.build_next_use(id) || changed;
       }
+    }
+
+    /* In reverse postorder, spill everything! */
+    for self.f.cfg.each_rev_postorder(self.f.root) |&id| {
+      self.spill(id);
     }
   }
 
@@ -230,10 +237,10 @@ impl Spiller {
     }
   }
 
-  fn set_congruence() {
+  fn set_congruence(&mut self) {
     let mut nxt = 0;
     for self.congruence_sets.each |tmp, set| {
-      if self.congruence.contains_key(tmp) { loop }
+      if self.congruence.contains_key(&tmp) { loop }
       debug!("%? %s", nxt, set::to_str(set));
 
       for set::each(set) |tmp| {
@@ -252,7 +259,7 @@ impl Spiller {
    *
    * TODO: move this into middle/liveness.rs
    */
-  fn build_next_use(n : NodeId) -> bool {
+  fn build_next_use(&mut self, n: NodeId) -> bool {
     debug!("processing: %?", n);
     let bottom = map::HashMap();
     let block = self.f.cfg[n];
@@ -343,7 +350,7 @@ impl Spiller {
    * possibly insert spills/reloads in predecessor and successors depending on
    * their processed state.
    */
-  fn spill(n : NodeId) {
+  fn spill(&mut self, n : NodeId) {
     debug!("spilling: %?", n);
     /* TODO: remove these unsafe blocks */
     let regs_entry = match self.f.loops.find(&n) {
@@ -383,7 +390,7 @@ impl Spiller {
           for sorted.view($max, sorted.len()).each |&tmp| {
             if !set::contains(spill, tmp) && next_use.contains_key(tmp) {
               debug!("spilling %?", tmp);
-              block.push(@Spill(tmp, self.congruence[tmp]));
+              block.push(@Spill(tmp, *self.congruence.get(&tmp)));
             } else if set::contains(spill, tmp) {
               debug!("removing %?", tmp);
               /* If after a pcopy a temp was spilled, then we don't need to
@@ -491,7 +498,7 @@ impl Spiller {
 
           /* Finally reload all operands as necessary, and then run ins */
           for reloaded.each |&tmp| {
-            block.push(@Reload(tmp, self.congruence[tmp]));
+            block.push(@Reload(tmp, *self.congruence.get(&tmp)));
           }
           reloaded.truncate(0);
           block.push(ins);
@@ -511,7 +518,7 @@ impl Spiller {
     /* TODO(purity): this shouldn't be unsafe */
     unsafe {
       for self.f.cfg.each_succ(n) |succ| {
-        if self.spill_entry.contains_key(succ) {
+        if self.spill_entry.contains_key(&succ) {
           self.connect_edge(n, succ);
         }
       }
@@ -526,8 +533,8 @@ impl Spiller {
     /* TODO(purity): this shouldn't be unsafe */
     unsafe {
       for self.f.cfg.each_pred(n) |pred| {
-        assert(self.regs_end.contains_key(pred));
-        for set::each(self.regs_end[pred]) |tmp| {
+        assert(self.regs_end.contains_key(&pred));
+        for set::each(*self.regs_end.get(&pred)) |tmp| {
           /* tmp from pred may be known by a different name in this block if there
              is a phi node for this temp */
           let tmp = self.my_name(tmp, pred, n);
@@ -601,7 +608,7 @@ impl Spiller {
   fn max_pressure(cur : NodeId, visited : map::Set<NodeId>) -> uint {
     if set::contains(visited, cur) { return 0; }
     set::add(visited, cur);
-    let mut ret = self.max_pressures[cur];
+    let mut ret = *self.max_pressures.get(&cur);
     /* TODO(purity): this shouldn't be unsafe */
     unsafe {
       for self.f.cfg.each_succ(cur) |succ| {
@@ -618,10 +625,10 @@ impl Spiller {
     /* TODO(purity): this shouldn't be unsafe */
     unsafe {
       for self.f.cfg.each_pred(n) |pred| {
-        if !self.spill_exit.contains_key(pred) { loop }
+        if !self.spill_exit.contains_key(&pred) { loop }
         /* Be sure we're using the right name for each temp spilled on the exit of
            our predecessors because we may be renaming it with a phi node */
-        for set::each(self.spill_exit[pred]) |tmp| {
+        for set::each(*self.spill_exit.get(&pred)) |tmp| {
           set::add(spill, self.my_name(tmp, pred, n));
         }
       }
@@ -632,42 +639,42 @@ impl Spiller {
     return spill;
   }
 
-  fn connect_edge(pred : NodeId, succ : NodeId) {
-    if set::contains(self.connected, (pred, succ)) { return }
-    if !self.spill_exit.contains_key(pred) { return }
-    set::add(self.connected, (pred, succ));
-    let succ_spill = self.spill_entry[succ];
-    let succ_regs = self.regs_entry[succ];
+  fn connect_edge(&mut self, pred: NodeId, succ: NodeId) {
+    if self.connected.contains(&(pred, succ)) { return }
+    if !self.spill_exit.contains_key(&pred) { return }
+    self.connected.insert((pred, succ));
+    let succ_spill = self.spill_entry.get(&succ);
+    let succ_regs = self.regs_entry.get(&succ);
 
     let mut append = ~[];
-    let pred_regs_exit = self.regs_end[pred];
-    let pred_spill_exit = self.spill_exit[pred];
+    let pred_regs_exit = self.regs_end.get(&pred);
+    let pred_spill_exit = self.spill_exit.get(&pred);
 
     /* All registers they had which we don't have which we may eventually use
        need to be spilled */
-    for set::each(pred_regs_exit) |tmp| {
+    for set::each(*pred_regs_exit) |tmp| {
       let mine = self.my_name(tmp, pred, succ);
       if !pred_spill_exit.contains_key(tmp) &&
          !succ_regs.contains_key(mine) &&
          self.next_use[succ].contains_key(mine) {
-        append.push(@Spill(tmp, self.congruence[tmp]));
+        append.push(@Spill(tmp, *self.congruence.get(&tmp)));
       }
     }
 
     /* Each register we want spilled that they haven't spilled needs a spill */
-    for set::each(succ_spill) |tmp| {
+    for set::each(*succ_spill) |tmp| {
       let theirs = self.their_name(tmp, pred, succ);
       if !pred_spill_exit.contains_key(theirs) &&
           pred_regs_exit.contains_key(theirs) {
-        append.push(@Spill(theirs, self.congruence[theirs]));
+        append.push(@Spill(theirs, *self.congruence.get(&theirs)));
       }
     }
 
     /* Each register we have which they don't have needs a reload */
-    for set::each(succ_regs) |tmp| {
+    for set::each(*succ_regs) |tmp| {
       let theirs = self.their_name(tmp, pred, succ);
       if !pred_regs_exit.contains_key(theirs) {
-        append.push(@Reload(theirs, self.congruence[theirs]));
+        append.push(@Reload(theirs, *self.congruence.get(&theirs)));
       }
     }
     if append.len() > 0 {
