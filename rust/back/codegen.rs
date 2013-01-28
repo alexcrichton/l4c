@@ -11,7 +11,7 @@ pub struct CodeGenerator {
   priv temps: temp::Allocator,
   priv sizes: LinearMap<temp::Temp, assem::Size>,
   priv stms: ~[@assem::Instruction],
-  priv tmap: map::HashMap<temp::Temp, temp::Temp>,
+  priv tmap: LinearMap<temp::Temp, temp::Temp>,
 }
 
 pub fn codegen(mut p: ir::Program) -> assem::Program {
@@ -26,7 +26,7 @@ fn translate(f: ir::Function) -> assem::Function {
   let mut cg = CodeGenerator { f: f,
                                stms: ~[],
                                temps: temp::new(),
-                               tmap: map::HashMap(),
+                               tmap: LinearMap::new(),
                                sizes: LinearMap::new() };
   cg.run()
 }
@@ -256,15 +256,14 @@ impl CodeGenerator {
   }
 
   fn tmp(&mut self, t: temp::Temp) -> temp::Temp {
-    match self.tmap.find(t) {
-      Some(t) => t,
-      None => {
-        let ret = self.temps.new();
-        self.tmap.insert(t, ret);
-        self.sizes.insert(ret, *self.f.types.get(&t));
-        return ret;
-      }
+    match self.tmap.find(&t) {
+      Some(&t) => return t,
+      None => ()
     }
+    let ret = self.temps.new();
+    self.tmap.insert(t, ret);
+    self.sizes.insert(ret, *self.f.types.get(&t));
+    return ret;
   }
 
   fn tmpnew(&mut self, s: ir::Type) -> @assem::Operand {
