@@ -345,9 +345,10 @@ impl Spiller {
    */
   fn spill(n : NodeId) {
     debug!("spilling: %?", n);
-    let regs_entry = match self.f.loops.find(n) {
-      Some((body, end)) => self.init_loop(n, body, end),
-      None            => self.init_usual(n)
+    /* TODO: remove these unsafe blocks */
+    let regs_entry = match self.f.loops.find(&n) {
+      Some(&(body, end)) => unsafe { self.init_loop(n, body, end) },
+      None               => unsafe { self.init_usual(n) }
     };
     let spill_entry = self.connect_pred(n, regs_entry);
     self.regs_entry.insert(n, regs_entry);

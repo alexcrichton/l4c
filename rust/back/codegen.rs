@@ -1,4 +1,4 @@
-use core::hashmap::linear::LinearSet;
+use core::hashmap::linear::{LinearMap, LinearSet};
 
 use middle::{ir, temp, ssa, liveness};
 use std::map;
@@ -47,7 +47,7 @@ impl CodeGenerator {
     for self.f.types.each |k, v| {
       debug!("%? sized %?", k, v);
     }
-    let loops = map::HashMap();
+    let mut loops = LinearMap::new();
     for self.f.loops.each |&k, &v| {
       loops.insert(k, v);
     }

@@ -1,4 +1,5 @@
 use core::io::WriterUtil;
+use core::hashmap::linear::LinearMap;
 
 use std::map;
 
@@ -26,7 +27,7 @@ pub struct Function {
   ssa: ssa::Analysis,
   liveness: liveness::Analysis,
 
-  loops : map::HashMap<graph::NodeId, (graph::NodeId, graph::NodeId)>,
+  loops : LinearMap<graph::NodeId, (graph::NodeId, graph::NodeId)>,
 }
 
 pub enum Instruction {

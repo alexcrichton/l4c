@@ -393,7 +393,7 @@ impl Coalescer {
     while to_visit.len() > 0 {
       let (n, weight) = to_visit.pop();
       assert visited.insert(n);
-      let weight = weight + if self.f.loops.contains_key(n) { 1 } else { 0 };
+      let weight = weight + if self.f.loops.contains_key(&n) { 1 } else { 0 };
       for self.f.cfg[n].each |&ins| {
         match ins {
           @assem::Phi(def, map) => {
