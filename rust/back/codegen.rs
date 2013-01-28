@@ -7,24 +7,27 @@ use back::{assem, arch};
 type Builder = fn(@assem::Instruction);
 
 pub struct CodeGenerator {
-  f: &ir::Function,
+  f: ir::Function,
   temps: temp::Allocator,
-  sizes: map::HashMap<temp::Temp, assem::Size>,
+  sizes: LinearMap<temp::Temp, assem::Size>,
   stms: ~[@assem::Instruction],
   priv tmap: map::HashMap<temp::Temp, temp::Temp>,
 }
 
-pub fn codegen(p: ir::Program) -> assem::Program {
-  assem::Program{ funs: p.funs.map(translate) }
+pub fn codegen(mut p: ir::Program) -> assem::Program {
+  /* TODO: is there a better way to consume a field? */
+  let mut funs = ~[];
+  p.funs <-> funs;
+  assem::Program{ funs: vec::map_consume(funs, translate) }
 }
 
-fn translate(f: &ir::Function) -> assem::Function {
+fn translate(f: ir::Function) -> assem::Function {
   info!("codegen of %s", f.name);
   let mut cg = CodeGenerator { f: f,
                                stms: ~[],
                                temps: temp::new(),
                                tmap: map::HashMap(),
-                               sizes: map::HashMap() };
+                               sizes: LinearMap::new() };
   cg.run()
 }
 
@@ -47,16 +50,11 @@ impl CodeGenerator {
     for self.f.types.each |k, v| {
       debug!("%? sized %?", k, v);
     }
-    /* TODO: don't duplicate this map */
+    /* TODO: is there a better way to consume a field? */
     let mut loops = LinearMap::new();
-    for self.f.loops.each |&k, &v| {
-      loops.insert(k, v);
-    }
-    /* TODO: don't duplicate this map */
     let mut sizes = LinearMap::new();
-    for self.sizes.each |k, v| {
-      sizes.insert(k, v);
-    }
+    self.f.loops <-> loops;
+    self.sizes <-> sizes;
     assem::Function { name: copy self.f.name,
                       cfg: cfg,
                       root: self.f.root,
@@ -214,7 +212,7 @@ impl CodeGenerator {
             /* Otherwise we need to create a temp to store this argument */
             _ if i < arch::arg_regs => {
               let size = match arg {
-                @assem::Temp(t) => self.sizes[t], _ => arg.size()
+                @assem::Temp(t) => *self.sizes.get(&t), _ => arg.size()
               };
               let tmp = self.tmpnew(size);
               self.stms.push(@assem::Move(tmp, arg));
