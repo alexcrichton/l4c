@@ -7,10 +7,10 @@ use back::{assem, arch};
 type Builder = fn(@assem::Instruction);
 
 pub struct CodeGenerator {
-  f: ir::Function,
-  temps: temp::Allocator,
-  sizes: LinearMap<temp::Temp, assem::Size>,
-  stms: ~[@assem::Instruction],
+  priv f: ir::Function,
+  priv temps: temp::Allocator,
+  priv sizes: LinearMap<temp::Temp, assem::Size>,
+  priv stms: ~[@assem::Instruction],
   priv tmap: map::HashMap<temp::Temp, temp::Temp>,
 }
 
