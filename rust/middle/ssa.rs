@@ -62,14 +62,11 @@ pub fn convert<T : Statement>(cfg : &mut CFG<T>,
                               results: &mut Analysis) -> LinearMap<Temp, Temp> {
   let mut live = liveness::Analysis();
 
-  /* TODO: why need '&mut *' */
-  do profile::dbg("pruning") { prune_unreachable(&mut *cfg, root); }
-  do profile::dbg("liveness") { liveness::calculate(&*cfg, root, &mut live) }
-  /* TODO: why need '&mut *' */
-  do profile::dbg("dominance") { analyze(&*cfg, root, &mut *results); }
-  /* TODO: why need '&*' */
+  do profile::dbg("pruning") { prune_unreachable(cfg, root); }
+  do profile::dbg("liveness") { liveness::calculate(cfg, root, &mut live) }
+  do profile::dbg("dominance") { analyze(cfg, root, results); }
   let frontiers = do profile::dbg("frontiers") {
-    dom_frontiers(&*cfg, root, &*results)
+    dom_frontiers(cfg, root, results)
   };
 
   let mut ret = LinearMap::new();
@@ -79,7 +76,7 @@ pub fn convert<T : Statement>(cfg : &mut CFG<T>,
                                     versions: LinearMap::new(),
                                     temps: temp::new(),
                                     frontiers: &frontiers,
-                                    analysis: &*results,
+                                    analysis: results,
                                     liveness: &live,
                                     remapping: &mut ret };
     results.temps = converter.convert();
@@ -303,13 +300,13 @@ fn prune_unreachable<T>(cfg: &mut CFG<T>, root: graph::NodeId) {
     if !visited.contains(&n) {
       visited.insert(n);
       for cfg.each_succ(n) |id| {
-        visit(cfg, &mut *visited, id); /* TODO: this must be wrong */
+        visit(cfg, visited, id);
       }
     }
   }
 
   let mut visited = LinearSet::new();
-  visit(&*cfg, &mut visited, root);
+  visit(cfg, &mut visited, root);
   /* Can't modify the graph while iterating */
   let mut to_remove = ~[];
   for cfg.each_node |id, _| {

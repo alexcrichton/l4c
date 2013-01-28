@@ -152,8 +152,7 @@ fn main() {
 
 fn pass<T : Graphable, U>(f : &fn(&mut T) -> U, p : &mut T,
                           m : &std::getopts::Matches, s : &str) -> U {
-  /* TODO: why need '&mut *' here? */
-  let ret = do prof(m, s) { f(&mut *p) };
+  let ret = do prof(m, s) { f(p) };
   if std::getopts::opt_present(m, s) {
     p.dot(io::stdout());
   }

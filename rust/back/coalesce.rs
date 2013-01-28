@@ -503,7 +503,7 @@ impl Coalescer {
     let &def = self.defs.get(&x);
     for self.f.cfg.each_pred(n) |pred| {
       if !visited.contains(&pred) && self.dominates(def, (pred, 0)) {
-        self.find_interferences(x, pred, set, &mut *visited);
+        self.find_interferences(x, pred, set, visited);
       }
     }
   }

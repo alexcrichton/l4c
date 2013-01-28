@@ -70,7 +70,7 @@ impl Allocator {
       foo.set(tmp, true);
     }
     do profile::dbg("coalescing") {
-      coalesce::optimize(&mut *self.f, &mut self.colors, &foo, &self.constraints);
+      coalesce::optimize(self.f, &mut self.colors, &foo, &self.constraints);
     }
 
     /* Finally remove all phi nodes and all temps */

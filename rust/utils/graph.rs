@@ -205,7 +205,7 @@ impl<N : Copy, E : Copy> Graph<N, E> {
         /* TODO(purity): this shouldn't be unsafe */
         unsafe {
           for succ.each |&id, _| {
-            next = self.traverse(&mut *o, id, next);
+            next = self.traverse(o, id, next);
           }
         }
         o.insert(n, next);
