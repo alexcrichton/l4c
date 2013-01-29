@@ -106,7 +106,7 @@ impl Coalescer {
   fn recolor_chunk(&mut self, Chunk(tmps, cost): Chunk,
                    pq: &mut PriorityQueue<Chunk>) {
     debug!("-------------------------------------------------------------");
-    /*info!("coloring chunk %s %?", set::to_str(tmps), cost);*/
+    info!("coloring chunk %s %?", tmps.pp(), cost);
     let mut best_cost = 0;
     let mut best_color = -1;
     let mut best_set = bitv::Bitv(self.f.ssa.temps, false);
@@ -137,12 +137,12 @@ impl Coalescer {
       }
     }
     if best_color == -1 {
-      /*info!("utterly impossible %s", set::to_str(best_set));*/
+      info!("utterly impossible %s", best_set.pp());
       return;
     }
 
     debug!("-------------------------------------------------------------");
-    /*info!("selected %? for %s", best_color, set::to_str(best_set));*/
+    info!("selected %? for %s", best_color, best_set.pp());
     docolor!(best_set, best_color);
     tmps.difference(&best_set);
     let mut nonzero = false;
@@ -165,7 +165,7 @@ impl Coalescer {
         }
       }
     }
-    /*debug!("best of %s in %s for %?", set::to_str(left), set::to_str(s), c);*/
+    debug!("best of %s in %s for %?", left.pp(), s.pp(), c);
 
     /* Iterate over the set of temps and partition as we go */
     loop {
@@ -204,7 +204,7 @@ impl Coalescer {
       debug!("no good subset");
       return None;
     }
-    /*debug!("found %s %?", set::to_str(maxset), maxweight);*/
+    debug!("found %s %?", maxset.pp(), maxweight);
     return Some((maxset, maxweight));
   }
 
