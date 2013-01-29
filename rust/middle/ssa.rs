@@ -44,10 +44,10 @@ struct Converter<T> {
 
   frontiers: &DomFrontiers,
 
-  /* TODO: dox */
+  /* Keeps track of new => old temp mappings to be returned from conversion */
   remapping: &mut LinearMap<Temp, Temp>,
 
-  /* TODO: dox */
+  /* This analysis is filled in prior to conversion and is used throughout */
   analysis: &Analysis,
   liveness: &liveness::Analysis,
 }
