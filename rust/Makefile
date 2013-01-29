@@ -8,6 +8,9 @@ opt: RUSTC = rustc --opt-level=3
 dbg: l4c
 dbg: RUSTC = rustc -g
 
+check:
+	$(RUSTC) l4c.rc --no-trans
+
 bin/l4c: parse/parser $(SOURCES)
 	@mkdir -p bin
 	$(RUSTC) l4c.rc -o $@
