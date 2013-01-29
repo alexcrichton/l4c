@@ -1,7 +1,9 @@
 use std::map;
+use core::hashmap::linear::LinearSet;
 use core::cmp::Eq;
 use core::to_bytes::IterBytes;
 use core::hash::Hash;
+use utils::PrettyPrint;
 
 pub fn singleton<T : Eq IterBytes Hash Const Copy>(t : T) -> map::Set<T> {
   let set = map::HashMap();
@@ -87,4 +89,20 @@ pub fn to_str<T : Eq IterBytes Hash Const Copy ToStr>(m : map::Set<T>) -> ~str {
     s += k.to_str();
   }
   return s + ~"}";
+}
+
+impl<T: Eq IterBytes Hash ToStr> LinearSet<T>: PrettyPrint {
+  pure fn pp() -> ~str {
+    let mut s = ~"{";
+    let mut first = true;
+    for self.each |k| {
+      if first {
+        first = false;
+      } else {
+        s += ~", ";
+      }
+      s += k.to_str();
+    }
+    return s + ~"}";
+  }
 }

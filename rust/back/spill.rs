@@ -27,17 +27,15 @@ use core::util::replace;
 
 use std::{map, sort};
 use middle::ssa;
-use middle::temp::Temp;
+use middle::temp::{Temp, TempSet};
 use back::assem::*;
 use utils::graph::*;
-use utils::set;
 use back::arch;
 
 const loop_out_weight : uint = 100000;
 
 /* If a temp isn't in a set, then its next_use distance is infinity */
 type NextUse = LinearMap<Temp, uint>;
-type TempSet = LinearSet<Temp>;
 
 struct Spiller {
   f : &mut Function,
@@ -521,12 +519,10 @@ impl Spiller {
       i += 1;
     }
 
+    debug!("node %? exit regs:%s spill:%s", n, regs.pp(), spill.pp());
     self.f.cfg.update_node(n, @block);
     self.regs_end.insert(n, regs);
     self.spill_exit.insert(n, spill);
-    /* TODO: set_to_str */
-    /*debug!("node %? exit regs:%s spill:%s", n,*/
-    /*       set::to_str(regs), set::to_str(spill));*/
 
     /* connect any lingering edges which weren't covered beforehand */
     for self.f.cfg.each_succ(n) |succ| {
@@ -585,8 +581,7 @@ impl Spiller {
         cand.insert(tmp);
       }
     }
-    /* TODO: set::to_str */
-    /*debug!("loop candidates: %s", set::to_str(cand));*/
+    debug!("loop candidates: %s", cand.pp());
     if cand.len() < arch::num_regs {
       /* live_through = (phis | live_in) - cand */
       let mut live_through = LinearSet::new();
@@ -601,8 +596,7 @@ impl Spiller {
       visited.insert(n);   /* don't loop back to the start */
       visited.insert(end); /* don't go outside the loop */
       let free = (arch::num_regs - self.max_pressure(body, &mut visited)) as int;
-      /* TODO: set::to_str */
-      /*debug!("live through loop: %s %?", set::to_str(live_through), free);*/
+      debug!("live through loop: %s %?", live_through.pp(), free);
       if free > 0 {
         let sorted = sort(&live_through, self.next_use.get(&n));
         debug!("%?", sorted);
@@ -651,9 +645,7 @@ impl Spiller {
         }
       }
     }
-    /* TODO: set::to_str */
-    /*debug!("node %? entry regs:%s spill:%s", n,*/
-    /*       set::to_str(entry), set::to_str(spill));*/
+    debug!("node %? entry regs:%s spill:%s", n, entry.pp(), spill.pp());
     return spill;
   }
 
