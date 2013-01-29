@@ -22,8 +22,7 @@ trait LivenessDelta {
 struct Liveness<T> {
   a : &mut Analysis,
   cfg : &CFG<T>,
-  /* TODO: figure out how to modify a set in a map */
-  phi_out : LinearMap<NodeId, ~mut TempSet>,
+  phi_out : LinearMap<NodeId, ~TempSet>,
 }
 
 pub fn Analysis() -> Analysis {
@@ -42,7 +41,7 @@ impl<T : Statement> Liveness<T> {
   fn run(&mut self, root: NodeId) {
     /* TODO: why can't this be in the calculate() function above */
     for self.cfg.each_node |id, _| {
-      self.phi_out.insert(id, ~mut LinearSet::new());
+      self.phi_out.insert(id, ~LinearSet::new());
     }
     for self.cfg.each_node |id, _| {
       self.lookup_phis(id);
@@ -63,7 +62,9 @@ impl<T : Statement> Liveness<T> {
       match stm.phi_map() {
         Some(map) => {
           for map.each |pred, tmp| {
-            self.phi_out.get(&pred).insert(tmp);
+            let mut set = self.phi_out.pop(&pred).unwrap();
+            set.insert(tmp);
+            self.phi_out.insert(pred, set);
           }
         }
         None => ()
@@ -74,8 +75,7 @@ impl<T : Statement> Liveness<T> {
   fn liveness(&mut self, n : NodeId) -> bool {
     let mut live = LinearSet::new();
     for self.phi_out.get(&n).each |&t| {
-      /* TODO(purity): this shouldn't be unsafe */
-      unsafe { live.insert(t); }
+      live.insert(t);
     }
     for self.cfg.each_succ(n) |succ| {
       match self.a.in.find(&succ) {
