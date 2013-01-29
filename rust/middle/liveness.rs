@@ -108,8 +108,7 @@ impl<T : Statement> Liveness<T> {
     match self.a.in.find(&n) {
       None    => (),
       Some(s) => {
-        /* TODO: why can't this be '==' */
-        if live.eq(s) && my_deltas.eq(self.a.deltas.get(&n)) {
+        if &live == s && &my_deltas == self.a.deltas.get(&n) {
           return false;
         }
       }
