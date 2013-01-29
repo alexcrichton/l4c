@@ -137,12 +137,11 @@ impl<T : Statement> Converter<T> {
   }
 
   /* Find where all phi functions need to go */
-  fn find_phis(&mut self, defs : Definitions) -> PhiLocations {
+  fn find_phis(&mut self, mut defs: Definitions) -> PhiLocations {
     /* Use the iterated dominance frontier algorithm, shown here:
           http://symbolaris.com/course/Compilers12/11-ssa.pdf
        to determine the optimal placement of phi functions */
 
-    let mut defs = defs;
     let mut phis = LinearMap::new();
 
     do defs.consume |tmp, defs| {
