@@ -191,11 +191,8 @@ impl Spiller {
    * node. This just needs to iterate and look at every phi node in a block.
    */
   fn build_renamings(&mut self, n: NodeId) {
-    /* TODO(purity): this shouldn't have to be unsafe */
-    unsafe {
-      for self.f.cfg.each_pred(n) |pred| {
-        self.renamings.insert((pred, n), map::HashMap());
-      }
+    for self.f.cfg.each_pred(n) |pred| {
+      self.renamings.insert((pred, n), map::HashMap());
     }
     let phis = map::HashMap();
     for self.f.cfg[n].each |&ins| {
@@ -304,14 +301,11 @@ impl Spiller {
          account for that here */
       for self.next_use[succ].each |tmp, next| {
         let cost = next + edge_cost;
-        /* TODO(purity): shouldn't be unsafe */
-        unsafe {
-          let mytmp = self.their_name(tmp, n, succ);
-          debug!("%? %?", mytmp, tmp);
-          match bottom.find(mytmp) {
-            Some(amt) => { if cost < amt { bottom.insert(mytmp, cost); } }
-            None      => { bottom.insert(mytmp, cost); }
-          }
+        let mytmp = self.their_name(tmp, n, succ);
+        debug!("%? %?", mytmp, tmp);
+        match bottom.find(mytmp) {
+          Some(amt) => { if cost < amt { bottom.insert(mytmp, cost); } }
+          None      => { bottom.insert(mytmp, cost); }
         }
       }
     }
@@ -385,11 +379,8 @@ impl Spiller {
     self.regs_entry.insert(n, regs_entry);
     self.spill_entry.insert(n, spill_entry);
     /* connect what we can, may not succeed */
-    /* TODO(purity): this shouldn't be unsafe */
-    unsafe {
-      for self.f.cfg.each_pred(n) |pred| {
-        self.connect_edge(pred, n);
-      }
+    for self.f.cfg.each_pred(n) |pred| {
+      self.connect_edge(pred, n);
     }
 
     /* Set up the maps which will become {regs,spill}_exit */
@@ -539,12 +530,9 @@ impl Spiller {
            set::to_str(regs), set::to_str(spill));
 
     /* connect any lingering edges which weren't covered beforehand */
-    /* TODO(purity): this shouldn't be unsafe */
-    unsafe {
-      for self.f.cfg.each_succ(n) |succ| {
-        if self.spill_entry.contains_key(&succ) {
-          self.connect_edge(n, succ);
-        }
+    for self.f.cfg.each_succ(n) |succ| {
+      if self.spill_entry.contains_key(&succ) {
+        self.connect_edge(n, succ);
       }
     }
   }
