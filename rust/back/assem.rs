@@ -3,7 +3,8 @@ use core::hashmap::linear::{LinearMap, LinearSet};
 
 use std::map;
 
-use middle::{label, ir, ssa, liveness};
+use middle::{label, ir, liveness};
+pub use middle::ssa;
 use middle::temp::Temp;
 use back::arch;
 use utils::{set, graph, Graphable, PrettyPrint};
@@ -93,11 +94,9 @@ impl Constraint {
   }
 }
 
-impl Instruction : ssa::Statement {
-  static fn phi(t: Temp, map: ssa::PhiMap) -> @Instruction { @Phi(t, map) }
-
-  fn each_def<T>(f : &fn(Temp) -> T) {
-    match self {
+impl Instruction {
+  fn each_def<T>(&self, f: &fn(Temp) -> T) {
+    match *self {
       BinaryOp(_, @Temp(t), _, _) |
       Move(@Temp(t), _) |
       Phi(t, _) |
@@ -113,8 +112,8 @@ impl Instruction : ssa::Statement {
     }
   }
 
-  fn each_use<T>(f : &fn(Temp) -> T) {
-    match self {
+  fn each_use<T>(&self, f: &fn(Temp) -> T) {
+    match *self {
       Condition(_, @Temp(t1), @Temp(t2)) |
       Die(_, @Temp(t1), @Temp(t2)) |
       Store(@MOp(@Temp(t1)), @Temp(t2)) |
@@ -154,13 +153,21 @@ impl Instruction : ssa::Statement {
       _ => ()
     }
   }
-
-  fn phi_map() -> Option<ssa::PhiMap> {
-    match self {
+  fn phi_map(&self) -> Option<ssa::PhiMap> {
+    match *self {
       Phi(_, m) => Some(m),
       _         => None
     }
   }
+}
+
+impl Instruction : ssa::Statement {
+  static fn phi(t: Temp, map: ssa::PhiMap) -> @Instruction { @Phi(t, map) }
+
+  /* TODO: is this an infinite loop? */
+  fn each_def<T>(&self, f: &fn(Temp) -> T) { self.each_def(f) }
+  fn each_use<T>(&self, f: &fn(Temp) -> T) { self.each_use(f) }
+  fn phi_map(&self) -> Option<ssa::PhiMap> { self.phi_map() }
 
   fn map_temps(@self, uses: &fn(Temp) -> Temp,
                defs: &fn(Temp) -> Temp) -> @Instruction {

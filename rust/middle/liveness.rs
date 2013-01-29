@@ -15,10 +15,6 @@ pub struct Analysis {
   deltas: DeltaMap,
 }
 
-trait LivenessDelta {
-  fn apply(&mut self, &Delta);
-}
-
 struct Liveness<T> {
   a : &mut Analysis,
   cfg : &CFG<T>,
@@ -59,6 +55,7 @@ impl<T : Statement> Liveness<T> {
 
   fn lookup_phis(&mut self, n : NodeId) {
     for self.cfg[n].each |&stm| {
+      debug!("phi map");
       match stm.phi_map() {
         Some(map) => {
           for map.each |pred, tmp| {
@@ -69,6 +66,7 @@ impl<T : Statement> Liveness<T> {
         }
         None => ()
       }
+      debug!("phi mapdone");
     }
   }
 
@@ -119,13 +117,11 @@ impl<T : Statement> Liveness<T> {
   }
 }
 
-impl TempSet : LivenessDelta {
-  fn apply(&mut self, delta: &Delta) {
-    for delta.each |&e| {
-      match e {
-        Right(tmp) => { self.remove(&tmp); }
-        Left(tmp)  => { self.insert(tmp); }
-      }
+pub fn apply(set: &mut TempSet, delta: &Delta) {
+  for delta.each |&e| {
+    match e {
+      Right(tmp) => { set.remove(&tmp); }
+      Left(tmp)  => { set.insert(tmp); }
     }
   }
 }

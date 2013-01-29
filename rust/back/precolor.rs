@@ -65,7 +65,7 @@ fn constrain_block(live : &temp::TempSet, delta : &[liveness::Delta],
   );
 
   for vec::each2(*ins, delta) |&ins, delta| {
-    live_out.apply(delta);
+    liveness::apply(&mut live_out, delta);
 
     match ins {
       @BinaryOp(op, dest, o1, o2) if op.constrained() => {
@@ -138,7 +138,7 @@ fn constrain_block(live : &temp::TempSet, delta : &[liveness::Delta],
       _ => new.push(ins)
     }
 
-    live_in.apply(delta);
+    liveness::apply(&mut live_in, delta);
     for synthetic.each |tmp| {
       live_in.remove(tmp);
     }

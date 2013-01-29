@@ -17,10 +17,10 @@ pub struct Analysis {
 
 pub trait Statement : PrettyPrint {
   static fn phi(Temp, PhiMap) -> @self;
-  fn each_def<T>(&fn(Temp) -> T);
-  fn each_use<T>(&fn(Temp) -> T);
+  fn each_def<T>(&self, &fn(Temp) -> T);
+  fn each_use<T>(&self, &fn(Temp) -> T);
   fn map_temps(@self, u: &fn(Temp) -> Temp, d: &fn(Temp) -> Temp) -> @self;
-  fn phi_map() -> Option<PhiMap>;
+  fn phi_map(&self) -> Option<PhiMap>;
 }
 
 type TempMap = LinearMap<Temp, Temp>;

@@ -126,8 +126,8 @@ impl Binop {
 impl Statement : ssa::Statement {
   static fn phi(t: Temp, map: ssa::PhiMap) -> @Statement { @Phi(t, map) }
 
-  fn each_def<T>(f : &fn(Temp) -> T) {
-    match self {
+  fn each_def<T>(&self, f: &fn(Temp) -> T) {
+    match *self {
       Load(tmp, _) | Move(tmp, _) | Call(tmp, _, _) | Phi(tmp, _) => {f(tmp);}
       Arguments(ref tmps) => {
         for tmps.each |&t| { f(t); }
@@ -136,8 +136,8 @@ impl Statement : ssa::Statement {
     }
   }
 
-  fn each_use<T>(f : &fn(Temp) -> T) {
-    match self {
+  fn each_use<T>(&self, f: &fn(Temp) -> T) {
+    match *self {
       Move(_, e) | Load(_, e) | Condition(e) | Return(e) | Die(e) =>
         e.each_temp(f),
       Store(e1, e2) => { e1.each_temp(f); e2.each_temp(f); }
@@ -175,8 +175,8 @@ impl Statement : ssa::Statement {
     }
   }
 
-  fn phi_map() -> Option<ssa::PhiMap> {
-    match self {
+  fn phi_map(&self) -> Option<ssa::PhiMap> {
+    match *self {
       Phi(_, m) => Some(m),
       _             => None
     }

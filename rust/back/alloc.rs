@@ -101,7 +101,7 @@ impl Allocator {
       debug!("%s", ins.pp());
       debug!("deltas %?", tmpdelta[i]);
       debug!("before %s %s", tmplive.pp(), registers.pp());
-      tmplive.apply(&tmpdelta[i]);
+      liveness::apply(&mut tmplive, &tmpdelta[i]);
 
       match ins {
         /* If we found a pcopy, then we're breaking liveness */
