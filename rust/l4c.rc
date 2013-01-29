@@ -1,6 +1,7 @@
 #[link(name = "l4c")];
 #[deny(implicit_copies)];
 #[deny(non_implicitly_copyable_typarams)];
+#[allow(deprecated_self)]; /* TODO: remove this */
 
 extern mod std;
 
