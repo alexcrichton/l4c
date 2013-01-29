@@ -103,14 +103,6 @@ fn sort(set: &TempSet, s: &NextUse) -> ~[Temp] {
   });
   return v;
 }
-/* TODO: resolve this */
-/*fn map_to_str(m : NextUse) -> ~str {*/
-/*  let mut s = ~"{";*/
-/*  for m.each |k, v| {*/
-/*    s += fmt!("(%? => %?) ", k, v);*/
-/*  }*/
-/*  return s + ~"}";*/
-/*}*/
 
 /**
  * Eliminate all critical edges in the graph by splitting them and placing a
@@ -342,8 +334,8 @@ impl Spiller {
       }
       None => ()
     }
-    /*debug!("next_use: %s", map_to_str(bottom));*/
-    /*debug!("deltas: %?", deltas);*/
+    debug!("next_use: %s", bottom.pp());
+    debug!("deltas: %?", deltas);
 
     /* If we did update something, then update it and return so */
     self.next_use.insert(n, bottom);
@@ -394,8 +386,7 @@ impl Spiller {
       ({
         if regs.len() >= $max {
           let sorted = sort(&regs, &next_use);
-          /* TODO: map_to_str */
-          /*debug!("%? %s", sorted, map_to_str(next_use));*/
+          debug!("%? %s", sorted, next_use.pp());
           for sorted.view($max, sorted.len()).each |&tmp| {
             if !spill.contains(&tmp) && next_use.contains_key(&tmp) {
               debug!("spilling %?", tmp);
@@ -437,14 +428,12 @@ impl Spiller {
       }
     };
 
-    /* TODO: map_to_str */
-    /*debug!("%s", map_to_str(next_use));*/
+    debug!("%s", next_use.pp());
     let mut i = 0;
     let mut last_pcopy = None;
     for vec::each2(*self.f.cfg[n], *self.deltas.get(&n)) |&ins, delta| {
-      /* TODO: map_to_str() */
-      /*debug!("%2? %30s  %s %s", i, ins.pp(), map_to_str(next_use),*/
-      /*       str::connect(delta.map(|a| fmt!("%?", a)), ~", "));*/
+      debug!("%2? %30s  %s %s", i, ins.pp(), next_use.pp(),
+             str::connect(delta.map(|a| fmt!("%?", a)), ~", "));
 
       match ins {
         /* If the destination of a phi is not currently in the registers, then
