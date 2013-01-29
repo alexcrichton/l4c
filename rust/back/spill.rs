@@ -377,7 +377,10 @@ impl Spiller {
     let mut block = ~[];
 
     /* next_use is always relative to the top of the block */
-    let mut next_use = self.next_use.pop(&n).unwrap();
+    let mut next_use = LinearMap::new();
+    for self.next_use.get(&n).each |&k, &v| {
+      next_use.insert(k, v);
+    }
 
     /* Limit the amount of variables in registers by spilling those which are
        used the farthest away */
