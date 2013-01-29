@@ -398,7 +398,7 @@ impl Coalescer {
         match ins {
           @assem::Phi(def, map) => {
             for map.each_value |tmp| {
-              /* TODO: when this ICE is fixed, uncomment */
+              /* TODO(#4650): when this ICE is fixed, uncomment */
               /*affine!(def, tmp, weight);*/
               add_affine!(tmp, def, weight);
               add_affine!(def, tmp, weight);
@@ -407,7 +407,7 @@ impl Coalescer {
           }
           @assem::PCopy(ref copies) => {
             for copies.each |a, b| {
-              /* TODO: when ICE is fixed, uncomment */
+              /* TODO(#4650): when ICE is fixed, uncomment */
               /*affine!(a, b, weight);*/
               add_affine!(a, b, weight);
               add_affine!(b, a, weight);
