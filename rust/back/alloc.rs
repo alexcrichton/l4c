@@ -1,5 +1,5 @@
 use core::hashmap::linear::{LinearMap, LinearSet};
-use core::util::unreachable;
+use core::util::{unreachable, ignore};
 
 use std::{map, bitv};
 
@@ -93,16 +93,14 @@ impl Allocator {
       tmplive.insert(t);
       registers.set(*self.colors.get(&t), true);
     }
-    /* TODO: set::to_str */
-    /*debug!("%s", set::to_str(tmplive))*/
+    debug!("%s", tmplive.pp())
 
     let mut pcopy = None;
     for self.f.cfg[n].eachi |i, &ins| {
       /* examine data for next instruction for last use information */
       debug!("%s", ins.pp());
       debug!("deltas %?", tmpdelta[i]);
-      /* TODO: set::to_str */
-      /*debug!("before %s %s", set::to_str(tmplive), set::to_str(registers));*/
+      debug!("before %s %s", tmplive.pp(), registers.pp());
       tmplive.apply(&tmpdelta[i]);
 
       match ins {
@@ -213,8 +211,8 @@ impl Allocator {
               assert $regs.get(*self.colors.get(&$t));
             } else {
               let color = min_vacant(&$regs);
-              /* TODO: set::to_str */
-              /*debug!("assigning %s %? %s", $t.pp(), color, set::to_str(regs));*/
+              ignore(color); /* TODO: why is this ignore needed */
+              debug!("assigning %s %? %s", $t.pp(), color, $regs.pp());
               assert color <= arch::num_regs;
               assert self.colors.insert($t, color);
               $regs.set(color, true);
@@ -290,8 +288,8 @@ impl Allocator {
           }
         }
       }
-      /* TODO: set::to_str */
-      /*debug!("after %s %s", set::to_str(tmplive), set::to_str(registers));*/
+      debug!("after %s %s", tmplive.pp(), registers.pp());
+      /* TODO: size of a bit vector */
       /*assert(registers.size() == tmplive.size());*/
     }
 
@@ -529,5 +527,24 @@ impl Allocator {
   fn alloc_tmp(tmp: Temp) -> @Operand {
     @Register(arch::num_reg(*self.colors.get(&tmp)),
               *self.f.sizes.get(&tmp))
+  }
+}
+
+impl bitv::Bitv: PrettyPrint {
+  pure fn pp() -> ~str {
+    let mut s = ~"{";
+    let mut first = true;
+    /* TODO: does this really have to be pure? */
+    unsafe {
+      for self.ones |i| {
+        if first {
+          first = false;
+        } else {
+          s += ~", ";
+        }
+        s += i.to_str();
+      }
+    }
+    return s + ~"}";
   }
 }
