@@ -23,6 +23,7 @@
  */
 
 use core::hashmap::linear::LinearMap;
+use core::util::replace;
 
 use std::{map, sort};
 use middle::temp::Temp;
@@ -64,7 +65,6 @@ struct Spiller {
 
   /* phi congruence class of every temp (used for stack slots) */
   congruence : LinearMap<Temp, Tag>,
-  congruence_sets : map::HashMap<Temp, TempSet>,
 }
 
 pub fn spill(p : &mut Program) {
@@ -82,8 +82,7 @@ pub fn spill(p : &mut Program) {
                          phis: map::HashMap(),
                          max_pressures: LinearMap::new(),
                          connected: LinearSet::new(),
-                         congruence: LinearMap::new(),
-                         congruence_sets: map::HashMap() };
+                         congruence: LinearMap::new() };
 
     s.run();
   }
@@ -191,7 +190,7 @@ impl Spiller {
    * Build up internal maps of the renaming of temps done by phi functions per
    * node. This just needs to iterate and look at every phi node in a block.
    */
-  fn build_renamings(n : NodeId) {
+  fn build_renamings(&mut self, n: NodeId) {
     /* TODO(purity): this shouldn't have to be unsafe */
     unsafe {
       for self.f.cfg.each_pred(n) |pred| {
@@ -199,54 +198,59 @@ impl Spiller {
       }
     }
     let phis = map::HashMap();
-    self.phis.insert(n, phis);
     for self.f.cfg[n].each |&ins| {
       match ins {
         @Phi(my_name, renamings) => {
-          let set = match self.congruence_sets.find(my_name) {
-            None => map::HashMap(), Some(s) => s
-          };
-          debug!("--- %?", my_name);
           for renamings.each |pred, their_name| {
             self.renamings[(pred, n)].insert(their_name, my_name);
-            debug!("%?", their_name);
-            match self.congruence_sets.find(their_name) {
-              None    => { set::add(set, their_name); }
-              Some(a) => { set::union(set, a); }
-            }
           }
-          set::add(set, my_name);
           phis.insert(my_name, renamings);
-          for set::each(set) |tmp| {
-            self.congruence_sets.insert(tmp, set);
-          }
         }
-        _ => {
-          for ins.each_def |def| {
-            match self.congruence_sets.find(def) {
-              None    => {
-                let map = map::HashMap();
-                set::add(map, def);
-                self.congruence_sets.insert(def, map);
-              }
-              Some(_) => {}
-            }
-          }
-        }
+        _ => ()
       }
     }
+    self.phis.insert(n, phis);
   }
 
   fn set_congruence(&mut self) {
     let mut nxt = 0;
-    for self.congruence_sets.each |tmp, set| {
-      if self.congruence.contains_key(&tmp) { loop }
-      debug!("%? %s", nxt, set::to_str(set));
-
-      for set::each(set) |tmp| {
-        assert self.congruence.insert(tmp, nxt);
+    let mut sets = LinearMap::new();
+    for self.f.cfg.each_node |_, ins| {
+      for ins.each |&i| {
+        match i {
+          @Phi(def, preds) => {
+            let (n, set) = match self.congruence.find(&def) {
+              Some(n) => (*n, sets.pop(n).unwrap()),
+              None    => (replace(&mut nxt, nxt + 1), ~LinearSet::new())
+            };
+            let mut set = set;
+            set.insert(def);
+            for preds.each |_, their_name| {
+              match self.congruence.find(&their_name) {
+                None    => (),
+                Some(n) => match sets.pop(n) {
+                  Some(s) => for s.each |&t| { set.insert(t); },
+                  None => ()
+                }
+              }
+            }
+            for set.each |&tmp| {
+              self.congruence.insert(tmp, n);
+            }
+            sets.insert(n, set);
+          }
+          _ => {
+            for i.each_def |tmp| {
+              if self.congruence.contains_key(&tmp) { loop }
+              self.congruence.insert(tmp, nxt);
+              let mut set = ~LinearSet::new();
+              set.insert(tmp);
+              sets.insert(nxt, set);
+              nxt += 1;
+            }
+          }
+        }
       }
-      nxt += 1;
     }
   }
 
