@@ -289,7 +289,7 @@ impl Instruction : PrettyPrint {
       PCopy(copies) => {
         let mut s = ~"{";
         for copies.each |k, v| {
-          s += fmt!("(%? => %?) ", k, v);
+          s += fmt!("(%? <= %?) ", k, v);
         }
         s + ~"}"
       }
