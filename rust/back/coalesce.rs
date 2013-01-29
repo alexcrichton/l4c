@@ -491,6 +491,7 @@ impl Coalescer {
     }
     set.set(t, false);
     set.ones(f);
+    debug!("%? interferencs: %s", t, set.pp());
     self.interference_cache.insert(t, set);
   }
 
@@ -512,7 +513,10 @@ impl Coalescer {
     }
     let &def = self.defs.get(&x);
     for self.f.cfg.each_pred(n) |pred| {
-      if !visited.contains(&pred) && self.dominates(def, (pred, 0)) {
+      /* Be sure to check the dominance relation relative to the end of the
+         predecessor's block as opposed to the start as x could have been
+         defined in the block */
+      if !visited.contains(&pred) && self.dominates(def, (pred, int::max_value)) {
         self.find_interferences(x, pred, set, visited);
       }
     }
