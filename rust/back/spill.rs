@@ -212,20 +212,37 @@ impl Spiller {
     self.phis.insert(n, phis);
   }
 
+  /**
+   * Builds up the phi congruence classes for use in determining where things
+   * should get spilled to.
+   *
+   * A phi congruence class means that for any phi node:
+   *    a = phi(b, c, d)
+   *
+   * then all of (a, b, c, d) are in the same congruence class. This is also
+   * true transitively, and this loop just builds up these classes.
+   */
   fn set_congruence(&mut self) {
     let mut nxt = 0;
+    /* mapping from class # to temps in that class (for merging) */
     let mut sets = LinearMap::new();
     for self.f.cfg.each_node |_, ins| {
       for ins.each |&i| {
         match i {
           @Phi(def, preds) => {
+            /* create a new congruence class if necessary, otherwise just use
+               the congruence class which 'def' is already in */
             let (n, set) = match self.congruence.find(&def) {
               Some(n) => (*n, sets.pop(n).unwrap()),
               None    => (replace(&mut nxt, nxt + 1), ~LinearSet::new())
             };
             let mut set = set;
             set.insert(def);
+
+            /* For each of our new congruence-mates, merge with their congruence
+               classes or just add them in */
             for preds.each |_, their_name| {
+              set.insert(their_name);
               match self.congruence.find(&their_name) {
                 None    => (),
                 Some(n) => match sets.pop(n) {
@@ -239,6 +256,9 @@ impl Spiller {
             }
             sets.insert(n, set);
           }
+
+          /* For all other instructions, just create a congruence class for the
+             definition so it can be merge in later with all the others */
           _ => {
             for i.each_def |tmp| {
               if self.congruence.contains_key(&tmp) { loop }
