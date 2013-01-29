@@ -475,9 +475,19 @@ impl Coalescer {
     }
     let set = bitv::Bitv(self.f.ssa.temps, false);
     let mut visited = LinearSet::new();
-    assert self.uses.contains_key(&t);
-    for self.uses.get(&t).each |&(block, _)| {
-      self.find_interferences(t, block, &set, &mut visited);
+    match self.uses.find(&t) {
+      Some(uses) => {
+        for uses.each |&(block, _)| {
+          self.find_interferences(t, block, &set, &mut visited);
+        }
+      }
+      /* Dead variables never used should only have their point of definition
+         processed because those variables live over the instruction of
+         definition should be considered as interfering */
+      None => {
+        let &(block, _) = self.defs.get(&t);
+        self.find_interferences(t, block, &set, &mut visited);
+      }
     }
     set.set(t, false);
     set.ones(f);
@@ -492,6 +502,8 @@ impl Coalescer {
       L.set(tmp, true);
     }
     for vec::rev_each(*self.f.cfg[n]) |&ins| {
+      /* if the definition is never used, we still interfere with it */
+      for ins.each_def |tmp| { L.set(tmp, true); }
       if L.get(x) {
         set.union(&L);
       }
