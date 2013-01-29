@@ -12,9 +12,9 @@ pub fn constrain(p : &mut Program) {
     do f.cfg.map_nodes |id, stms| {
       @constrain_block(live.in.get(&id), *live.deltas.get(&id), |t| {
         let tmp = temps.new();
-        /* TODO: these two loans shouldn't conflict? */
+        /* TODO: why can't this be one statement */
         let size;
-        { size = *f.sizes.get(&t); }
+        size = *f.sizes.get(&t);
         f.sizes.insert(tmp, size);
         tmp
       }, stms)
