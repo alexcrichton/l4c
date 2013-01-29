@@ -73,7 +73,7 @@ impl<N : Copy, E : Copy> Graph<N, E> {
 
   fn remove_edge(&mut self, n1: NodeId, n2: NodeId) -> E {
     assert self.pred.get(&n2).remove(&n1);
-    return self.succ.get(&n1).pop(&n1).get();
+    return self.succ.get(&n1).pop(&n2).unwrap();
   }
 
   fn add_edge(&mut self, n1: NodeId, n2: NodeId, e: E) {
