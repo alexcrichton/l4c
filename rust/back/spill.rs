@@ -26,6 +26,7 @@ use core::hashmap::linear::LinearMap;
 use core::util::replace;
 
 use std::{map, sort};
+use middle::ssa;
 use middle::temp::Temp;
 use back::assem::*;
 use utils::graph::*;
@@ -35,15 +36,15 @@ use back::arch;
 const loop_out_weight : uint = 100000;
 
 /* If a temp isn't in a set, then its next_use distance is infinity */
-type NextUse = map::HashMap<Temp, uint>;
+type NextUse = LinearMap<Temp, uint>;
 type TempSet = map::Set<Temp>;
 
 struct Spiller {
   f : &mut Function,
   /* next_use information for each node in the graph */
-  next_use : map::HashMap<NodeId, NextUse>,
+  next_use : LinearMap<NodeId, NextUse>,
   /* Delta information for next_use as a block is traversed top down */
-  deltas : map::HashMap<NodeId, @~[~[(Temp, Option<uint>)]]>,
+  deltas : LinearMap<NodeId, ~[~[(Temp, Option<uint>)]]>,
 
   /* Information required by the spilling algorithm */
   regs_entry : LinearMap<NodeId, TempSet>,
@@ -53,10 +54,10 @@ struct Spiller {
 
   /* m[(a, b)] => (t1 -> t2) means that any temp known by the name t1 in a
      becomes the temp named t2 in b */
-  renamings : map::HashMap<(NodeId, NodeId), map::HashMap<Temp, Temp>>,
+  renamings : LinearMap<(NodeId, NodeId), ~LinearMap<Temp, Temp>>,
   /* m[a] = t1 -> (n -> t2) means that in block a, the temp t1 is known under the
      name t2 in node n */
-  phis : map::HashMap<NodeId, map::HashMap<Temp, map::HashMap<NodeId, Temp>>>,
+  phis : LinearMap<NodeId, LinearMap<Temp, ssa::PhiMap>>,
 
   /* Maximum register pressure at each basic block */
   max_pressures : LinearMap<NodeId, uint>,
@@ -72,14 +73,14 @@ pub fn spill(p : &mut Program) {
     eliminate_critical(&mut f.cfg);
 
     let mut s = Spiller{ f: f,
-                         next_use: map::HashMap(),
-                         deltas: map::HashMap(),
+                         next_use: LinearMap::new(),
+                         deltas: LinearMap::new(),
                          regs_end: LinearMap::new(),
                          regs_entry: LinearMap::new(),
                          spill_entry: LinearMap::new(),
                          spill_exit: LinearMap::new(),
-                         renamings: map::HashMap(),
-                         phis: map::HashMap(),
+                         renamings: LinearMap::new(),
+                         phis: LinearMap::new(),
                          max_pressures: LinearMap::new(),
                          connected: LinearSet::new(),
                          congruence: LinearMap::new() };
@@ -88,43 +89,30 @@ pub fn spill(p : &mut Program) {
   }
 }
 
-fn sort(set : TempSet, s : NextUse) -> ~[Temp] {
+fn sort(set: TempSet, s: &NextUse) -> ~[Temp] {
   let mut v = ~[];
   for set::each(set) |tmp| {
     v.push(tmp);
   }
   sort::quick_sort(v, |&a : &Temp, &b : &Temp| {
-    match s.find(b) {
+    match s.find(&b) {
       None => true,       /* a is always < infty */
-      Some(b) => match s.find(a) {
+      Some(&b) => match s.find(&a) {
         None => false,    /* infty always > n */
-        Some(a) => a <= b
+        Some(&a) => a <= b
       }
     }
   });
   return v;
 }
-
-fn eq(m1 : NextUse, m2 : NextUse) -> bool {
-  if m1.size() != m2.size() {
-    return false;
-  }
-  for m1.each |k, v| {
-    match m2.find(k) {
-      Some(v2) => { if v2 != v { return false } }
-      None     => { return false; }
-    }
-  }
-  return true;
-}
-
-fn map_to_str(m : NextUse) -> ~str {
-  let mut s = ~"{";
-  for m.each |k, v| {
-    s += fmt!("(%? => %?) ", k, v);
-  }
-  return s + ~"}";
-}
+/* TODO: resolve this */
+/*fn map_to_str(m : NextUse) -> ~str {*/
+/*  let mut s = ~"{";*/
+/*  for m.each |k, v| {*/
+/*    s += fmt!("(%? => %?) ", k, v);*/
+/*  }*/
+/*  return s + ~"}";*/
+/*}*/
 
 /**
  * Eliminate all critical edges in the graph by splitting them and placing a
@@ -191,15 +179,17 @@ impl Spiller {
    * node. This just needs to iterate and look at every phi node in a block.
    */
   fn build_renamings(&mut self, n: NodeId) {
-    for self.f.cfg.each_pred(n) |pred| {
-      self.renamings.insert((pred, n), map::HashMap());
-    }
-    let phis = map::HashMap();
+    let mut phis = LinearMap::new();
     for self.f.cfg[n].each |&ins| {
       match ins {
         @Phi(my_name, renamings) => {
           for renamings.each |pred, their_name| {
-            self.renamings[(pred, n)].insert(their_name, my_name);
+            let mut map = match self.renamings.pop(&(pred, n)) {
+              Some(m) => m,
+              None    => ~LinearMap::new()
+            };
+            map.insert(their_name, my_name);
+            self.renamings.insert((pred, n), map);
           }
           phis.insert(my_name, renamings);
         }
@@ -282,12 +272,12 @@ impl Spiller {
    */
   fn build_next_use(&mut self, n: NodeId) -> bool {
     debug!("processing: %?", n);
-    let bottom = map::HashMap();
+    let mut bottom = LinearMap::new();
     let block = self.f.cfg[n];
 
     /* Union each of our predecessors into the 'bottom' map */
     for self.f.cfg.each_succ(n) |succ| {
-      if !self.next_use.contains_key(succ) { loop }
+      if !self.next_use.contains_key(&succ) { loop }
       let edge_cost = match self.f.cfg.edge(n, succ) {
         ir::LoopOut | ir::FLoopOut => loop_out_weight, _ => 0
       };
@@ -299,12 +289,12 @@ impl Spiller {
 
       /* Temps may change names along edges because of phi nodes, so be sure to
          account for that here */
-      for self.next_use[succ].each |tmp, next| {
+      for self.next_use.get(&succ).each |&tmp, &next| {
         let cost = next + edge_cost;
         let mytmp = self.their_name(tmp, n, succ);
         debug!("%? %?", mytmp, tmp);
-        match bottom.find(mytmp) {
-          Some(amt) => { if cost < amt { bottom.insert(mytmp, cost); } }
+        match bottom.pop(&mytmp) {
+          Some(amt) => { bottom.insert(mytmp, uint::min(cost, amt)); }
           None      => { bottom.insert(mytmp, cost); }
         }
       }
@@ -312,7 +302,7 @@ impl Spiller {
 
     /* Process all of our block's statements backwards */
     let mut deltas = ~[];
-    let mut max = bottom.size();
+    let mut max = bottom.len();
     for vec::rev_eachi(*block) |i, &ins| {
       let mut delta = ~[];
       match ins {
@@ -322,13 +312,14 @@ impl Spiller {
       /* If we define a temp, then the distance to the next use from the start
          is infinity because it's just not relevant */
       for ins.each_def |tmp| {
-        match bottom.find(tmp) {
+        /* liveness stops here (hence pop) except for phi nodes */
+        match bottom.pop(&tmp) {
           None    => (), /* well apparently this wasn't used anywhere */
           Some(d) => {
-            if !ins.is_phi() {
-              bottom.remove(tmp); /* liveness stops here */
-            }
             delta.push((tmp, Some(d)));
+            if ins.is_phi() {
+              bottom.insert(tmp, d);
+            }
           }
         }
       }
@@ -336,29 +327,29 @@ impl Spiller {
       /* Our delta contains what the last distance to the temp used to be (None
        * for infty), and then we update it to our current distance now */
       for ins.each_use |tmp| {
-        delta.push((tmp, bottom.find(tmp)));
+        delta.push((tmp, bottom.find(&tmp).map(|&x| *x)));
         bottom.insert(tmp, i);
       }
       deltas.push(delta);
-      max = uint::max(max, bottom.size());
+      max = uint::max(max, bottom.len());
     }
     vec::reverse(deltas);
 
     /* If we didn't update anything, return false */
-    match self.next_use.find(n) {
+    match self.next_use.find(&n) {
       Some(before) => {
-        if eq(bottom, before) && *self.deltas[n] == deltas {
+        if bottom.eq(before) && deltas.eq(self.deltas.get(&n)) {
           return false;
         }
       }
       None => ()
     }
-    debug!("next_use: %s", map_to_str(bottom));
-    debug!("deltas: %?", deltas);
+    /*debug!("next_use: %s", map_to_str(bottom));*/
+    /*debug!("deltas: %?", deltas);*/
 
     /* If we did update something, then update it and return so */
     self.next_use.insert(n, bottom);
-    self.deltas.insert(n, @deltas);
+    self.deltas.insert(n, deltas);
     self.max_pressures.insert(n, max);
     return true;
   }
@@ -392,7 +383,7 @@ impl Spiller {
     let mut block = ~[];
 
     /* next_use is always relative to the top of the block */
-    let next_use = self.next_use[n];
+    let mut next_use = self.next_use.pop(&n).unwrap();
 
     /* Limit the amount of variables in registers by spilling those which are
        used the farthest away */
@@ -400,10 +391,11 @@ impl Spiller {
       ($max:expr) =>
       ({
         if regs.size() >= $max {
-          let sorted = sort(regs, next_use);
-          debug!("%? %s", sorted, map_to_str(next_use));
+          let sorted = sort(regs, &next_use);
+          /* TODO: map_to_str */
+          /*debug!("%? %s", sorted, map_to_str(next_use));*/
           for sorted.view($max, sorted.len()).each |&tmp| {
-            if !set::contains(spill, tmp) && next_use.contains_key(tmp) {
+            if !set::contains(spill, tmp) && next_use.contains_key(&tmp) {
               debug!("spilling %?", tmp);
               block.push(@Spill(tmp, *self.congruence.get(&tmp)));
             } else if set::contains(spill, tmp) {
@@ -413,8 +405,8 @@ impl Spiller {
                  before it's next use relative to the pcopy */
               match last_pcopy {
                 None => (),
-                Some((map, next_use)) => {
-                  if map.contains_key(tmp) && next_use[tmp] > i {
+                Some((map, ref next_use)) => {
+                  if map.contains_key(tmp) && *next_use.get(&tmp) > i {
                     debug!("ignoring %? from previous pcopy", tmp);
                     map.remove(tmp);
                   }
@@ -437,18 +429,20 @@ impl Spiller {
          delta is the one which is the relevant value */
       for vec::rev_each(*delta) |&(tmp, amt)| {
         match amt {
-          None    => { assert next_use.remove(tmp); }
+          None    => { assert next_use.remove(&tmp); }
           Some(d) => { next_use.insert(tmp, d); }
         }
       }
     };
 
-    debug!("%s", map_to_str(next_use));
+    /* TODO: map_to_str */
+    /*debug!("%s", map_to_str(next_use));*/
     let mut i = 0;
     let mut last_pcopy = None;
-    for vec::each2(*self.f.cfg[n], *self.deltas[n]) |&ins, delta| {
-      debug!("%2? %30s  %s %s", i, ins.pp(), map_to_str(next_use),
-             str::connect(delta.map(|a| fmt!("%?", a)), ~", "));
+    for vec::each2(*self.f.cfg[n], *self.deltas.get(&n)) |&ins, delta| {
+      /* TODO: map_to_str() */
+      /*debug!("%2? %30s  %s %s", i, ins.pp(), map_to_str(next_use),*/
+      /*       str::connect(delta.map(|a| fmt!("%?", a)), ~", "));*/
 
       match ins {
         /* If the destination of a phi is not currently in the registers, then
@@ -469,8 +463,8 @@ impl Spiller {
               newcopies.insert(dst, src);
             }
           }
-          let dup = map::HashMap();
-          for next_use.each |k, v| {
+          let mut dup = LinearMap::new();
+          for next_use.each |&k, &v| {
             dup.insert(k, v);
           }
           block.push(@PCopy(newcopies));
@@ -481,8 +475,8 @@ impl Spiller {
         _ => {
           /* Determine what needs to be reloaded */
           for ins.each_use |tmp| {
-            debug!("%? %?", tmp, next_use[tmp]);
-            assert next_use[tmp] == i;
+            debug!("%? %?", tmp, *next_use.get(&tmp));
+            assert *next_use.get(&tmp) == i;
             if regs.contains_key(tmp) { loop }
             reloaded.push(tmp);
             set::add(regs, tmp);
@@ -563,10 +557,10 @@ impl Spiller {
       }
     }
     if arch::num_regs - take.size() > 0 {
-      let sorted = sort(cand, self.next_use[n]);
+      let sorted = sort(cand, self.next_use.get(&n));
       let max = arch::num_regs - take.size();
       for sorted.view(0, uint::min(max, sorted.len())).each |&tmp| {
-        if self.next_use[n].contains_key(tmp) {
+        if self.next_use.get(&n).contains_key(&tmp) {
           set::add(take, tmp);
         }
       }
@@ -580,7 +574,7 @@ impl Spiller {
     let cand = map::HashMap();
     /* If a variable is used in the loop, then its next_use as viewed from the
        body of the loop would be less than loop_out_weight */
-    for self.next_use[body].each |tmp, n| {
+    for self.next_use.get(&body).each |&tmp, &n| {
       if n < loop_out_weight {
         set::add(cand, tmp);
       }
@@ -589,27 +583,27 @@ impl Spiller {
     if cand.size() < arch::num_regs {
       /* live_through = (phis | live_in) - cand */
       let live_through = map::HashMap();
-      for self.next_use[n].each_key |tmp| {
+      for self.next_use.get(&n).each_key |&tmp| {
         if !set::contains(cand, tmp) { set::add(live_through, tmp); }
       }
-      for self.phis[n].each_key |tmp| {
+      for self.phis.get(&n).each_key |&tmp| {
         if !set::contains(cand, tmp) { set::add(live_through, tmp); }
       }
 
-      let visited = map::HashMap();
-      set::add(visited, n);     /* don't loop back to the start */
-      set::add(visited, end);   /* don't go outside the loop */
-      let free = (arch::num_regs - self.max_pressure(body, visited)) as int;
+      let mut visited = LinearSet::new();
+      visited.insert(n);   /* don't loop back to the start */
+      visited.insert(end); /* don't go outside the loop */
+      let free = (arch::num_regs - self.max_pressure(body, &mut visited)) as int;
       debug!("live through loop: %s %?", set::to_str(live_through), free);
       if free > 0 {
-        let sorted = sort(live_through, self.next_use[n]);
+        let sorted = sort(live_through, self.next_use.get(&n));
         debug!("%?", sorted);
         for sorted.view(0, uint::min(free as uint, sorted.len())).each |&tmp| {
           set::add(cand, tmp);
         }
       }
     } else if cand.size() > arch::num_regs {
-      let sorted = sort(cand, self.next_use[n]);
+      let sorted = sort(cand, self.next_use.get(&n));
       for sorted.view(arch::num_regs, sorted.len()).each|&tmp| {
         set::remove(cand, tmp);
       }
@@ -617,9 +611,10 @@ impl Spiller {
     return cand;
   }
 
-  fn max_pressure(cur : NodeId, visited : map::Set<NodeId>) -> uint {
-    if set::contains(visited, cur) { return 0; }
-    set::add(visited, cur);
+  fn max_pressure(cur : NodeId, visited : &mut graph::NodeSet) -> uint {
+    if visited.contains(&cur) { return 0; }
+
+    visited.insert(cur);
     let mut ret = *self.max_pressures.get(&cur);
     /* TODO(purity): this shouldn't be unsafe */
     unsafe {
@@ -668,7 +663,7 @@ impl Spiller {
       let mine = self.my_name(tmp, pred, succ);
       if !pred_spill_exit.contains_key(tmp) &&
          !succ_regs.contains_key(mine) &&
-         self.next_use[succ].contains_key(mine) {
+         self.next_use.get(&succ).contains_key(&mine) {
         append.push(@Spill(tmp, *self.congruence.get(&tmp)));
       }
     }
@@ -696,11 +691,14 @@ impl Spiller {
   }
 
   fn my_name(tmp : Temp, from : NodeId, to : NodeId) -> Temp {
-    self.renamings[(from, to)].find(tmp).get_or_default(tmp)
+    match self.renamings.find(&(from, to)) {
+      Some(m) => m.find(&tmp).map_default(tmp, |&x| *x),
+      None => tmp
+    }
   }
 
   fn their_name(tmp : Temp, from : NodeId, to : NodeId) -> Temp {
-    match self.phis[to].find(tmp) {
+    match self.phis.get(&to).find(&tmp) {
       Some(map) => map[from],
       None => tmp
     }
