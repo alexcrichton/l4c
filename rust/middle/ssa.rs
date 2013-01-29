@@ -146,16 +146,18 @@ impl<T : Statement> Converter<T> {
     let mut phis = LinearMap::new();
 
     do defs.consume |tmp, defs| {
-      /* TODO: completely skip if |defs| = 1 ? */
-      debug!("idf for tmp: %s", tmp.pp());
-      let locs = self.idf(defs);
-      for locs.each |n| {
-        if !self.liveness.in.get(n).contains(&tmp) { loop }
-        let mut set = match phis.pop(n) {
-          Some(s) => s, None => ~LinearSet::new()
-        };
-        set.insert(tmp);
-        phis.insert(*n, set);
+      /* with one definition we can't possibly need a phi node */
+      if defs.len() > 1 {
+        debug!("idf for tmp: %s", tmp.pp());
+        let locs = self.idf(defs);
+        for locs.each |n| {
+          if !self.liveness.in.get(n).contains(&tmp) { loop }
+          let mut set = match phis.pop(n) {
+            Some(s) => s, None => ~LinearSet::new()
+          };
+          set.insert(tmp);
+          phis.insert(*n, set);
+        }
       }
     }
     info!("found phis");
@@ -331,7 +333,7 @@ fn analyze<T>(cfg: &CFG<T>, root: graph::NodeId, analysis: &mut Analysis) {
 
   /* This code is an implementation of the algorithm found in this paper:
         http://www.cs.rice.edu/~keith/EMBED/dom.pdf
-     and obviously adapted for rust */
+     and is used to calculate the immeidate dominator of each node */
   let mut changed = true;
   while changed {
     changed = false;
@@ -367,6 +369,8 @@ fn analyze<T>(cfg: &CFG<T>, root: graph::NodeId, analysis: &mut Analysis) {
   }
   info!("idoms calculated");
 
+  /* Afterwards, calculate the set of nodes that each node immediately dominates
+   * up front so it doesn't have to be done again */
   for idoms.each |&a, _| {
     analysis.idominated.insert(a, ~LinearSet::new());
   }
