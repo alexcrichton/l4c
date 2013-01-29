@@ -644,6 +644,7 @@ impl Spiller {
   fn connect_edge(&mut self, pred: NodeId, succ: NodeId) {
     if self.connected.contains(&(pred, succ)) { return }
     if !self.spill_exit.contains_key(&pred) { return }
+    debug!("connecting %? %?", pred, succ);
     self.connected.insert((pred, succ));
     let succ_spill = self.spill_entry.get(&succ);
     let succ_regs = self.regs_entry.get(&succ);
