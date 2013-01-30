@@ -1,6 +1,7 @@
 use core::util::ignore;
 use core::hashmap::linear::{LinearMap, LinearSet};
 
+use std::bitv;
 use std::priority_queue::PriorityQueue;
 
 use middle::{ir, ssa, liveness};
@@ -475,12 +476,12 @@ impl Coalescer {
       Some(ref s) => { s.each(|&t| f(t)); return }
       None => ()
     }
-    let mut set = LinearSet::new();
     let mut visited = LinearSet::new();
+    let mut bitv = bitv::Bitv(self.f.ssa.temps, false);
     match self.uses.find(&t) {
       Some(uses) => {
         for uses.each |&(block, _)| {
-          self.find_interferences(t, block, &mut set, &mut visited);
+          self.find_interferences(t, block, &mut bitv, &mut visited);
         }
       }
       /* Dead variables never used should only have their point of definition
@@ -488,30 +489,35 @@ impl Coalescer {
          definition should be considered as interfering */
       None => {
         let &(block, _) = self.defs.get(&t);
-        self.find_interferences(t, block, &mut set, &mut visited);
+        self.find_interferences(t, block, &mut bitv, &mut visited);
       }
     }
-    set.remove(&t);
+    let mut set = LinearSet::new();
+    for bitv.ones |x| {
+      if x != t {
+        set.insert(x);
+      }
+    }
     debug!("%? interferencs: %s", t, set.pp());
     self.interference_cache.insert(t, set);
     self.interference_cache.get(&t).each(|&t| f(t));
   }
 
-  fn find_interferences(&mut self, x: Temp, n: NodeId, set: &mut TempSet,
+  fn find_interferences(&mut self, x: Temp, n: NodeId, set: &mut bitv::Bitv,
                         visited: &mut NodeSet) {
     visited.insert(n);
-    let mut L = LinearSet::new();
+    let mut L = bitv::Bitv(self.f.ssa.temps, false);
     for self.f.liveness.out.get(&n).each |&tmp| {
-      L.insert(tmp);
+      L.set(tmp, true);
     }
     for vec::rev_each(*self.f.cfg[n]) |&ins| {
       /* if the definition is never used, we still interfere with it */
-      for ins.each_def |tmp| { L.insert(tmp); }
-      if L.contains(&x) {
-        for L.each |&t| { set.insert(t); }
+      for ins.each_def |tmp| { L.set(tmp, true); }
+      if L.get(x) {
+        set.union(&L);
       }
-      for ins.each_def |tmp| { L.remove(&tmp); }
-      for ins.each_use |tmp| { L.insert(tmp); }
+      for ins.each_def |tmp| { L.set(tmp, false); }
+      for ins.each_use |tmp| { L.set(tmp, true); }
     }
     let &def = self.defs.get(&x);
     for self.f.cfg.each_pred(n) |pred| {
