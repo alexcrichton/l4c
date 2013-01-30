@@ -65,12 +65,9 @@ impl Allocator {
       debug!("%s => %?", tmp.to_str(), color);
     }
 
-    let foo = bitv::Bitv(self.f.ssa.temps, false);
-    for self.precolored.each |&tmp| {
-      foo.set(tmp, true);
-    }
     do profile::dbg("coalescing") {
-      coalesce::optimize(self.f, &mut self.colors, &foo, &self.constraints);
+      coalesce::optimize(self.f, &mut self.colors,
+                         &self.precolored, &self.constraints);
     }
 
     /* Finally remove all phi nodes and all temps */

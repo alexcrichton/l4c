@@ -1,17 +1,15 @@
 use core::util::ignore;
 use core::hashmap::linear::{LinearMap, LinearSet};
 
-use std::bitv;
 use std::priority_queue::PriorityQueue;
 
 use middle::{ir, ssa, liveness};
-use middle::temp::Temp;
+use middle::temp::{Temp, TempSet};
 use back::{assem, arch};
 use utils::profile;
 use utils::graph::{NodeSet, NodeId};
 
 type Location = (NodeId, int);
-type TempSet = bitv::Bitv;
 type Affinities = LinearMap<Temp, ~LinearMap<Temp, uint>>;
 struct Affinity(Temp, Temp, uint);
 struct Chunk(TempSet, uint);
@@ -36,9 +34,10 @@ pub fn optimize(f: &mut assem::Function,
                 colors: &mut LinearMap<Temp, uint>,
                 precolored: &TempSet,
                 constraints: &LinearMap<Temp, assem::Constraint>) {
+  assert f.ssa.temps > 0;
   let mut c = Coalescer { defs: LinearMap::new(),
                           uses: LinearMap::new(),
-                          fixed: bitv::Bitv(f.ssa.temps, false),
+                          fixed: LinearSet::new(),
                           f: f,
                           affinities: LinearMap::new(),
                           colors: colors,
@@ -105,19 +104,20 @@ impl Coalescer {
 
   fn recolor_chunk(&mut self, Chunk(tmps, cost): Chunk,
                    pq: &mut PriorityQueue<Chunk>) {
+    let mut tmps = tmps;
     debug!("-------------------------------------------------------------");
     info!("coloring chunk %s %?", tmps.pp(), cost);
     let mut best_cost = 0;
     let mut best_color = -1;
-    let mut best_set = bitv::Bitv(self.f.ssa.temps, false);
+    let mut best_set = LinearSet::new();
     macro_rules! docolor(
       ($set:expr, $color:expr) =>
       ({
         /* Unfix all temps */
-        for $set.ones |tmp| { self.fixed.set(tmp, false); }
-        for $set.ones |tmp| {
+        for $set.each |&tmp| { self.fixed.remove(&tmp); }
+        for $set.each |&tmp| {
           self.recolor(tmp, $color);
-          self.fixed.set(tmp, true);
+          self.fixed.insert(tmp);
         }
       })
     );
@@ -144,10 +144,10 @@ impl Coalescer {
     debug!("-------------------------------------------------------------");
     info!("selected %? for %s", best_color, best_set.pp());
     docolor!(best_set, best_color);
-    tmps.difference(&best_set);
-    let mut nonzero = false;
-    for tmps.ones |_| { nonzero = true; }
-    if nonzero {
+    for best_set.each |t| {
+      tmps.remove(t);
+    }
+    if tmps.len() > 0 {
       pq.push(Chunk(tmps, cost - best_cost));
     }
     debug!("-------------------------------------------------------------");
@@ -155,13 +155,13 @@ impl Coalescer {
 
   fn best_subset(&self, s: &TempSet, c: uint) -> Option<(TempSet, uint)> {
     let mut maxweight = 0;
-    let mut maxset = bitv::Bitv(self.f.ssa.temps, false);
-    let left = bitv::Bitv(self.f.ssa.temps, false);
-    for s.ones |tmp| {
-      /* TODO(purity): this shouldn't have to be unsafe */
+    let mut maxset = LinearSet::new();
+    let mut left = LinearSet::new();
+    for s.each |&tmp| {
+      /* TODO(purity): why is this unsafe */
       unsafe {
         if *self.colors.get(&tmp) == c {
-          left.set(tmp, true);
+          left.insert(tmp);
         }
       }
     }
@@ -169,22 +169,20 @@ impl Coalescer {
 
     /* Iterate over the set of temps and partition as we go */
     loop {
-      let mut any = false;
-      for left.ones |_| { any = true; break; }
-      if !any { break; }
-      let subset = bitv::Bitv(self.f.ssa.temps, false);
+      if left.len() == 0 { break; }
+      let mut subset = LinearSet::new();
       let mut qweight = 1;
       /* pop off the first temp and build its entire subset */
-      for left.ones |tmp| {
+      for left.each |&tmp| {
         let mut queue = ~[tmp];
         while queue.len() > 0 {
           debug!("%?", queue);
           let tmp = queue.pop();
-          subset.set(tmp, true);
+          subset.insert(tmp);
           assert self.affinities.contains_key(&tmp);
           for self.affinities.get(&tmp).each |&next, &weight| {
             debug!("%? affine with %? cost %?", tmp, next, weight);
-            if left.get(next) && !subset.get(next) {
+            if left.contains(&next) && !subset.contains(&next) {
               debug!("adding %?", next);
               queue.push(next);
               qweight += weight;
@@ -194,7 +192,9 @@ impl Coalescer {
         break;
       }
 
-      left.difference(&subset);
+      for subset.each |t| {
+        left.remove(t);
+      }
       if qweight > maxweight {
         maxweight = qweight;
         maxset = subset;
@@ -211,41 +211,41 @@ impl Coalescer {
   /* Algorithm 4.4 */
   fn recolor(&mut self, t: Temp, c: uint) {
     if !self.admissible(t, c) { debug!("not admissible %? %?", t, c); return }
-    if self.fixed.get(t) { debug!("fixed %?", t); return }
-    let changed = bitv::Bitv(self.f.ssa.temps, false);
-    self.set_color(t, c, &changed);
+    if self.fixed.contains(&t) { debug!("fixed %?", t); return }
+    let mut changed = LinearSet::new();
+    self.set_color(t, c, &mut changed);
     debug!("recoloring %? to %?", t, c);
 
     for self.interferences(t) |tmp| {
       debug!("recoloring %? interfering with %?", tmp, t);
-      if !self.avoid_color(tmp, c, &changed) {
-        for changed.ones |tmp| {
+      if !self.avoid_color(tmp, c, &mut changed) {
+        for changed.each |&tmp| {
           assert self.old_color.contains_key(&tmp);
           self.colors.insert(tmp, *self.old_color.get(&tmp));
         }
       }
     }
-    for changed.ones |tmp| {
-      self.fixed.set(tmp, false);
+    for changed.each |&tmp| {
+      self.fixed.insert(tmp);
     }
   }
 
-  fn set_color(&mut self, t: Temp, c: uint, changed: &TempSet) {
+  fn set_color(&mut self, t: Temp, c: uint, changed: &mut TempSet) {
     debug!("setting %? to %?", t, c);
-    self.fixed.set(t, true);
+    self.fixed.insert(t);
     self.old_color.insert(t, *self.colors.get(&t));
-    changed.set(t, true);
+    changed.insert(t);
     self.colors.insert(t, c);
   }
 
-  fn avoid_color(&mut self, t: Temp, c: uint, changed: &TempSet) -> bool {
+  fn avoid_color(&mut self, t: Temp, c: uint, changed: &mut TempSet) -> bool {
     if *self.colors.get(&t) != c { debug!("avoided %? %?", t, c); return true }
-    if self.fixed.get(t) { debug!("fixed %?", t); return false }
-    if self.precolored.get(t) && c != *self.colors.get(&t) {
+    if self.fixed.contains(&t) { debug!("fixed %?", t); return false }
+    if self.precolored.contains(&t) && c != *self.colors.get(&t) {
       debug!("%? fixed elsewhere (%? %?)", t, c, self.colors.get(&t));
       return false
     }
-    let color = if self.precolored.get(t) {
+    let color = if self.precolored.contains(&t) {
       c
     } else {
       self.min_color(t, c)
@@ -297,7 +297,7 @@ impl Coalescer {
   }
 
   fn admissible_impl(t: Temp, color: uint) -> bool {
-    if self.precolored.get(t) { return color == *self.colors.get(&t) }
+    if self.precolored.contains(&t) { return color == *self.colors.get(&t) }
     match self.constraints.find(&t) {
       None => true,
       Some(c) => c.allows(arch::num_reg(color))
@@ -310,13 +310,14 @@ impl Coalescer {
     let mut chunks = LinearMap::new();
     let mut temp_chunks = LinearMap::new();
     let mut next_chunk = 1;
-    chunks.insert(0, Chunk(bitv::Bitv(self.f.ssa.temps, false), 0));
+    chunks.insert(0, Chunk(LinearSet::new(), 0));
 
     while !pq.is_empty() {
       let Affinity(x, y, w) = pq.pop();
       let xc = temp_chunks.find(&x).map_default(0, |&x| *x);
       let yc = temp_chunks.find(&y).map_default(0, |&x| *x);
-      let merge, weight;
+      let mut merge;
+      let weight;
       {
         /* In a separate scope, see if we should skip merging the two chunks of
            these two variables */
@@ -329,9 +330,9 @@ impl Coalescer {
         let (ys, yw) = match *b { Chunk(ref ys, yw) => (ys, yw) };
         let mut interferes = false;
         /* v.chunk = x.chunk */
-        for xs.ones |v| {
+        for xs.each |&v| {
           /* w.chunk = y.chunk */
-          for ys.ones |w| {
+          for ys.each |&w| {
             interferes = interferes || self.interferes(v, w);
             if interferes { break }
           }
@@ -340,18 +341,18 @@ impl Coalescer {
         if interferes { loop }
 
         /* no element of the two chunks interfere, merge the chunks */
-        merge = bitv::Bitv(self.f.ssa.temps, false);
-        merge.set(x, true);
-        merge.set(y, true);
-        merge.union(xs);
-        merge.union(ys);
+        merge = LinearSet::new();
+        merge.insert(x);
+        merge.insert(y);
+        for xs.each |&x| { merge.insert(x); }
+        for ys.each |&y| { merge.insert(y); }
         weight = w + xw + yw;
       }
 
       /* In another scope where 'chunks' is mutable, insert/remove chunks */
       let num = next_chunk;
       next_chunk += 1;
-      for merge.ones |tmp| {
+      for merge.each |&tmp| {
         temp_chunks.insert(tmp, num);
       }
       chunks.insert(num, Chunk(merge, weight));
@@ -470,15 +471,15 @@ impl Coalescer {
   /* Algorithm 4.7 */
   fn interferences(&mut self, t: Temp, f: &fn(Temp) -> bool) {
     match self.interference_cache.find(&t) {
-      Some(ref s) => { s.ones(f); return }
+      Some(ref s) => { s.each(|&t| f(t)); return }
       None => ()
     }
-    let set = bitv::Bitv(self.f.ssa.temps, false);
+    let mut set = LinearSet::new();
     let mut visited = LinearSet::new();
     match self.uses.find(&t) {
       Some(uses) => {
         for uses.each |&(block, _)| {
-          self.find_interferences(t, block, &set, &mut visited);
+          self.find_interferences(t, block, &mut set, &mut visited);
         }
       }
       /* Dead variables never used should only have their point of definition
@@ -486,30 +487,30 @@ impl Coalescer {
          definition should be considered as interfering */
       None => {
         let &(block, _) = self.defs.get(&t);
-        self.find_interferences(t, block, &set, &mut visited);
+        self.find_interferences(t, block, &mut set, &mut visited);
       }
     }
-    set.set(t, false);
-    set.ones(f);
+    set.remove(&t);
     debug!("%? interferencs: %s", t, set.pp());
     self.interference_cache.insert(t, set);
+    self.interference_cache.get(&t).each(|&t| f(t));
   }
 
-  fn find_interferences(&mut self, x: Temp, n: NodeId, set: &TempSet,
+  fn find_interferences(&mut self, x: Temp, n: NodeId, set: &mut TempSet,
                         visited: &mut NodeSet) {
     visited.insert(n);
-    let L = bitv::Bitv(self.f.ssa.temps, false);
+    let mut L = LinearSet::new();
     for self.f.liveness.out.get(&n).each |&tmp| {
-      L.set(tmp, true);
+      L.insert(tmp);
     }
     for vec::rev_each(*self.f.cfg[n]) |&ins| {
       /* if the definition is never used, we still interfere with it */
-      for ins.each_def |tmp| { L.set(tmp, true); }
-      if L.get(x) {
-        set.union(&L);
+      for ins.each_def |tmp| { L.insert(tmp); }
+      if L.contains(&x) {
+        for L.each |&t| { set.insert(t); }
       }
-      for ins.each_def |tmp| { L.set(tmp, false); }
-      for ins.each_use |tmp| { L.set(tmp, true); }
+      for ins.each_def |tmp| { L.remove(&tmp); }
+      for ins.each_use |tmp| { L.insert(tmp); }
     }
     let &def = self.defs.get(&x);
     for self.f.cfg.each_pred(n) |pred| {
