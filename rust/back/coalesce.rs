@@ -154,8 +154,8 @@ impl Coalescer {
   }
 
   fn best_subset(&self, s: &TempSet, c: uint) -> Option<(TempSet, uint)> {
-    let mut maxweight = 0;
-    let mut maxset = LinearSet::new();
+    let mut maxweight = -1;
+    let mut maxset = None;
     let mut left = LinearSet::new();
     for s.each |&tmp| {
       /* TODO(purity): why is this unsafe */
@@ -197,13 +197,14 @@ impl Coalescer {
       }
       if qweight > maxweight {
         maxweight = qweight;
-        maxset = subset;
+        maxset = Some(subset);
       }
     }
     if maxweight == -1 {
       debug!("no good subset");
       return None;
     }
+    let maxset = maxset.unwrap();
     debug!("found %s %?", maxset.pp(), maxweight);
     return Some((maxset, maxweight));
   }
