@@ -95,6 +95,7 @@ impl Constraint {
 }
 
 impl Instruction {
+  #[inline(always)]
   fn each_def<T>(&self, f: &fn(Temp) -> T) {
     match *self {
       BinaryOp(_, @Temp(t), _, _) |
@@ -112,6 +113,7 @@ impl Instruction {
     }
   }
 
+  #[inline(always)]
   fn each_use<T>(&self, f: &fn(Temp) -> T) {
     match *self {
       Condition(_, @Temp(t1), @Temp(t2)) |
