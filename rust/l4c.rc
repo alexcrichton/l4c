@@ -172,7 +172,7 @@ fn get_json(m : &std::getopts::Matches) -> run::Program {
   use std::getopts::*;
   let header = option::or(opt_maybe_str(m, "l"), opt_maybe_str(m, "header"));
   let files = &match header {
-    None => m.free,
+    None => copy m.free,
     Some(file) => vec::append(~[file], m.free)
   };
   let prog = run::start_program("parse/parser", *files);

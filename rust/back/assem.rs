@@ -356,9 +356,9 @@ impl Operand: PrettyPrint {
 
 impl Operand: cmp::Eq {
   pure fn eq(&self, other: &Operand) -> bool {
-    match (*self, *other) {
-      (Register(a, _), Register(b, _)) => a == b,
-      (Temp(a), Temp(b)) => a == b,
+    match (self, other) {
+      (&Register(a, _), &Register(b, _)) => a == b,
+      (&Temp(a), &Temp(b)) => a == b,
       _ => false
     }
   }
