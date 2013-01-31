@@ -262,10 +262,8 @@ func run_test(testfile string) {
   cmd.Stdout = &stdout
   cmd.Stderr = &stderr
   cmd.Stdin = stdin
-  if run(cmd, TestTimeout) != nil {
-    fail("test timed out")
-    return
-  } else if stdin != nil {
+  err = run(cmd, TestTimeout)
+  if stdin != nil {
     stdin.Close()
   }
 
@@ -274,16 +272,20 @@ func run_test(testfile string) {
   if test.Kind == Exception {
     if cmd.ProcessState.Success() || !status.Signaled() {
       fail("executable ran successfully")
-    } else if int(status.Signal()) != test.Code && test.Code != -1 {
+    } else if test.Code == -1 ||
+              (err != nil && test.Code == int(syscall.SIGALRM)) ||
+              int(status.Signal()) == test.Code {
+      test.Passed = true
+    } else {
       fail(fmt.Sprintf("expected signal %d, got %d", test.Code,
                        status.Signal()))
-    } else {
-      test.Passed = true
     }
     return
   }
-  if !cmd.ProcessState.Success() {
-    if status.Signaled() {
+  if !cmd.ProcessState.Success() || err != nil {
+    if err != nil {
+      fail("test timed out")
+    } else if status.Signaled() {
       fail(fmt.Sprintf("should have succeeded, received signal %d",
                        status.Signal()));
     } else {
