@@ -47,9 +47,10 @@ func main() {
   build_compiler()
   log = make(chan string)
   failFast = make(chan int)
+  runTests(os.Args[1:])
+}
 
-  files := os.Args[1:]
-
+func runTests(files []string) {
   tests := make(chan string)
   var completions sync.WaitGroup
   var logger sync.WaitGroup
