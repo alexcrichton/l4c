@@ -253,8 +253,8 @@ func run(c *exec.Cmd, timeout time.Duration) error {
     done <- c.Wait()
   }()
   select {
-    case <-done:
-      return nil
+    case err := <-done:
+      return err
     case <-time.After(timeout):
       c.Process.Kill()
   }
