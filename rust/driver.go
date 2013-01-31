@@ -19,7 +19,7 @@ import "time"
 
 const MakeTimeout = time.Minute
 const CompilerTimeout = 5 * time.Second
-const TestTimeout = 1 * time.Second
+const TestTimeout = 5 * time.Second
 const GccTimeout = 2 * time.Second
 const Compiler = "./bin/l4c"
 const LogDirectory = "../log"
