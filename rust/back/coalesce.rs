@@ -94,8 +94,7 @@ struct Coalescer {
   /* Finally, find_interferences is an incredibly slow method, and these are
    * precomputations of the input to a more efficient format to be used in that
    * method (more information on the method itself */
-  live_out_bitv: LinearMap<NodeId, bitv::Bitv>,
-  use_def_map: LinearMap<NodeId, ~[(~[Temp], ~[Temp])]>,
+  liveness_map: LinearMap<NodeId, ~[bitv::Bitv]>,
 }
 
 pub fn optimize(f: &mut assem::Function,
@@ -103,14 +102,12 @@ pub fn optimize(f: &mut assem::Function,
                 precolored: &TempSet,
                 constraints: &LinearMap<Temp, assem::Constraint>) {
   assert f.ssa.temps > 0;
-  let live_out_bitv = liveness_bitv(&f.liveness.out, f.ssa.temps);
-  let use_def_map = use_def_map(&f.cfg);
+  let liveness_map = liveness_map(&f.cfg, &f.liveness, f.ssa.temps);
   let mut c = Coalescer { defs: LinearMap::new(),
                           uses: LinearMap::new(),
                           fixed: LinearSet::new(),
                           f: f,
-                          live_out_bitv: live_out_bitv,
-                          use_def_map: use_def_map,
+                          liveness_map: liveness_map,
                           affinities: LinearMap::new(),
                           colors: colors,
                           old_color: LinearMap::new(),
@@ -123,35 +120,23 @@ pub fn optimize(f: &mut assem::Function,
   c.run();
 }
 
-/* Converts TempSet liveness information to bitv::Bitv liveness information, for
- * information why, see find_interferences */
-fn liveness_bitv(m: &LinearMap<NodeId, TempSet>, max: uint)
-      -> LinearMap<NodeId, bitv::Bitv> {
+/* TODO: dox */
+fn liveness_map(cfg: &assem::CFG, live: &liveness::Analysis, max: uint)
+      -> LinearMap<NodeId, ~[bitv::Bitv]> {
   let mut ret = LinearMap::new();
-  for m.each |&id, set| {
-    let mut bitv = bitv::Bitv(max, false);
-    for set.each |&t| {
-      bitv.set(t, true);
-    }
-    ret.insert(id, bitv);
-  }
-  return ret;
-}
-
-/* Precalculates use/def of each instruction in the graph so there's less
- * matching later on (see find_interferences) */
-fn use_def_map(m: &assem::CFG) -> LinearMap<NodeId, ~[(~[Temp], ~[Temp])]> {
-  let mut ret = LinearMap::new();
-  for m.each_node |id, stms| {
+  for cfg.each_node |id, stms| {
     let mut vec = ~[];
-    for stms.each |&s| {
-      let mut defs = ~[];
-      let mut uses = ~[];
-      for s.each_def |d| { defs.push(d); }
-      for s.each_use |d| { uses.push(d); }
+    let mut set = LinearSet::new();
+    for live.in.get(&id).each |&t| { set.insert(t); }
 
-      vec.push((defs, uses));
+    for stms.eachi |i, &stm| {
+      liveness::apply(&mut set, &live.deltas.get(&id)[i]);
+      let mut bitv = bitv::Bitv(max, false);
+      for set.each |&t| { bitv.set(t, true); }
+      for stm.each_def |t| { bitv.set(t, true); }
+      vec.push(bitv);
     }
+
     ret.insert(id, vec);
   }
   return ret;
@@ -763,22 +748,20 @@ impl Coalescer {
    * Basially, if this code looks really weird and like it's not using any
    * convention used in the rest of the compiler, it's because it's balls slow,
    * but really useful.
+   *
+   * TODO: update dox
    */
   fn find_interferences(&mut self, x: Temp, n: NodeId, set: &mut bitv::Bitv,
                         visited: &mut NodeSet) {
     /* Algorithm 4.7 */
     if visited.contains(&n) { return }
     visited.insert(n);
-    let mut L = self.live_out_bitv.get(&n).clone();
-    for vec::rev_each(*self.use_def_map.get(&n)) |pair| {
-      let (uses, defs) = match *pair { (ref defs, ref uses) => (uses, defs) };
-      /* if the definition is never used, we still interfere with it */
-      for defs.each |&d| { L.set(d, true); }
-      if L.get(x) {
-        set.union(&L);
+
+    /* TODO: does this work? */
+    for self.liveness_map.get(&n).each |bitv| {
+      if bitv.get(x) {
+        set.union(bitv);
       }
-      for defs.each |&d| { L.set(d, false); }
-      for uses.each |&d| { L.set(d, true); }
     }
 
     let &def = self.defs.get(&x);
