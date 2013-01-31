@@ -1,7 +1,7 @@
 RUSTC = rustc
 SOURCES = $(shell find . -name '*.rs' -or -name '*.rc')
 
-all: l4c
+all: driver l4c
 l4c: bin/l4c
 opt: l4c
 opt: RUSTC = rustc --opt-level=3

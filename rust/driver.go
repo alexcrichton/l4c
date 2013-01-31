@@ -21,7 +21,7 @@ const GccTimeout = 2 * time.Second
 const Compiler = "./bin/l4c"
 const LogDirectory = "../log"
 const Runtime = "l4rt.c"
-var TestPattern = regexp.MustCompile(`//test(?: (safe))? (\w+)(?: (-?\w+))?`)
+var TestPattern = regexp.MustCompile(`//test (\w+)(?: (-?\w+))?`)
 
 var Parallel = 8
 var Verbose = true
@@ -277,10 +277,8 @@ func (d *Directive) parse(file string) bool {
   if matches == nil {
     failTest(file, "no test directive found or invalid test directive")
     return false
-  } else if matches[1] == "safe" {
-    d.Safe = true
   }
-  matches = matches[2:]
+  matches = matches[1:]
   switch matches[0] {
     case "error":
       d.Kind = Error
@@ -303,6 +301,13 @@ func (d *Directive) parse(file string) bool {
     }
     d.Code = int(c)
   }
+
+  line, err = in.ReadString('\n')
+  check(err)
+  if line == "//safe" {
+    d.Safe = true
+  }
+
   return true
 }
 
