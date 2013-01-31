@@ -41,10 +41,12 @@ const (
 )
 
 var log chan string
+var failFast chan int
 
 func main() {
   build_compiler()
   log = make(chan string)
+  failFast = make(chan int)
 
   files := os.Args[1:]
 
@@ -72,7 +74,12 @@ func main() {
 
   for _, f := range files {
     completions.Add(1)
-    tests <- f
+    select {
+      case tests <- f:
+      case <- failFast:
+        completions.Done()
+        break
+    }
   }
 
   /* clean up everything now */
@@ -259,6 +266,7 @@ func fail(err string) {
 }
 
 func failTest(test string, message string) {
+  failFast <- 1
   log <- "fail: " + test + " - " + message
 }
 
@@ -282,7 +290,6 @@ func (d *Directive) parse(file string) bool {
   switch matches[0] {
     case "error":
       d.Kind = Error
-      return true /* error never has return code */
     case "exception":
       d.Kind = Exception
     case "return":
@@ -304,7 +311,7 @@ func (d *Directive) parse(file string) bool {
 
   line, err = in.ReadString('\n')
   check(err)
-  if line == "//safe" {
+  if line == "//safe\n" {
     d.Safe = true
   }
 
