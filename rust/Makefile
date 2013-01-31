@@ -20,6 +20,7 @@ clean: parseclean
 	rm -rf bin
 
 bin/driver: driver.go
+	@mkdir -p bin
 	go build -o $@ $<
 
 test:
