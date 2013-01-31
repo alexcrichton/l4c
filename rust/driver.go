@@ -13,6 +13,8 @@ import "bufio"
 import "regexp"
 import "strconv"
 import "io/ioutil"
+import "github.com/cheggaaa/pb"
+import "github.com/wsxiaoys/terminal"
 
 const MakeTimeout = time.Minute
 const CompilerTimeout = 5 * time.Second
@@ -23,8 +25,14 @@ const LogDirectory = "../log"
 const Runtime = "l4rt.c"
 var TestPattern = regexp.MustCompile(`//test (\w+)(?: (-?\w+))?`)
 
+const RESET = "\x1b[0m"
+const BOLD = "\x1b[;1m"
+const RED = "\x1b[31m"
+const GREEN = "\x1b[32m"
+
 var Parallel = 1
 var Verbose = true
+var Progress = true
 var FailFast = false
 
 type TestKind int
@@ -54,42 +62,45 @@ func main() {
 func runTests(files []string) {
   tests := make(chan string)
   var completions sync.WaitGroup
-  var logger sync.WaitGroup
-  logger.Add(1)
 
   for i := 0; i < Parallel; i++ {
     go func() {
       for test := range tests {
         run_test(test)
-        completions.Done()
       }
     }()
   }
 
   go func() {
-    for s := range log {
-      // TODO: progress bar
-      println(s)
+    for _, f := range files {
+      completions.Add(1)
+      select {
+        case tests <- f:
+        case <-failFast:
+          completions.Done()
+          goto done
+      }
     }
-    logger.Done()
+    /* clean up everything now */
+    done:
+    completions.Wait()
+    close(tests)
+    close(log)
   }()
 
-  for _, f := range files {
-    completions.Add(1)
-    select {
-      case tests <- f:
-      case <-failFast:
-        completions.Done()
-        goto done
+  bar := pb.StartNew(len(files))
+  pb.Empty = " "
+  for s := range log {
+    if Progress {
+      print("\r")
+      terminal.Stdout.ClearLine()
     }
+    println(s)
+    if Progress {
+      bar.Increment()
+    }
+    completions.Done()
   }
-
-  /* clean up everything now */
-done:
-  completions.Wait()
-  close(tests)
-  close(log)
-  logger.Wait()
 }
 
 func build_compiler() {
@@ -124,14 +135,14 @@ func run_test(test string) {
         msg += "\n  stdout:\n" + tab(stdout.String())
       }
       if stderr.String() != "" {
-        msg += "\n  stderr:\n" + tab(stderr.String())
+        msg += "\n  stderr:\n" + RED + tab(stderr.String()) + RESET
       }
     }
     failTest(test, msg)
   }
 
   pass := func() {
-    log <- "pass: " + test
+    log <- BOLD + GREEN + "pass: " + RESET + test
   }
 
   /* Run the compiler on the specified test */
@@ -255,8 +266,8 @@ func run(c *exec.Cmd, timeout time.Duration) error {
     done <- c.Wait()
   }()
   select {
-    case err := <-done:
-      return err
+    case <-done:
+      return nil
     case <-time.After(timeout):
       c.Process.Kill()
   }
@@ -276,7 +287,7 @@ func failTest(test string, message string) {
       default:
     }
   }
-  log <- "fail: " + test + " - " + message
+  log <- BOLD + RED + "fail: " + RESET + test + " - " + message
 }
 
 func withext(file, ext string) string {
