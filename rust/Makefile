@@ -19,6 +19,9 @@ bin/l4c: parse/parser $(SOURCES)
 clean: parseclean
 	rm -rf bin
 
+driver: driver.go
+	go build $<
+
 test:
 	$(RUSTC) --test l4c.rc -o bin/l4c-test
 	./bin/l4c-test
