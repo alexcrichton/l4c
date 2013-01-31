@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 /* Doesn't print a train, and then exits. */
 
 /*========================================
