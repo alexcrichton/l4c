@@ -1,4 +1,3 @@
-use core::util::ignore;
 use core::hashmap::linear::{LinearMap, LinearSet};
 
 use std::bitv;

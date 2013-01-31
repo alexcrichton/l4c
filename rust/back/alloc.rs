@@ -1,5 +1,5 @@
 use core::hashmap::linear::{LinearMap, LinearSet};
-use core::util::{unreachable, ignore};
+use core::util::unreachable;
 
 use std::{map, bitv};
 
@@ -208,8 +208,6 @@ impl Allocator {
               assert $regs.get(*self.colors.get(&$t));
             } else {
               let color = min_vacant(&$regs);
-              ignore(color); /* TODO: why is this ignore needed */
-              /* TODO: why can't this debug be here */
               /*debug!("assigning %s %? %s", $t.pp(), color, $regs.pp());*/
               assert color <= arch::num_regs;
               assert self.colors.insert($t, color);
