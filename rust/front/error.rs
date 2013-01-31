@@ -12,7 +12,7 @@ pub fn new() -> List {
 }
 
 impl List {
-  fn add(&mut self, s : ~str) {
+  fn add(&mut self, s: ~str) {
     self.errs.push((self.coords, s))
   }
 
@@ -35,13 +35,13 @@ impl List {
     }
   }
 
-  fn die(&mut self, s : ~str) -> ! {
+  fn die(&mut self, s: ~str) -> ! {
     self.add(s);
     self.check();
     unreachable();
   }
 
-  fn with<T, U>(&mut self, m : &~mark::Mark<T>, f : fn(t : @T) -> U) -> U {
+  fn with<T, U>(&mut self, m: &~mark::Mark<T>, f: fn(t: @T) -> U) -> U {
     do with(&mut self.coords, Some(m.pos)) {
       f(m.data)
     }

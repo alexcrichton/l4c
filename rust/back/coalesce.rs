@@ -16,15 +16,15 @@ struct Affinity(Temp, Temp, uint);
 struct Chunk(TempSet, uint);
 
 struct Coalescer {
-  defs : LinearMap<Temp, Location>,
-  uses : LinearMap<Temp, ~LinearSet<Location>>,
-  f : &mut assem::Function,
-  fixed : TempSet,
-  affinities : Affinities,
-  colors : &mut LinearMap<Temp, uint>,
-  old_color : LinearMap<Temp, uint>,
-  precolored : &TempSet,
-  constraints : &LinearMap<Temp, assem::Constraint>,
+  defs: LinearMap<Temp, Location>,
+  uses: LinearMap<Temp, ~LinearSet<Location>>,
+  f: &mut assem::Function,
+  fixed: TempSet,
+  affinities: Affinities,
+  colors: &mut LinearMap<Temp, uint>,
+  old_color: LinearMap<Temp, uint>,
+  precolored: &TempSet,
+  constraints: &LinearMap<Temp, assem::Constraint>,
   interference_cache: LinearMap<Temp, TempSet>,
   interferences_cache: LinearMap<(Temp, Temp), bool>,
   admissible_cache: LinearMap<(Temp, uint), bool>,
@@ -63,7 +63,7 @@ impl Coalescer {
     self.coalesce();
   }
 
-  fn build_use_def(&mut self, n : NodeId, ins: @~[@assem::Instruction]) {
+  fn build_use_def(&mut self, n: NodeId, ins: @~[@assem::Instruction]) {
     macro_rules! add_use(
       ($tmp:expr, $loc:expr) => ({
         let mut set = match self.uses.pop(&$tmp) {
@@ -557,7 +557,7 @@ impl Coalescer {
   }
 }
 
-impl Affinity : cmp::Ord {
+impl Affinity: cmp::Ord {
   pure fn lt(&self, other: &Affinity) -> bool {
     match (self, other) { (&Affinity(_, _, a), &Affinity(_, _, b)) => a < b }
   }
@@ -566,7 +566,7 @@ impl Affinity : cmp::Ord {
   pure fn ge(&self, other: &Affinity) -> bool { !self.lt(other) }
 }
 
-impl Chunk : cmp::Ord {
+impl Chunk: cmp::Ord {
   pure fn lt(&self, other: &Chunk) -> bool {
     match (self, other) { (&Chunk(_, a), &Chunk(_, b)) => a < b }
   }

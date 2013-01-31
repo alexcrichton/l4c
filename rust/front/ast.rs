@@ -73,15 +73,15 @@ pub enum Unop {
 }
 
 pub struct Ref<T> {
-  mut val : Option<T>
+  mut val: Option<T>
 }
 
 pub fn Ref<T>() -> Ref<T> {
-  Ref{ val : None }
+  Ref{ val: None }
 }
 
-impl<T : Copy> Ref<T> {
-  pub fn set(&self, t : T) {
+impl<T: Copy> Ref<T> {
+  pub fn set(&self, t: T) {
     self.val = Some(t);
   }
 
@@ -90,7 +90,7 @@ impl<T : Copy> Ref<T> {
   }
 }
 
-pub fn new(g : ~[@GDecl]) -> Program {
+pub fn new(g: ~[@GDecl]) -> Program {
   Program{decls: g}
 }
 
@@ -107,7 +107,7 @@ impl Program {
   }
 }
 
-impl Program : PrettyPrint {
+impl Program: PrettyPrint {
   pure fn pp(&self) -> ~str {
     str::connect(self.decls.map(|d| d.pp()), "\n")
   }
@@ -123,7 +123,7 @@ impl GDecl {
 }
 
 impl Elaborator {
-  fn elaborate(&mut self, g : @GDecl) -> @GDecl {
+  fn elaborate(&mut self, g: @GDecl) -> @GDecl {
     /* TODO(#4653): in this macro, it should be $id instead of 'id' */
     macro_rules! check_set (
       ($set:expr, $id:expr, $name:expr) => {
@@ -172,7 +172,7 @@ impl Elaborator {
     }
   }
 
-  fn elaborate_stm(&mut self, s : @Statement) -> @Statement {
+  fn elaborate_stm(&mut self, s: @Statement) -> @Statement {
     match s {
       @Markeds(ref m) => {
         m.data = self.err.with(m, |x| self.elaborate_stm(x));
@@ -219,7 +219,7 @@ impl Elaborator {
     }
   }
 
-  fn elaborate_exp(&mut self, e : @Expression) -> @Expression {
+  fn elaborate_exp(&mut self, e: @Expression) -> @Expression {
     match e {
       @Marked(ref m) => {
         m.data = self.err.with(m, |x| self.elaborate_exp(x));
@@ -244,13 +244,13 @@ impl Elaborator {
     }
   }
 
-  fn check_id(&mut self, s : Ident) {
+  fn check_id(&mut self, s: Ident) {
     if self.types.contains_key(&s) {
       self.err.add(fmt!("'%s' already a type", s.val));
     }
   }
 
-  fn resolve(&mut self, t : @Type) -> @Type {
+  fn resolve(&mut self, t: @Type) -> @Type {
     match t {
       @Int | @Bool | @Nullp | @Struct(_) => t,
       @Pointer(t) => @Pointer(self.resolve(t)),
@@ -268,7 +268,7 @@ impl Elaborator {
     }
   }
 
-  fn resolve_pairs(&mut self, pairs : &~[(Ident, @Type)]) -> ~[(Ident, @Type)] {
+  fn resolve_pairs(&mut self, pairs: &~[(Ident, @Type)]) -> ~[(Ident, @Type)] {
     pairs.map(|&(id, typ)| (id, self.resolve(typ)))
   }
 }
@@ -295,8 +295,8 @@ impl Type {
   }
 }
 
-impl Type : cmp::Eq {
-  pure fn eq(&self, other : &Type) -> bool {
+impl Type: cmp::Eq {
+  pure fn eq(&self, other: &Type) -> bool {
     match (self, other) {
       (&Bool, &Bool) | (&Int, &Int) | (&Nullp, &Nullp) => true,
       (&Nullp, &Pointer(_)) | (&Pointer(_), &Nullp) => true,
@@ -309,5 +309,5 @@ impl Type : cmp::Eq {
     }
   }
 
-  pure fn ne(&self, other : &Type) -> bool { !self.eq(other) }
+  pure fn ne(&self, other: &Type) -> bool { !self.eq(other) }
 }

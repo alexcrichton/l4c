@@ -14,19 +14,19 @@ type RegisterSet = bitv::Bitv;
 pub type ColorMap = LinearMap<Temp, uint>;
 
 struct Allocator {
-  f : &mut Function,
-  colors : ColorMap,
-  slots : LinearMap<Tag, uint>,
-  mut max_slot : uint,
-  mut max_call_stack : uint,
-  callee_saved : ~[uint],
+  f: &mut Function,
+  colors: ColorMap,
+  slots: LinearMap<Tag, uint>,
+  mut max_slot: uint,
+  mut max_call_stack: uint,
+  callee_saved: ~[uint],
 
   /* data needed for coalescing */
-  precolored : LinearSet<Temp>,
-  constraints : LinearMap<Temp, Constraint>,
+  precolored: LinearSet<Temp>,
+  constraints: LinearMap<Temp, Constraint>,
 }
 
-pub fn color(p : &mut Program) {
+pub fn color(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
     liveness::calculate(&f.cfg, f.root, &mut f.liveness);
 
@@ -46,7 +46,7 @@ fn RegisterSet() -> RegisterSet {
   bitv::Bitv(arch::num_regs + 1, false)
 }
 
-fn min_vacant(colors : &RegisterSet) -> uint {
+fn min_vacant(colors: &RegisterSet) -> uint {
   let mut i = 1;
   while colors.get(i) {
     i += 1;
@@ -81,7 +81,7 @@ impl Allocator {
    * A top-down traversal of the dominator tree is done, coloring all
    * definitions as they are seen with the first available color.
    */
-  fn color(&mut self, n : graph::NodeId) {
+  fn color(&mut self, n: graph::NodeId) {
     debug!("coloring %?", n);
     let mut tmplive = LinearSet::new();
     let tmpdelta = self.f.liveness.deltas.get(&n);
@@ -324,7 +324,7 @@ impl Allocator {
     }
   }
 
-  fn resolve_perm(&self, result : &[uint], incoming : &[uint]) -> ~[@Instruction] {
+  fn resolve_perm(&self, result: &[uint], incoming: &[uint]) -> ~[@Instruction] {
     use sim = std::smallintmap;
     /* TODO: remove this once this works */
     let regs = sim::mk();
@@ -332,7 +332,7 @@ impl Allocator {
       regs.insert(i, i);
     }
 
-    let mkreg = |i : uint| @Register(arch::num_reg(i), ir::Pointer);
+    let mkreg = |i: uint| @Register(arch::num_reg(i), ir::Pointer);
     let mut ins = ~[];
 
     /* build up some small conversion maps */
@@ -419,7 +419,7 @@ impl Allocator {
     }
   }
 
-  fn alloc_ins(&self, i : @Instruction, push : &pure fn(@Instruction)) {
+  fn alloc_ins(&self, i: @Instruction, push: &pure fn(@Instruction)) {
     match i {
       @Spill(t, tag) => push(@Store(self.stack_pos(tag), self.alloc_tmp(t))),
       @Reload(t, tag) => push(@Load(self.alloc_tmp(t), self.stack_pos(tag))),
@@ -503,11 +503,11 @@ impl Allocator {
     }
   }
 
-  fn stack_pos(&self, tag : Tag) -> @Address {
+  fn stack_pos(&self, tag: Tag) -> @Address {
     @Stack(*self.slots.get(&tag) * arch::ptrsize + self.max_call_stack)
   }
 
-  fn stack_size(&self, with_saves : bool) -> uint {
+  fn stack_size(&self, with_saves: bool) -> uint {
     let slots = self.max_slot * 8;
     let calls = self.max_call_stack;
     let saves = self.callee_saved.len() * arch::ptrsize;
@@ -515,7 +515,7 @@ impl Allocator {
     return arch::align_stack(slots + calls + saves) - alter;
   }
 
-  fn alloc_op(&self, o : @Operand) -> @Operand {
+  fn alloc_op(&self, o: @Operand) -> @Operand {
     match o {
       @Immediate(*) | @LabelOp(*) | @Register(*) => o,
       @Temp(tmp) => self.alloc_tmp(tmp)

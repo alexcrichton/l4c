@@ -2,10 +2,10 @@ use front::error;
 use front::ast::*;
 
 struct ReturnChecker {
-  err : error::List,
+  err: error::List,
 }
 
-pub fn check(a : &Program) {
+pub fn check(a: &Program) {
   let mut rc = ReturnChecker{ err: error::new() };
   debug!("returnchecking");
   rc.check(a);
@@ -13,13 +13,13 @@ pub fn check(a : &Program) {
 }
 
 impl ReturnChecker {
-  fn check(&mut self, a : &Program) {
+  fn check(&mut self, a: &Program) {
     for a.decls.each |x| {
       self.rc_gdecl(*x);
     }
   }
 
-  fn rc_gdecl(&mut self, g : @GDecl) {
+  fn rc_gdecl(&mut self, g: @GDecl) {
     match g {
       @Markedg(ref m) => self.err.with(m, |x| self.rc_gdecl(x)),
       @Function(_, id, _, body) => {
@@ -31,7 +31,7 @@ impl ReturnChecker {
     }
   }
 
-  pure fn returns(&self, s : @Statement) -> bool {
+  pure fn returns(&self, s: @Statement) -> bool {
     match s {
       @If(_, s1, s2)       => self.returns(s1) && self.returns(s2),
       @Seq(s1, s2)         => self.returns(s1) || self.returns(s2),

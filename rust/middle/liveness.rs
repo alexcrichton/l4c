@@ -16,9 +16,9 @@ pub struct Analysis {
 }
 
 struct Liveness<T> {
-  a : &mut Analysis,
-  cfg : &CFG<T>,
-  phi_out : LinearMap<NodeId, ~TempSet>,
+  a: &mut Analysis,
+  cfg: &CFG<T>,
+  phi_out: LinearMap<NodeId, ~TempSet>,
 }
 
 pub fn Analysis() -> Analysis {
@@ -26,14 +26,14 @@ pub fn Analysis() -> Analysis {
              deltas: LinearMap::new() }
 }
 
-pub fn calculate<S : Statement>(cfg : &CFG<S>, root : NodeId,
+pub fn calculate<S: Statement>(cfg: &CFG<S>, root: NodeId,
                                 result: &mut Analysis) {
   debug!("calculating liveness");
   let mut l = Liveness { a: result, phi_out: LinearMap::new(), cfg: cfg };
   l.run(root);
 }
 
-impl<T : Statement> Liveness<T> {
+impl<T: Statement> Liveness<T> {
   fn run(&mut self, root: NodeId) {
     /* TODO: why can't this be in the calculate() function above */
     for self.cfg.each_node |id, _| {
@@ -53,7 +53,7 @@ impl<T : Statement> Liveness<T> {
     }
   }
 
-  fn lookup_phis(&mut self, n : NodeId) {
+  fn lookup_phis(&mut self, n: NodeId) {
     for self.cfg[n].each |&stm| {
       debug!("phi map");
       match stm.phi_map() {
@@ -70,7 +70,7 @@ impl<T : Statement> Liveness<T> {
     }
   }
 
-  fn liveness(&mut self, n : NodeId) -> bool {
+  fn liveness(&mut self, n: NodeId) -> bool {
     let mut live = LinearSet::new();
     for self.phi_out.get(&n).each |&t| {
       live.insert(t);

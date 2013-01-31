@@ -11,7 +11,7 @@ pub pure fn prefix() -> ~str { ~"_" }
 #[cfg(target_os = "linux")]
 pub pure fn prefix() -> ~str { ~"" }
 
-impl Label : PrettyPrint {
+impl Label: PrettyPrint {
   pure fn pp(&self) -> ~str {
     match *self {
       External(ref s) => prefix() + *s,

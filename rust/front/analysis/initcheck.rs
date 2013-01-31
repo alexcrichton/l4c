@@ -3,11 +3,11 @@ use front::error;
 use front::ast::*;
 
 struct Initchecker {
-  err : error::List,
-  step : @Statement,
+  err: error::List,
+  step: @Statement,
 }
 
-pub fn check(a : &Program) {
+pub fn check(a: &Program) {
   let mut ic = Initchecker{ err: error::new(), step: @Nop };
   debug!("initchecking");
   ic.check(a);
@@ -15,13 +15,13 @@ pub fn check(a : &Program) {
 }
 
 impl Initchecker {
-  fn check(&mut self, a : &Program) {
+  fn check(&mut self, a: &Program) {
     for a.decls.each |&x| {
       self.check_gdecl(x);
     }
   }
 
-  fn check_gdecl(&mut self, g : @GDecl) {
+  fn check_gdecl(&mut self, g: @GDecl) {
     match g {
       @Markedg(ref m) => self.check_gdecl(m.data),
       @Function(_, _, _, body) => self.analyze(body),
@@ -29,7 +29,7 @@ impl Initchecker {
     }
   }
 
-  fn analyze(&mut self, s : @Statement) {
+  fn analyze(&mut self, s: @Statement) {
     match s {
       @Markeds(ref m) => self.err.with(m, |x| self.analyze(x)),
       @If(_, s1, s2) | @Seq(s1, s2) => { self.analyze(s1); self.analyze(s2); },
@@ -46,7 +46,7 @@ impl Initchecker {
     }
   }
 
-  fn live(&mut self, sym : Ident, s : @Statement) -> bool {
+  fn live(&mut self, sym: Ident, s: @Statement) -> bool {
     match s {
       @Declare(id, _, init, s) =>
         id != sym && (self.live(sym, s) || self.uses_opt(sym, init)),
@@ -75,7 +75,7 @@ impl Initchecker {
     }
   }
 
-  pure fn uses(&self, sym : Ident, e : @Expression) -> bool {
+  pure fn uses(&self, sym: Ident, e: @Expression) -> bool {
     match e {
       @Marked(ref m) => self.uses(sym, m.data),
       @Var(id) => id == sym,
@@ -90,14 +90,14 @@ impl Initchecker {
     }
   }
 
-  pure fn uses_opt(&self, sym : Ident, e : Option<@Expression>) -> bool {
+  pure fn uses_opt(&self, sym: Ident, e: Option<@Expression>) -> bool {
     match e {
       None => false,
       Some(e) => self.uses(sym, e)
     }
   }
 
-  pure fn defines(&self, sym : Ident, s : @Statement) -> bool {
+  pure fn defines(&self, sym: Ident, s: @Statement) -> bool {
     match s {
       @Declare(id, _, Some(_), s) => sym == id || self.defines(sym, s),
       @Declare(_, _, _, s) => self.defines(sym, s),

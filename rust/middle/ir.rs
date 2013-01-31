@@ -6,7 +6,7 @@ use middle::temp::Temp;
 use utils::{graph, PrettyPrint, Graphable};
 
 pub struct Program {
-  funs : ~[Function]
+  funs: ~[Function]
 }
 
 pub struct Function {
@@ -50,11 +50,11 @@ pub enum Edge {
   LoopOut, FLoopOut         /* break out of a loop */
 }
 
-pub fn Program(f : ~[Function]) -> Program {
-  Program{ funs : f }
+pub fn Program(f: ~[Function]) -> Program {
+  Program{ funs: f }
 }
 
-pub fn Function(name : ~str) -> Function {
+pub fn Function(name: ~str) -> Function {
   Function{ cfg: graph::Graph(),
             name: name,
             root: 0,
@@ -63,8 +63,8 @@ pub fn Function(name : ~str) -> Function {
             analysis: ssa::Analysis() }
 }
 
-impl Program : Graphable {
-  fn dot(&self, out : io::Writer) {
+impl Program: Graphable {
+  fn dot(&self, out: io::Writer) {
     out.write_str(~"digraph {\n");
     for self.funs.each |f| {
       f.cfg.dot(out,
@@ -79,19 +79,19 @@ impl Program : Graphable {
   }
 }
 
-impl Type : cmp::Eq {
-  pure fn eq(&self, other : &Type) -> bool {
+impl Type: cmp::Eq {
+  pure fn eq(&self, other: &Type) -> bool {
     match (*self, *other) {
       (Int, Int) | (Pointer, Pointer) => true,
       _ => false
     }
   }
 
-  pure fn ne(&self, other : &Type) -> bool { !self.eq(other) }
+  pure fn ne(&self, other: &Type) -> bool { !self.eq(other) }
 }
 
 impl Function {
-  pure fn size(&self, e : @Expression) -> Type {
+  pure fn size(&self, e: @Expression) -> Type {
     match e {
       @Const(_, size) => size,
       @LabelExp(_) => Pointer,
@@ -123,7 +123,7 @@ impl Binop {
   }
 }
 
-impl Statement : ssa::Statement {
+impl Statement: ssa::Statement {
   static fn phi(t: Temp, map: ssa::PhiMap) -> @Statement { @Phi(t, map) }
 
   fn each_def<T>(&self, f: &fn(Temp) -> T) {
@@ -183,7 +183,7 @@ impl Statement : ssa::Statement {
   }
 }
 
-impl Statement : PrettyPrint {
+impl Statement: PrettyPrint {
   pure fn pp(&self) -> ~str {
     match *self {
       Move(tmp, e) => tmp.pp() + ~" <- " + e.pp(),
@@ -227,7 +227,7 @@ impl Expression {
   }
 }
 
-impl Expression : PrettyPrint {
+impl Expression: PrettyPrint {
   pure fn pp(&self) -> ~str {
     match *self {
       Temp(ref t) => t.pp(),
@@ -239,7 +239,7 @@ impl Expression : PrettyPrint {
   }
 }
 
-impl Binop : PrettyPrint {
+impl Binop: PrettyPrint {
   pure fn pp(&self) -> ~str {
     match *self {
       Add => ~"+",
@@ -262,13 +262,13 @@ impl Binop : PrettyPrint {
   }
 }
 
-pub fn ssa(p : &mut Program) {
+pub fn ssa(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
     ssa_fun(f);
   }
 }
 
-priv fn ssa_fun(f : &mut Function) {
+priv fn ssa_fun(f: &mut Function) {
   /* tables/metadata altered through temp remapping */
   let mut newtypes = LinearMap::new();
 

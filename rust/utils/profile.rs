@@ -2,7 +2,7 @@ use std::time;
 
 fn levels_key(_v: @uint) {}
 
-pub fn run<U>(f : &fn() -> U, name : &str) -> U {
+pub fn run<U>(f: &fn() -> U, name: &str) -> U {
   let start = time::precise_time_s();
   io::print(fmt!("%20s ", name));
   let ret = f();
@@ -10,7 +10,7 @@ pub fn run<U>(f : &fn() -> U, name : &str) -> U {
   return ret;
 }
 
-pub fn dbg<U>(name : &str, f : &fn() -> U) -> U {
+pub fn dbg<U>(name: &str, f: &fn() -> U) -> U {
   /* apparently local_data_{get,set} are unsafe... */
   unsafe {
     let lvls = task::local_data::local_data_get(levels_key).get_or_default(@0);

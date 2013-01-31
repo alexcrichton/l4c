@@ -12,14 +12,14 @@ pub struct Graph<N, E> {
   priv next:  NodeId
 }
 
-pub fn Graph<N : Copy, E : Copy>() -> Graph<N, E>{
+pub fn Graph<N: Copy, E: Copy>() -> Graph<N, E>{
   Graph{ nodes: LinearMap::new(),
          succ:  LinearMap::new(),
          pred:  LinearMap::new(),
          next:  0 }
 }
 
-impl<N : Copy, E : Copy> Graph<N, E> {
+impl<N: Copy, E: Copy> Graph<N, E> {
   pure fn num_nodes(&self, ) -> uint {
     self.nodes.len()
   }
@@ -129,7 +129,7 @@ impl<N : Copy, E : Copy> Graph<N, E> {
     }
   }
 
-  fn map<N2 : Copy, E2 : Copy>(&self, n: fn(NodeId, &N) -> N2,
+  fn map<N2: Copy, E2: Copy>(&self, n: fn(NodeId, &N) -> N2,
                                e: fn(&E) -> E2) -> Graph<N2, E2> {
     let mut g2 = Graph();
     g2.next = self.next;
@@ -159,10 +159,10 @@ impl<N : Copy, E : Copy> Graph<N, E> {
     return g2;
   }
 
-  fn dot(&self, out : io::Writer,
-         nid : &fn(NodeId) -> ~str,
-         node : &fn(NodeId, &N) -> ~str,
-         edge : &fn(&E) -> ~str) {
+  fn dot(&self, out: io::Writer,
+         nid: &fn(NodeId) -> ~str,
+         node: &fn(NodeId, &N) -> ~str,
+         edge: &fn(&E) -> ~str) {
     for self.nodes.each |&id, n| {
       out.write_str(nid(id));
       out.write_str(~" [");
@@ -184,7 +184,7 @@ impl<N : Copy, E : Copy> Graph<N, E> {
     }
   }
 
-  fn postorder(&self, root : NodeId) -> (~[NodeId], LinearMap<NodeId, int>) {
+  fn postorder(&self, root: NodeId) -> (~[NodeId], LinearMap<NodeId, int>) {
     let mut ordering = LinearMap::new();
     self.traverse(&mut ordering, root, 0);
     let mut v = ~[];
@@ -215,8 +215,8 @@ impl<N : Copy, E : Copy> Graph<N, E> {
   }
 }
 
-impl<N : Copy, E : Copy> Graph<N, E> : Index<NodeId, N> {
-  pure fn index(&self, id : NodeId) -> N {
+impl<N: Copy, E: Copy> Graph<N, E>: Index<NodeId, N> {
+  pure fn index(&self, id: NodeId) -> N {
     self.node(id)
   }
 }

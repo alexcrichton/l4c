@@ -8,13 +8,13 @@ struct Parser {
   main: ~str
 }
 
-pub fn from_json(j : &Json, main : ~str) -> ast::Program {
+pub fn from_json(j: &Json, main: ~str) -> ast::Program {
   let mut parser = Parser{syms: symbol::Symtab(), file: @~"", main: main };
   return parser.parse(j);
 }
 
 impl Parser {
-  fn parse(&mut self, j : &Json) -> ast::Program {
+  fn parse(&mut self, j: &Json) -> ast::Program {
     match *j {
       List(ref data) => {
         let mut decls = ~[];
@@ -35,7 +35,7 @@ impl Parser {
     }
   }
 
-  pure fn gettyp(&self, j : &L/Json) -> (~str, &L/~Object) {
+  pure fn gettyp(&self, j: &L/Json) -> (~str, &L/~Object) {
     match *j {
       Object(ref obj) =>
         match *(obj.get(&~"typ")) {
@@ -46,7 +46,7 @@ impl Parser {
     }
   }
 
-  fn to_id(&mut self, j : &Json) -> ast::Ident {
+  fn to_id(&mut self, j: &Json) -> ast::Ident {
     match *j {
       String(ref s) => symbol::new(&mut self.syms, s),
       _ => fail(~"not a string")
@@ -67,7 +67,7 @@ impl Parser {
     }
   }
 
-  fn to_gdecl(&mut self, j : &Json) -> @ast::GDecl {
+  fn to_gdecl(&mut self, j: &Json) -> @ast::GDecl {
     let (typ, fields) = self.gettyp(j);
     match typ {
       ~"typedef" => @ast::Typedef(self.to_id(fields.get(&~"id")),

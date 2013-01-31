@@ -14,7 +14,7 @@ struct Typechecker {
   ret:     @Type
 }
 
-pub fn check(a : &Program) {
+pub fn check(a: &Program) {
   let mut tc = Typechecker{ err: error::new(),
                             funs: LinearMap::new(),
                             structs: LinearMap::new(),
@@ -27,13 +27,13 @@ pub fn check(a : &Program) {
 }
 
 impl Typechecker {
-  fn check(&mut self, a : &Program) {
+  fn check(&mut self, a: &Program) {
     for a.decls.each |x| {
       self.tc_gdecl(*x)
     }
   }
 
-  fn tc_gdecl(&mut self, g : @GDecl) {
+  fn tc_gdecl(&mut self, g: @GDecl) {
     match g {
       @Markedg(ref m) => self.err.with(m, |x| self.tc_gdecl(x)),
       @Typedef(_, _) => (),
@@ -58,7 +58,7 @@ impl Typechecker {
     }
   }
 
-  fn tc_stm(&mut self, s : @Statement) {
+  fn tc_stm(&mut self, s: @Statement) {
     match s {
       @Markeds(ref m) => self.err.with(m, |x| self.tc_stm(x)),
       @Continue | @Break => {
@@ -111,7 +111,7 @@ impl Typechecker {
     }
   }
 
-  fn tc_exp(&mut self, e : @Expression) -> @Type {
+  fn tc_exp(&mut self, e: @Expression) -> @Type {
     match e {
       @Marked(ref m) => self.err.with(m, |x| self.tc_exp(x)),
       @Const(_) => @Int,
@@ -205,7 +205,7 @@ impl Typechecker {
     }
   }
 
-  fn bind_struct(&mut self, id : Ident, fields : &~[(Ident, @Type)]) {
+  fn bind_struct(&mut self, id: Ident, fields: &~[(Ident, @Type)]) {
     let redefined = match self.structs.find(&id) {
       Some(&Some(_)) => true, _ => false
     };
@@ -236,7 +236,7 @@ impl Typechecker {
     self.structs.insert(id, Some(table));
   }
 
-  fn bind_fun(&mut self, id : Ident, ret : @Type, args : &~[(Ident, @Type)]) -> bool {
+  fn bind_fun(&mut self, id: Ident, ret: @Type, args: &~[(Ident, @Type)]) -> bool {
     let prev = self.err.size();
     let mut names = LinearSet::new();
     for args.each |&(name, typ)| {
@@ -267,11 +267,11 @@ impl Typechecker {
     prev == self.err.size()
   }
 
-  fn tc_ensure(&mut self, e : @Expression, t : @Type) {
+  fn tc_ensure(&mut self, e: @Expression, t: @Type) {
     self.tc_equal(t, self.tc_exp(e));
   }
 
-  fn tc_defined(&mut self, t : @Type) -> bool {
+  fn tc_defined(&mut self, t: @Type) -> bool {
     match t {
       @Struct(id) => {
         let defined = match self.structs.find(&id) {
@@ -286,14 +286,14 @@ impl Typechecker {
     }
   }
 
-  fn tc_equal(&mut self, t1 : @Type, t2 : @Type) -> bool {
+  fn tc_equal(&mut self, t1: @Type, t2: @Type) -> bool {
     if t1 != t2 {
       self.err.add(fmt!("Type mismatch: expected %s, got %s", t1.pp(), t2.pp()));
     }
     t1 == t2
   }
 
-  fn tc_small(&mut self, t : @Type) -> bool {
+  fn tc_small(&mut self, t: @Type) -> bool {
     if !t.small() {
       self.err.add(fmt!("Type must be small: '%s'", t.pp()));
     }

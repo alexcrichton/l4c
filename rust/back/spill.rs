@@ -32,41 +32,41 @@ use back::assem::*;
 use utils::graph::*;
 use back::arch;
 
-const loop_out_weight : uint = 100000;
+const loop_out_weight: uint = 100000;
 
 /* If a temp isn't in a set, then its next_use distance is infinity */
 type NextUse = LinearMap<Temp, uint>;
 
 struct Spiller {
-  f : &mut Function,
+  f: &mut Function,
   /* next_use information for each node in the graph */
-  next_use : LinearMap<NodeId, NextUse>,
+  next_use: LinearMap<NodeId, NextUse>,
   /* Delta information for next_use as a block is traversed top down */
-  deltas : LinearMap<NodeId, ~[~[(Temp, Option<uint>)]]>,
+  deltas: LinearMap<NodeId, ~[~[(Temp, Option<uint>)]]>,
 
   /* Information required by the spilling algorithm */
-  regs_entry : LinearMap<NodeId, TempSet>,
-  regs_end : LinearMap<NodeId, TempSet>,
-  spill_entry : LinearMap<NodeId, TempSet>,
-  spill_exit : LinearMap<NodeId, TempSet>,
+  regs_entry: LinearMap<NodeId, TempSet>,
+  regs_end: LinearMap<NodeId, TempSet>,
+  spill_entry: LinearMap<NodeId, TempSet>,
+  spill_exit: LinearMap<NodeId, TempSet>,
 
   /* m[(a, b)] => (t1 -> t2) means that any temp known by the name t1 in a
      becomes the temp named t2 in b */
-  renamings : LinearMap<(NodeId, NodeId), ~LinearMap<Temp, Temp>>,
+  renamings: LinearMap<(NodeId, NodeId), ~LinearMap<Temp, Temp>>,
   /* m[a] = t1 -> (n -> t2) means that in block a, the temp t1 is known under the
      name t2 in node n */
-  phis : LinearMap<NodeId, LinearMap<Temp, ssa::PhiMap>>,
+  phis: LinearMap<NodeId, LinearMap<Temp, ssa::PhiMap>>,
 
   /* Maximum register pressure at each basic block */
-  max_pressures : LinearMap<NodeId, uint>,
+  max_pressures: LinearMap<NodeId, uint>,
   /* Set of edges which have been connected (spills/reloads placed) so far */
-  connected : LinearSet<(NodeId, NodeId)>,
+  connected: LinearSet<(NodeId, NodeId)>,
 
   /* phi congruence class of every temp (used for stack slots) */
-  congruence : LinearMap<Temp, Tag>,
+  congruence: LinearMap<Temp, Tag>,
 }
 
-pub fn spill(p : &mut Program) {
+pub fn spill(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
     eliminate_critical(&mut f.cfg);
 
@@ -92,7 +92,7 @@ fn sort(set: &TempSet, s: &NextUse) -> ~[Temp] {
   for set.each |&tmp| {
     v.push(tmp);
   }
-  sort::quick_sort(v, |&a : &Temp, &b : &Temp| {
+  sort::quick_sort(v, |&a: &Temp, &b: &Temp| {
     match s.find(&b) {
       None => true,       /* a is always < infty */
       Some(&b) => match s.find(&a) {
@@ -349,7 +349,7 @@ impl Spiller {
    * possibly insert spills/reloads in predecessor and successors depending on
    * their processed state.
    */
-  fn spill(&mut self, n : NodeId) {
+  fn spill(&mut self, n: NodeId) {
     debug!("spilling: %?", n);
     /* TODO: remove these unsafe blocks */
     let regs_entry = match self.f.loops.find(&n) {
@@ -417,7 +417,7 @@ impl Spiller {
       })
     );
 
-    let apply_delta = |delta : &~[(Temp, Option<uint>)]| {
+    let apply_delta = |delta: &~[(Temp, Option<uint>)]| {
       /* For each delta if the value is None, then that means the liveness has
          stopped. Otherwise the next_use value is updated with what it should be
          for down the road. We iterate in reverse order in case one instruction
@@ -524,7 +524,7 @@ impl Spiller {
     }
   }
 
-  fn init_usual(&self, n : NodeId) -> TempSet {
+  fn init_usual(&self, n: NodeId) -> TempSet {
     debug!("init_usual: %?", n);
     let mut freq = LinearMap::new();
     let mut take = LinearSet::new();
@@ -562,7 +562,7 @@ impl Spiller {
     return take;
   }
 
-  fn init_loop(&self, n : NodeId, body : NodeId, end : NodeId) -> TempSet {
+  fn init_loop(&self, n: NodeId, body: NodeId, end: NodeId) -> TempSet {
     debug!("init_loop %? %? %?", n, body, end);
     /* cand = (phis | live_in) & used_in_loop */
     let mut cand = LinearSet::new();
@@ -605,7 +605,7 @@ impl Spiller {
     return cand;
   }
 
-  fn max_pressure(&self, cur : NodeId, visited : &mut graph::NodeSet) -> uint {
+  fn max_pressure(&self, cur: NodeId, visited: &mut graph::NodeSet) -> uint {
     if visited.contains(&cur) { return 0; }
 
     visited.insert(cur);
@@ -681,19 +681,19 @@ impl Spiller {
       }
     }
     if append.len() > 0 {
-      debug!("appending to %? : %?", pred, append);
+      debug!("appending to %?: %?", pred, append);
       self.f.cfg.update_node(pred, @(*self.f.cfg[pred] + append));
     }
   }
 
-  fn my_name(&self, tmp : Temp, from : NodeId, to : NodeId) -> Temp {
+  fn my_name(&self, tmp: Temp, from: NodeId, to: NodeId) -> Temp {
     match self.renamings.find(&(from, to)) {
       Some(m) => m.find(&tmp).map_default(tmp, |&x| *x),
       None => tmp
     }
   }
 
-  fn their_name(&self, tmp : Temp, from : NodeId, to : NodeId) -> Temp {
+  fn their_name(&self, tmp: Temp, from: NodeId, to: NodeId) -> Temp {
     match self.phis.get(&to).find(&tmp) {
       Some(map) => map[from],
       None => tmp
@@ -702,7 +702,7 @@ impl Spiller {
 }
 
 #[cfg(test)]
-fn set(v : ~[int]) -> TempSet {
+fn set(v: ~[int]) -> TempSet {
   let mut set = LinearSet::new();
   for v.each |&i| {
     set.insert(i as Temp);
@@ -712,7 +712,7 @@ fn set(v : ~[int]) -> TempSet {
 
 #[test]
 fn test_sort_works1() {
-  let mut map : NextUse = LinearMap::new();
+  let mut map: NextUse = LinearMap::new();
   map.insert(4, 5);
   map.insert(5, 6);
   let sorted = sort(&set(~[4, 5, 6]), &map);
@@ -723,7 +723,7 @@ fn test_sort_works1() {
 
 #[test]
 fn test_sort_works2() {
-  let mut map : NextUse = LinearMap::new();
+  let mut map: NextUse = LinearMap::new();
   map.insert(4, 5);
   map.insert(5, 6);
   let sorted = sort(&set(~[4, 5]), &map);

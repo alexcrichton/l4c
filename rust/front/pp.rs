@@ -1,11 +1,11 @@
 use front::ast::*;
 use utils::PrettyPrint;
 
-pure fn tab(s : ~str) -> ~str {
+pure fn tab(s: ~str) -> ~str {
   ~"  " + str::replace(s, ~"\n", ~"\n  ")
 }
 
-impl Unop : PrettyPrint {
+impl Unop: PrettyPrint {
   pure fn pp(&self) -> ~str {
     match *self {
       Negative => ~"-",
@@ -15,7 +15,7 @@ impl Unop : PrettyPrint {
   }
 }
 
-impl Binop : PrettyPrint {
+impl Binop: PrettyPrint {
   pure fn pp(&self) -> ~str {
     match *self {
       Plus      => ~"+",
@@ -40,7 +40,7 @@ impl Binop : PrettyPrint {
   }
 }
 
-impl Type : PrettyPrint {
+impl Type: PrettyPrint {
   pure fn pp(&self) -> ~str {
     match *self {
       Int           => ~"int",
@@ -55,7 +55,7 @@ impl Type : PrettyPrint {
   }
 }
 
-impl Expression : PrettyPrint {
+impl Expression: PrettyPrint {
   pure fn pp(&self) -> ~str {
     match *self {
       Var(s)            => copy s.val,
@@ -76,12 +76,12 @@ impl Expression : PrettyPrint {
         ~"(" + e1.pp() + ~" " + o.pp() + ~" " + e2.pp() + ~")",
       Ternary(e1, e2, e3, _) =>
         ~"((" + e1.pp() + ~") ? (" + e2.pp() +
-        ~") : (" + e3.pp() + ~"))"
+        ~"): (" + e3.pp() + ~"))"
     }
   }
 }
 
-impl Statement : PrettyPrint {
+impl Statement: PrettyPrint {
   pure fn pp(&self) -> ~str {
     match *self {
       Continue => ~"continue",
@@ -110,22 +110,22 @@ impl Statement : PrettyPrint {
   }
 }
 
-pure fn pp_opt(o : Option<@Expression>) -> ~str {
+pure fn pp_opt(o: Option<@Expression>) -> ~str {
   match o {
     Some(e) => ~" = " + e.pp(),
     None => ~""
   }
 }
 
-pure fn ppair(p : &(Ident, @Type)) -> ~str {
+pure fn ppair(p: &(Ident, @Type)) -> ~str {
   match *p { (id, typ) => typ.pp() + ~" " + id.val }
 }
 
-pure fn pfun(t : @Type, i : Ident, p : &~[(Ident, @Type)]) -> ~str {
+pure fn pfun(t: @Type, i: Ident, p: &~[(Ident, @Type)]) -> ~str {
   t.pp() + ~" " + i.val + ~"(" + str::connect(p.map(ppair), ~", ") + ~")"
 }
 
-impl GDecl : PrettyPrint {
+impl GDecl: PrettyPrint {
   pure fn pp(&self) -> ~str {
     match *self {
       Markedg(ref m) => m.data.pp(),

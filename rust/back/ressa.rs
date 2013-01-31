@@ -3,13 +3,13 @@ use core::hashmap::linear::LinearMap;
 use middle::ssa;
 use back::assem;
 
-pub fn convert(p : &mut assem::Program) {
+pub fn convert(p: &mut assem::Program) {
   for vec::each_mut(p.funs) |f| {
     ressa(f);
   }
 }
 
-fn ressa(f : &mut assem::Function) {
+fn ressa(f: &mut assem::Function) {
   /* tables/metadata altered through temp remapping */
   let mut newsizes = LinearMap::new();
 

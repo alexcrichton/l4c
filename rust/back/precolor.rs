@@ -4,7 +4,7 @@ use back::assem::*;
 use middle::{liveness, temp};
 use back::arch;
 
-pub fn constrain(p : &mut Program) {
+pub fn constrain(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
     let mut live = liveness::Analysis();
     liveness::calculate(&f.cfg, f.root, &mut live);
@@ -22,9 +22,9 @@ pub fn constrain(p : &mut Program) {
   }
 }
 
-fn constrain_block(live : &temp::TempSet, delta : &[liveness::Delta],
-                   tmpclone : &fn(Temp) -> Temp,
-                   ins : @~[@Instruction]) -> ~[@Instruction] {
+fn constrain_block(live: &temp::TempSet, delta: &[liveness::Delta],
+                   tmpclone: &fn(Temp) -> Temp,
+                   ins: @~[@Instruction]) -> ~[@Instruction] {
   let mut new = ~[];
   let mut synthetic = ~[];
   let mut live_in = LinearSet::new();
@@ -35,7 +35,7 @@ fn constrain_block(live : &temp::TempSet, delta : &[liveness::Delta],
   }
 
   /* SSA will deal with these renamings later */
-  fn pcopy(live : &temp::TempSet) -> @Instruction {
+  fn pcopy(live: &temp::TempSet) -> @Instruction {
     let dup = map::HashMap();
     for live.each |&tmp| {
       dup.insert(tmp, tmp);

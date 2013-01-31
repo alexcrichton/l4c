@@ -70,14 +70,14 @@ pub fn translate(p: ast::Program, safe: bool) -> ir::Program {
   return ir::Program { funs: accum };
 }
 
-pure fn typ(t : @ast::Type) -> ir::Type {
+pure fn typ(t: @ast::Type) -> ir::Type {
   match t {
     @ast::Array(_) | @ast::Struct(_) | @ast::Pointer(_) => ir::Pointer,
     _ => ir::Int
   }
 }
 
-pure fn typ_size(t : @ast::Type, structs: &AllStructInfo) -> uint {
+pure fn typ_size(t: @ast::Type, structs: &AllStructInfo) -> uint {
   match t {
     @ast::Int | @ast::Bool => 4,
     @ast::Pointer(_) | @ast::Array(_) => 8,
@@ -398,7 +398,7 @@ impl Translator {
   }
 
   fn alloc(&mut self, t: @ast::Type, cnt: @ir::Expression,
-           safe : ~str) -> @ir::Expression {
+           safe: ~str) -> @ir::Expression {
     let fun = label::External(if self.safe { safe } else { ~"calloc" });
     let fun = @ir::LabelExp(fun);
     let result = self.tmp(ir::Pointer);
@@ -475,10 +475,10 @@ impl Translator {
     self.commit_with(self.f.cfg.new_id())
   }
 
-  pure fn consti(&self, c : i32) -> @ir::Expression { @ir::Const(c, ir::Int) }
-  pure fn constp(&self, c : i32) -> @ir::Expression { @ir::Const(c, ir::Pointer) }
+  pure fn consti(&self, c: i32) -> @ir::Expression { @ir::Const(c, ir::Int) }
+  pure fn constp(&self, c: i32) -> @ir::Expression { @ir::Const(c, ir::Pointer) }
 
-  fn commit_with(&mut self, next : graph::NodeId) -> graph::NodeId {
+  fn commit_with(&mut self, next: graph::NodeId) -> graph::NodeId {
     let mut L = ~[];
     L <-> self.stms; /* swap a new block into place */
     let id = replace(&mut self.cur_id, next);

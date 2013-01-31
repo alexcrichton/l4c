@@ -16,19 +16,19 @@ pub type Tag = uint;
 pub type CFG = graph::Graph<@~[@Instruction], Edge>;
 
 pub struct Program {
-  funs : ~[Function]
+  funs: ~[Function]
 }
 
 pub struct Function {
-  name : ~str,
-  root : graph::NodeId,
-  cfg : CFG,
-  sizes : LinearMap<Temp, Size>,
-  temps : uint,
+  name: ~str,
+  root: graph::NodeId,
+  cfg: CFG,
+  sizes: LinearMap<Temp, Size>,
+  temps: uint,
   ssa: ssa::Analysis,
   liveness: liveness::Analysis,
 
-  loops : LinearMap<graph::NodeId, (graph::NodeId, graph::NodeId)>,
+  loops: LinearMap<graph::NodeId, (graph::NodeId, graph::NodeId)>,
 }
 
 pub enum Instruction {
@@ -163,7 +163,7 @@ impl Instruction {
   }
 }
 
-impl Instruction : ssa::Statement {
+impl Instruction: ssa::Statement {
   static fn phi(t: Temp, map: ssa::PhiMap) -> @Instruction { @Phi(t, map) }
 
   /* TODO: is this an infinite loop? */
@@ -218,7 +218,7 @@ impl Instruction {
   pure fn is_phi(&self) -> bool { match *self { Phi(*) => true, _ => false } }
 }
 
-impl Instruction : PrettyPrint {
+impl Instruction: PrettyPrint {
   pure fn pp(&self) -> ~str {
     match *self {
       Raw(copy s) => s,
@@ -310,7 +310,7 @@ impl Operand {
   pure fn imm(&self) -> bool { match *self { Immediate(*) => true, _ => false } }
   pure fn reg(&self) -> bool { match *self { Register(*) => true, _ => false } }
 
-  pure fn mask(&self, mask : i32) -> @Operand {
+  pure fn mask(&self, mask: i32) -> @Operand {
     match *self {
       Immediate(n, s) => @Immediate(n & mask, s),
       _ => fail(~"can't mask non-immediate")
@@ -327,7 +327,7 @@ impl Operand {
 }
 
 impl Operand {
-  fn map_temps(@self, f : &fn(Temp) -> Temp) -> @Operand {
+  fn map_temps(@self, f: &fn(Temp) -> Temp) -> @Operand {
     match self {
       @Temp(t) => @Temp(f(t)),
       _        => self
@@ -336,7 +336,7 @@ impl Operand {
 }
 
 impl Address {
-  fn map_temps(@self, f : &fn(Temp) -> Temp) -> @Address {
+  fn map_temps(@self, f: &fn(Temp) -> Temp) -> @Address {
     match self {
       @MOp(t) => @MOp(t.map_temps(f)),
       _        => self
@@ -344,7 +344,7 @@ impl Address {
   }
 }
 
-impl Operand : PrettyPrint {
+impl Operand: PrettyPrint {
   pure fn pp(&self) -> ~str {
     match *self {
       Immediate(c, _) => fmt!("$%d", c as int),
@@ -355,8 +355,8 @@ impl Operand : PrettyPrint {
   }
 }
 
-impl Operand : cmp::Eq {
-  pure fn eq(&self, other : &Operand) -> bool {
+impl Operand: cmp::Eq {
+  pure fn eq(&self, other: &Operand) -> bool {
     match (*self, *other) {
       (Register(a, _), Register(b, _)) => a == b,
       (Temp(a), Temp(b)) => a == b,
@@ -364,10 +364,10 @@ impl Operand : cmp::Eq {
     }
   }
 
-  pure fn ne(&self, other : &Operand) -> bool { !self.eq(other) }
+  pure fn ne(&self, other: &Operand) -> bool { !self.eq(other) }
 }
 
-impl Address : PrettyPrint {
+impl Address: PrettyPrint {
   pure fn pp(&self) -> ~str {
     match *self {
       MOp(o) => ~"(" + o.pp() + ~")",
@@ -424,7 +424,7 @@ impl Binop {
   }
 }
 
-impl Binop : PrettyPrint {
+impl Binop: PrettyPrint {
   pure fn pp(&self) -> ~str {
     match *self {
       Add => ~"add",
@@ -464,7 +464,7 @@ impl Register {
     }
   }
 
-  pure fn size(&self, t : Size) -> ~str {
+  pure fn size(&self, t: Size) -> ~str {
     match (*self, t) {
       (EAX, ir::Int)      => ~"%eax",
       (EAX, ir::Pointer)  => ~"%rax",
@@ -502,8 +502,8 @@ impl Register {
   }
 }
 
-impl Register : cmp::Eq {
-  pure fn eq(&self, other : &Register) -> bool {
+impl Register: cmp::Eq {
+  pure fn eq(&self, other: &Register) -> bool {
     match (*self, *other) {
       (EAX, EAX) | (EBX, EBX) | (ECX, ECX) | (EDX, EDX) | (EDI, EDI) |
       (ESI, ESI) | (ESP, ESP) | (EBP, EBP) | (R8D, R8D) | (R9D, R9D) |
@@ -513,11 +513,11 @@ impl Register : cmp::Eq {
     }
   }
 
-  pure fn ne(&self, other : &Register) -> bool { !self.eq(other) }
+  pure fn ne(&self, other: &Register) -> bool { !self.eq(other) }
 }
 
-impl Program : Graphable {
-  fn dot(&self, out : io::Writer) {
+impl Program: Graphable {
+  fn dot(&self, out: io::Writer) {
     out.write_str(~"digraph {\n");
     for self.funs.each |f| {
       f.cfg.dot(out,
@@ -533,7 +533,7 @@ impl Program : Graphable {
 }
 
 impl Program {
-  fn output(&self, out : io::Writer) {
+  fn output(&self, out: io::Writer) {
     for self.funs.each |f| {
       f.output(out);
     }
@@ -545,12 +545,12 @@ impl Function {
    * Traverses the cfg and outputs a stream of instructions which can be
    * assembled to the actual program
    */
-  fn output(&self, out : io::Writer) {
+  fn output(&self, out: io::Writer) {
     let base = label::Internal(copy self.name).pp();
     /* entry label */
     out.write_str(~".globl " + base + ~"\n");
     out.write_str(base + ~":\n");
-    let lbl = |n : graph::NodeId| fmt!("%s_bb_%d", base, n as int);
+    let lbl = |n: graph::NodeId| fmt!("%s_bb_%d", base, n as int);
 
     /* skipped is a stack of nodes that we have yet to visit */
     let mut skipped = ~[self.root];

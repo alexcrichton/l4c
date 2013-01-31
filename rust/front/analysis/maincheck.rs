@@ -2,10 +2,10 @@ use front::error;
 use front::ast::*;
 
 struct MainChecker {
-  err : error::List,
+  err: error::List,
 }
 
-pub fn check(a : &Program) {
+pub fn check(a: &Program) {
   let mut mc = MainChecker{ err: error::new() };
   debug!("mainchecking");
   mc.check(a);
@@ -13,13 +13,13 @@ pub fn check(a : &Program) {
 }
 
 impl MainChecker {
-  fn check(&mut self, a : &Program) {
+  fn check(&mut self, a: &Program) {
     if !vec::any(a.decls, |x| self.ismain(*x)) {
       self.err.add(~"No main function was found");
     }
   }
 
-  fn ismain(&mut self, g : @GDecl) -> bool {
+  fn ismain(&mut self, g: @GDecl) -> bool {
     match g {
       @Markedg(ref m) => self.ismain(m.data),
       @Function(ret, id, ref args, _) => {

@@ -2,17 +2,17 @@ use middle::ir;
 use back::assem::*;
 use back::codegen::CodeGenerator;
 
-pub const arg_regs : uint = 6;
-pub const ptrsize : uint = 8;
-pub const intsize : uint = 4;
-pub const ret_reg : Register = EAX;
-pub const num_regs : uint = 15;
+pub const arg_regs: uint = 6;
+pub const ptrsize: uint = 8;
+pub const intsize: uint = 4;
+pub const ret_reg: Register = EAX;
+pub const num_regs: uint = 15;
 
 pub fn each_reg(f: &fn(uint) -> bool) {
   uint::range(1, num_regs + 1, f)
 }
 
-pub pure fn arg_reg(i : uint) -> Register {
+pub pure fn arg_reg(i: uint) -> Register {
   match i {
     0 => EDI,
     1 => ESI,
@@ -24,7 +24,7 @@ pub pure fn arg_reg(i : uint) -> Register {
   }
 }
 
-pub pure fn reg_num(r : Register) -> uint {
+pub pure fn reg_num(r: Register) -> uint {
   match r {
     R9D  => 1,
     R8D  => 2,
@@ -45,7 +45,7 @@ pub pure fn reg_num(r : Register) -> uint {
   }
 }
 
-pub pure fn num_reg(i : uint) -> Register {
+pub pure fn num_reg(i: uint) -> Register {
   match i {
      1 => R9D,
      2 => R8D,
@@ -66,15 +66,15 @@ pub pure fn num_reg(i : uint) -> Register {
   }
 }
 
-pub fn each_caller(f : &fn(Register) -> bool) {
+pub fn each_caller(f: &fn(Register) -> bool) {
   f(EAX); f(ECX); f(EDX); f(ESI); f(EDI); f(R8D); f(R9D); f(R10D); f(R11D);
 }
 
-pub fn callee_reg(r : Register) -> bool {
+pub fn callee_reg(r: Register) -> bool {
   match r { EBX | R12D | R13D | R14D | R15D | EBP => true, _ => false }
 }
 
-pub fn align_stack(size : uint) -> uint {
+pub fn align_stack(size: uint) -> uint {
   /* must be on a 16-byte boundary, but the call address pushes 8 bytes for a
      call instruction, so the size of a stack should be 8 bytes off a multiple
      of 16 */

@@ -8,14 +8,14 @@ use utils::{graph, set, profile, PrettyPrint};
 
 pub struct Analysis {
   /* idoms[a] = b => all elements of b are immeidately dominated by a */
-  idominated : Idominated,
+  idominated: Idominated,
   /* idoms[a] = b => immediate dominator of a is b */
-  idominator : Idominators,
+  idominator: Idominators,
   /* number of temps in the graph */
-  temps : uint,
+  temps: uint,
 }
 
-pub trait Statement : PrettyPrint {
+pub trait Statement: PrettyPrint {
   static fn phi(Temp, PhiMap) -> @Self;
   fn each_def<T>(&self, &fn(Temp) -> T);
   fn each_use<T>(&self, &fn(Temp) -> T);
@@ -57,8 +57,8 @@ pub fn Analysis() -> Analysis {
              temps: 0 }
 }
 
-pub fn convert<T : Statement>(cfg : &mut CFG<T>,
-                              root : graph::NodeId,
+pub fn convert<T: Statement>(cfg: &mut CFG<T>,
+                              root: graph::NodeId,
                               results: &mut Analysis) -> LinearMap<Temp, Temp> {
   let mut live = liveness::Analysis();
 
@@ -84,7 +84,7 @@ pub fn convert<T : Statement>(cfg : &mut CFG<T>,
   return ret;
 }
 
-impl<T : Statement> Converter<T> {
+impl<T: Statement> Converter<T> {
   fn convert(&mut self) -> uint {
     /* First, find where all the phi functions need to be */
     let defs = self.find_defs();
@@ -268,7 +268,7 @@ impl<T : Statement> Converter<T> {
    * been renumbered/renamed and the last thing to do is to actually put the phi
    * functions in place
    */
-  fn place_phis(&mut self, n : graph::NodeId, temps : &LinearMap<Temp, Temp>) {
+  fn place_phis(&mut self, n: graph::NodeId, temps: &LinearMap<Temp, Temp>) {
     debug!("generating %? phis at %?", temps.len(), n);
     let mut block = ~[];
     for temps.each |tmp_before, &tmp_after| {
@@ -392,7 +392,7 @@ fn dom_frontiers<T>(cfg: &CFG<T>, root: graph::NodeId,
   /* Calculate the dominance frontiers according to the algorithm shown in
      these slides: http://symbolaris.com/course/Compilers12/11-ssa.pdf
      for calculating the dominance frontier of a node */
-  let mut frontiers : DomFrontiers = LinearMap::new(); /* TODO: remove type? */
+  let mut frontiers: DomFrontiers = LinearMap::new(); /* TODO: remove type? */
   for cfg.each_postorder(root) |&a| {
     let mut frontier = LinearSet::new();
 

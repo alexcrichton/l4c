@@ -3,26 +3,26 @@ use core::managed;
 use core::to_bytes;
 
 pub struct Symbol{
-  priv id : uint,
-  val : ~str
+  priv id: uint,
+  val: ~str
 }
 
 pub type Symtab = LinearMap<~str, @Symbol>;
 
-impl Symbol : cmp::Eq {
-  pure fn eq(&self, other : &Symbol) -> bool { self.id.eq(&other.id) }
-  pure fn ne(&self, other : &Symbol) -> bool { self.id.ne(&other.id) }
+impl Symbol: cmp::Eq {
+  pure fn eq(&self, other: &Symbol) -> bool { self.id.eq(&other.id) }
+  pure fn ne(&self, other: &Symbol) -> bool { self.id.ne(&other.id) }
 }
 
-impl Symbol : to_bytes::IterBytes {
-  pure fn iter_bytes(&self, lsb0 : bool, f : to_bytes::Cb) {
+impl Symbol: to_bytes::IterBytes {
+  pure fn iter_bytes(&self, lsb0: bool, f: to_bytes::Cb) {
     self.id.iter_bytes(lsb0, f)
   }
 }
 
 pub fn Symtab() -> Symtab { LinearMap::new() }
 
-pub fn new(t : &mut Symtab, s : &~str) -> @Symbol {
+pub fn new(t: &mut Symtab, s: &~str) -> @Symbol {
   if t.contains_key(s) {
     *t.get(s)
   } else {
