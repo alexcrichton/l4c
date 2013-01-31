@@ -23,8 +23,9 @@ const LogDirectory = "../log"
 const Runtime = "l4rt.c"
 var TestPattern = regexp.MustCompile(`//test (\w+)(?: (-?\w+))?`)
 
-var Parallel = 8
+var Parallel = 1
 var Verbose = true
+var FailFast = false
 
 type TestKind int
 
@@ -79,11 +80,12 @@ func runTests(files []string) {
       case tests <- f:
       case <-failFast:
         completions.Done()
-        break
+        goto done
     }
   }
 
   /* clean up everything now */
+done:
   completions.Wait()
   close(tests)
   close(log)
@@ -268,9 +270,11 @@ func fail(err string) {
 
 func failTest(test string, message string) {
   /* If no one is listening to failFast, don't worry about it */
-  select {
-    case failFast <- 1:
-    default:
+  if FailFast {
+    select {
+      case failFast <- 1:
+      default:
+    }
   }
   log <- "fail: " + test + " - " + message
 }
