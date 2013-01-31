@@ -209,7 +209,8 @@ impl Allocator {
             } else {
               let color = min_vacant(&$regs);
               ignore(color); /* TODO: why is this ignore needed */
-              debug!("assigning %s %? %s", $t.pp(), color, $regs.pp());
+              /* TODO: why can't this debug be here */
+              /*debug!("assigning %s %? %s", $t.pp(), color, $regs.pp());*/
               assert color <= arch::num_regs;
               assert self.colors.insert($t, color);
               $regs.set(color, true);
@@ -323,7 +324,7 @@ impl Allocator {
     }
   }
 
-  fn resolve_perm(result : &[uint], incoming : &[uint]) -> ~[@Instruction] {
+  fn resolve_perm(&self, result : &[uint], incoming : &[uint]) -> ~[@Instruction] {
     use sim = std::smallintmap;
     /* TODO: remove this once this works */
     let regs = sim::mk();
@@ -418,7 +419,7 @@ impl Allocator {
     }
   }
 
-  fn alloc_ins(i : @Instruction, push : &pure fn(@Instruction)) {
+  fn alloc_ins(&self, i : @Instruction, push : &pure fn(@Instruction)) {
     match i {
       @Spill(t, tag) => push(@Store(self.stack_pos(tag), self.alloc_tmp(t))),
       @Reload(t, tag) => push(@Load(self.alloc_tmp(t), self.stack_pos(tag))),
@@ -502,11 +503,11 @@ impl Allocator {
     }
   }
 
-  fn stack_pos(tag : Tag) -> @Address {
+  fn stack_pos(&self, tag : Tag) -> @Address {
     @Stack(*self.slots.get(&tag) * arch::ptrsize + self.max_call_stack)
   }
 
-  fn stack_size(with_saves : bool) -> uint {
+  fn stack_size(&self, with_saves : bool) -> uint {
     let slots = self.max_slot * 8;
     let calls = self.max_call_stack;
     let saves = self.callee_saved.len() * arch::ptrsize;
@@ -514,21 +515,21 @@ impl Allocator {
     return arch::align_stack(slots + calls + saves) - alter;
   }
 
-  fn alloc_op(o : @Operand) -> @Operand {
+  fn alloc_op(&self, o : @Operand) -> @Operand {
     match o {
       @Immediate(*) | @LabelOp(*) | @Register(*) => o,
       @Temp(tmp) => self.alloc_tmp(tmp)
     }
   }
 
-  fn alloc_tmp(tmp: Temp) -> @Operand {
+  fn alloc_tmp(&self, tmp: Temp) -> @Operand {
     @Register(arch::num_reg(*self.colors.get(&tmp)),
               *self.f.sizes.get(&tmp))
   }
 }
 
 impl bitv::Bitv: PrettyPrint {
-  pure fn pp() -> ~str {
+  pure fn pp(&self) -> ~str {
     let mut s = ~"{";
     let mut first = true;
     /* TODO: does this really have to be pure? */

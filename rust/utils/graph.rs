@@ -20,13 +20,13 @@ pub fn Graph<N : Copy, E : Copy>() -> Graph<N, E>{
 }
 
 impl<N : Copy, E : Copy> Graph<N, E> {
-  pure fn num_nodes() -> uint {
+  pure fn num_nodes(&self, ) -> uint {
     self.nodes.len()
   }
-  pure fn num_pred(n: NodeId) -> uint {
+  pure fn num_pred(&self, n: NodeId) -> uint {
     self.pred.get(&n).len()
   }
-  pure fn num_succ(n: NodeId) -> uint {
+  pure fn num_succ(&self, n: NodeId) -> uint {
     self.succ.get(&n).len()
   }
 
@@ -129,7 +129,7 @@ impl<N : Copy, E : Copy> Graph<N, E> {
     }
   }
 
-  fn map<N2 : Copy, E2 : Copy>(n: fn(NodeId, &N) -> N2,
+  fn map<N2 : Copy, E2 : Copy>(&self, n: fn(NodeId, &N) -> N2,
                                e: fn(&E) -> E2) -> Graph<N2, E2> {
     let mut g2 = Graph();
     g2.next = self.next;
@@ -159,10 +159,10 @@ impl<N : Copy, E : Copy> Graph<N, E> {
     return g2;
   }
 
-  fn dot(out : io::Writer,
-             nid : &fn(NodeId) -> ~str,
-             node : &fn(NodeId, &N) -> ~str,
-             edge : &fn(&E) -> ~str) {
+  fn dot(&self, out : io::Writer,
+         nid : &fn(NodeId) -> ~str,
+         node : &fn(NodeId, &N) -> ~str,
+         edge : &fn(&E) -> ~str) {
     for self.nodes.each |&id, n| {
       out.write_str(nid(id));
       out.write_str(~" [");

@@ -298,7 +298,7 @@ impl Coalescer {
     return b;
   }
 
-  fn admissible_impl(t: Temp, color: uint) -> bool {
+  fn admissible_impl(&self, t: Temp, color: uint) -> bool {
     if self.precolored.contains(&t) { return color == *self.colors.get(&t) }
     match self.constraints.find(&t) {
       None => true,
@@ -541,7 +541,7 @@ impl Coalescer {
   }
 
   /* TODO(4653): make the arguments 'ref a', 'ref b' */
-  fn dominates_impl((a, aline): Location, (b, bline): Location) -> bool {
+  fn dominates_impl(&self, (a, aline): Location, (b, bline): Location) -> bool {
     if a == b {
       return aline < bline;
     }

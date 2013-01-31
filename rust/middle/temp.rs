@@ -33,7 +33,7 @@ impl Allocator {
 }
 
 impl Temp : PrettyPrint {
-  pure fn pp() -> ~str {
-    fmt!("%%t%u", self as uint)
+  pure fn pp(&self) -> ~str {
+    fmt!("%%t%u", *self as uint)
   }
 }

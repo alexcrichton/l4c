@@ -6,8 +6,8 @@ pure fn tab(s : ~str) -> ~str {
 }
 
 impl Unop : PrettyPrint {
-  pure fn pp() -> ~str {
-    match self {
+  pure fn pp(&self) -> ~str {
+    match *self {
       Negative => ~"-",
       Invert   => ~"~",
       Bang     => ~"!"
@@ -16,8 +16,8 @@ impl Unop : PrettyPrint {
 }
 
 impl Binop : PrettyPrint {
-  pure fn pp() -> ~str {
-    match self {
+  pure fn pp(&self) -> ~str {
+    match *self {
       Plus      => ~"+",
       Minus     => ~"-",
       Times     => ~"*",
@@ -41,8 +41,8 @@ impl Binop : PrettyPrint {
 }
 
 impl Type : PrettyPrint {
-  pure fn pp() -> ~str {
-    match self {
+  pure fn pp(&self) -> ~str {
+    match *self {
       Int           => ~"int",
       Bool          => ~"bool",
       Alias(s)      => copy s.val,
@@ -56,8 +56,8 @@ impl Type : PrettyPrint {
 }
 
 impl Expression : PrettyPrint {
-  pure fn pp() -> ~str {
-    match self {
+  pure fn pp(&self) -> ~str {
+    match *self {
       Var(s)            => copy s.val,
       Boolean(b)        => b.to_str(),
       Const(i)          => i.to_str(),
@@ -82,8 +82,8 @@ impl Expression : PrettyPrint {
 }
 
 impl Statement : PrettyPrint {
-  pure fn pp() -> ~str {
-    match self {
+  pure fn pp(&self) -> ~str {
+    match *self {
       Continue => ~"continue",
       Break => ~"break",
       Nop => ~"",
@@ -126,8 +126,8 @@ pure fn pfun(t : @Type, i : Ident, p : &~[(Ident, @Type)]) -> ~str {
 }
 
 impl GDecl : PrettyPrint {
-  pure fn pp() -> ~str {
-    match self {
+  pure fn pp(&self) -> ~str {
+    match *self {
       Markedg(ref m) => m.data.pp(),
       Typedef(s, t) => ~"typedef " + t.pp() + ~" " + s.val,
       StructDecl(s) => ~"struct " + s.val,

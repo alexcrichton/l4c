@@ -75,7 +75,7 @@ impl Initchecker {
     }
   }
 
-  pure fn uses(sym : Ident, e : @Expression) -> bool {
+  pure fn uses(&self, sym : Ident, e : @Expression) -> bool {
     match e {
       @Marked(ref m) => self.uses(sym, m.data),
       @Var(id) => id == sym,
@@ -90,14 +90,14 @@ impl Initchecker {
     }
   }
 
-  pure fn uses_opt(sym : Ident, e : Option<@Expression>) -> bool {
+  pure fn uses_opt(&self, sym : Ident, e : Option<@Expression>) -> bool {
     match e {
       None => false,
       Some(e) => self.uses(sym, e)
     }
   }
 
-  pure fn defines(sym : Ident, s : @Statement) -> bool {
+  pure fn defines(&self, sym : Ident, s : @Statement) -> bool {
     match s {
       @Declare(id, _, Some(_), s) => sym == id || self.defines(sym, s),
       @Declare(_, _, _, s) => self.defines(sym, s),

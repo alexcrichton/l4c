@@ -524,7 +524,7 @@ impl Spiller {
     }
   }
 
-  fn init_usual(n : NodeId) -> TempSet {
+  fn init_usual(&self, n : NodeId) -> TempSet {
     debug!("init_usual: %?", n);
     let mut freq = LinearMap::new();
     let mut take = LinearSet::new();
@@ -562,7 +562,7 @@ impl Spiller {
     return take;
   }
 
-  fn init_loop(n : NodeId, body : NodeId, end : NodeId) -> TempSet {
+  fn init_loop(&self, n : NodeId, body : NodeId, end : NodeId) -> TempSet {
     debug!("init_loop %? %? %?", n, body, end);
     /* cand = (phis | live_in) & used_in_loop */
     let mut cand = LinearSet::new();
@@ -605,7 +605,7 @@ impl Spiller {
     return cand;
   }
 
-  fn max_pressure(cur : NodeId, visited : &mut graph::NodeSet) -> uint {
+  fn max_pressure(&self, cur : NodeId, visited : &mut graph::NodeSet) -> uint {
     if visited.contains(&cur) { return 0; }
 
     visited.insert(cur);
@@ -619,7 +619,7 @@ impl Spiller {
     return ret;
   }
 
-  fn connect_pred(n: NodeId, entry: &TempSet) -> TempSet {
+  fn connect_pred(&self, n: NodeId, entry: &TempSet) -> TempSet {
     debug!("connecting preds: %?", n);
     /* Build up our list of required spilled registers */
     let mut spill = LinearSet::new();
@@ -686,14 +686,14 @@ impl Spiller {
     }
   }
 
-  fn my_name(tmp : Temp, from : NodeId, to : NodeId) -> Temp {
+  fn my_name(&self, tmp : Temp, from : NodeId, to : NodeId) -> Temp {
     match self.renamings.find(&(from, to)) {
       Some(m) => m.find(&tmp).map_default(tmp, |&x| *x),
       None => tmp
     }
   }
 
-  fn their_name(tmp : Temp, from : NodeId, to : NodeId) -> Temp {
+  fn their_name(&self, tmp : Temp, from : NodeId, to : NodeId) -> Temp {
     match self.phis.get(&to).find(&tmp) {
       Some(map) => map[from],
       None => tmp

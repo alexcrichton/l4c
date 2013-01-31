@@ -64,7 +64,7 @@ pub fn Function(name : ~str) -> Function {
 }
 
 impl Program : Graphable {
-  fn dot(out : io::Writer) {
+  fn dot(&self, out : io::Writer) {
     out.write_str(~"digraph {\n");
     for self.funs.each |f| {
       f.cfg.dot(out,
@@ -91,7 +91,7 @@ impl Type : cmp::Eq {
 }
 
 impl Function {
-  pure fn size(e : @Expression) -> Type {
+  pure fn size(&self, e : @Expression) -> Type {
     match e {
       @Const(_, size) => size,
       @LabelExp(_) => Pointer,
@@ -108,15 +108,15 @@ impl Function {
 }
 
 impl Binop {
-  fn associative() -> bool {
-    match self {
+  fn associative(&self) -> bool {
+    match *self {
       Add | Mul | And | Or | Xor => true,
       _ => false
     }
   }
 
-  fn commutative() -> bool {
-    match self {
+  fn commutative(&self) -> bool {
+    match *self {
       Add | Mul | Eq | Neq | And | Or | Xor => true,
       _ => false
     }
@@ -184,8 +184,8 @@ impl Statement : ssa::Statement {
 }
 
 impl Statement : PrettyPrint {
-  pure fn pp() -> ~str {
-    match self {
+  pure fn pp(&self) -> ~str {
+    match *self {
       Move(tmp, e) => tmp.pp() + ~" <- " + e.pp(),
       Load(tmp, e) => ~"load " + tmp.pp() + ~" <- " + e.pp(),
       Store(e1, e2) => ~"store" + ~" " + e1.pp() + " <- " + e2.pp(),
@@ -208,8 +208,8 @@ impl Statement : PrettyPrint {
   }
 }
 
-impl @Expression {
-  fn map_temps(f: &fn(Temp) -> Temp) -> @Expression {
+impl Expression {
+  fn map_temps(@self, f: &fn(Temp) -> Temp) -> @Expression {
     match self {
       @Const(*) | @LabelExp(*) => self,
       @BinaryOp(op, e1, e2) =>
@@ -218,18 +218,18 @@ impl @Expression {
     }
   }
 
-  fn each_temp<T>(f: &fn(Temp) -> T) {
-    match self {
-      @Const(*) | @LabelExp(*) => (),
-      @BinaryOp(_, e1, e2) => { e1.each_temp(f); e2.each_temp(f); }
-      @Temp(tmp) => { f(tmp); }
+  fn each_temp<T>(&self, f: &fn(Temp) -> T) {
+    match *self {
+      Const(*) | LabelExp(*) => (),
+      BinaryOp(_, e1, e2) => { e1.each_temp(f); e2.each_temp(f); }
+      Temp(tmp) => { f(tmp); }
     }
   }
 }
 
 impl Expression : PrettyPrint {
-  pure fn pp() -> ~str {
-    match self {
+  pure fn pp(&self) -> ~str {
+    match *self {
       Temp(ref t) => t.pp(),
       Const(c, _) => fmt!("0x%x", c as uint),
       BinaryOp(op, e1, e2) =>
@@ -240,8 +240,8 @@ impl Expression : PrettyPrint {
 }
 
 impl Binop : PrettyPrint {
-  pure fn pp() -> ~str {
-    match self {
+  pure fn pp(&self) -> ~str {
+    match *self {
       Add => ~"+",
       Sub => ~"-",
       Mul => ~"*",

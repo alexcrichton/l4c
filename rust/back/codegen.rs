@@ -65,7 +65,7 @@ impl CodeGenerator {
                       liveness: liveness::Analysis() }
   }
 
-  fn cond(c: ir::Binop) -> assem::Cond {
+  fn cond(&self, c: ir::Binop) -> assem::Cond {
     match c {
       ir::Lt  => assem::Lt,
       ir::Lte => assem::Lte,
@@ -78,7 +78,7 @@ impl CodeGenerator {
     }
   }
 
-  fn op(c: ir::Binop) -> assem::Binop {
+  fn op(&self, c: ir::Binop) -> assem::Binop {
     match c {
       ir::Add => assem::Add,
       ir::Sub => assem::Sub,

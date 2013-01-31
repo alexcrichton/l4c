@@ -1,7 +1,6 @@
 #[link(name = "l4c")];
 #[deny(implicit_copies)];
 #[deny(non_implicitly_copyable_typarams)];
-#[allow(deprecated_self)]; /* TODO: remove this */
 
 extern mod std;
 
@@ -14,10 +13,10 @@ pub mod utils {
   pub mod profile;
 
   pub trait PrettyPrint {
-    pure fn pp() -> ~str;
+    pure fn pp(&self) -> ~str;
   }
   pub trait Graphable {
-    fn dot(io::Writer);
+    fn dot(&self, io::Writer);
   }
 }
 

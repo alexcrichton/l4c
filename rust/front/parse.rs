@@ -35,7 +35,7 @@ impl Parser {
     }
   }
 
-  pure fn gettyp(j : &L/Json) -> (~str, &L/~Object) {
+  pure fn gettyp(&self, j : &L/Json) -> (~str, &L/~Object) {
     match *j {
       Object(ref obj) =>
         match *(obj.get(&~"typ")) {
@@ -60,7 +60,7 @@ impl Parser {
     mark::make(data, @mark::Coords(left, right, self.file))
   }
 
-  pure fn to_coord(j: &Json) -> (int, int) {
+  pure fn to_coord(&self, j: &Json) -> (int, int) {
     match *j {
       List([Number(a), Number(b)]) => (a as int, b as int),
       _ => fail(~"expected list with two pairs")
@@ -225,7 +225,7 @@ impl Parser {
     }
   }
 
-  pure fn to_unop(j: &Json) -> ast::Unop {
+  pure fn to_unop(&self, j: &Json) -> ast::Unop {
     match *j {
       String(~"-")  => ast::Negative,
       String(~"~")  => ast::Invert,

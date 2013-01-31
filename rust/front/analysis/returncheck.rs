@@ -31,7 +31,7 @@ impl ReturnChecker {
     }
   }
 
-  pure fn returns(s : @Statement) -> bool {
+  pure fn returns(&self, s : @Statement) -> bool {
     match s {
       @If(_, s1, s2)       => self.returns(s1) && self.returns(s2),
       @Seq(s1, s2)         => self.returns(s1) || self.returns(s2),

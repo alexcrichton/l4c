@@ -215,12 +215,12 @@ impl Instruction : ssa::Statement {
 }
 
 impl Instruction {
-  pure fn is_phi() -> bool { match self { Phi(*) => true, _ => false } }
+  pure fn is_phi(&self) -> bool { match *self { Phi(*) => true, _ => false } }
 }
 
 impl Instruction : PrettyPrint {
-  pure fn pp() -> ~str {
-    match self {
+  pure fn pp(&self) -> ~str {
+    match *self {
       Raw(copy s) => s,
       Arg(t, i) => fmt!("%s = arg[%?]", t.pp(), i),
       Return(t) => fmt!("ret // %s", t.pp()),
@@ -307,18 +307,18 @@ impl Instruction : PrettyPrint {
 }
 
 impl Operand {
-  pure fn imm() -> bool { match self { Immediate(*) => true, _ => false } }
-  pure fn reg() -> bool { match self { Register(*) => true, _ => false } }
+  pure fn imm(&self) -> bool { match *self { Immediate(*) => true, _ => false } }
+  pure fn reg(&self) -> bool { match *self { Register(*) => true, _ => false } }
 
-  pure fn mask(mask : i32) -> @Operand {
-    match self {
+  pure fn mask(&self, mask : i32) -> @Operand {
+    match *self {
       Immediate(n, s) => @Immediate(n & mask, s),
       _ => fail(~"can't mask non-immediate")
     }
   }
 
-  pure fn size() -> Size {
-    match self {
+  pure fn size(&self) -> Size {
+    match *self {
       Immediate(_, s) | Register(_, s) => s,
       LabelOp(*) => ir::Pointer,
       Temp(*) => ir::Int
@@ -326,8 +326,8 @@ impl Operand {
   }
 }
 
-impl @Operand {
-  fn map_temps(f : &fn(Temp) -> Temp) -> @Operand {
+impl Operand {
+  fn map_temps(@self, f : &fn(Temp) -> Temp) -> @Operand {
     match self {
       @Temp(t) => @Temp(f(t)),
       _        => self
@@ -335,8 +335,8 @@ impl @Operand {
   }
 }
 
-impl @Address {
-  fn map_temps(f : &fn(Temp) -> Temp) -> @Address {
+impl Address {
+  fn map_temps(@self, f : &fn(Temp) -> Temp) -> @Address {
     match self {
       @MOp(t) => @MOp(t.map_temps(f)),
       _        => self
@@ -345,8 +345,8 @@ impl @Address {
 }
 
 impl Operand : PrettyPrint {
-  pure fn pp() -> ~str {
-    match self {
+  pure fn pp(&self) -> ~str {
+    match *self {
       Immediate(c, _) => fmt!("$%d", c as int),
       Register(reg, s) => reg.size(s),
       Temp(t) => t.pp(),
@@ -368,8 +368,8 @@ impl Operand : cmp::Eq {
 }
 
 impl Address : PrettyPrint {
-  pure fn pp() -> ~str {
-    match self {
+  pure fn pp(&self) -> ~str {
+    match *self {
       MOp(o) => ~"(" + o.pp() + ~")",
       Stack(i) => fmt!("%?(%%rsp)", i),
       StackArg(i) => fmt!("arg[%?]", i),
@@ -378,8 +378,8 @@ impl Address : PrettyPrint {
 }
 
 impl Cond {
-  pure fn flip() -> Cond {
-    match self {
+  pure fn flip(&self) -> Cond {
+    match *self {
       Lt  => Gt,
       Lte => Gte,
       Gt  => Lt,
@@ -388,8 +388,8 @@ impl Cond {
       Neq => Neq
     }
   }
-  pure fn negate() -> Cond {
-    match self {
+  pure fn negate(&self) -> Cond {
+    match *self {
       Lt  => Gte,
       Lte => Gt,
       Gt  => Lte,
@@ -398,8 +398,8 @@ impl Cond {
       Neq => Eq
     }
   }
-  pure fn suffix() -> ~str {
-    match self {
+  pure fn suffix(&self) -> ~str {
+    match *self {
       Lt  => ~"l",
       Lte => ~"le",
       Gt  => ~"g",
@@ -411,22 +411,22 @@ impl Cond {
 }
 
 impl Binop {
-  pure fn commutative() -> bool {
-    match self { Add | Mul | And | Or | Xor => true, _ => false }
+  pure fn commutative(&self) -> bool {
+    match *self { Add | Mul | And | Or | Xor => true, _ => false }
   }
 
-  pure fn constrained() -> bool {
-    match self { Div | Mod | Lsh | Rsh => true, _ => false }
+  pure fn constrained(&self) -> bool {
+    match *self { Div | Mod | Lsh | Rsh => true, _ => false }
   }
 
-  pure fn divmod() -> bool {
-    match self { Div | Mod => true, _ => false }
+  pure fn divmod(&self) -> bool {
+    match *self { Div | Mod => true, _ => false }
   }
 }
 
 impl Binop : PrettyPrint {
-  pure fn pp() -> ~str {
-    match self {
+  pure fn pp(&self) -> ~str {
+    match *self {
       Add => ~"add",
       Sub => ~"sub",
       Mul => ~"imul",
@@ -443,8 +443,8 @@ impl Binop : PrettyPrint {
 }
 
 impl Register {
-  pure fn byte() -> ~str {
-    match self {
+  pure fn byte(&self) -> ~str {
+    match *self {
       EAX  => ~"%al",
       EBX  => ~"%bl",
       ECX  => ~"%cl",
@@ -464,8 +464,8 @@ impl Register {
     }
   }
 
-  pure fn size(t : Size) -> ~str {
-    match (self, t) {
+  pure fn size(&self, t : Size) -> ~str {
+    match (*self, t) {
       (EAX, ir::Int)      => ~"%eax",
       (EAX, ir::Pointer)  => ~"%rax",
       (EBX, ir::Int)      => ~"%ebx",
@@ -517,7 +517,7 @@ impl Register : cmp::Eq {
 }
 
 impl Program : Graphable {
-  fn dot(out : io::Writer) {
+  fn dot(&self, out : io::Writer) {
     out.write_str(~"digraph {\n");
     for self.funs.each |f| {
       f.cfg.dot(out,
@@ -533,7 +533,7 @@ impl Program : Graphable {
 }
 
 impl Program {
-  fn output(out : io::Writer) {
+  fn output(&self, out : io::Writer) {
     for self.funs.each |f| {
       f.output(out);
     }
@@ -545,7 +545,7 @@ impl Function {
    * Traverses the cfg and outputs a stream of instructions which can be
    * assembled to the actual program
    */
-  fn output(out : io::Writer) {
+  fn output(&self, out : io::Writer) {
     let base = label::Internal(copy self.name).pp();
     /* entry label */
     out.write_str(~".globl " + base + ~"\n");

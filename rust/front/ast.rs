@@ -81,11 +81,11 @@ pub fn Ref<T>() -> Ref<T> {
 }
 
 impl<T : Copy> Ref<T> {
-  pub fn set(t : T) {
+  pub fn set(&self, t : T) {
     self.val = Some(t);
   }
 
-  pure fn get() -> T {
+  pure fn get(&self) -> T {
     self.val.get()
   }
 }
@@ -95,7 +95,7 @@ pub fn new(g : ~[@GDecl]) -> Program {
 }
 
 impl Program {
-  fn elaborate() -> Program {
+  fn elaborate(&self) -> Program {
     let mut e = Elaborator{ efuns:   LinearSet::new(),
                             funs:    LinearSet::new(),
                             structs: LinearSet::new(),
@@ -108,7 +108,7 @@ impl Program {
 }
 
 impl Program : PrettyPrint {
-  pure fn pp() -> ~str {
+  pure fn pp(&self) -> ~str {
     str::connect(self.decls.map(|d| d.pp()), "\n")
   }
 }
@@ -274,8 +274,8 @@ impl Elaborator {
 }
 
 impl Expression {
-  pure fn lvalue() -> bool {
-    match self {
+  pure fn lvalue(&self) -> bool {
+    match *self {
       Var(_)          => true,
       Field(e, _, _)  => e.lvalue(),
       Deref(e, _)     => e.lvalue(),
@@ -287,8 +287,8 @@ impl Expression {
 }
 
 impl Type {
-  pure fn small() -> bool {
-    match self {
+  pure fn small(&self) -> bool {
+    match *self {
       Struct(_) => false,
       _ => true
     }

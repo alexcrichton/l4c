@@ -241,7 +241,7 @@ impl Translator {
     }
   }
 
-  pure fn unmark(e: @ast::Expression) -> @ast::Expression {
+  pure fn unmark(&self, e: @ast::Expression) -> @ast::Expression {
     match e {
       @ast::Marked(ref m) => self.unmark(m.data),
       _ => e
@@ -475,8 +475,8 @@ impl Translator {
     self.commit_with(self.f.cfg.new_id())
   }
 
-  pure fn consti(c : i32) -> @ir::Expression { @ir::Const(c, ir::Int) }
-  pure fn constp(c : i32) -> @ir::Expression { @ir::Const(c, ir::Pointer) }
+  pure fn consti(&self, c : i32) -> @ir::Expression { @ir::Const(c, ir::Int) }
+  pure fn constp(&self, c : i32) -> @ir::Expression { @ir::Const(c, ir::Pointer) }
 
   fn commit_with(&mut self, next : graph::NodeId) -> graph::NodeId {
     let mut L = ~[];
