@@ -37,6 +37,7 @@ var Progress = true
 var FailFast = false
 var Color = true
 var KeepFiles = false
+var NoMake = false
 
 type TestKind int
 
@@ -69,6 +70,7 @@ func main() {
   flag.BoolVar(&FailFast, "failfast", false, "stop once one test fails")
   flag.BoolVar(&Verbose, "verbose", false, "print more output of tests")
   flag.BoolVar(&KeepFiles, "keep", false, "keep intermediate output files")
+  flag.BoolVar(&NoMake, "nomake", false, "don't run 'make' before running tests")
 
   read := flag.String("testfile", "", "file to read tests from")
   write := flag.String("failurefile", "", "file to write failed tests to")
@@ -78,7 +80,9 @@ func main() {
   if *read == "" { *read = *retest }
   if *write == "" { *write = *retest }
 
-  build_compiler()
+  if !NoMake {
+    build_compiler()
+  }
   log = make(chan Test)
   failFast = make(chan int, 1)
 
