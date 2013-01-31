@@ -1,5 +1,6 @@
 //test exception 11
-// courtesy of brachiosaurus 
+//safe
+// courtesy of brachiosaurus
 int main()
 {
         int n = 0;
