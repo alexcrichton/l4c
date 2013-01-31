@@ -195,7 +195,7 @@ func run_test(testfile string) {
 
   fail := func(msg string) {
     if Verbose {
-      msg += "\n  failed cmd: "
+      msg += "\n  cmd: "
       for _, arg := range cmd.Args {
         msg += arg + " "
       }
@@ -228,8 +228,6 @@ func run_test(testfile string) {
       test.Passed = true
       return
     }
-    fail("compiler succeeded but should have failed")
-    return
   } else if !cmd.ProcessState.Success() {
     fail("compiler failed and should not have failed")
     return
@@ -244,6 +242,13 @@ func run_test(testfile string) {
   cmd.Stdin = nil
   if run(cmd, GccTimeout) != nil {
     fail("gcc timed out")
+    return
+  } else if test.Kind == Error {
+    if cmd.ProcessState.Success() {
+      fail("compiler succeeded but should have failed")
+    } else {
+      test.Passed = true
+    }
     return
   } else if !cmd.ProcessState.Success() {
     fail("gcc did not succeed")
