@@ -1,20 +1,21 @@
 package main
 
-import "strings"
-import "fmt"
-import "os"
-import "os/exec"
-import "syscall"
-import "time"
-import "sync"
-import "bytes"
-import "path/filepath"
 import "bufio"
-import "regexp"
-import "strconv"
-import "io/ioutil"
+import "bytes"
+import "flag"
+import "fmt"
 import "github.com/cheggaaa/pb"
 import "github.com/wsxiaoys/terminal"
+import "io/ioutil"
+import "os"
+import "os/exec"
+import "path/filepath"
+import "regexp"
+import "strconv"
+import "strings"
+import "sync"
+import "syscall"
+import "time"
 
 const MakeTimeout = time.Minute
 const CompilerTimeout = 5 * time.Second
@@ -34,6 +35,7 @@ var Parallel = 8
 var Verbose = false
 var Progress = true
 var FailFast = false
+var Color = true
 
 type TestKind int
 
@@ -60,13 +62,51 @@ var log chan Test
 var failFast chan int
 
 func main() {
+  flag.BoolVar(&Color, "color", true, "print pass/fail in colors")
+  flag.IntVar(&Parallel, "parallel", 1, "amount of tests to parallelize")
+  flag.BoolVar(&Progress, "progress", true, "show a progress bar")
+  flag.BoolVar(&FailFast, "failfast", false, "stop once one test fails")
+  flag.BoolVar(&Verbose, "verbose", false, "print more output of tests")
+
+  read := flag.String("testfile", "", "file to read tests from")
+  write := flag.String("failurefile", "", "file to write failed tests to")
+  retest := flag.String("retest", "", "file to read tests from and write failures to")
+
+  flag.Parse()
+  if *read == "" { *read = *retest }
+  if *write == "" { *write = *retest }
+
   build_compiler()
   log = make(chan Test)
   failFast = make(chan int, 1)
-  runTests(os.Args[1:])
+
+  tests := flag.Args()
+  if *read != "" {
+    tests = make([]string, 0)
+    file, err := os.Open(*read)
+    check(err)
+    in := bufio.NewReader(file)
+    for {
+      test, err := in.ReadString('\n')
+      if err != nil { break }
+      tests = append(tests, test[:len(test)-1])
+    }
+    file.Close()
+  }
+
+  failed := runTests(tests)
+
+  if *write != "" {
+    file, err := os.Create(*write)
+    check(err)
+    for _, s := range failed {
+      fmt.Fprintf(file, "%s\n", s)
+    }
+    file.Close()
+  }
 }
 
-func runTests(files []string) {
+func runTests(files []string) []string {
   tests := make(chan string)
   var completions sync.WaitGroup
 
@@ -100,6 +140,8 @@ func runTests(files []string) {
 
   bar := pb.StartNew(len(files))
   pb.Empty = " "
+  passed := 0
+  failed := make([]string, 0)
   for t := range log {
     if Progress {
       print("\r")
@@ -110,10 +152,17 @@ func runTests(files []string) {
       bar.Increment()
     }
     completions.Done()
-    if !t.Passed && FailFast {
-      return
+    if t.Passed {
+      passed += 1
+    } else {
+      failed = append(failed, t.File)
+      if FailFast {
+        return failed
+      }
     }
   }
+  fmt.Printf("Passed %d/%d tests\n", passed, len(files))
+  return failed
 }
 
 func build_compiler() {
@@ -219,7 +268,7 @@ func run_test(testfile string) {
   if test.Kind == Exception {
     if cmd.ProcessState.Success() || !status.Signaled() {
       fail("executable ran successfully")
-    } else if int(status.Signal()) != test.Code {
+    } else if int(status.Signal()) != test.Code && test.Code != -1 {
       fail(fmt.Sprintf("expected signal %d, got %d", test.Code,
                        status.Signal()))
     } else {
