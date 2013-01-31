@@ -190,6 +190,8 @@ func run_test(testfile string) {
   if test.Extra != "" {
     return
   }
+  assembly := withext(testfile, ".s")
+  executable := withext(testfile, "-" + filepath.Ext(testfile)[1:])
 
   fail := func(msg string) {
     if Verbose {
@@ -216,7 +218,9 @@ func run_test(testfile string) {
   cmd.Stdout = &stdout
   cmd.Stderr = &stderr
   cmd.Stdin = nil
-  if run(cmd, CompilerTimeout) != nil {
+  err := run(cmd, CompilerTimeout)
+  defer os.Remove(assembly)
+  if err != nil {
     fail("compiler timed out")
     return
   } else if test.Kind == Error {
@@ -234,9 +238,6 @@ func run_test(testfile string) {
   stderr.Reset()
 
   /* Next, run gcc on the generated assembly and the runtime */
-  assembly := withext(testfile, ".s")
-  defer os.Remove(assembly)
-  executable := withext(testfile, "-" + filepath.Ext(testfile)[1:])
   cmd = exec.Command("gcc", "-m64", "-o", executable, assembly, Runtime)
   cmd.Stdout = &stdout
   cmd.Stderr = &stderr
