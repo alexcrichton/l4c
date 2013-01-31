@@ -76,7 +76,7 @@ func main() {
     completions.Add(1)
     select {
       case tests <- f:
-      case <- failFast:
+      case <-failFast:
         completions.Done()
         break
     }
@@ -266,7 +266,11 @@ func fail(err string) {
 }
 
 func failTest(test string, message string) {
-  failFast <- 1
+  /* If no one is listening to failFast, don't worry about it */
+  select {
+    case failFast <- 1:
+    default:
+  }
   log <- "fail: " + test + " - " + message
 }
 
