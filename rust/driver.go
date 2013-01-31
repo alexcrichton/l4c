@@ -380,8 +380,7 @@ func (d *Directive) parse(file string) string {
   }
 
   line, err = in.ReadString('\n')
-  check(err)
-  if line == "//safe\n" {
+  if err != nil && line == "//safe\n" {
     d.Safe = true
   }
   return ""
