@@ -118,7 +118,11 @@ fn constrain_block(live : &temp::TempSet, delta : &[liveness::Delta],
           } else {
             new.push(@Store(@Stack((i - arch::arg_regs) * arch::ptrsize), arg));
             match arg {
-              @Temp(ref t) if !live_out.contains(t) => { live_in.remove(t); }
+              @Temp(ref t) if !live_out.contains(t) => {
+                if !vec::any(args.view(0, arch::arg_regs), |&reg| reg == arg) {
+                  live_in.remove(t);
+                }
+              }
               _ => ()
             }
             None
