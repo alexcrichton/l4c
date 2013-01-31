@@ -1,4 +1,5 @@
 //test exception
+//safe
 
 int myfunc(int[] arr) {
    return arr[100];

@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 //Tests writing past the end of allocated array
 bool is_newline(int c) {
   return c == 10;

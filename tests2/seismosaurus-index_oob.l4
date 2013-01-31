@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 
 int getIndex() {
 	return 2048;

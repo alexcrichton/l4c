@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 
 int[][] matrix(int n, int m) {
   int[][] mat = alloc_array(int[], n);
@@ -20,4 +21,4 @@ int transpose(int[][] mat, int n) {
 
 int main() {
   return transpose(matrix(100,99), 100);
-} 
+}

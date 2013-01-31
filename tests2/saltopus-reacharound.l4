@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 
 /* test allocation with INT_MIN as the size */
 

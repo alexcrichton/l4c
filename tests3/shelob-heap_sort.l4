@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 int left(int root){
 	return root*2+1;
 }
@@ -63,7 +64,7 @@ int heapify(int[] a,int len){
 
 int heap_sort(int[] a,int len) {
 	heapify(a,len);
-	
+
 	int i;
 	for(i=len-1;i>=0;i--) {
 		swap(a,0,i);
@@ -73,10 +74,10 @@ int heap_sort(int[] a,int len) {
 }
 int[] fill(int len){
 	int[] a=alloc_array(int,len);
-	
+
 	for(int i=0;i<len;i++)
 		a[i]=readint();
-	
+
 	return a;
 }
 

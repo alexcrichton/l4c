@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 
 // negative allocation size
 int f(int n) {

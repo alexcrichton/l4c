@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 /* you can alloc any time you like, but you can never read. */
 int main() {
 	int[] a = alloc_array(int, 0);

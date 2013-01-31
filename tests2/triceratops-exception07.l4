@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 
 int initialize(int[] A) {
     int i;

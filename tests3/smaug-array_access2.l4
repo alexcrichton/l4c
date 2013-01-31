@@ -1,4 +1,5 @@
 //test exception
+//safe
 
 struct empty { };
 typedef struct empty empty;

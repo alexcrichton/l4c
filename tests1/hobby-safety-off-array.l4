@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 
 int[] foo(int len) {
     return alloc_array(int, len);

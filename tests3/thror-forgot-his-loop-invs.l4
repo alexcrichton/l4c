@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 
 int bin(int[] a, int k, int n) {
   int l = 0;

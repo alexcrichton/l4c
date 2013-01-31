@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 
 int f (int* p) {
   int v = *p;

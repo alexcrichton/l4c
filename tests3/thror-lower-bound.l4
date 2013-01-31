@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 
 typedef struct t t;
 struct t {
@@ -9,7 +10,7 @@ struct t {
   int k;
 };
 
-int main() 
+int main()
 {
   t[] a = alloc_array(struct t, 10);
   int x = 10;

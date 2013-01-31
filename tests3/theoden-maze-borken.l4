@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 
 // can you find the bug?
 
@@ -23,7 +24,7 @@ int rand(rand_t gen);
 
 // rand.c0 ////////////////////////////////////////////////////////////////////
 // Mersenne twister pseudorandom number generator
-// According to Wikipedia                                                                            
+// According to Wikipedia
 struct rand {
   int[] MT;
   int index;
@@ -178,7 +179,7 @@ int print_maze(maze mz)
   int i;
   //print("Number of rooms: ");
   ps(78);ps(117);ps(109);ps(98);ps(101);ps(114);ps(32);ps(111);ps(102);ps(32);ps(114);ps(111);ps(111);ps(109);ps(115);ps(58);ps(32);
-  printint(mz->numrooms); 
+  printint(mz->numrooms);
   //println(" ");
   ps(32);ps(10);
   for(i = 0; i < mz->numrooms; i++)
@@ -218,10 +219,10 @@ int maze_out(maze mz, int x, int y)
   ps(10);
   for(i = 0; i < mz->numrooms; i++)
     {
-      if(i%x == 0) 
+      if(i%x == 0)
 	//println("");
 	ps(10);
-      printint(list_size(mz->rooms[i]->neighbors)); 
+      printint(list_size(mz->rooms[i]->neighbors));
       //print("  ");
       ps(32); ps(32);
       room_print_list(mz->rooms[i]->neighbors);
@@ -269,7 +270,7 @@ room uvn(rand_t gen, maze mz, int x, int y, room r)
 	  if(target % x < r->number % x && target >= 0 && !(mz->rooms[target]->visited))
 	    adj = mz->rooms[target];
 	}
-      
+
       else if(choice == 3 && rht)
 	{
 	  rht = false;
@@ -294,7 +295,7 @@ int branch(rand_t gen, maze mz, int x, int y, room r)
 
   room target;
   bool branched = false;
-  
+
   r->visited = true;
 
   //first we test to see if this branch will continue
@@ -309,7 +310,7 @@ int branch(rand_t gen, maze mz, int x, int y, room r)
 	  branch(gen, mz, x, y, target);
 	}
     }
-  
+
   //if it will, perhaps it will spawn more branches
   if(branched)
     {
@@ -323,7 +324,7 @@ int branch(rand_t gen, maze mz, int x, int y, room r)
 	      branch(gen, mz, x, y, target);
 	    }
 	}
-      
+
       if(new_int(gen, 1000) < b2)
 	{
 	  target = uvn(gen, mz, x, y, r);
@@ -378,7 +379,7 @@ bool linkup(rand_t gen, maze mz, int x, int y, room r)
 	  if(target % x < r->number % x && target >= 0 && (mz->rooms[target]->visited))
 	    adj = mz->rooms[target];
 	}
-      
+
       else if(choice == 3 && rht)
 	{
 	  rht = false;
@@ -392,11 +393,11 @@ bool linkup(rand_t gen, maze mz, int x, int y, room r)
     //r unmodified
     return false;
 
-  else 
+  else
     {
       connect(r, adj);
     }
-  
+
   return true;
 }
 
@@ -407,7 +408,7 @@ int add_link(maze mz, int x, int y, room r, int dir)
       if(dir == 0)
 	if(r->number - x >= 0)
 	  return connect(r, mz->rooms[r->number - x]);
-      
+
 	else if(dir == 1)
 	  if(r->number + x < mz->numrooms)
 	    return connect(r, mz->rooms[r->number + x]);
@@ -415,7 +416,7 @@ int add_link(maze mz, int x, int y, room r, int dir)
 	  else if(dir == 2)
 	    if((r->number - 1) % x < r->number % x && r->number - 1 >= 0)
 	      return connect(r, mz->rooms[r->number - 1]);
-	    
+
 	    else if(dir == 3)
 	      if((r->number + 1) % x > r->number % x)
 		return connect(r, mz->rooms[r->number + 1]);
@@ -478,7 +479,7 @@ maze makemaze(int X, int Y, int SEED, int add, int rem, int port)
   int y = Y;
   //======================================
   //END INITIALIZATION
-  
+
   int i;
   rand_t gen = init_rand(seed);
   int count;
@@ -501,7 +502,7 @@ maze makemaze(int X, int Y, int SEED, int add, int rem, int port)
 
   //branch from enter
   branch(gen, mz, x, y, mz->enter);
-  
+
   //we clear for bookkeeping purposes;
   //if a room has been visited but has no predecessor, old branch (goes to enter)
   //if a room has been visited and has a predecessor, this branch
@@ -568,8 +569,8 @@ maze makemaze(int X, int Y, int SEED, int add, int rem, int port)
 	      portal(mz->rooms[i], mz->rooms[target]);
 	    }
 	}
-    }    
-    
+    }
+
   clear_visited(mz);
   clear_predecessors(mz);
   return mz;
@@ -616,7 +617,7 @@ int drawroom(int[][] vwalls, int[][] hwalls, int[][] portals, int X, int Y, room
 	  hwalls[y+1][x] += 2;
 	}
       // room is somehwere else, draw a portal
-      else 
+      else
 	{
 	  int px = l->data->number % X;
 	  int py = l->data->number / X;
@@ -628,7 +629,7 @@ int drawroom(int[][] vwalls, int[][] hwalls, int[][] portals, int X, int Y, room
 	      (*p)++;
 	    }
 	  // otherwise copy theirs
-	  else 
+	  else
 	    {
 	      portals[y][x] = abs(portals[py][px]);
 	    }
@@ -692,7 +693,7 @@ int p_portal(int p)
 */
 int drawarrays(int[][] vwalls, int[][] hwalls, int[][] portals, int X, int Y)
 {
-  int y = 0; 
+  int y = 0;
   int x = 0;
 
   // for each row
@@ -701,10 +702,10 @@ int drawarrays(int[][] vwalls, int[][] hwalls, int[][] portals, int X, int Y)
       // draw the horizontal walls above the row
       for(x = 0; x < X; x++)
 	{
-	  ps(43); 
+	  ps(43);
 	  p_hwall(hwalls[y][x]);
 	}
-      ps(43); 
+      ps(43);
       ps(10);
       // draw the vertical walls at the row
       for(x = 0; x < X; x++)
@@ -719,10 +720,10 @@ int drawarrays(int[][] vwalls, int[][] hwalls, int[][] portals, int X, int Y)
   // draw the horizontal walls along the bottom
   for(x = 0; x < X; x++)
     {
-      ps(43); 
+      ps(43);
       p_hwall(hwalls[y][x]);
     }
-  ps(43); 
+  ps(43);
   ps(10);
 
   return 0;
@@ -731,10 +732,10 @@ int drawarrays(int[][] vwalls, int[][] hwalls, int[][] portals, int X, int Y)
 int[][] init2d(int x, int y)
 {
   int[][] A = alloc_array(int[], y);
-    
+
   for(int i = 0; i < y; i++)
     A[i] = alloc_array(int, x);
-  
+
   return A;
 }
 
@@ -746,7 +747,7 @@ int drawmaze(maze mz, int X, int Y)
   int[][] vwalls = init2d(X, Y);
   int[][] hwalls = init2d(X, Y+1);
   int[][] portals = init2d(X, Y);
-    
+
   int *p = alloc(int);
   *p = 2;
 
@@ -807,7 +808,7 @@ int enq(queue Q, elem e)
 }
 
 elem deq(queue Q)
-{ 
+{
   elem e = Q->front->data;
   Q->front = Q->front->next;
   return e;
@@ -874,7 +875,7 @@ elem pop(stack S)
 */
 
 elem get_end(list l)
-//we are assuming that the list is: 
+//we are assuming that the list is:
 //  - noncyclic
 //  - null-terminated
 {
@@ -1001,17 +1002,17 @@ list mazesearch1(maze mz)
 	  p = r->neighbors;
 	  while(p != NULL)
 	    {
-	      if( !(p->data->visited) && !(q_contains(Q, p->data))) 
+	      if( !(p->data->visited) && !(q_contains(Q, p->data)))
 		{
 		  p->data->predecessor = r;
-		  enq(Q,p->data);	  
+		  enq(Q,p->data);
 		}
 
-	      p = p->next;	    
+	      p = p->next;
 	    }
 	}
     }
-  
+
   if(mz->exit->predecessor == NULL) return NULL;
 
   else{
@@ -1036,7 +1037,7 @@ list mazesearch1(maze mz)
 	    L = L->next;
 	  }
       }
-    
+
     return out;
   }
 
@@ -1047,7 +1048,7 @@ int cleanup_sol(maze mz, list sol)
 {
   for(int i = 0; i < mz->numrooms; i++)
     {
-      if(!(list_contains(sol, mz->rooms[i]))) 
+      if(!(list_contains(sol, mz->rooms[i])))
 	{
 	  mz->rooms[i]->visited = false;
 	}
@@ -1060,14 +1061,14 @@ int main()
   int mz1_x = 6;
   int mz1_y = 6;
   maze mz1 = makemaze(mz1_x, mz1_y, 0xf00d, 0, 0, 0);
-  
+
   print_maze(mz1);
   ps(10);ps(10);
   maze_out(mz1,mz1_x,mz1_y);
   ps(10);ps(10);
-  
+
   list mz1_s = mazesearch1(mz1);
-  
+
   room_print_list(mz1_s);
   ps(10);ps(10);
 
@@ -1081,7 +1082,7 @@ int main()
   ps(10);ps(10);
   drawmaze(mz2, mz2_x, mz2_y);
   ps(10);ps(10);
-  
+
   list mz2_s = mazesearch1(mz2);
   cleanup_sol(mz2, mz2_s);
 
@@ -1089,28 +1090,28 @@ int main()
   ps(10);ps(10);
   drawmaze(mz2, mz2_x, mz2_y);
   ps(10);ps(10);
-  
+
   // I know---let's find the average solution length for some cases
 
   int num_trials = 35;
   int trial_start = 2;
   int trial_end = 6;
   int seed = 0xbeeff00d;
-  
+
   for(int k = trial_start; k <= trial_end; k++)
-    { 
+    {
       int total = 0;
       int mz_x = 1<<k;
       int mz_y = 1<<k;
       for(int i = 0; i < num_trials; i++)
 	{
 	  maze mz = makemaze(mz_x, mz_y, seed, 10, 1, 1);
-	  
+
 	  list mz_s = mazesearch1(mz);
 	  total += list_size(mz_s);
 	  seed = (seed * 1664525) + 1013904223;
 	}
-  
+
       printint(mz_x);ps(32);ps(120);ps(32);printint(mz_y);ps(58);ps(10);
       printint(total / num_trials);
       ps(10);ps(10);
@@ -1124,7 +1125,7 @@ int main()
 
   drawmaze(mz3, mz3_x, mz3_y);
   ps(10);ps(10);
-  
+
   list mz3_s = mazesearch1(mz3);
   cleanup_sol(mz3, mz3_s);
 

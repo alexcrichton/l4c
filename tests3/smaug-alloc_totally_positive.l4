@@ -1,8 +1,9 @@
 //test exception
+//safe
 
 int LOCInProofOfPEqualsNP(int i) {
   i += (-i) + i + 20 - 2*i;
-  return i; 
+  return i;
 }
 
 

@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 /* excluding comments, what's the shortest segfaulting program? */
 int main(){int[] a=alloc_array(int, -1);return 0;}
 

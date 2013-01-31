@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 struct bar {
   int[] a;
 };

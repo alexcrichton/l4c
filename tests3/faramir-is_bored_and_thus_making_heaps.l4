@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 
 //probably shouldn't allocate heaps of size 0
 
@@ -17,12 +18,12 @@ heap_t * create_heap (int size) {
 
 heap_t * resize_heap (heap_t * h) {
     heap_t * new_heap = alloc(heap_t);
-    
+
     int[] new_h = alloc_array(int, h->size * 2);
     for(int i = 0; i < h->last; i++) {
         new_h[i] = h->h[i];
     }
-    
+
     new_heap->h = new_h;
     new_heap->size = h->size * 2;
     new_heap->last = h->last;

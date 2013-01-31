@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 // should notice that bounds are invalid and raise sigsegv
 int main ()
 {

@@ -1,4 +1,4 @@
-//test error missing return
+//test error
 
 int main()
 {

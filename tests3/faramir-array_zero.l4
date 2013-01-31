@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 
 int[] resize(int[] a, int length) {
     int[] b = alloc_array(int, length * 2);
@@ -12,7 +13,7 @@ int[] resize(int[] a, int length) {
 
 int main() {
     int[] a = alloc_array(int, 0);
-    
+
     a = resize(a, 0);
 
     a[0] = 1;

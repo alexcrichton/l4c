@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 // Originally 6
 // Array bounds error- you can't alloc negative sizes!
 

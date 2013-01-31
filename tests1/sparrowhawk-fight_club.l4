@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 
 int main()
 {
@@ -22,12 +23,12 @@ int main()
 
 	average_out_of_court_settlement = 100;
 	c = average_out_of_court_settlement;
-	
+
 	x = a * b * c;
-	
+
 	cost_of_a_recall = 2000000;
-		
-		
+
+
 	if (x < cost_of_a_recall)
 		we_dont_do[1] = 1;
 	else
@@ -35,7 +36,7 @@ int main()
 
 	return 0;
 }
-		
 
 
-	
+
+

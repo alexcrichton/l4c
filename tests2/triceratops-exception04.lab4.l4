@@ -1,4 +1,5 @@
 //test exception 8
+//safe
 
 struct s
 {

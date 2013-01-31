@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 //quite possibly exception 8 in unsafe mode.
 //but in safe mode, order of operations should cause 11 first.
 

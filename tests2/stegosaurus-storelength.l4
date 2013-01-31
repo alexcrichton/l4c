@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 /* Check that length data is stored in the right place */
 int main() {
 	int[] a = alloc_array(int, 2);

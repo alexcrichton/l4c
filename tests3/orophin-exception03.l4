@@ -1,5 +1,6 @@
 //test exception 11
-//  array access beyond bounds 
+//safe
+//  array access beyond bounds
 int main() {
   int a = 42;
   int [] b = alloc_array(int, a);

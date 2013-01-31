@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 int inc(int *val) {
   int ret = *val;
   *val = *val + 1;

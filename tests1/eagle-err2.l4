@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 // You only evaluate conditions once, right?
 int uhoh(int *bar) {
   if (*bar == 0) {

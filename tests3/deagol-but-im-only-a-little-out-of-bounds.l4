@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 
 int munchie(bool[] a) {
   for (int i = 0; i <= 100000000; i++) a[i];

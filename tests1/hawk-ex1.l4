@@ -1,4 +1,5 @@
 //test exception
+//safe
 
 struct a {
     int[] xs;

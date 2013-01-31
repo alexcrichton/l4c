@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 // fib with memo, exccept that the memo-table isn't big enough
 int fib(int x, int[] results, int n) {
   if (x == 0) return 0;

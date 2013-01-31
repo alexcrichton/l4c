@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 
 struct blarg {
     struct blarg [] anyus;
@@ -7,7 +8,7 @@ struct blarg {
 
 int main() {
     struct blarg [] a = alloc_array(struct blarg, 100);
-    
+
     for(int i = 0; i < 100; i++)
     {
         a[i].anoos = i;

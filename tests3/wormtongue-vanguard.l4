@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 // in which we hop off an array
 
 int main() {

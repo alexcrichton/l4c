@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 
 int main () {
   int[] arr = alloc_array(int, 1000);

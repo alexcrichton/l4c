@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 /* This test does not ensure proper struct alignment. */
 
 struct bar {

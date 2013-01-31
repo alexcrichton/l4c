@@ -1,4 +1,5 @@
 //test exception
+//safe
 //array bounds error in alloc in hex
 
 int main() {
