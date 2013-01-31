@@ -89,7 +89,7 @@ struct Coalescer {
   interference_cache: LinearMap<Temp, TempSet>,
   interferences_cache: LinearMap<(Temp, Temp), bool>,
   admissible_cache: LinearMap<(Temp, uint), bool>,
-  dominates_cache: LinearMap<(Location, Location), bool>,
+  dominates_cache: LinearMap<(NodeId, NodeId), bool>,
 
   /* Finally, find_interferences is an incredibly slow method, and these are
    * precomputations of the input to a more efficient format to be used in that
@@ -795,36 +795,28 @@ impl Coalescer {
   /**
    * Tests wehther a location dominates another location in the graph
    */
-  fn dominates(&mut self, a: Location, b:Location) -> bool {
-    match self.dominates_cache.find(&(a, b)) {
-      Some(&s) => return s,
-      None => ()
-    }
-    let c = self.dominates_impl(a, b);
-    self.dominates_cache.insert((a, b), c);
-    return c;
-  }
-
-  /**
-   * Actual implementation of the dominance relation
-   */
-  /* TODO(4653): make the arguments 'ref a', 'ref b' */
-  fn dominates_impl(&self, (a, aline): Location, (b, bline): Location) -> bool {
+  fn dominates(&mut self, (a, aline): Location, (b, bline):Location) -> bool {
     /* Same block? well that's easy */
     if a == b {
       return aline < bline;
     }
+    match self.dominates_cache.find(&(a, b)) {
+      Some(&s) => return s, None => ()
+    }
     /* Otherwise we just walk up b's idominator tree to see if we ever find a,
        if we find the root first, then a doesn't dominate b */
     let mut cur = &b;
-    while cur != self.f.ssa.idominator.get(cur) {
-      /* TODO(purity): this shouldn't have to be unsafe */
-      unsafe {
-        cur = self.f.ssa.idominator.get(cur);
-        if *cur == a { return true; }
-      }
+    let mut dominates = false;
+    let idominator = &self.f.ssa.idominator;
+    loop {
+      let nxt = idominator.get(cur);
+      if nxt == cur { break }
+      if *nxt == a { dominates = true; break; }
+      cur = nxt;
     }
-    return false;
+    self.dominates_cache.insert((a, b), dominates);
+    self.dominates_cache.insert((b, a), !dominates);
+    return dominates;
   }
 }
 
