@@ -36,6 +36,7 @@ var Verbose = false
 var Progress = true
 var FailFast = false
 var Color = true
+var KeepFiles = false
 
 type TestKind int
 
@@ -67,6 +68,7 @@ func main() {
   flag.BoolVar(&Progress, "progress", true, "show a progress bar")
   flag.BoolVar(&FailFast, "failfast", false, "stop once one test fails")
   flag.BoolVar(&Verbose, "verbose", false, "print more output of tests")
+  flag.BoolVar(&KeepFiles, "keep", false, "keep intermediate output files")
 
   read := flag.String("testfile", "", "file to read tests from")
   write := flag.String("failurefile", "", "file to write failed tests to")
@@ -219,7 +221,7 @@ func run_test(testfile string) {
   cmd.Stderr = &stderr
   cmd.Stdin = nil
   err := run(cmd, CompilerTimeout)
-  defer os.Remove(assembly)
+  defer rm(assembly)
   if err != nil {
     fail("compiler timed out")
     return
@@ -254,7 +256,7 @@ func run_test(testfile string) {
     fail("gcc did not succeed")
     return
   }
-  defer os.Remove(executable)
+  defer rm(executable)
 
   /* Next, run the test itself */
   stdin, _ := os.Open(testfile + ".in") // if it doesn't exist, stdin == nil
@@ -396,4 +398,10 @@ func (d *Directive) parse(file string) string {
 
 func tab(s string) string {
   return "    " + strings.Replace(s, "\n", "\n    ", -1)
+}
+
+func rm(f string) {
+  if !KeepFiles {
+    os.Remove(f)
+  }
 }
