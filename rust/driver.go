@@ -43,19 +43,26 @@ type Directive struct {
   Safe bool
 }
 
+type Test struct {
+  Directive
+  File string
+  Extra string
+  Passed bool
+}
+
 const (
   Error TestKind = iota
   Return
   Exception
 )
 
-var log chan string
+var log chan Test
 var failFast chan int
 
 func main() {
   build_compiler()
-  log = make(chan string)
-  failFast = make(chan int)
+  log = make(chan Test)
+  failFast = make(chan int, 1)
   runTests(os.Args[1:])
 }
 
@@ -63,6 +70,7 @@ func runTests(files []string) {
   tests := make(chan string)
   var completions sync.WaitGroup
 
+  /* Spawn off workers to run tests */
   for i := 0; i < Parallel; i++ {
     go func() {
       for test := range tests {
@@ -71,6 +79,8 @@ func runTests(files []string) {
     }()
   }
 
+  /* One worker adds all the tests to the queue, closing channels when
+     everything has completely finished */
   go func() {
     for _, f := range files {
       completions.Add(1)
@@ -90,16 +100,19 @@ func runTests(files []string) {
 
   bar := pb.StartNew(len(files))
   pb.Empty = " "
-  for s := range log {
+  for t := range log {
     if Progress {
       print("\r")
       terminal.Stdout.ClearLine()
     }
-    println(s)
+    println(t.text())
     if Progress {
       bar.Increment()
     }
     completions.Done()
+    if !t.Passed && FailFast {
+      return
+    }
   }
 }
 
@@ -111,17 +124,21 @@ func build_compiler() {
   cmd.Stdin = nil
   run(cmd, MakeTimeout)
   if !cmd.ProcessState.Success() {
-    fail("make did not succeed")
+    println("error: make did not succeed")
+    os.Exit(1)
   }
 }
 
-func run_test(test string) {
+func run_test(testfile string) {
   var stdout bytes.Buffer
   var stderr bytes.Buffer
-  var directive Directive
+  var test Test
+  test.File = testfile
   var cmd *exec.Cmd
+  defer func() { log <- test }()
 
-  if !directive.parse(test) {
+  test.Extra = test.Directive.parse(testfile)
+  if test.Extra != "" {
     return
   }
 
@@ -138,18 +155,14 @@ func run_test(test string) {
         msg += "\n  stderr:\n" + RED + tab(stderr.String()) + RESET
       }
     }
-    failTest(test, msg)
-  }
-
-  pass := func() {
-    log <- BOLD + GREEN + "pass: " + RESET + test
+    test.Extra = msg
   }
 
   /* Run the compiler on the specified test */
-  if directive.Safe {
-    cmd = exec.Command(Compiler, "--safe", "-l", "l4rt.h0", test)
+  if test.Safe {
+    cmd = exec.Command(Compiler, "--safe", "-l", "l4rt.h0", testfile)
   } else {
-    cmd = exec.Command(Compiler, "--unsafe", "-l", "l4rt.h0", test)
+    cmd = exec.Command(Compiler, "--unsafe", "-l", "l4rt.h0", testfile)
   }
   cmd.Stdout = &stdout
   cmd.Stderr = &stderr
@@ -157,9 +170,9 @@ func run_test(test string) {
   if run(cmd, CompilerTimeout) != nil {
     fail("compiler timed out")
     return
-  } else if directive.Kind == Error {
+  } else if test.Kind == Error {
     if !cmd.ProcessState.Success() {
-      pass()
+      test.Passed = true
       return
     }
     fail("compiler succeeded but should have failed")
@@ -172,9 +185,9 @@ func run_test(test string) {
   stderr.Reset()
 
   /* Next, run gcc on the generated assembly and the runtime */
-  assembly := withext(test, ".s")
+  assembly := withext(testfile, ".s")
   defer os.Remove(assembly)
-  executable := withext(test, "-" + filepath.Ext(test)[1:])
+  executable := withext(testfile, "-" + filepath.Ext(testfile)[1:])
   cmd = exec.Command("gcc", "-m64", "-o", executable, assembly, Runtime)
   cmd.Stdout = &stdout
   cmd.Stderr = &stderr
@@ -189,7 +202,7 @@ func run_test(test string) {
   defer os.Remove(executable)
 
   /* Next, run the test itself */
-  stdin, _ := os.Open(test + ".in") // if it doesn't exist, stdin == nil
+  stdin, _ := os.Open(testfile + ".in") // if it doesn't exist, stdin == nil
   cmd = exec.Command(executable)
   cmd.Stdout = &stdout
   cmd.Stderr = &stderr
@@ -203,14 +216,14 @@ func run_test(test string) {
 
   /* Finally, grade the results of the test */
   status := cmd.ProcessState.Sys().(syscall.WaitStatus)
-  if directive.Kind == Exception {
+  if test.Kind == Exception {
     if cmd.ProcessState.Success() || !status.Signaled() {
       fail("executable ran successfully")
-    } else if int(status.Signal()) != directive.Code {
-      fail(fmt.Sprintf("expected signal %d, got %d", directive.Code,
+    } else if int(status.Signal()) != test.Code {
+      fail(fmt.Sprintf("expected signal %d, got %d", test.Code,
                        status.Signal()))
     } else {
-      pass()
+      test.Passed = true
     }
     return
   }
@@ -230,17 +243,17 @@ func run_test(test string) {
   if err != nil {
     fail("test should print out one integer when running to stdout")
     return
-  } else if int(ret) != directive.Code {
+  } else if int(ret) != test.Code {
     stdout.Reset()
-    fail(fmt.Sprintf("expected %d, got %d", directive.Code, int(ret)))
+    fail(fmt.Sprintf("expected %d, got %d", test.Code, int(ret)))
     return
   }
 
   /* Next check the output is what we're expecting */
   actual := stderr.String()
-  expected, err := os.Open(test + ".out")
+  expected, err := os.Open(testfile + ".out")
   if err != nil {
-    pass()
+    test.Passed = true
     return // no expected output file
   }
   defer expected.Close()
@@ -248,9 +261,9 @@ func run_test(test string) {
   check(err)
   if string(bytes) != actual {
     fail("output is not as expected")
-    return
+  } else {
+    test.Passed = true
   }
-  pass()
 }
 
 func check(err error) {
@@ -274,27 +287,18 @@ func run(c *exec.Cmd, timeout time.Duration) error {
   return <-done
 }
 
-func fail(err string) {
-  println("error: ", err)
-  os.Exit(1)
-}
-
-func failTest(test string, message string) {
-  /* If no one is listening to failFast, don't worry about it */
-  if FailFast {
-    select {
-      case failFast <- 1:
-      default:
-    }
-  }
-  log <- BOLD + RED + "fail: " + RESET + test + " - " + message
-}
-
 func withext(file, ext string) string {
   return file[:len(file)-len(filepath.Ext(file))] + ext
 }
 
-func (d *Directive) parse(file string) bool {
+func (t *Test) text() string {
+  if t.Passed {
+    return BOLD + GREEN + "pass: " + RESET + t.File
+  }
+  return BOLD + RED + "fail: " + RESET + t.File + " - " + t.Extra
+}
+
+func (d *Directive) parse(file string) string {
   f, err := os.Open(file)
   defer f.Close()
   check(err)
@@ -303,8 +307,7 @@ func (d *Directive) parse(file string) bool {
   check(err)
   matches := TestPattern.FindStringSubmatch(line)
   if matches == nil {
-    failTest(file, "no test directive found or invalid test directive")
-    return false
+    return "no test directive found or invalid test directive"
   }
   matches = matches[1:]
   switch matches[0] {
@@ -315,16 +318,14 @@ func (d *Directive) parse(file string) bool {
     case "return":
       d.Kind = Return
       if len(matches) == 1 || matches[1] == "" {
-        failTest(file, "return directive requires a return value")
-        return false
+        return "return directive requires a return value"
       }
   }
   d.Code = -1
   if len(matches) > 1 && matches[1] != "" {
     c, err := strconv.ParseInt(matches[1], 10, 32)
     if err != nil {
-      failTest(file, fmt.Sprintf("invalid code specified: '%s'", matches[1]))
-      return false
+      return fmt.Sprintf("invalid code specified: '%s'", matches[1])
     }
     d.Code = int(c)
   }
@@ -334,8 +335,7 @@ func (d *Directive) parse(file string) bool {
   if line == "//safe\n" {
     d.Safe = true
   }
-
-  return true
+  return ""
 }
 
 func tab(s string) string {
