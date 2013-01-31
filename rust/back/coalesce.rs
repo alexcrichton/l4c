@@ -461,9 +461,14 @@ impl Coalescer {
       return true;
     }
 
-    for self.uses.get(&t).each |&loc| {
-      if self.dominates((bdef, bline), loc) {
-        return true;
+    match self.uses.find(&t) {
+      None => (),
+      Some(m) => {
+        for m.each |&loc| {
+          if self.dominates((bdef, bline), loc) {
+            return true;
+          }
+        }
       }
     }
     return false;
