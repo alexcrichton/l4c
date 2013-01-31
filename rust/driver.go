@@ -30,8 +30,8 @@ const BOLD = "\x1b[;1m"
 const RED = "\x1b[31m"
 const GREEN = "\x1b[32m"
 
-var Parallel = 1
-var Verbose = true
+var Parallel = 8
+var Verbose = false
 var Progress = true
 var FailFast = false
 
