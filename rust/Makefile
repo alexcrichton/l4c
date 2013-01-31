@@ -1,7 +1,7 @@
 RUSTC = rustc
 SOURCES = $(shell find . -name '*.rs' -or -name '*.rc')
 
-all: driver l4c
+all: bin/driver l4c
 l4c: bin/l4c
 opt: l4c
 opt: RUSTC = rustc --opt-level=3
@@ -19,8 +19,8 @@ bin/l4c: parse/parser $(SOURCES)
 clean: parseclean
 	rm -rf bin
 
-driver: driver.go
-	go build $<
+bin/driver: driver.go
+	go build -o $@ $<
 
 test:
 	$(RUSTC) --test l4c.rc -o bin/l4c-test
