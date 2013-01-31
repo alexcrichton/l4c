@@ -166,7 +166,6 @@ impl Instruction {
 impl Instruction: ssa::Statement {
   static fn phi(t: Temp, map: ssa::PhiMap) -> @Instruction { @Phi(t, map) }
 
-  /* TODO: is this an infinite loop? */
   fn each_def<T>(&self, f: &fn(Temp) -> T) { self.each_def(f) }
   fn each_use<T>(&self, f: &fn(Temp) -> T) { self.each_use(f) }
   fn phi_map(&self) -> Option<ssa::PhiMap> { self.phi_map() }
