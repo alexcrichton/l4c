@@ -154,6 +154,7 @@ impl CodeGenerator {
                                     self.half(e))),
       @ir::Die(@ir::BinaryOp(cond, e1, e2)) =>
         self.push(@assem::Die(self.cond(cond), self.half(e1), self.half(e2))),
+      @ir::Die(@ir::Const(0, _)) => (),
       @ir::Die(_) => fail(~"invalid die"),
       @ir::Return(e) => self.push(@assem::Return(self.half(e))),
       @ir::Call(tmp, fun, ref args) => {
