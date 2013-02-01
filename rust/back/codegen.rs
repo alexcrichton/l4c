@@ -237,6 +237,18 @@ impl CodeGenerator {
         }
       },
 
+      /* x86 can't load/store to immediate addresses */
+      @assem::Store(@assem::MOp(a @ @assem::Immediate(*)), e) => {
+        let tmp = self.tmpnew(ir::Pointer);
+        self.stms.push(@assem::Move(tmp, a));
+        self.stms.push(@assem::Store(@assem::MOp(tmp), e));
+      }
+      @assem::Load(e, @assem::MOp(a @ @assem::Immediate(*))) => {
+        let tmp = self.tmpnew(ir::Pointer);
+        self.stms.push(@assem::Move(tmp, a));
+        self.stms.push(@assem::Load(e, @assem::MOp(tmp)));
+      }
+
       _ => self.stms.push(ins)
     }
   }
