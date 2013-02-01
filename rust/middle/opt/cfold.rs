@@ -1,5 +1,6 @@
 /**
- * @brief Constant folding for reducing the amount of static computation
+ * @brief Constant folding and propagation for reducing the amount of static
+ *        computation
  *
  * This module will fold all constant expressions in the IR, reducing as much
  * definite arithmetic as possible. This will also propogate temps equal to
