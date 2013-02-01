@@ -1,5 +1,6 @@
 use core::hashmap::linear::{LinearMap, LinearSet};
 use core::util::unreachable;
+use core::either::*;
 
 use std::{map, bitv};
 
@@ -12,6 +13,8 @@ use utils::profile;
 type CFG = graph::Graph<@~[@Instruction], ir::Edge>;
 type RegisterSet = bitv::Bitv;
 pub type ColorMap = LinearMap<Temp, uint>;
+/* Left = move(dst, src), Right = xchg(r1, r1) */
+type Resolution = Either<(uint, uint), (uint, uint)>;
 
 struct Allocator {
   f: &mut Function,
@@ -322,67 +325,6 @@ impl Allocator {
     }
   }
 
-  fn resolve_perm(&self, result: &[uint], incoming: &[uint]) -> ~[@Instruction] {
-    use sim = std::smallintmap;
-    /* TODO: remove this once this works */
-    let regs = sim::mk();
-    for uint::range(1, arch::num_regs + 1) |i| {
-      regs.insert(i, i);
-    }
-
-    let mkreg = |i: uint| @Register(arch::num_reg(i), ir::Pointer);
-    let mut ins = ~[];
-
-    /* build up some small conversion maps */
-    let src_dst = sim::mk();
-    for vec::each2(result, incoming) |&a, &b| {
-      if !src_dst.contains_key(b) {
-        src_dst.insert(b, a);
-      }
-    }
-
-    /* Permute the registers by following cycles */
-    for incoming.each |&src| {
-      while src_dst.contains_key(src) {
-        let dst = src_dst[src];
-        if dst != src {
-          let tmp = regs[src];
-          regs.insert(src, regs[dst]);
-          regs.insert(dst, tmp);
-          ins.push(@Raw(fmt!("xchg %s, %s", mkreg(dst).pp(), mkreg(src).pp())));
-        }
-        match src_dst.find(dst) {
-          None => { src_dst.remove(src); }
-          Some(d) => {
-            src_dst.insert(src, d);
-            src_dst.remove(dst);
-          }
-        }
-      }
-    }
-
-    /* now resolve copies of values */
-    src_dst.clear();
-    for vec::each2(result, incoming) |&a, &b| {
-      if src_dst.contains_key(b) {
-        regs.insert(a, b);
-        ins.push(@Move(mkreg(a), mkreg(src_dst[b])));
-      } else {
-        src_dst.insert(b, a);
-      }
-    }
-
-    info!("perm %? -v", incoming);
-    info!("     %?", result);
-    info!("     %?", ins);
-
-    for vec::each2(incoming, result) |&a, &b| {
-      debug!("%? %? %?", a, b, regs[b]);
-      assert regs[b] == a;
-    }
-    return ins;
-  }
-
   /**
    * Apply the coloring previously generated to all instructions and operands in
    * all basic blocks. This means that the cfg will no longer have any temps,
@@ -524,6 +466,17 @@ impl Allocator {
     @Register(arch::num_reg(*self.colors.get(&tmp)),
               *self.f.sizes.get(&tmp))
   }
+
+  fn resolve_perm(&self, result: &[uint], incoming: &[uint]) -> ~[@Instruction] {
+    let mkreg = |i: uint| @Register(arch::num_reg(i), ir::Pointer);
+    resolve_perm(result, incoming).map(|&r| {
+      match r {
+        Left((dst, src)) => @Move(mkreg(dst), mkreg(src)),
+        Right((r1, r2)) => @Raw(fmt!("xchg %s, %s", mkreg(r1).pp(),
+                                     mkreg(r2).pp()))
+      }
+    })
+  }
 }
 
 impl bitv::Bitv: PrettyPrint {
@@ -543,4 +496,98 @@ impl bitv::Bitv: PrettyPrint {
     }
     return s + ~"}";
   }
+}
+
+/**
+ * Perform the actual resolution of moves/exchanges to get from incoming to the
+ * result specified.
+ */
+fn resolve_perm(result: &[uint], incoming: &[uint]) -> ~[Resolution] {
+  use sim = std::smallintmap;
+  /* maps describing src -> dst and dst -> src */
+  let src_dst = sim::mk();
+  let dst_src = sim::mk();
+  for vec::each2(result, incoming) |&dst, &src| {
+    if dst != src {
+      src_dst.insert(src, dst);
+      dst_src.insert(dst, src);
+    }
+  }
+
+  let mut ret = ~[];
+
+  /* deal with all move chains first */
+  for result.each |&dst| {
+    /* if this destination is also a source, it's not the end of a chain */
+    if src_dst.contains_key(dst) { loop }
+
+    /* having found the end of a chain, go up the chain moving everything into
+       the right spot as we go along */
+    let mut cur = dst;
+    while dst_src.contains_key(cur) {
+      ret.push(Left((cur, dst_src[cur])));
+      let nxt = dst_src[cur];
+      dst_src.remove(cur);
+      cur = nxt;
+    }
+  }
+
+  /* Next, deal with all loops */
+  for result.each |&dst| {
+    /* if this isn't a destination any more, it was part of a chain */
+    if !dst_src.contains_key(dst) { loop }
+
+    /* Exchange everything through the 'dst' register to resolve the chain */
+    let mut cur = dst;
+    while src_dst.contains_key(cur) {
+      let nxt = src_dst[cur];
+      src_dst.remove(cur);
+      if nxt == dst { break }
+      ret.push(Right((dst, nxt)));
+      cur = nxt;
+    }
+  }
+
+  return ret;
+}
+
+#[cfg(test)]
+fn resolve_test(from: &[uint], to: &[uint]) {
+  use sim = std::smallintmap;
+  let perm = resolve_perm(to, from);
+  let mut regs = vec::from_fn(10, |i| i);
+  for perm.each |&foo| {
+    match foo {
+      Left((dst, src))  => { regs[dst] = regs[src]; }
+      Right((dst, src)) => { regs[dst] <-> regs[src]; }
+    }
+  }
+
+  let map = sim::mk();
+  for uint::range(0, 10) |i| { map.insert(i, ()); }
+  for vec::each2(from, to) |&f, &t| {
+    map.remove(t);
+    if regs[t] != f {
+      fail(fmt!("expected %? to be %? but it was %?", t, f, regs[t]));
+    }
+  }
+  debug!("%?", regs);
+  for map.each |k, _| {
+    if regs[k] != k {
+      fail(fmt!("clobbered %? to %?", k, regs[k]));
+    }
+  }
+}
+
+#[test]
+fn test_resolve() {
+  resolve_test(~[], ~[]);
+  resolve_test(~[1], ~[1]);
+  resolve_test(~[1, 2], ~[1, 2]);
+  resolve_test(~[1], ~[2]);
+  resolve_test(~[1, 2], ~[2, 3]);
+  resolve_test(~[1, 2], ~[2, 1]);
+  resolve_test(~[1, 2, 3, 4], ~[2, 1, 4, 5]);
+  resolve_test(~[1, 2, 3], ~[2, 3, 1]);
+  resolve_test(~[1, 2, 3, 4, 5, 6, 7, 8], ~[2, 3, 1, 5, 6, 4, 8, 9]);
 }
