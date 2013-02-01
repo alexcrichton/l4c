@@ -38,6 +38,7 @@ pub enum Expression {
   LabelExp(label::Label),
 }
 
+#[deriving_eq]
 pub enum Type { Int, Pointer }
 
 pub enum Binop {
@@ -79,16 +80,6 @@ impl Program: Graphable {
   }
 }
 
-impl Type: cmp::Eq {
-  pure fn eq(&self, other: &Type) -> bool {
-    match (*self, *other) {
-      (Int, Int) | (Pointer, Pointer) => true,
-      _ => false
-    }
-  }
-
-  pure fn ne(&self, other: &Type) -> bool { !self.eq(other) }
-}
 
 impl Function {
   pure fn size(&self, e: @Expression) -> Type {

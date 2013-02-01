@@ -64,14 +64,17 @@ pub enum Address {
   StackArg(uint),
 }
 
+#[deriving_eq]
 pub enum Binop {
   Add, Sub, Mul, Div, Mod, Cmp(Cond), And, Or, Xor, Lsh, Rsh
 }
 
+#[deriving_eq]
 pub enum Cond {
   Lt, Lte, Gt, Gte, Eq, Neq
 }
 
+#[deriving_eq]
 pub enum Register {
   EAX, EBX, ECX, EDX, EDI, ESI, ESP, EBP,
   R8D, R9D, R10D, R11D, R12D, R13D, R14D, R15D
@@ -499,20 +502,6 @@ impl Register {
       (R15D, ir::Pointer) => ~"%r15",
     }
   }
-}
-
-impl Register: cmp::Eq {
-  pure fn eq(&self, other: &Register) -> bool {
-    match (*self, *other) {
-      (EAX, EAX) | (EBX, EBX) | (ECX, ECX) | (EDX, EDX) | (EDI, EDI) |
-      (ESI, ESI) | (ESP, ESP) | (EBP, EBP) | (R8D, R8D) | (R9D, R9D) |
-      (R10D, R10D) | (R11D, R11D) | (R12D, R12D) | (R13D, R13D) | (R14D, R14D) |
-      (R15D, R15D) => true,
-      _ => false
-    }
-  }
-
-  pure fn ne(&self, other: &Register) -> bool { !self.eq(other) }
 }
 
 impl Program: Graphable {
