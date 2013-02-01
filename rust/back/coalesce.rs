@@ -91,9 +91,9 @@ struct Coalescer {
   admissible_cache: LinearMap<(Temp, uint), bool>,
   dominates_cache: LinearMap<(NodeId, NodeId), bool>,
 
-  /* Finally, find_interferences is an incredibly slow method, and these are
-   * precomputations of the input to a more efficient format to be used in that
-   * method (more information on the method itself */
+  /* Finally, find_interferences is an incredibly slow method, and this is a
+   * precomputation of the input to a more efficient format to be used in that
+   * method (more information on the method itself) */
   liveness_map: LinearMap<NodeId, ~[bitv::Bitv]>,
 }
 
@@ -120,7 +120,10 @@ pub fn optimize(f: &mut assem::Function,
   c.run();
 }
 
-/* TODO: dox */
+/**
+ * Convert the liveness analysis to a mapping of bit vectors of the live temps
+ * at each instruction in the program.
+ */
 fn liveness_map(cfg: &assem::CFG, live: &liveness::Analysis, max: uint)
       -> LinearMap<NodeId, ~[bitv::Bitv]> {
   let mut ret = LinearMap::new();
@@ -130,10 +133,14 @@ fn liveness_map(cfg: &assem::CFG, live: &liveness::Analysis, max: uint)
     for live.in.get(&id).each |&t| { set.insert(t); }
 
     for stms.eachi |i, &stm| {
+      /* we care about 'live-out' variables on an instruction */
       liveness::apply(&mut set, &live.deltas.get(&id)[i]);
       let mut bitv = bitv::Bitv(max, false);
       for set.each |&t| { bitv.set(t, true); }
+      /* at one instruction, the defined registers interfere with all live out
+       * registers, even if the defined register isn't actually used anywhere */
       for stm.each_def |t| { bitv.set(t, true); }
+
       vec.push(bitv);
     }
 
@@ -728,28 +735,18 @@ impl Coalescer {
    *          get/set/union are all far faster on a bit vector than on a hash
    *          map or similar
    *
-   *    2. Precompute live_out information as bit vectors
+   *    2. Precompute live sets of variables at all instructions
    *
-   *          The first thing this algorithm does is have a starting point of
-   *          the variables which are live out at the specified block. It's much
-   *          easier to clone a bit vector than it is to clone a hash map, so
-   *          the live out information was all pre-converted to bit vectors
-   *          instead of hash sets.
-   *
-   *    3. Precompute use/def information for each instruction.
-   *
-   *          This algorithm would otherwise call each_use/each_def on each
-   *          instruction to figure out what to add/remove from the set of live
-   *          temps, and it turns out this is very costly because there's a lot
-   *          of cases and the match statement is costly/large. By precomputing
-   *          these, it's much faster to union/difference with the bit vector of
-   *          temps interfered with
+   *          The only goal of this algorithm is to iterate from a usage point
+   *          up to the definition, collecting all variables that are
+   *          simultaneously live with 'x'. All variables live at all
+   *          instructions have already been converted into bit vectors, so the
+   *          union operation is nice and cheap.
    *
    * Basially, if this code looks really weird and like it's not using any
    * convention used in the rest of the compiler, it's because it's balls slow,
-   * but really useful.
-   *
-   * TODO: update dox
+   * but really useful. This also explains the precomputation done far above
+   * this function.
    */
   fn find_interferences(&mut self, x: Temp, n: NodeId, set: &mut bitv::Bitv,
                         visited: &mut NodeSet) {
@@ -757,7 +754,8 @@ impl Coalescer {
     if visited.contains(&n) { return }
     visited.insert(n);
 
-    /* TODO: does this work? */
+    /* the set of live variables has already been computed at all instructions,
+       so we just need to union whatever sets have our variable in question */
     for self.liveness_map.get(&n).each |bitv| {
       if bitv.get(x) {
         set.union(bitv);
