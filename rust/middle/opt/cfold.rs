@@ -1,33 +1,50 @@
 /**
- * @brief Constant folding and propagation for reducing the amount of static
- *        computation
+ * @brief A few optimizations thrown into one: constant folding, constant
+ *        propagation, and copy propagation
  *
  * This module will fold all constant expressions in the IR, reducing as much
  * definite arithmetic as possible. This will also propogate temps equal to
- * constants so that neededness analysis may be able to remove a lot of temps
+ * constants so that neededness analysis may be able to remove a lot of temps.
+ * Finally if 'y <- x' is seen, then all instances of 'y' are replaced with 'x'
+ * so the move can be considered dead code.
  */
 
 use core::hashmap::linear::LinearMap;
+use std::map;
 
 use middle::ir::*;
 
 struct ConstantFolder {
-  f: &Function,
-  tbl: LinearMap<Temp, i32>,
+  f: &mut Function,
+  constants: LinearMap<Temp, i32>,
+  temps: LinearMap<Temp, Temp>,
 }
 
 pub fn optimize(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
-    /* Be sure to start at the top of the graph to visit definitions first */
-    let (order, _) = f.cfg.postorder(f.root);
-    let mut opt = ConstantFolder { f: f, tbl: LinearMap::new() };
-    for vec::rev_each(order) |&n| {
-      f.cfg.update_node(n, @f.cfg[n].map(|&s| opt.stm(s)));
-    }
+    let mut opt = ConstantFolder { f: f,
+                                   constants: LinearMap::new(),
+                                   temps: LinearMap::new() };
+    opt.run();
   }
 }
 
 impl ConstantFolder {
+  /* TODO: why can't this all be above */
+  fn run(&mut self) {
+    /* Be sure to start at the top of the graph to visit definitions first */
+    let (order, _) = self.f.cfg.postorder(self.f.root);
+    for vec::rev_each(order) |&n| {
+      self.f.cfg.update_node(n, @self.f.cfg[n].map(|&s| self.stm(s)));
+    }
+
+    do self.f.cfg.map_nodes |_, stms| {
+      @stms.map(|&s| {
+        s.map_temps(|t| *self.temps.find(&t).get_or_default(&t), |t| t)
+      })
+    }
+  }
+
   /**
    * Apply constant folding to a statement, returning the folded statement
    */
@@ -37,7 +54,13 @@ impl ConstantFolder {
       @Move(t, e) => {
         let e = self.exp(e).first();
         match e {
-          @Const(amt, _) => { self.tbl.insert(t, amt); }
+          @Const(amt, _) => { self.constants.insert(t, amt); }
+          @Temp(cp)      => {
+            let other = match self.temps.find(&cp) {
+              Some(&other) => other, None => cp
+            };
+            self.temps.insert(t, other);
+          }
           _ => ()
         }
         @Move(t, e)
@@ -61,7 +84,7 @@ impl ConstantFolder {
     match e {
       @LabelExp(*) | @Const(*) => (e, true),
       @Temp(t) => {
-        let opt = self.tbl.find(&t);
+        let opt = self.constants.find(&t);
         let e = opt.map_default(e, |&x| @Const(*x, *self.f.types.get(&t)));
         (e, true)
       }

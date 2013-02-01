@@ -1,4 +1,5 @@
 use core::hashmap::linear::LinearMap;
+use std::map;
 
 use io::WriterUtil;
 use middle::{ssa, label};
@@ -120,6 +121,39 @@ impl Binop {
   }
 }
 
+impl Statement {
+  fn map_temps(@self, uses: &fn(Temp) -> Temp,
+               defs: &fn(Temp) -> Temp) -> @Statement {
+    match self {
+      @Move(tmp, e) => {
+        let e = e.map_temps(uses);
+        @Move(defs(tmp), e)
+      }
+      @Load(tmp, e) => {
+        let e = e.map_temps(uses);
+        @Load(defs(tmp), e)
+      }
+      @Store(e1, e2) => @Store(e1.map_temps(uses), e2.map_temps(uses)),
+      @Condition(e) => @Condition(e.map_temps(uses)),
+      @Return(e) => @Return(e.map_temps(uses)),
+      @Die(e) => @Die(e.map_temps(uses)),
+      @Call(tmp, e, ref args) => {
+        let e = e.map_temps(uses);
+        let args = args.map(|&x| x.map_temps(uses));
+        @Call(defs(tmp), e, args)
+      }
+      @Arguments(ref tmps) => @Arguments(tmps.map(|&t| defs(t))),
+      @Phi(def, map) => {
+        let newmap = map::HashMap();
+        for map.each |k, v| {
+          newmap.insert(k, uses(v));
+        }
+        @Phi(defs(def), newmap)
+      }
+    }
+  }
+}
+
 impl Statement: ssa::Statement {
   static fn phi(t: Temp, map: ssa::PhiMap) -> @Statement { @Phi(t, map) }
 
@@ -149,27 +183,7 @@ impl Statement: ssa::Statement {
 
   fn map_temps(@self, uses: &fn(Temp) -> Temp,
                defs: &fn(Temp) -> Temp) -> @Statement {
-    match self {
-      @Move(tmp, e) => {
-        let e = e.map_temps(uses);
-        @Move(defs(tmp), e)
-      }
-      @Load(tmp, e) => {
-        let e = e.map_temps(uses);
-        @Load(defs(tmp), e)
-      }
-      @Store(e1, e2) => @Store(e1.map_temps(uses), e2.map_temps(uses)),
-      @Condition(e) => @Condition(e.map_temps(uses)),
-      @Return(e) => @Return(e.map_temps(uses)),
-      @Die(e) => @Die(e.map_temps(uses)),
-      @Call(tmp, e, ref args) => {
-        let e = e.map_temps(uses);
-        let args = args.map(|&x| x.map_temps(uses));
-        @Call(defs(tmp), e, args)
-      }
-      @Phi(_, _) => fail(~"shouldn't see phi nodes yet"),
-      @Arguments(ref tmps) => @Arguments(tmps.map(|&t| defs(t)))
-    }
+    self.map_temps(uses, defs)
   }
 
   fn phi_map(&self) -> Option<ssa::PhiMap> {
