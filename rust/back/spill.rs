@@ -534,11 +534,15 @@ impl Spiller {
       for self.f.cfg.each_pred(n) |pred| {
         assert(self.regs_end.contains_key(&pred));
         for self.regs_end.get(&pred).each |&tmp| {
-          /* tmp from pred may be known by a different name in this block if there
-             is a phi node for this temp */
-          let tmp = self.my_name(tmp, pred, n);
           let prev = freq.find(&tmp).map_default(0, |&x| *x);
           freq.insert(tmp, prev + 1);
+          /* tmp from pred may be known by a different name in this block if there
+             is a phi node for this temp */
+          let mine = self.my_name(tmp, pred, n);
+          if mine != tmp {
+            let prev = freq.find(&mine).map_default(0, |&x| *x);
+            freq.insert(mine, prev + 1);
+          }
         }
       }
     }
@@ -568,8 +572,9 @@ impl Spiller {
     let mut cand = LinearSet::new();
     /* If a variable is used in the loop, then its next_use as viewed from the
        body of the loop would be less than loop_out_weight */
-    for self.next_use.get(&body).each |&tmp, &n| {
+    for self.next_use.get(&n).each |&tmp, &n| {
       if n < loop_out_weight {
+        debug!("%? %?", tmp, n);
         cand.insert(tmp);
       }
     }
@@ -676,6 +681,7 @@ impl Spiller {
     /* Each register we have which they don't have needs a reload */
     for succ_regs.each |&tmp| {
       let theirs = self.their_name(tmp, pred, succ);
+      debug!("ours %? theirs %?", tmp, theirs);
       if !pred_regs_exit.contains(&theirs) {
         append.push(@Reload(theirs, *self.congruence.get(&theirs)));
       }
