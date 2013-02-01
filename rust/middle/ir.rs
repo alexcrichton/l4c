@@ -41,6 +41,7 @@ pub enum Expression {
 #[deriving_eq]
 pub enum Type { Int, Pointer }
 
+#[deriving_eq]
 pub enum Binop {
   Add, Sub, Mul, Div, Mod, Lt, Lte, Gt, Gte, Eq, Neq, And, Or, Xor, Lsh, Rsh
 }
@@ -80,6 +81,11 @@ impl Program: Graphable {
   }
 }
 
+pub impl Type {
+  static fn max(t1: Type, t2: Type) -> Type {
+    match (t1, t2) { (Int, Int) => Int, _ => Pointer }
+  }
+}
 
 impl Function {
   pure fn size(&self, e: @Expression) -> Type {
