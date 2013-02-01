@@ -31,6 +31,7 @@ const BOLD = "\x1b[;1m"
 const RED = "\x1b[31m"
 const GREEN = "\x1b[32m"
 
+var Quiet = 0
 var Parallel = 8
 var Verbose = false
 var Progress = true
@@ -71,6 +72,7 @@ func main() {
   flag.BoolVar(&Verbose, "verbose", false, "print more output of tests")
   flag.BoolVar(&KeepFiles, "keep", false, "keep intermediate output files")
   flag.BoolVar(&NoMake, "nomake", false, "don't run 'make' before running tests")
+  flag.IntVar(&Quiet, "quiet", 0, "higher numbers suppress more output")
 
   read := flag.String("testfile", "", "file to read tests from")
   write := flag.String("failurefile", "", "file to write failed tests to")
@@ -90,7 +92,10 @@ func main() {
   if *read != "" {
     tests = make([]string, 0)
     file, err := os.Open(*read)
-    check(err)
+    if err != nil {
+      fmt.Printf("failure file '%s' doesn't exist", *read)
+      os.Exit(1)
+    }
     in := bufio.NewReader(file)
     for {
       test, err := in.ReadString('\n')
@@ -149,11 +154,13 @@ func runTests(files []string) []string {
   passed := 0
   failed := make([]string, 0)
   for t := range log {
-    if Progress {
-      print("\r")
-      terminal.Stdout.ClearLine()
+    if Quiet < 2 && (Quiet == 0 || !t.Passed) {
+      if Progress {
+        print("\r")
+        terminal.Stdout.ClearLine()
+      }
+      println(t.text())
     }
-    println(t.text())
     if Progress {
       bar.Increment()
     }
@@ -363,8 +370,10 @@ func (t *Test) text() string {
 
 func (d *Directive) parse(file string) string {
   f, err := os.Open(file)
+  if err != nil {
+    return "test does not exist"
+  }
   defer f.Close()
-  check(err)
   in := bufio.NewReader(f)
   line, err := in.ReadString('\n')
   check(err)
