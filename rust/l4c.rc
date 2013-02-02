@@ -46,6 +46,7 @@ mod middle {
 
   mod opt {
     mod cfold;
+    mod deadcode;
   }
 }
 
@@ -94,6 +95,7 @@ fn main() {
     optflag("f"), optflag("profile"),
     optopt("header"), optopt("l"),
     optflag("dot-ir"), optflag("dot-ssa"), optflag("dot-cfold"),
+    optflag("dot-deadcode"),
     optflag("dot-assem"), optflag("dot-spilled"), optflag("dot-ressa"),
     optflag("dot-colored"), optflag("dot-precolor"),
     optflag("safe"), optflag("unsafe"),
@@ -140,6 +142,7 @@ fn main() {
   pass(ir::ssa, &mut ir, m, "dot-ssa");
 
   pass(opt::cfold::optimize, &mut ir, m, "dot-cfold");
+  pass(opt::deadcode::optimize, &mut ir, m, "dot-deadcode");
 
   /* backend */
   let mut assem = codegen::codegen(ir);

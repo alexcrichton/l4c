@@ -152,10 +152,6 @@ impl Statement {
       }
     }
   }
-}
-
-impl Statement: ssa::Statement {
-  static fn phi(t: Temp, map: ssa::PhiMap) -> @Statement { @Phi(t, map) }
 
   fn each_def<T>(&self, f: &fn(Temp) -> T) {
     match *self {
@@ -176,15 +172,22 @@ impl Statement: ssa::Statement {
         e.each_temp(f);
         for args.each |&e| { e.each_temp(f); }
       }
-      Phi(_, _) => fail(~"shouldn't see phi nodes yet"),
+      Phi(_, map) => { for map.each_value |t| { f(t); } }
       Arguments(*) => ()
     }
   }
+}
+
+impl Statement: ssa::Statement {
+  static fn phi(t: Temp, map: ssa::PhiMap) -> @Statement { @Phi(t, map) }
 
   fn map_temps(@self, uses: &fn(Temp) -> Temp,
                defs: &fn(Temp) -> Temp) -> @Statement {
     self.map_temps(uses, defs)
   }
+
+  fn each_def<T>(&self, f: &fn(Temp) -> T) { self.each_def(f) }
+  fn each_use<T>(&self, f: &fn(Temp) -> T) { self.each_use(f) }
 
   fn phi_map(&self) -> Option<ssa::PhiMap> {
     match *self {
