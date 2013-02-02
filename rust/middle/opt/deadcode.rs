@@ -1,5 +1,12 @@
 /**
- * TODO: dox
+ * @brief Dead code elimination
+ *
+ * Because the graph is in SSA form, it's far easier to do dead code elimination
+ * than it would normally be. This simply walks up the dominator tree from the
+ * bottom, and if a statement defines a temp never used and the statement is
+ * pure, it's eliminated. Otherwise, all its uses are then flagged as used.
+ *
+ * Furthermore, this eliminates all code after a 'return' or sure death.
  */
 
 use std::bitv;
@@ -45,14 +52,20 @@ impl Eliminator {
       let mut block = ~[];
       block <-> self.stms;
       vec::reverse(block);
+
+      let end = self.first_impossible(block);
+      block.truncate(end);
+
       self.f.cfg.update_node(n, @block);
     }
   }
 
   fn stm(&mut self, s: @Statement) -> bool {
-    /* Keep all argument/phi statements */
     match s {
+      /* Keep all argument statements */
       @Arguments(*) => { self.stms.push(s); return true; }
+      /* Impossible death doesn't need to be pushed back */
+      @Die(@Const(0, _)) => { return true; }
       _ => ()
     }
     let mut def = None;
@@ -86,5 +99,16 @@ impl Eliminator {
         @Move(_, @BinaryOp(Div, _, _)) | @Move(_, @BinaryOp(Mod, _, _)) => false,
       _ => true
     }
+  }
+
+  fn first_impossible(&self, b: &[@Statement]) -> uint {
+    for b.eachi |i, &stm| {
+      match stm {
+        @Die(@Const(c, _)) if c != 0 => return i + 1,
+        @Return(*) => return i + 1,
+        _ => ()
+      }
+    }
+    return b.len();
   }
 }
