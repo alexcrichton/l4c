@@ -215,7 +215,6 @@ impl Spiller {
       for self.next_use.get(&succ).each |&tmp, &next| {
         let cost = next + edge_cost;
         let mytmp = self.their_name(tmp, n, succ);
-        debug!("%? %?", mytmp, tmp);
         match bottom.pop(&mytmp) {
           Some(amt) => { bottom.insert(mytmp, uint::min(cost, amt)); }
           None      => { bottom.insert(mytmp, cost); }
@@ -378,7 +377,7 @@ impl Spiller {
         @Phi(tmp, map) => {
           if regs.contains(&tmp) {
             block.push(ins);
-          } else {
+          } else if next_use.contains_key(&tmp) {
             block.push(@MemPhi(tmp, map));
           }
           apply_delta(delta);
