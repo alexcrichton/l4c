@@ -174,7 +174,11 @@ func runTests(files []string) []string {
       }
     }
   }
-  fmt.Printf("Passed %d/%d tests\n", passed, len(files))
+  if Progress {
+    bar.FinishPrint(fmt.Sprintf("Passed %d/%d tests", passed, len(files)))
+  } else {
+    fmt.Printf("Passed %d/%d tests\n", passed, len(files))
+  }
   return failed
 }
 
