@@ -101,7 +101,6 @@ pub fn optimize(f: &mut assem::Function,
                 colors: &mut LinearMap<Temp, uint>,
                 precolored: &TempSet,
                 constraints: &LinearMap<Temp, assem::Constraint>) {
-  assert f.ssa.temps > 0;
   let liveness_map = liveness_map(&f.cfg, &f.liveness, f.ssa.temps);
   let mut c = Coalescer { defs: LinearMap::new(),
                           uses: LinearMap::new(),
