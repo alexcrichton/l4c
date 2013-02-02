@@ -237,21 +237,21 @@ fn test_basic() {
     } else if id == n2 {
       assert n == 2;
     } else {
-      fail(~"bad id provided");
+      die!(~"bad id provided");
     }
   }
 }
 
 #[test]
 #[should_fail]
-fn test_random_id_fails() {
+fn test_random_id_fail() {
   let mut g = Graph::<int, int>();
   g.add_node(1, 1);
 }
 
 #[test]
 #[should_fail]
-fn test_same_id_fails() {
+fn test_same_id_fail() {
   let mut g = Graph::<int, int>();
   let id = g.new_id();
   g.add_node(id, 1);

@@ -90,7 +90,7 @@ fn constrain_block(live: &temp::TempSet, delta: &[liveness::Delta],
             new.push(@BinaryOp(op, dest, o1, o2));
           }
 
-          _ => fail(fmt!("%? doesn't have constraints listed", op))
+          _ => die!(fmt!("%? doesn't have constraints listed", op))
         }
       }
 

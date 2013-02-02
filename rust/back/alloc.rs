@@ -151,7 +151,7 @@ impl Allocator {
                 assert self.colors.insert(t, arch::reg_num($r));
                 assert self.precolored.insert(t);
               }
-              _ => fail(fmt!("not a tmp %?", $o))
+              _ => die!(fmt!("not a tmp %?", $o))
             }
           )
         );
@@ -170,7 +170,7 @@ impl Allocator {
                 }
                 match op2 {
                   @Temp(t) => { self.constraints.insert(t, Idiv); }
-                  _ => fail(~"not a tmp")
+                  _ => die!(~"not a tmp")
                 }
               }
 
@@ -179,7 +179,7 @@ impl Allocator {
                 precolor!(op2, ECX);
                 banned.set(arch::reg_num(ECX), true);
               }
-              _ => fail(fmt!("implement %?", op))
+              _ => die!(fmt!("implement %?", op))
             }
           }
 
@@ -437,7 +437,7 @@ impl Allocator {
           /* d = s1 op d, can commute */
           _ if s2 == d && op.commutative() => push(@BinaryOp(op, d, s1, s2)),
           /* should be handled elsewhere */
-          _ if s2 == d => fail(fmt!("shouldn't happen now %?", i)),
+          _ if s2 == d => die!(fmt!("shouldn't happen now %?", i)),
           /* catch-all last resort, generate a move */
           _ => {
             push(@Move(d, s1));
@@ -467,7 +467,7 @@ impl Allocator {
 
   fn stack_loc(&self, tag: Tag) -> uint {
     if !self.slots.contains_key(&tag) {
-      fail(fmt!("no spill for %?", tag));
+      die!(fmt!("no spill for %?", tag));
     }
     *self.slots.get(&tag) * arch::ptrsize + self.max_call_stack
   }
@@ -532,10 +532,10 @@ impl bitv::Bitv: PrettyPrint {
  * result specified.
  */
 fn resolve_perm(result: &[uint], incoming: &[uint]) -> ~[Resolution] {
-  use sim = std::smallintmap;
+  use std::smallintmap::SmallIntMap;
   /* maps describing src -> dst and dst -> src */
-  let src_dst = sim::mk();
-  let dst_src = sim::mk();
+  let mut src_dst = SmallIntMap::new();
+  let mut dst_src = SmallIntMap::new();
   for vec::each2(result, incoming) |&dst, &src| {
     if dst != src {
       src_dst.insert(src, dst);
@@ -548,15 +548,15 @@ fn resolve_perm(result: &[uint], incoming: &[uint]) -> ~[Resolution] {
   /* deal with all move chains first */
   for result.each |&dst| {
     /* if this destination is also a source, it's not the end of a chain */
-    if src_dst.contains_key(dst) { loop }
+    if src_dst.contains_key(&dst) { loop }
 
     /* having found the end of a chain, go up the chain moving everything into
        the right spot as we go along */
     let mut cur = dst;
-    while dst_src.contains_key(cur) {
-      ret.push(Left((cur, dst_src[cur])));
-      let nxt = dst_src[cur];
-      dst_src.remove(cur);
+    while dst_src.contains_key(&cur) {
+      let nxt; nxt = *dst_src.get(&cur); /* TODO(#4666): sanity */
+      ret.push(Left((cur, nxt)));
+      dst_src.remove(&cur);
       cur = nxt;
     }
   }
@@ -564,13 +564,13 @@ fn resolve_perm(result: &[uint], incoming: &[uint]) -> ~[Resolution] {
   /* Next, deal with all loops */
   for result.each |&dst| {
     /* if this isn't a destination any more, it was part of a chain */
-    if !dst_src.contains_key(dst) { loop }
+    if !dst_src.contains_key(&dst) { loop }
 
     /* Exchange everything through the 'dst' register to resolve the chain */
     let mut cur = dst;
-    while src_dst.contains_key(cur) {
-      let nxt = src_dst[cur];
-      src_dst.remove(cur);
+    while src_dst.contains_key(&cur) {
+      let nxt; nxt = *src_dst.get(&cur); /* TODO(#4666): sanity */
+      src_dst.remove(&cur);
       if nxt == dst { break }
       ret.push(Right((dst, nxt)));
       cur = nxt;
@@ -597,13 +597,13 @@ fn resolve_test(from: &[uint], to: &[uint]) {
   for vec::each2(from, to) |&f, &t| {
     map.remove(t);
     if regs[t] != f {
-      fail(fmt!("expected %? to be %? but it was %?", t, f, regs[t]));
+      die!(fmt!("expected %? to be %? but it was %?", t, f, regs[t]));
     }
   }
   debug!("%?", regs);
   for map.each |k, _| {
     if regs[k] != k {
-      fail(fmt!("clobbered %? to %?", k, regs[k]));
+      die!(fmt!("clobbered %? to %?", k, regs[k]));
     }
   }
 }

@@ -118,7 +118,7 @@ impl ConstantFolder {
                   match op {
                     Div => (@Const(i1 / i2, t), true),
                     Mod => (@Const(i1 % i2, t), true),
-                    _ => fail
+                    _ => die!()
                   }
                 }
               }

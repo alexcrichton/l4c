@@ -271,7 +271,7 @@ impl Instruction: PrettyPrint {
         Lsh | Rsh if s1.reg() => {
           match s1 {
             @Register(ECX, _) => (),
-            _                 => fail(fmt!("expected ecx, not %?", s1))
+            _                 => die!(fmt!("expected ecx, not %?", s1))
           }
           fmt!("%s %%cl, %s", binop.pp(), dest.pp())
         }
@@ -324,7 +324,7 @@ impl Operand {
   pure fn mask(&self, mask: i32) -> @Operand {
     match *self {
       Immediate(n, s) => @Immediate(n & mask, s),
-      _ => fail(~"can't mask non-immediate")
+      _ => die!(~"can't mask non-immediate")
     }
   }
 
@@ -611,7 +611,7 @@ impl Function {
               /* On a conditional branch, the last ins must be Condition */
               let cond = match instructions.last() {
                 @Condition(c, _, _) => c,
-                _ => fail(~"Need a condition with true/false edges")
+                _ => die!(~"Need a condition with true/false edges")
               };
 
               match (tedge, fedge) {
@@ -632,10 +632,10 @@ impl Function {
                   out.write_str(fmt!("  j%s L%s\n", cond.suffix(), lbl(tid)));
                 }
 
-                _ => fail(~"invalidly specified edges")
+                _ => die!(~"invalidly specified edges")
               }
             }
-            _ => fail(~"invalid edges")
+            _ => die!(~"invalid edges")
           }
         }
       }

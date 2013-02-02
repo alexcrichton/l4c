@@ -20,7 +20,7 @@ pub pure fn arg_reg(i: uint) -> Register {
     3 => ECX,
     4 => R8D,
     5 => R9D,
-    _ => fail(~"not that many argument registers")
+    _ => die!(~"not that many argument registers")
   }
 }
 
@@ -41,7 +41,7 @@ pub pure fn reg_num(r: Register) -> uint {
     R14D => 13,
     R15D => 14,
     EBP  => 15,
-    _    => fail(fmt!("no num assigned %?", r))
+    _    => die!(fmt!("no num assigned %?", r))
   }
 }
 
@@ -62,7 +62,7 @@ pub pure fn num_reg(i: uint) -> Register {
     13 => R14D,
     14 => R15D,
     15 => EBP,
-    _ => fail(fmt!("%u is not a register", i))
+    _ => die!(fmt!("%u is not a register", i))
   }
 }
 

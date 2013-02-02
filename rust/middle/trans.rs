@@ -85,7 +85,7 @@ pure fn typ_size(t: @ast::Type, structs: &AllStructInfo) -> uint {
       let &(_, size) = structs.get(id);
       size
     }
-    _ => fail(~"bad type to typ_size")
+    _ => die!(~"bad type to typ_size")
   }
 }
 
@@ -216,7 +216,7 @@ impl Translator {
             let fields = match *sinfo { (ref fields, _) => fields };
             (true, fields.get(f).first())
           }
-          _ => fail(~"invalid assign")
+          _ => die!(~"invalid assign")
         };
         let left = self.exp(e1, true);
         let right = match op {
@@ -234,7 +234,7 @@ impl Translator {
         if ismem {
           self.stms.push(@ir::Store(left, right));
         } else {
-          let tmp = match left { @ir::Temp(t) => t, _ => fail(~"bad left") };
+          let tmp = match left { @ir::Temp(t) => t, _ => die!(~"bad left") };
           self.stms.push(@ir::Move(tmp, right));
         }
       }
@@ -467,7 +467,7 @@ impl Translator {
       ast::Xor       => ir::Xor,
       ast::LShift    => ir::Lsh,
       ast::RShift    => ir::Rsh,
-      ast::LAnd | ast::LOr => fail(~"invalid binop trans")
+      ast::LAnd | ast::LOr => die!(~"invalid binop trans")
     }
   }
 
