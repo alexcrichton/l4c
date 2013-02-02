@@ -11,8 +11,6 @@ pub struct Analysis {
   idominated: Idominated,
   /* idoms[a] = b => immediate dominator of a is b */
   idominator: Idominators,
-  /* number of temps in the graph */
-  temps: uint,
 }
 
 pub trait Statement: PrettyPrint {
@@ -53,8 +51,7 @@ struct Converter<T> {
 }
 
 pub fn Analysis() -> Analysis {
-  Analysis { idominated: LinearMap::new(), idominator: LinearMap::new(),
-             temps: 0 }
+  Analysis { idominated: LinearMap::new(), idominator: LinearMap::new() }
 }
 
 pub fn convert<T: Statement>(cfg: &mut CFG<T>,
@@ -79,7 +76,7 @@ pub fn convert<T: Statement>(cfg: &mut CFG<T>,
                                     analysis: results,
                                     liveness: &live,
                                     remapping: &mut ret };
-    results.temps = converter.convert();
+    converter.convert();
   }
   return ret;
 }

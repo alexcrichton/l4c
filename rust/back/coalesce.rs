@@ -101,7 +101,7 @@ pub fn optimize(f: &mut assem::Function,
                 colors: &mut LinearMap<Temp, uint>,
                 precolored: &TempSet,
                 constraints: &LinearMap<Temp, assem::Constraint>) {
-  let liveness_map = liveness_map(&f.cfg, &f.liveness, f.ssa.temps);
+  let liveness_map = liveness_map(&f.cfg, &f.liveness, f.temps);
   let mut c = Coalescer { defs: LinearMap::new(),
                           uses: LinearMap::new(),
                           fixed: LinearSet::new(),
@@ -698,7 +698,7 @@ impl Coalescer {
 
     /* Prelude to Algorithm 4.7 (find_interferences) */
     let mut visited = LinearSet::new();
-    let mut bitv = bitv::Bitv(self.f.ssa.temps, false);
+    let mut bitv = bitv::Bitv(self.f.temps, false);
     match self.uses.find(&t) {
       Some(uses) => {
         for uses.each |&(block, _)| {
