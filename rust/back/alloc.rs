@@ -20,8 +20,8 @@ struct Allocator {
   f: &mut Function,
   colors: ColorMap,
   slots: LinearMap<Tag, uint>,
-  mut max_slot: uint,
-  mut max_call_stack: uint,
+  max_slot: uint,
+  max_call_stack: uint,
   callee_saved: ~[uint],
 
   /* data needed for coalescing */
