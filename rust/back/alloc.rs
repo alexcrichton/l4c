@@ -466,6 +466,9 @@ impl Allocator {
   }
 
   fn stack_loc(&self, tag: Tag) -> uint {
+    if !self.slots.contains_key(&tag) {
+      fail(fmt!("no spill for %?", tag));
+    }
     *self.slots.get(&tag) * arch::ptrsize + self.max_call_stack
   }
 
