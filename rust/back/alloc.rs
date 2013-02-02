@@ -111,6 +111,12 @@ impl Allocator {
           registers.clear();
           loop;
         }
+        @MemPhi(def, _) => {
+          if !self.slots.contains_key(&def) {
+            self.slots.insert(def, self.max_slot);
+            self.max_slot += 1;
+          }
+        }
         /* Be sure we always assign stack slots */
         @Spill(_, t) => {
           if !self.slots.contains_key(&t) {
@@ -302,11 +308,17 @@ impl Allocator {
     for cfg.each_node |id, ins| {
       let mut phi_vars = ~[];
       let mut phi_maps = ~[];
+      let mut mem_vars = ~[];
+      let mut mem_maps = ~[];
       for ins.each |&ins| {
         match ins {
           @Phi(tmp, map) => {
             phi_vars.push(*self.colors.get(&tmp));
             phi_maps.push(map);
+          }
+          @MemPhi(def, map) => {
+            mem_vars.push(def);
+            mem_maps.push(map);
           }
           _ => break
         }
@@ -314,11 +326,21 @@ impl Allocator {
 
       for cfg.each_pred(id) |pred| {
         let mut perm = ~[];
-        for phi_maps.each |map| {
-          perm.push(*self.colors.get(&map[pred]));
-        }
+        let mut mems = ~[];
+        for phi_maps.each |map| { perm.push(*self.colors.get(&map[pred])); }
+        for mem_maps.each |map| { mems.push(map[pred]); }
         /* there are no critical edges in the graph, so we can just append */
-        let ins = self.resolve_perm(phi_vars, perm);
+        let mut ins = self.resolve_perm(phi_vars, perm);
+
+        /* for each MemPhi, we need to move stack slot 'src' to stack slot 'dst'
+           without using a register */
+        for vec::each2(mem_vars, mems) |&dst, &src| {
+          let dst = self.stack_loc(dst);
+          let src = self.stack_loc(src);
+          ins.push(@Raw(fmt!("pushq %s", Stack(src).pp())));
+          ins.push(@Raw(fmt!("popq %s", Stack(dst).pp())));
+        }
+
         if ins.len() == 0 { loop }
         cfg.update_node(pred, @(cfg[pred] + ins));
       }
@@ -378,7 +400,7 @@ impl Allocator {
       @Die(c, o1, o2) =>
         push(@Die(c, self.alloc_op(o1), self.alloc_op(o2))),
       @Move(o1, o2) => push(@Move(self.alloc_op(o1), self.alloc_op(o2))),
-      @Use(*) | @Phi(*) | @Arg(*) => (),
+      @MemPhi(*) | @Use(*) | @Phi(*) | @Arg(*) => (),
 
       @Return(_) => {
         if self.stack_size(false) != 0 {
@@ -443,8 +465,12 @@ impl Allocator {
     }
   }
 
+  fn stack_loc(&self, tag: Tag) -> uint {
+    *self.slots.get(&tag) * arch::ptrsize + self.max_call_stack
+  }
+
   fn stack_pos(&self, tag: Tag) -> @Address {
-    @Stack(*self.slots.get(&tag) * arch::ptrsize + self.max_call_stack)
+    @Stack(self.stack_loc(tag))
   }
 
   fn stack_size(&self, with_saves: bool) -> uint {

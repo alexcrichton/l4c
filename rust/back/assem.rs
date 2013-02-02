@@ -44,6 +44,7 @@ pub enum Instruction {
 
   /* pseudo-instructions that are just use for analysis/coloring/spilling */
   Phi(Temp, ssa::PhiMap),
+  MemPhi(Tag, ssa::PhiMap),
   Reload(Temp, Tag),
   Spill(Temp, Tag),
   Use(Temp),              /* used when constraining non-commutative ops */
@@ -176,6 +177,7 @@ impl Instruction: ssa::Statement {
   fn map_temps(@self, uses: &fn(Temp) -> Temp,
                defs: &fn(Temp) -> Temp) -> @Instruction {
     match self {
+      @MemPhi(*) => self,
       @BinaryOp(op, o1, o2, o3) => {
         let (o2, o3) = (o2.map_temps(uses), o3.map_temps(uses));
         @BinaryOp(op, o1.map_temps(defs), o2, o3)
@@ -291,7 +293,14 @@ impl Instruction: PrettyPrint {
       Phi(tmp, map) => {
         let mut s = ~"//" + tmp.pp() + ~" <- phi(";
         for map.each |id, tmp| {
-          s += fmt!("[ %s - n%d ] ", tmp.pp(), id as int);
+          s += fmt!("[ %s - n%? ] ", tmp.pp(), id);
+        }
+        s + ~")"
+      }
+      MemPhi(tag, map) => {
+        let mut s = fmt!("//m%? <- mphi(", tag);
+        for map.each |id, tag| {
+          s += fmt!("[ m%? - n%? ] ", tag, id);
         }
         s + ~")"
       }

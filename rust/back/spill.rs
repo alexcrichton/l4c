@@ -61,9 +61,6 @@ struct Spiller {
   max_pressures: LinearMap<NodeId, uint>,
   /* Set of edges which have been connected (spills/reloads placed) so far */
   connected: LinearSet<(NodeId, NodeId)>,
-
-  /* phi congruence class of every temp (used for stack slots) */
-  congruence: LinearMap<Temp, Tag>,
 }
 
 pub fn spill(p: &mut Program) {
@@ -80,8 +77,7 @@ pub fn spill(p: &mut Program) {
                          renamings: LinearMap::new(),
                          phis: LinearMap::new(),
                          max_pressures: LinearMap::new(),
-                         connected: LinearSet::new(),
-                         congruence: LinearMap::new() };
+                         connected: LinearSet::new() };
 
     s.run();
   }
@@ -147,7 +143,6 @@ impl Spiller {
     for self.f.cfg.each_node |n, _| {
       self.build_renamings(n);
     }
-    self.set_congruence();
 
     /* Prepare the graph and build all next_use information */
     let mut changed = true;
@@ -187,68 +182,6 @@ impl Spiller {
       }
     }
     self.phis.insert(n, phis);
-  }
-
-  /**
-   * Builds up the phi congruence classes for use in determining where things
-   * should get spilled to.
-   *
-   * A phi congruence class means that for any phi node:
-   *    a = phi(b, c, d)
-   *
-   * then all of (a, b, c, d) are in the same congruence class. This is also
-   * true transitively, and this loop just builds up these classes.
-   */
-  fn set_congruence(&mut self) {
-    let mut nxt = 0;
-    /* mapping from class # to temps in that class (for merging) */
-    let mut sets = LinearMap::new();
-    for self.f.cfg.each_node |_, ins| {
-      for ins.each |&i| {
-        match i {
-          @Phi(def, preds) => {
-            /* create a new congruence class if necessary, otherwise just use
-               the congruence class which 'def' is already in */
-            let (n, set) = match self.congruence.find(&def) {
-              Some(n) => (*n, sets.pop(n).unwrap()),
-              None    => (replace(&mut nxt, nxt + 1), ~LinearSet::new())
-            };
-            let mut set = set;
-            set.insert(def);
-
-            /* For each of our new congruence-mates, merge with their congruence
-               classes or just add them in */
-            for preds.each |_, their_name| {
-              set.insert(their_name);
-              match self.congruence.find(&their_name) {
-                None    => (),
-                Some(n) => match sets.pop(n) {
-                  Some(s) => for s.each |&t| { set.insert(t); },
-                  None => ()
-                }
-              }
-            }
-            for set.each |&tmp| {
-              self.congruence.insert(tmp, n);
-            }
-            sets.insert(n, set);
-          }
-
-          /* For all other instructions, just create a congruence class for the
-             definition so it can be merge in later with all the others */
-          _ => {
-            for i.each_def |tmp| {
-              if self.congruence.contains_key(&tmp) { loop }
-              self.congruence.insert(tmp, nxt);
-              let mut set = ~LinearSet::new();
-              set.insert(tmp);
-              sets.insert(nxt, set);
-              nxt += 1;
-            }
-          }
-        }
-      }
-    }
   }
 
   /**
@@ -393,7 +326,7 @@ impl Spiller {
           for sorted.view($max, sorted.len()).each |&tmp| {
             if !spill.contains(&tmp) && next_use.contains_key(&tmp) {
               debug!("spilling %?", tmp);
-              block.push(@Spill(tmp, *self.congruence.get(&tmp)));
+              block.push(@Spill(tmp, tmp));
             } else if spill.contains(&tmp) {
               debug!("removing %?", tmp);
               /* If after a pcopy a temp was spilled, then we don't need to
@@ -442,9 +375,11 @@ impl Spiller {
         /* If the destination of a phi is not currently in the registers, then
            we don't need the phi instruction because it's been spilled and we
            don't want to put register moves onto the incoming edges */
-        @Phi(tmp, _) => {
+        @Phi(tmp, map) => {
           if regs.contains(&tmp) {
             block.push(ins);
+          } else {
+            block.push(@MemPhi(tmp, map));
           }
           apply_delta(delta);
         }
@@ -501,7 +436,7 @@ impl Spiller {
 
           /* Finally reload all operands as necessary, and then run ins */
           for reloaded.each |&tmp| {
-            block.push(@Reload(tmp, *self.congruence.get(&tmp)));
+            block.push(@Reload(tmp, tmp));
           }
           reloaded.truncate(0);
           block.push(ins);
@@ -665,7 +600,7 @@ impl Spiller {
       if !pred_spill_exit.contains(&tmp) &&
          !succ_regs.contains(&mine) &&
          self.next_use.get(&succ).contains_key(&mine) {
-        append.push(@Spill(tmp, *self.congruence.get(&tmp)));
+        append.push(@Spill(tmp, tmp));
       }
     }
 
@@ -674,7 +609,7 @@ impl Spiller {
       let theirs = self.their_name(tmp, pred, succ);
       if !pred_spill_exit.contains(&theirs) &&
           pred_regs_exit.contains(&theirs) {
-        append.push(@Spill(theirs, *self.congruence.get(&theirs)));
+        append.push(@Spill(theirs, theirs));
       }
     }
 
@@ -683,7 +618,7 @@ impl Spiller {
       let theirs = self.their_name(tmp, pred, succ);
       debug!("ours %? theirs %?", tmp, theirs);
       if !pred_regs_exit.contains(&theirs) {
-        append.push(@Reload(theirs, *self.congruence.get(&theirs)));
+        append.push(@Reload(theirs, theirs));
       }
     }
     if append.len() > 0 {
