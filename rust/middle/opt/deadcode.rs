@@ -82,7 +82,8 @@ impl Eliminator {
 
   fn ispure(&self, s: @Statement) -> bool {
     match s {
-      @Phi(*) | @Call(*) | @Load(*) | @Move(_, @BinaryOp(Div, _, _)) => false,
+      @Phi(*) | @Call(*) | @Load(*) |
+        @Move(_, @BinaryOp(Div, _, _)) | @Move(_, @BinaryOp(Mod, _, _)) => false,
       _ => true
     }
   }
