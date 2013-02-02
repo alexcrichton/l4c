@@ -509,7 +509,6 @@ impl Spiller {
        body of the loop would be less than loop_out_weight */
     for self.next_use.get(&n).each |&tmp, &n| {
       if n < loop_out_weight {
-        debug!("%? %?", tmp, n);
         cand.insert(tmp);
       }
     }
@@ -596,10 +595,13 @@ impl Spiller {
     /* All registers they had which we don't have which we may eventually use
        need to be spilled */
     for pred_regs_exit.each |&tmp| {
+      /* Need to test 'tmp' under my name or under the same name because some
+         block later on may be using either one */
       let mine = self.my_name(tmp, pred, succ);
       if !pred_spill_exit.contains(&tmp) &&
-         !succ_regs.contains(&mine) &&
-         self.next_use.get(&succ).contains_key(&mine) {
+         (!succ_regs.contains(&mine) || !succ_regs.contains(&tmp)) &&
+         (self.next_use.get(&succ).contains_key(&mine) ||
+          self.next_use.get(&succ).contains_key(&tmp)) {
         append.push(@Spill(tmp, tmp));
       }
     }
