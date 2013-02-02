@@ -283,7 +283,7 @@ impl Coalescer {
       fail
     }
 
-    let mut maxweight = -1;
+    let mut maxweight = 0;
     let mut maxset = None;
 
     /* Left is a set of temps that haven't yet been processed, and it's
@@ -325,12 +325,13 @@ impl Coalescer {
         }
       }
 
+      debug!("found %s %?", subset.pp(), qweight);
       if qweight > maxweight {
         maxweight = qweight;
         maxset = Some(subset);
       }
     }
-    if maxweight == -1 {
+    if maxweight == 0 {
       debug!("no good subset");
       return None;
     }
