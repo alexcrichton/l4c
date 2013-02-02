@@ -546,8 +546,10 @@ impl Coalescer {
     /* Finally insert all chunks into a priority queue now that we've finalized
      * what each chunk is going to be */
     let mut ret = PriorityQueue::new();
-    do chunks.consume |_, c| {
-      ret.push(c);
+    do chunks.consume |i, c| {
+      if i != 0 {
+        ret.push(c);
+      }
     }
     return ret;
   }
