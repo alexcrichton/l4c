@@ -50,10 +50,12 @@ fn RegisterSet() -> RegisterSet {
 }
 
 fn min_vacant(colors: &RegisterSet) -> uint {
+  debug!("min vacant %s", colors.pp());
   let mut i = 1;
   while colors.get(i) {
     i += 1;
   }
+  debug!("%?", i);
   return i;
 }
 
