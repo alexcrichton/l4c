@@ -597,8 +597,13 @@ impl Spiller {
       /* Need to test 'tmp' under my name or under the same name because some
          block later on may be using either one */
       let mine = self.my_name(tmp, pred, succ);
+      debug!("mine %? theirs %?", mine, tmp);
+      debug!("%? %? %? %? %?", pred_spill_exit.contains(&tmp),
+             succ_regs.contains(&mine), succ_regs.contains(&tmp),
+             self.next_use.get(&succ).contains_key(&mine),
+             self.next_use.get(&succ).contains_key(&tmp));
       if !pred_spill_exit.contains(&tmp) &&
-         (!succ_regs.contains(&mine) || !succ_regs.contains(&tmp)) &&
+         (!succ_regs.contains(&mine) && !succ_regs.contains(&tmp)) &&
          (self.next_use.get(&succ).contains_key(&mine) ||
           self.next_use.get(&succ).contains_key(&tmp)) {
         append.push(@Spill(tmp, tmp));
