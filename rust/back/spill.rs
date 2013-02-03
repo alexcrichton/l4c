@@ -575,6 +575,10 @@ impl Spiller {
         }
       }
     }
+    /* TODO: this needs a better solution... */
+    for self.phis.get(&n).each |&k, _| {
+      spill.remove(&k);
+    }
     debug!("node %? entry regs:%s spill:%s", n, entry.pp(), spill.pp());
     return spill;
   }
