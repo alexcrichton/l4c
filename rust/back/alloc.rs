@@ -535,17 +535,18 @@ impl bitv::Bitv: PrettyPrint {
  */
 fn resolve_perm(result: &[uint], incoming: &[uint]) -> ~[Resolution] {
   use std::smallintmap::SmallIntMap;
+  let mut ret = ~[];
+
   /* maps describing src -> dst and dst -> src */
-  let mut src_dst = SmallIntMap::new();
+  let mut src_dst = LinearMap::new(); /* TODO: can sim become better? */
   let mut dst_src = SmallIntMap::new();
   for vec::each2(result, incoming) |&dst, &src| {
-    if dst != src {
-      src_dst.insert(src, dst);
-      dst_src.insert(dst, src);
-    }
+    if dst == src { loop }
+    assert dst_src.insert(dst, src);
+    let mut L; L = match src_dst.pop(&src) { None => ~[], Some(l) => l };
+    L.push(dst);
+    src_dst.insert(src, L);
   }
-
-  let mut ret = ~[];
 
   /* deal with all move chains first */
   for result.each |&dst| {
@@ -559,7 +560,12 @@ fn resolve_perm(result: &[uint], incoming: &[uint]) -> ~[Resolution] {
       let nxt; nxt = *dst_src.get(&cur); /* TODO(#4666): sanity */
       ret.push(Left((cur, nxt)));
       dst_src.remove(&cur);
+      let L = vec::filter(src_dst.pop(&nxt).unwrap(), |&x| x != cur);
+      if L.len() > 0 {
+        src_dst.insert(nxt, L);
+      }
       cur = nxt;
+      if src_dst.contains_key(&cur) { break }
     }
   }
 
@@ -571,8 +577,11 @@ fn resolve_perm(result: &[uint], incoming: &[uint]) -> ~[Resolution] {
     /* Exchange everything through the 'dst' register to resolve the chain */
     let mut cur = dst;
     while src_dst.contains_key(&cur) {
-      let nxt; nxt = *src_dst.get(&cur); /* TODO(#4666): sanity */
-      src_dst.remove(&cur);
+      let L = vec::filter(src_dst.pop(&cur).unwrap(),
+                          |&x| dst_src.contains_key(&x));
+      debug!("%?", L);
+      assert L.len() == 1;
+      let nxt = L[0];
       if nxt == dst { break }
       ret.push(Right((dst, nxt)));
       cur = nxt;
@@ -581,10 +590,9 @@ fn resolve_perm(result: &[uint], incoming: &[uint]) -> ~[Resolution] {
 
   return ret;
 }
-
 #[cfg(test)]
 fn resolve_test(from: &[uint], to: &[uint]) {
-  use sim = std::smallintmap;
+  use std::smallintmap::SmallIntMap;
   let perm = resolve_perm(to, from);
   let mut regs = vec::from_fn(10, |i| i);
   for perm.each |&foo| {
@@ -594,16 +602,16 @@ fn resolve_test(from: &[uint], to: &[uint]) {
     }
   }
 
-  let map = sim::mk();
+  let mut map = SmallIntMap::new();
   for uint::range(0, 10) |i| { map.insert(i, ()); }
   for vec::each2(from, to) |&f, &t| {
-    map.remove(t);
+    map.remove(&t);
     if regs[t] != f {
       die!(fmt!("expected %? to be %? but it was %?", t, f, regs[t]));
     }
   }
   debug!("%?", regs);
-  for map.each |k, _| {
+  for map.each |&k, _| {
     if regs[k] != k {
       die!(fmt!("clobbered %? to %?", k, regs[k]));
     }
@@ -621,4 +629,6 @@ fn test_resolve() {
   resolve_test(~[1, 2, 3, 4], ~[2, 1, 4, 5]);
   resolve_test(~[1, 2, 3], ~[2, 3, 1]);
   resolve_test(~[1, 2, 3, 4, 5, 6, 7, 8], ~[2, 3, 1, 5, 6, 4, 8, 9]);
+  resolve_test(~[1, 1, 2], ~[2, 3, 1]);
+  resolve_test(~[7, 1, 7], ~[2, 7, 1]);
 }
