@@ -39,6 +39,7 @@ var FailFast = false
 var Color = true
 var KeepFiles = false
 var NoMake = false
+var RetryOnce = false
 
 type TestKind int
 
@@ -53,6 +54,7 @@ type Test struct {
   File string
   Extra string
   Passed bool
+  TimedOut bool
 }
 
 const (
@@ -73,6 +75,7 @@ func main() {
   flag.BoolVar(&KeepFiles, "keep", false, "keep intermediate output files")
   flag.BoolVar(&NoMake, "nomake", false, "don't run 'make' before running tests")
   flag.IntVar(&Quiet, "quiet", 0, "higher numbers suppress more output")
+  flag.BoolVar(&RetryOnce, "retry", false, "serially retry timed out tests")
 
   read := flag.String("testfile", "", "file to read tests from")
   write := flag.String("failurefile", "", "file to write failed tests to")
@@ -85,8 +88,6 @@ func main() {
   if !NoMake {
     build_compiler()
   }
-  log = make(chan Test)
-  failFast = make(chan int, 1)
 
   tests := flag.Args()
   if *read != "" {
@@ -105,7 +106,16 @@ func main() {
     file.Close()
   }
 
-  failed := runTests(tests)
+  failed, timeouts := runTests(tests)
+  if Parallel > 1 && RetryOnce && len(timeouts) > 0 {
+    println("Retrying timed out tests serially...")
+    Parallel = 1
+    fail2, timeout2 := runTests(timeouts)
+    failed = append(failed, fail2...)
+    failed = append(failed, timeout2...)
+  } else {
+    failed = append(failed, timeouts...)
+  }
 
   if *write != "" {
     file, err := os.Create(*write)
@@ -117,8 +127,10 @@ func main() {
   }
 }
 
-func runTests(files []string) []string {
+func runTests(files []string) ([]string, []string) {
   tests := make(chan string)
+  log = make(chan Test)
+  failFast = make(chan int, 1)
   var completions sync.WaitGroup
 
   /* Spawn off workers to run tests */
@@ -153,6 +165,7 @@ func runTests(files []string) []string {
   pb.Empty = " "
   passed := 0
   failed := make([]string, 0)
+  timeouts := make([]string, 0)
   for t := range log {
     if Quiet < 2 && (Quiet == 0 || !t.Passed) {
       if Progress {
@@ -168,9 +181,13 @@ func runTests(files []string) []string {
     if t.Passed {
       passed += 1
     } else {
-      failed = append(failed, t.File)
+      if t.TimedOut {
+        timeouts = append(timeouts, t.File)
+      } else {
+        failed = append(failed, t.File)
+      }
       if FailFast {
-        return failed
+        return failed, timeouts
       }
     }
   }
@@ -179,7 +196,7 @@ func runTests(files []string) []string {
   } else {
     fmt.Printf("Passed %d/%d tests\n", passed, len(files))
   }
-  return failed
+  return failed, timeouts
 }
 
 func build_compiler() {
@@ -239,6 +256,7 @@ func run_test(testfile string) {
   defer rm(assembly)
   if err != nil {
     fail("compiler timed out")
+    test.TimedOut = true
     return
   } else if test.Kind == Error {
     if !cmd.ProcessState.Success() {
@@ -259,6 +277,7 @@ func run_test(testfile string) {
   cmd.Stdin = nil
   if run(cmd, GccTimeout) != nil {
     fail("gcc timed out")
+    test.TimedOut = true
     return
   } else if test.Kind == Error {
     if cmd.ProcessState.Success() {
@@ -302,6 +321,7 @@ func run_test(testfile string) {
   if !cmd.ProcessState.Success() || err != nil {
     if err != nil {
       fail("test timed out")
+      test.TimedOut = true
     } else if status.Signaled() {
       fail(fmt.Sprintf("should have succeeded, received signal %d",
                        status.Signal()));
