@@ -413,7 +413,7 @@ impl Spiller {
           /* TODO: extract this logic */
           let extra = match ins {
             @BinaryOp(Div, _, _, _) | @BinaryOp(Mod, _, _, _) => 1,
-            @Call(*) => 9,
+            @Call(*) => arch::caller_regs,
             _ => 0
           };
           /* This limit is relative to the next_use of this instruction */
