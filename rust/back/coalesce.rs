@@ -63,7 +63,7 @@ struct Coalescer {
   /* information passed to coalescing */
   f: &mut assem::Function,
   /* set of temps that are precolored */
-  precolored: &TempSet,
+  precolored: bitv::Bitv,
   /* For all temps with constraints, contains mapping of the constraints. This
      is used when determining the admissible registers for a temp */
   constraints: &LinearMap<Temp, assem::Constraint>,
@@ -75,7 +75,7 @@ struct Coalescer {
   /* Mapping of a temp to the set of locations in which it is used */
   uses: LinearMap<Temp, ~LinearSet<Location>>,
   /* Set of fixed temps (cannot be changed) */
-  fixed: TempSet,
+  fixed: bitv::Bitv,
   /* Map of affine temps, and their weights. The map works both ways, as in
      looking up x then y is the same as looking up y then x */
   affinities: Affinities,
@@ -102,15 +102,19 @@ pub fn optimize(f: &mut assem::Function,
                 precolored: &TempSet,
                 constraints: &LinearMap<Temp, assem::Constraint>) {
   let liveness_map = liveness_map(&f.cfg, &f.liveness, f.temps);
+  let pre = bitv::Bitv(f.temps, false);
+  for precolored.each |&t| {
+    pre.set(t, true);
+  }
   let mut c = Coalescer { defs: LinearMap::new(),
                           uses: LinearMap::new(),
-                          fixed: LinearSet::new(),
+                          fixed: bitv::Bitv(f.temps, false),
                           f: f,
                           liveness_map: liveness_map,
                           affinities: LinearMap::new(),
                           colors: colors,
                           old_color: LinearMap::new(),
-                          precolored: precolored,
+                          precolored: pre,
                           constraints: constraints,
                           interference_cache: LinearMap::new(),
                           interferences_cache: LinearMap::new(),
@@ -226,10 +230,10 @@ impl Coalescer {
       ($set:expr, $color:expr) =>
       ({
         /* Unfix all temps */
-        for $set.each |&tmp| { self.fixed.remove(&tmp); }
+        for $set.each |&tmp| { self.fixed.set(tmp, false); }
         for $set.each |&tmp| {
           self.recolor(tmp, $color);
-          self.fixed.insert(tmp);
+          self.fixed.set(tmp, true);
         }
       })
     );
@@ -353,7 +357,7 @@ impl Coalescer {
   fn recolor(&mut self, t: Temp, c: uint) {
     /* If the color isn't admissible or 't' is fixed, then nothing we can do */
     if !self.admissible(t, c) { debug!("not admissible %? %?", t, c); return }
-    if self.fixed.contains(&t) { debug!("fixed %?", t); return }
+    if self.fixed.get(t) { debug!("fixed %?", t); return }
 
     /* Mark 't' as changed, and then attempt to recolor all our interferences */
     let mut changed = LinearSet::new();
@@ -371,25 +375,26 @@ impl Coalescer {
       }
     }
     for changed.each |&tmp| {
-      self.fixed.insert(tmp);
+      self.fixed.set(tmp, true);
     }
   }
 
   fn set_color(&mut self, t: Temp, c: uint, changed: &mut TempSet) {
     debug!("setting %? to %?", t, c);
-    self.fixed.insert(t);
+    self.fixed.set(t, true);
     self.old_color.insert(t, *self.colors.get(&t));
     changed.insert(t);
     self.colors.insert(t, c);
   }
 
   fn avoid_color(&mut self, t: Temp, c: uint, changed: &mut TempSet) -> bool {
+    let color = *self.colors.get(&t);
     /* Certainly avoided if it's already not this color */
-    if *self.colors.get(&t) != c { debug!("avoided %? %?", t, c); return true }
-    /* Otherwise if it's fixed, then ew're out of luck */
-    if self.fixed.contains(&t) { debug!("fixed %?", t); return false }
-    /* If itthe color isn't admissible, nothing we can do */
-    if self.precolored.contains(&t) && c != *self.colors.get(&t) {
+    if color != c { debug!("avoided %? %?", t, c); return true }
+    /* Otherwise if it's fixed, then we're out of luck */
+    if self.fixed.get(t) { debug!("fixed %?", t); return false }
+    /* If it the color isn't admissible, nothing we can do */
+    if self.precolored.get(t) && c != color {
       debug!("%? fixed elsewhere (%? %?)", t, c, self.colors.get(&t));
       return false
     }
@@ -397,7 +402,7 @@ impl Coalescer {
     /* After all that, we're in luck! Find a viable color for this temp which is
        used least by the temp's interfering neighbors, fix the color, and then
        recolor all our neighbors (again) */
-    let color = if self.precolored.contains(&t) {
+    let color = if self.precolored.get(t) {
       c
     } else {
       self.min_color(t, c)
@@ -465,7 +470,7 @@ impl Coalescer {
   }
 
   fn admissible_impl(&self, t: Temp, color: uint) -> bool {
-    if self.precolored.contains(&t) { return color == *self.colors.get(&t) }
+    if self.precolored.get(t) { return color == *self.colors.get(&t) }
     match self.constraints.find(&t) {
       None => true,
       Some(c) => c.allows(arch::num_reg(color))
