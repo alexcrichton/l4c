@@ -136,6 +136,7 @@ impl CodeGenerator {
       @ir::Move(tmp, e) =>
         self.push(@assem::Move(@assem::Temp(self.tmp(tmp)),
                                self.half(e))),
+      /* TODO: match on Load(tmp, @BinaryOp(Const)) */
       @ir::Load(tmp, e) => {
         let addr = @assem::MOp(self.half(e));
         self.push(@assem::Load(@assem::Temp(self.tmp(tmp)), addr));
