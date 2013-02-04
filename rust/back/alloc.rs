@@ -114,21 +114,18 @@ impl Allocator {
           loop;
         }
         @MemPhi(def, _) => {
-          if !self.slots.contains_key(&def) {
-            self.slots.insert(def, self.max_slot);
-            self.max_slot += 1;
-          }
+          assert self.slots.insert(def, self.max_slot);
+          self.max_slot += 1;
         }
         /* Be sure we always assign stack slots */
         @Spill(_, t) => {
-          if !self.slots.contains_key(&t) {
-            self.slots.insert(t, self.max_slot);
-            self.max_slot += 1;
-          }
+          assert self.slots.insert(t, self.max_slot);
+          self.max_slot += 1;
         }
         /* Keep track of the maximum number of args passed to called funs */
         @Store(@Stack(pos), _) => {
-          self.max_call_stack = uint::max(pos + 8, self.max_call_stack);
+          self.max_call_stack = uint::max(pos + arch::ptrsize,
+                                          self.max_call_stack);
         }
         /* do simple precoloring of args up front */
         @Arg(tmp, i) => {
@@ -315,6 +312,7 @@ impl Allocator {
       for ins.each |&ins| {
         match ins {
           @Phi(tmp, map) => {
+            debug!("phi var %? %?", tmp, *self.colors.get(&tmp));
             phi_vars.push(*self.colors.get(&tmp));
             phi_maps.push(map);
           }
@@ -329,18 +327,24 @@ impl Allocator {
       for cfg.each_pred(id) |pred| {
         let mut perm = ~[];
         let mut mems = ~[];
-        for phi_maps.each |map| { perm.push(*self.colors.get(&map[pred])); }
+        for phi_maps.each |map| {
+          debug!("%? %?", map[pred], self.colors.get(&map[pred]));
+          perm.push(*self.colors.get(&map[pred]));
+        }
         for mem_maps.each |map| { mems.push(map[pred]); }
         /* there are no critical edges in the graph, so we can just append */
+        debug!("resolving phi for %? <= %?", id, pred);
         let mut ins = self.resolve_perm(phi_vars, perm);
 
         /* for each MemPhi, we need to move stack slot 'src' to stack slot 'dst'
            without using a register */
-        for vec::each2(mem_vars, mems) |&dst, &src| {
-          let dst = self.stack_loc(dst);
+        for mems.eachi |i, &src| {
           let src = self.stack_loc(src);
-          ins.push(@Raw(fmt!("pushq %s", Stack(src).pp())));
-          ins.push(@Raw(fmt!("popq %s", Stack(dst).pp())));
+          ins.push(@Raw(fmt!("pushq %s", Stack(src + i * arch::ptrsize).pp())));
+        }
+        for vec::rev_eachi(mem_vars) |i, &dst| {
+          let dst = self.stack_loc(dst);
+          ins.push(@Raw(fmt!("popq %s", Stack(dst + i * arch::ptrsize).pp())));
         }
 
         if ins.len() == 0 { loop }
@@ -460,6 +464,7 @@ impl Allocator {
           dsts.push(*self.colors.get(&dst));
           srcs.push(*self.colors.get(&src));
         }
+        debug!("resolving pcopy");
         for self.resolve_perm(dsts, srcs).each |&ins| {
           push(ins);
         }
