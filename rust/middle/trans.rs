@@ -407,28 +407,85 @@ impl Translator {
     @ir::Temp(result)
   }
 
+  /**
+   * Translates a ternary statement
+   *
+   * # Arguments
+   *
+   * * cond - The condition for the ternary statement
+   * * t - The expression to execute in the 'true' case
+   * * f - The expression to execute in the 'false' case
+   * * size - The size of the destination operand
+   * * addr - 'true' if an address is desired, or 'false' if the value is needed
+   *
+   * This returns the temp which holds the result of the ternary statement.
+   */
   fn tern(&mut self, cond: @ast::Expression, t: @ast::Expression,
           f: @ast::Expression, size: ir::Type, addr: bool) -> @ir::Expression {
+    let dst = self.tmp(size);
+    let end = self.f.cfg.new_id();
+    self.dotern(cond, t, f, dst, addr,
+                (end, ir::Branch, ir::Always));
+    self.commit_with(end);
+    @ir::Temp(dst)
+  }
+
+  /**
+   * Actually translate a ternary statement
+   *
+   * # Arguments
+   *
+   * * c - the condition
+   * * t - The true expression
+   * * f - The false expression
+   * * dst - The temp to place the result into
+   * * addr - Flag if the address of the expressions are desired
+   * * (end, endt, endf) - The node to finally branch to at the end, and the
+   *                       types of edges that should be used to go from the
+   *                       true branch and false branch to the end
+   */
+  fn dotern(&mut self, c: @ast::Expression,
+            t: @ast::Expression, f: @ast::Expression,
+            dst: temp::Temp, addr: bool,
+            (end, endt, endf): (graph::NodeId, ir::Edge, ir::Edge)) {
     /* Translate the conditional, terminating the basic block */
-    let result = self.tmp(size);
     let true_id = self.f.cfg.new_id();
     let false_id = self.f.cfg.new_id();
-    self.stms.push(@ir::Condition(self.exp(cond, false)));
+    self.stms.push(@ir::Condition(self.exp(c, false)));
+
+    macro_rules! process(
+      ($e:expr, $typ:expr) => (
+        match self.unmark($e) {
+          /* Some cases don't necessarily always need a 'join' node */
+          @ast::Ternary(e1, e2, e3, _) => {
+            self.dotern(e1, e2, e3, dst, addr,
+                        (end, ir::Branch, $typ));
+          }
+          @ast::BinaryOp(ast::LOr, e1, e2) => {
+            self.dotern(e1, @ast::Boolean(true), e2, dst, addr,
+                        (end, ir::Branch, $typ));
+          }
+          @ast::BinaryOp(ast::LAnd, e1, e2) => {
+            self.dotern(e1, e2, @ast::Boolean(false), dst, addr,
+                        (end, ir::Branch, $typ));
+          }
+
+          /* Otherwise, we have to finish things up */
+          _ => {
+            self.stms.push(@ir::Move(dst, self.exp($e, addr)));
+            self.f.cfg.add_edge(self.cur_id, end, $typ);
+          }
+        }
+      )
+    );
 
     /* translate each true/false branch */
     let cond_id = self.commit_with(true_id);
-    self.stms.push(@ir::Move(result, self.exp(t, addr)));
-    let true_end = self.commit_with(false_id);
-    self.stms.push(@ir::Move(result, self.exp(f, addr)));
-    let false_end = self.commit();
-
-    /* connect everything together */
     self.f.cfg.add_edge(cond_id, true_id, ir::True);
+    process!(t, endt);
+    self.commit_with(false_id);
     self.f.cfg.add_edge(cond_id, false_id, ir::FBranch);
-    self.f.cfg.add_edge(true_end, self.cur_id, ir::Branch);
-    self.f.cfg.add_edge(false_end, self.cur_id, ir::Always);
-
-    @ir::Temp(result)
+    process!(f, endf);
   }
 
   fn check_null(&mut self, e: @ir::Expression) {
