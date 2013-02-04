@@ -24,13 +24,17 @@ pub fn optimize(p: &mut Program) {
     let mut opt = Eliminator { f: f,
                                stms: ~[],
                                used: bitv::Bitv(f.types.len(), false) };
-    opt.run();
+    /* TODO: surely this is easier on SSA form? */
+    while opt.run() {}
   }
 }
 
 impl Eliminator {
   /* TODO: why can't this all be above */
-  fn run(&mut self) {
+  fn run(&mut self) -> bool {
+    assert self.stms.len() == 0;
+    debug!("running");
+    self.used.clear();
     /* Mark all phi function arguments as used before we go anywhere */
     for self.f.cfg.each_node |_, stms| {
       for stms.each |&s| {
@@ -47,7 +51,9 @@ impl Eliminator {
 
     /* Be sure to start at the top of the graph to visit definitions first */
     let (order, _) = self.f.cfg.postorder(self.f.root);
+    let mut changed = false;
     for order.each |&n| {
+      let orig = self.f.cfg[n].len();
       vec::rev_each(*self.f.cfg[n], |&stm| self.stm(stm));
       let mut block = ~[];
       block <-> self.stms;
@@ -55,9 +61,11 @@ impl Eliminator {
 
       let end = self.first_impossible(block);
       block.truncate(end);
+      changed = changed || orig != block.len();
 
       self.f.cfg.update_node(n, @block);
     }
+    return changed;
   }
 
   fn stm(&mut self, s: @Statement) -> bool {
@@ -95,7 +103,7 @@ impl Eliminator {
 
   fn ispure(&self, s: @Statement) -> bool {
     match s {
-      @Phi(*) | @Call(*) | @Load(*) |
+      @Call(*) | @Load(*) |
         @Move(_, @BinaryOp(Div, _, _)) | @Move(_, @BinaryOp(Mod, _, _)) => false,
       _ => true
     }
