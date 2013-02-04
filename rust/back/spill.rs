@@ -52,7 +52,7 @@ struct Spiller {
 
   /* m[(a, b)] => (t1 -> t2) means that any temp known by the name t1 in a
      becomes the temp named t2 in b */
-  renamings: LinearMap<(NodeId, NodeId), ~LinearMap<Temp, Temp>>,
+  renamings: LinearMap<(NodeId, NodeId), ~LinearMap<Temp, ~[Temp]>>,
   /* m[a] = t1 -> (n -> t2) means that in block a, the temp t1 is known under the
      name t2 in node n */
   phis: LinearMap<NodeId, LinearMap<Temp, ssa::PhiMap>>,
@@ -173,15 +173,19 @@ impl Spiller {
               Some(m) => m,
               None    => ~LinearMap::new()
             };
-            map.insert(their_name, my_name);
+            let mut L = match map.pop(&their_name) {
+              None => ~[], Some(l) => l
+            };
+            L.push(my_name);
+            map.insert(their_name, L);
             self.renamings.insert((pred, n), map);
           }
-          phis.insert(my_name, renamings);
+          assert phis.insert(my_name, renamings);
         }
         _ => ()
       }
     }
-    self.phis.insert(n, phis);
+    assert self.phis.insert(n, phis);
   }
 
   /**
@@ -466,20 +470,17 @@ impl Spiller {
     /* TODO(purity): this shouldn't be unsafe */
     unsafe {
       for self.f.cfg.each_pred(n) |pred| {
+        debug!("pred %?", pred);
         assert(self.regs_end.contains_key(&pred));
         for self.regs_end.get(&pred).each |&tmp| {
-          let prev = freq.find(&tmp).map_default(0, |&x| *x);
-          freq.insert(tmp, prev + 1);
-          /* tmp from pred may be known by a different name in this block if there
-             is a phi node for this temp */
-          let mine = self.my_name(tmp, pred, n);
-          if mine != tmp {
-            let prev = freq.find(&mine).map_default(0, |&x| *x);
+          for self.my_names(tmp, pred, n) |mine| {
+            let prev : uint = freq.find(&mine).map_default(0, |&x| *x);
             freq.insert(mine, prev + 1);
           }
         }
       }
     }
+    debug!("frequencies: %s", freq.pp());
     let preds = self.f.cfg.num_pred(n);
     for freq.each |&tmp, &n| {
       if n == preds {
@@ -570,7 +571,9 @@ impl Spiller {
         for self.spill_exit.get(&pred).each |&tmp| {
           /* spill is intersected with the entry set */
           if entry.contains(&tmp) {
-            spill.insert(self.my_name(tmp, pred, n));
+            for self.my_names(tmp, pred, n) |mine| {
+              spill.insert(mine);
+            }
           }
         }
       }
@@ -594,23 +597,19 @@ impl Spiller {
     let mut append = ~[];
     let pred_regs_exit = self.regs_end.get(&pred);
     let pred_spill_exit = self.spill_exit.get(&pred);
+    let nxt = self.next_use.get(&succ);
 
     /* All registers they had which we don't have which we may eventually use
        need to be spilled */
     for pred_regs_exit.each |&tmp| {
-      /* Need to test 'tmp' under my name or under the same name because some
-         block later on may be using either one */
-      let mine = self.my_name(tmp, pred, succ);
-      let nxt = self.next_use.get(&succ);
-      debug!("mine %? theirs %?", mine, tmp);
-      debug!("%? %? %? %? %?", pred_spill_exit.contains(&tmp),
-             succ_regs.contains(&mine), succ_regs.contains(&tmp),
-             nxt.contains_key(&mine),
-             nxt.contains_key(&tmp));
-      if !pred_spill_exit.contains(&tmp) &&
-         ((!succ_regs.contains(&mine) && nxt.contains_key(&mine)) ||
-          (!succ_regs.contains(&tmp) && nxt.contains_key(&tmp))) {
-        append.push(@Spill(tmp, tmp));
+      /* no need to spill if it's already spilled */
+      if pred_spill_exit.contains(&tmp) { loop }
+
+      /* for each of my names for this temp, see if a spill is needed */
+      for self.my_names(tmp, pred, succ) |mine| {
+        if !succ_regs.contains(&mine) && nxt.contains_key(&mine) {
+          append.push(@Spill(tmp, tmp));
+        }
       }
     }
 
@@ -637,10 +636,13 @@ impl Spiller {
     }
   }
 
-  fn my_name(&self, tmp: Temp, from: NodeId, to: NodeId) -> Temp {
+  fn my_names(&self, tmp: Temp, from: NodeId, to: NodeId, f: fn(Temp) -> bool) {
     match self.renamings.find(&(from, to)) {
-      Some(m) => m.find(&tmp).map_default(tmp, |&x| *x),
-      None => tmp
+      Some(m) => match m.find(&tmp) {
+        Some(ret) => ret.each(|&t| f(t)),
+        None => { f(tmp); }
+      },
+      None => { f(tmp); }
     }
   }
 
