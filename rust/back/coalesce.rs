@@ -242,13 +242,18 @@ impl Coalescer {
       ($set:expr, $color:expr) =>
       ({
         /* Unfix all temps */
-        for $set.each |&tmp| { self.fixed.set(tmp, false); }
+        for tmps.each |&tmp| { self.fixed.set(tmp, false); }
         for $set.each |&tmp| {
           self.recolor(tmp, $color);
           self.fixed.set(tmp, true);
         }
       })
     );
+
+    /* Sanity check that we're not coalescing fixed temps */
+    for tmps.each |&t| {
+      assert !self.fixed.get(t);
+    }
 
     /* For each register, attempt to color everything to that register */
     for arch::each_reg |r| {
@@ -387,7 +392,7 @@ impl Coalescer {
       }
     }
     for changed.each |&tmp| {
-      self.fixed.set(tmp, true);
+      self.fixed.set(tmp, false);
     }
   }
 
