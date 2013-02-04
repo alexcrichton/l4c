@@ -191,7 +191,7 @@ func runTests(files []string) ([]string, []string) {
       }
     }
   }
-  if Progress {
+  if Progress && len(files) > 0 {
     bar.FinishPrint(fmt.Sprintf("Passed %d/%d tests", passed, len(files)))
   } else {
     fmt.Printf("Passed %d/%d tests\n", passed, len(files))
