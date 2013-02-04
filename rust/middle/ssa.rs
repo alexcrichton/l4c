@@ -16,7 +16,8 @@ pub trait Statement: PrettyPrint {
   fn each_def(&self, &fn(Temp) -> bool);
   fn each_use(&self, &fn(Temp) -> bool);
   fn map_temps(@self, u: &fn(Temp) -> Temp, d: &fn(Temp) -> Temp) -> @Self;
-  fn phi_info(&self) -> Option<(Temp, &self/PhiMap)>;
+  /* TODO: once fixed, this should be a member function */
+  static fn phi_info(me: &v/Self) -> Option<(Temp, &v/PhiMap)>;
 }
 
 type TempMap = LinearMap<Temp, Temp>;
@@ -243,7 +244,7 @@ impl<T: Statement> Converter<T> {
   fn map_phi_temps(&mut self, n: graph::NodeId) {
     let stms = self.cfg[n];
     self.cfg.update_node(n, stms.map(|&stm|
-      match stm.phi_info() {
+      match Statement::phi_info(stm) {
         None => stm,
         Some((def, map)) => {
           let mut new = LinearMap::new();

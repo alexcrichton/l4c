@@ -170,7 +170,9 @@ impl Instruction: ssa::Statement {
 
   fn each_def(&self, f: &fn(Temp) -> bool) { self.each_def(f) }
   fn each_use(&self, f: &fn(Temp) -> bool) { self.each_use(f) }
-  fn phi_info(&self) -> Option<(Temp, &self/ssa::PhiMap)> { self.phi_info() }
+  static fn phi_info(me: &v/Instruction) -> Option<(Temp, &v/ssa::PhiMap)> {
+    me.phi_info()
+  }
 
   fn map_temps(@self, uses: &fn(Temp) -> Temp,
                defs: &fn(Temp) -> Temp) -> @Instruction {

@@ -186,8 +186,8 @@ impl Statement: ssa::Statement {
   fn each_def(&self, f: &fn(Temp) -> bool) { self.each_def(f) }
   fn each_use(&self, f: &fn(Temp) -> bool) { self.each_use(f) }
 
-  fn phi_info(&self) -> Option<(Temp, &self/ssa::PhiMap)> {
-    match *self {
+  static fn phi_info(me: &v/Statement) -> Option<(Temp, &v/ssa::PhiMap)> {
+    match *me {
       Phi(d, ref m) => Some((d, m)),
       _             => None
     }
