@@ -113,14 +113,19 @@ impl Allocator {
           registers.clear();
           loop;
         }
+        /* Be sure we always assign stack slots. It should be noted that these
+         * are currently not in SSA form. */
         @MemPhi(def, _) => {
-          assert self.slots.insert(def, self.max_slot);
-          self.max_slot += 1;
+          if !self.slots.contains_key(&def) {
+            self.slots.insert(def, self.max_slot);
+            self.max_slot += 1;
+          }
         }
-        /* Be sure we always assign stack slots */
         @Spill(_, t) => {
-          assert self.slots.insert(t, self.max_slot);
-          self.max_slot += 1;
+          if !self.slots.contains_key(&t) {
+            self.slots.insert(t, self.max_slot);
+            self.max_slot += 1;
+          }
         }
         /* Keep track of the maximum number of args passed to called funs */
         @Store(@Stack(pos), _) => {
