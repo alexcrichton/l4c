@@ -2,7 +2,8 @@ use core::hashmap::linear::{LinearMap, LinearSet};
 use core::util::unreachable;
 use core::either::*;
 
-use std::{map, bitv};
+use std::bitv;
+use map = std::oldmap;
 use std::smallintmap::SmallIntMap;
 
 use middle::{ssa, ir, liveness};
@@ -251,14 +252,14 @@ impl Allocator {
         match pcopy {
           Some(@PCopy(copies)) => {
             let regstmp = RegisterSet();
-            for copies.each |dst, src| {
+            for copies.each_ref |&dst, &src| {
               assert dst != src;
               match self.colors.find(&dst) {
                 Some(&c) => { regstmp.set(c, true); }
                 None    => ()
               }
             }
-            for copies.each_key |dst| {
+            for copies.each_key_ref |&dst| {
               process!(dst, regstmp);
             }
           }
@@ -467,7 +468,7 @@ impl Allocator {
         debug!("%?", copies);
         let mut dsts = ~[];
         let mut srcs = ~[];
-        for copies.each |dst, src| {
+        for copies.each_ref |&dst, &src| {
           dsts.push(*self.colors.get(&dst));
           srcs.push(*self.colors.get(&src));
         }

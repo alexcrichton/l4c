@@ -1,6 +1,6 @@
 use core::hashmap::linear::{LinearMap, LinearSet};
 
-use std::map;
+use map = std::oldmap;
 
 use middle::{temp, liveness, ir};
 use middle::temp::Temp;
@@ -18,7 +18,7 @@ pub trait Statement: PrettyPrint {
   fn each_def<T>(&self, &fn(Temp) -> T);
   fn each_use<T>(&self, &fn(Temp) -> T);
   fn map_temps(@self, u: &fn(Temp) -> Temp, d: &fn(Temp) -> Temp) -> @Self;
-  fn phi_map(&self) -> Option<PhiMap>;
+  fn phi_info(&self) -> Option<(Temp, PhiMap)>;
 }
 
 type TempMap = LinearMap<Temp, Temp>;
@@ -243,21 +243,19 @@ impl<T: Statement> Converter<T> {
    * their predecessor's edges
    */
   fn map_phi_temps(&mut self, n: graph::NodeId) {
-    for self.cfg[n].each |&stm| {
-      match stm.phi_map() {
-        None => (),
-        Some(map) => {
-          let mut new = ~[];
-          for map.each |pred, tmp| {
-            new.push((pred, *self.versions.get(&pred).get(&tmp)));
+    let stms = self.cfg[n];
+    self.cfg.update_node(n, @stms.map(|&stm|
+      match stm.phi_info() {
+        None => stm,
+        Some((def, map)) => {
+          let mut new = map::HashMap();
+          for map.each_ref |&pred, &tmp| {
+            new.insert(pred, *self.versions.get(&pred).get(&tmp));
           }
-          map.clear();
-          for new.each |&(a, b)| {
-            map.insert(a, b);
-          }
+          Statement::phi(def, new)
         }
       }
-    }
+    ));
   }
 
   /**

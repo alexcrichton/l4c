@@ -25,7 +25,8 @@
 use core::hashmap::linear::{LinearMap, LinearSet};
 use core::util::replace;
 
-use std::{map, sort};
+use std::sort;
+use map = std::oldmap;
 use middle::ssa;
 use middle::temp::{Temp, TempSet};
 use back::assem::*;
@@ -128,7 +129,7 @@ fn eliminate_critical(cfg: &mut CFG) {
       match ins {
         @Phi(_, map) => {
           map.insert(new, map[n1]);
-          map.remove(n1);
+          map.remove(&n1);
         }
         _ => ()
       }
@@ -168,7 +169,7 @@ impl Spiller {
     for self.f.cfg[n].each |&ins| {
       match ins {
         @Phi(my_name, renamings) => {
-          for renamings.each |pred, their_name| {
+          for renamings.each_ref |&pred, &their_name| {
             let mut map = match self.renamings.pop(&(pred, n)) {
               Some(m) => m,
               None    => ~LinearMap::new()
@@ -348,9 +349,9 @@ impl Spiller {
               match last_pcopy {
                 None => (),
                 Some((map, ref next_use)) => {
-                  if map.contains_key(tmp) && *next_use.get(&tmp) > i {
+                  if map.contains_key_ref(&tmp) && *next_use.get(&tmp) > i {
                     debug!("ignoring %? from previous pcopy", tmp);
-                    map.remove(tmp);
+                    map.remove(&tmp);
                   }
                 }
               }
@@ -399,7 +400,7 @@ impl Spiller {
 
         @PCopy(ref copies) => {
           let newcopies = map::HashMap();
-          for copies.each |dst, src| {
+          for copies.each_ref |&dst, &src| {
             assert(dst == src);
             if regs.contains(&src) {
               newcopies.insert(dst, src);

@@ -40,7 +40,7 @@ impl Eliminator {
       for stms.each |&s| {
         match s {
           @Phi(_, m) => {
-            for m.each_value |t| {
+            for m.each_value_ref |&t| {
               self.used.set(t, true);
             }
           }

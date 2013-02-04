@@ -1,5 +1,5 @@
 use core::hashmap::linear::LinearMap;
-use std::map;
+use map = std::oldmap;
 
 use io::WriterUtil;
 use middle::{ssa, label};
@@ -145,7 +145,7 @@ impl Statement {
       @Arguments(ref tmps) => @Arguments(tmps.map(|&t| defs(t))),
       @Phi(def, map) => {
         let newmap = map::HashMap();
-        for map.each |k, v| {
+        for map.each_ref |&k, &v| {
           newmap.insert(k, uses(v));
         }
         @Phi(defs(def), newmap)
@@ -172,7 +172,7 @@ impl Statement {
         e.each_temp(f);
         for args.each |&e| { e.each_temp(f); }
       }
-      Phi(_, map) => { for map.each_value |t| { f(t); } }
+      Phi(_, map) => { for map.each_value_ref |&t| { f(t); } }
       Arguments(*) => ()
     }
   }
@@ -189,9 +189,9 @@ impl Statement: ssa::Statement {
   fn each_def<T>(&self, f: &fn(Temp) -> T) { self.each_def(f) }
   fn each_use<T>(&self, f: &fn(Temp) -> T) { self.each_use(f) }
 
-  fn phi_map(&self) -> Option<ssa::PhiMap> {
+  fn phi_info(&self) -> Option<(Temp, ssa::PhiMap)> {
     match *self {
-      Phi(_, m) => Some(m),
+      Phi(d, m) => Some((d, m)),
       _             => None
     }
   }
@@ -211,7 +211,7 @@ impl Statement: PrettyPrint {
              str::connect(E.map(|e| e.pp()), ~", ")),
       Phi(tmp, ref map) => {
         let mut s = tmp.pp() + ~" <- phi(";
-        for map.each |id, tmp| {
+        for map.each_ref |&id, &tmp| {
           s += fmt!("[ %s - n%d ] ", tmp.pp(), id as int);
         }
         s + ~")"

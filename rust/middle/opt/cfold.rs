@@ -10,7 +10,7 @@
  */
 
 use core::hashmap::linear::LinearMap;
-use std::map;
+use map = std::oldmap;
 
 use middle::ir::*;
 

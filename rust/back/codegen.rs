@@ -1,7 +1,7 @@
 use core::hashmap::linear::{LinearMap, LinearSet};
 
 use middle::{ir, temp, ssa, liveness, label};
-use std::map;
+use map = std::oldmap;
 use back::{assem, arch};
 
 type Builder = fn(@assem::Instruction);
@@ -123,7 +123,7 @@ impl CodeGenerator {
       }
       @ir::Phi(tmp, map) => {
         let map2 = map::HashMap();
-        for map.each |k, v| {
+        for map.each_ref |&k, &v| {
           map2.insert(k, self.tmp(v));
         }
         self.push(@assem::Phi(self.tmp(tmp), map2));

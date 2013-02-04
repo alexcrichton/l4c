@@ -1,7 +1,7 @@
 use core::io::WriterUtil;
 use core::hashmap::linear::{LinearMap, LinearSet};
 
-use std::map;
+use map = std::oldmap;
 
 use middle::{label, ir, liveness};
 pub use middle::ssa;
@@ -111,7 +111,7 @@ impl Instruction {
       Arg(t, _)
         => { f(t); }
 
-      PCopy(copies) => for copies.each_key |t| { f(t); },
+      PCopy(copies) => for copies.each_key_ref |&t| { f(t); },
 
       _ => ()
     }
@@ -154,14 +154,14 @@ impl Instruction {
         }
       }
 
-      PCopy(copies) => for copies.each_value |t| { f(t); },
+      PCopy(copies) => for copies.each_value_ref |&t| { f(t); },
 
       _ => ()
     }
   }
-  fn phi_map(&self) -> Option<ssa::PhiMap> {
+  fn phi_info(&self) -> Option<(Temp, ssa::PhiMap)> {
     match *self {
-      Phi(_, m) => Some(m),
+      Phi(d, m) => Some((d, m)),
       _         => None
     }
   }
@@ -172,7 +172,7 @@ impl Instruction: ssa::Statement {
 
   fn each_def<T>(&self, f: &fn(Temp) -> T) { self.each_def(f) }
   fn each_use<T>(&self, f: &fn(Temp) -> T) { self.each_use(f) }
-  fn phi_map(&self) -> Option<ssa::PhiMap> { self.phi_map() }
+  fn phi_info(&self) -> Option<(Temp, ssa::PhiMap)> { self.phi_info() }
 
   fn map_temps(@self, uses: &fn(Temp) -> Temp,
                defs: &fn(Temp) -> Temp) -> @Instruction {
@@ -208,7 +208,7 @@ impl Instruction: ssa::Statement {
       @Arg(t, n) => @Arg(defs(t), n),
       @PCopy(copies) => {
         let map = map::HashMap();
-        for copies.each |dst, src| {
+        for copies.each_ref |&dst, &src| {
           let src = uses(src);
           map.insert(defs(dst), src);
         }
@@ -292,14 +292,14 @@ impl Instruction: PrettyPrint {
              ~"(" + str::connect(args.map(|a| a.pp()), ~", ") + ~")"),
       Phi(tmp, map) => {
         let mut s = ~"//" + tmp.pp() + ~" <- phi(";
-        for map.each |id, tmp| {
+        for map.each_ref |&id, &tmp| {
           s += fmt!("[ %s - n%? ] ", tmp.pp(), id);
         }
         s + ~")"
       }
       MemPhi(tag, map) => {
         let mut s = fmt!("//m%? <- mphi(", tag);
-        for map.each |id, tag| {
+        for map.each_ref |&id, &tag| {
           s += fmt!("[ m%? - n%? ] ", tag, id);
         }
         s + ~")"
@@ -308,7 +308,7 @@ impl Instruction: PrettyPrint {
       Reload(t, tag) => fmt!("RELOAD %s <= %?", t.pp(), tag),
       PCopy(copies) => {
         let mut s = ~"{";
-        for copies.each |k, v| {
+        for copies.each_ref |&k, &v| {
           s += fmt!("(%? <= %?) ", k, v);
         }
         s + ~"}"

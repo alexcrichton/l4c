@@ -56,9 +56,9 @@ impl<T: Statement> Liveness<T> {
   fn lookup_phis(&mut self, n: NodeId) {
     for self.cfg[n].each |&stm| {
       debug!("phi map");
-      match stm.phi_map() {
-        Some(map) => {
-          for map.each |pred, tmp| {
+      match stm.phi_info() {
+        Some((_, map)) => {
+          for map.each_ref |&pred, &tmp| {
             let mut set = self.phi_out.pop(&pred).unwrap();
             set.insert(tmp);
             self.phi_out.insert(pred, set);

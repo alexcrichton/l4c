@@ -186,10 +186,10 @@ impl Coalescer {
       for ins.each_use |tmp| {
         add_use!(tmp, (n, i as int));
       }
-      match ins.phi_map() {
+      match ins.phi_info() {
         None => (),
-        Some(m) => {
-          for m.each |pred, tmp| {
+        Some((_, m)) => {
+          for m.each_ref |&pred, &tmp| {
             add_use!(tmp, (pred, int::max_value));
           }
         }
@@ -600,7 +600,7 @@ impl Coalescer {
       for self.f.cfg[n].each |&ins| {
         match ins {
           @assem::Phi(def, map) => {
-            for map.each_value |tmp| {
+            for map.each_value_ref |&tmp| {
               /* TODO(#4650): when this ICE is fixed, uncomment */
               /*affine!(def, tmp, weight);*/
               add_affine!(tmp, def, weight);
@@ -609,7 +609,7 @@ impl Coalescer {
             }
           }
           @assem::PCopy(ref copies) => {
-            for copies.each |a, b| {
+            for copies.each_ref |&a, &b| {
               /* TODO(#4650): when ICE is fixed, uncomment */
               /*affine!(a, b, weight);*/
               add_affine!(a, b, weight);
