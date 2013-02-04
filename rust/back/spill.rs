@@ -639,7 +639,12 @@ impl Spiller {
   fn my_names(&self, tmp: Temp, from: NodeId, to: NodeId, f: fn(Temp) -> bool) {
     match self.renamings.find(&(from, to)) {
       Some(m) => match m.find(&tmp) {
-        Some(ret) => ret.each(|&t| f(t)),
+        Some(ret) => {
+          ret.each(|&t| f(t));
+          if self.next_use.get(&to).contains_key(&tmp) {
+            f(tmp);
+          }
+        }
         None => { f(tmp); }
       },
       None => { f(tmp); }
