@@ -54,11 +54,11 @@ impl<T: Statement> Liveness<T> {
   }
 
   fn lookup_phis(&mut self, n: NodeId) {
-    for self.cfg[n].each |&stm| {
+    for self.cfg[n].each |stm| {
       debug!("phi map");
       match stm.phi_info() {
         Some((_, map)) => {
-          for map.each_ref |&pred, &tmp| {
+          for map.each |&pred, &tmp| {
             let mut set = self.phi_out.pop(&pred).unwrap();
             set.insert(tmp);
             self.phi_out.insert(pred, set);
@@ -87,7 +87,8 @@ impl<T: Statement> Liveness<T> {
     for live.each |&t| { live_out.insert(t); }
     self.a.out.insert(n, live_out);
     let mut my_deltas = ~[];
-    for vec::rev_each(*self.cfg[n]) |&ins| {
+    for vec::rev_each(*self.cfg[n]) |ins| {
+      let ins : &@T = ins;
       let mut delta = ~[];
       for ins.each_def |def| {
         if live.remove(&def) {

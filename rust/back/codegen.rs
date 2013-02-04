@@ -1,7 +1,6 @@
 use core::hashmap::linear::{LinearMap, LinearSet};
 
 use middle::{ir, temp, ssa, liveness, label};
-use map = std::oldmap;
 use back::{assem, arch};
 
 type Builder = fn(@assem::Instruction);
@@ -42,7 +41,7 @@ impl CodeGenerator {
         }
         let mut stms = ~[];
         stms <-> self.stms;
-        @stms
+        stms
       },
       |&edge| edge
     );
@@ -121,9 +120,9 @@ impl CodeGenerator {
           }
         }
       }
-      @ir::Phi(tmp, map) => {
-        let map2 = map::HashMap();
-        for map.each_ref |&k, &v| {
+      @ir::Phi(tmp, ref map) => {
+        let mut map2 = LinearMap::new();
+        for map.each |&k, &v| {
           map2.insert(k, self.tmp(v));
         }
         self.push(@assem::Phi(self.tmp(tmp), map2));

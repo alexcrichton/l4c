@@ -26,7 +26,6 @@ use core::hashmap::linear::{LinearMap, LinearSet};
 use core::util::replace;
 
 use std::sort;
-use map = std::oldmap;
 use middle::ssa;
 use middle::temp::{Temp, TempSet};
 use back::assem::*;
@@ -120,20 +119,26 @@ fn eliminate_critical(cfg: &mut CFG) {
     debug!("splitting critical edge %? %?", n1, n2);
     let edge = cfg.remove_edge(n1, n2);
     let new = cfg.new_id();
-    cfg.add_node(new, @~[]);
+    cfg.add_node(new, ~[]);
     cfg.add_edge(n1, new, edge);
     cfg.add_edge(new, n2, ir::Always);
 
     /* Be sure to fix the predecessor of each phi node in our successor */
-    for cfg[n2].each |&ins| {
+    cfg.map_consume_node(n2, |stms| vec::map_consume(stms, |ins| {
       match ins {
-        @Phi(_, map) => {
-          map.insert(new, map[n1]);
-          map.remove(&n1);
+        @Phi(def, ref map) => {
+          /* TODO: shouldn't need dup */
+          let mut dup = LinearMap::new();
+          for map.each |&k, &v| {
+            dup.insert(k, v);
+          }
+          dup.insert(new, *map.get(&n1));
+          dup.remove(&n1);
+          @Phi(def, dup)
         }
-        _ => ()
+        _ => ins
       }
-    }
+    }));
   }
 }
 
@@ -168,8 +173,8 @@ impl Spiller {
     let mut phis = LinearMap::new();
     for self.f.cfg[n].each |&ins| {
       match ins {
-        @Phi(my_name, renamings) => {
-          for renamings.each_ref |&pred, &their_name| {
+        @Phi(my_name, ref renamings) => {
+          for renamings.each |&pred, &their_name| {
             let mut map = match self.renamings.pop(&(pred, n)) {
               Some(m) => m,
               None    => ~LinearMap::new()
@@ -181,7 +186,12 @@ impl Spiller {
             map.insert(their_name, L);
             self.renamings.insert((pred, n), map);
           }
-          assert phis.insert(my_name, renamings);
+          /* TODO: is the dup necessary? */
+          let mut dup = LinearMap::new();
+          for renamings.each |&k, &v| {
+            dup.insert(k, v);
+          }
+          assert phis.insert(my_name, dup);
         }
         _ => ()
       }
@@ -210,13 +220,13 @@ impl Spiller {
       match self.phis.find(&succ) {
         None => (),
         Some(map) => {
-          for map.each |_, &phis| {
-            bottom.insert(phis[n], block.len());
+          for map.each |_, phis| {
+            bottom.insert(*phis.get(&n), block.len());
           }
         }
       }
       if !self.next_use.contains_key(&succ) { loop }
-      let edge_cost = match self.f.cfg.edge(n, succ) {
+      let edge_cost = match *self.f.cfg.edge(n, succ) {
         ir::LoopOut | ir::FLoopOut => loop_out_weight, _ => 0
       };
 
@@ -341,20 +351,21 @@ impl Spiller {
             if !spill.contains(&tmp) && next_use.contains_key(&tmp) {
               debug!("spilling %?", tmp);
               block.push(@Spill(tmp, tmp));
-            } else if spill.contains(&tmp) {
-              debug!("removing %?", tmp);
+            /* TODO: remove all this? */
+            /*} else if spill.contains(&tmp) {*/
+              /*debug!("removing %?", tmp);*/
               /* If after a pcopy a temp was spilled, then we don't need to
                  actually preserve the temp over the pcopy if we spilled it
                  before it's next use relative to the pcopy */
-              match last_pcopy {
-                None => (),
-                Some((map, ref next_use)) => {
-                  if map.contains_key_ref(&tmp) && *next_use.get(&tmp) > i {
-                    debug!("ignoring %? from previous pcopy", tmp);
-                    map.remove(&tmp);
-                  }
-                }
-              }
+              /*match last_pcopy {*/
+              /*  None => (),*/
+              /*  Some((map, ref next_use)) => {*/
+              /*    if map.contains_key_ref(&tmp) && *next_use.get(&tmp) > i {*/
+              /*      debug!("ignoring %? from previous pcopy", tmp);*/
+              /*      map.remove(&tmp);*/
+              /*    }*/
+              /*  }*/
+              /*}*/
             }
             regs.remove(&tmp);
             spill.remove(&tmp);
@@ -380,7 +391,7 @@ impl Spiller {
 
     debug!("%s", next_use.pp());
     let mut i = 0;
-    let mut last_pcopy = None;
+    /*let mut last_pcopy = None;*//* TODO: remove? */
     for vec::each2(*self.f.cfg[n], *self.deltas.get(&n)) |&ins, delta| {
       debug!("%2? %30s  %s %s", i, ins.pp(), next_use.pp(),
              str::connect(delta.map(|a| fmt!("%?", a)), ~", "));
@@ -389,21 +400,26 @@ impl Spiller {
         /* If the destination of a phi is not currently in the registers, then
            we don't need the phi instruction because it's been spilled and we
            don't want to put register moves onto the incoming edges */
-        @Phi(tmp, map) => {
+        @Phi(tmp, ref map) => {
           if regs.contains(&tmp) {
             block.push(ins);
           } else if next_use.contains_key(&tmp) {
-            block.push(@MemPhi(tmp, map));
+            /* TODO: is the duplicate needed? */
+            let mut dup = LinearMap::new();
+            for map.each |&k, &v| {
+              dup.insert(k, v);
+            }
+            block.push(@MemPhi(tmp, dup));
           }
           apply_delta(delta);
         }
 
         @PCopy(ref copies) => {
-          let newcopies = map::HashMap();
-          for copies.each_ref |&dst, &src| {
+          let mut newcopies = ~[];
+          for copies.each |&(dst, src)| {
             assert(dst == src);
             if regs.contains(&src) {
-              newcopies.insert(dst, src);
+              newcopies.push((dst, src));
             }
           }
           let mut dup = LinearMap::new();
@@ -411,7 +427,7 @@ impl Spiller {
             dup.insert(k, v);
           }
           block.push(@PCopy(newcopies));
-          last_pcopy = Some((newcopies, dup));
+          /*last_pcopy = Some((newcopies, dup));*//*TODO: remove?*/
           apply_delta(delta);
         }
 
@@ -461,7 +477,7 @@ impl Spiller {
     }
 
     debug!("node %? exit regs:%s spill:%s", n, regs.pp(), spill.pp());
-    self.f.cfg.update_node(n, @block);
+    self.f.cfg.update_node(n, block);
     self.regs_end.insert(n, regs);
     self.spill_exit.insert(n, spill);
 
@@ -645,7 +661,7 @@ impl Spiller {
     }
     if append.len() > 0 {
       debug!("appending to %?: %?", pred, append);
-      self.f.cfg.update_node(pred, @(*self.f.cfg[pred] + append));
+      self.f.cfg.update_node(pred, self.f.cfg[pred] + append);
     }
   }
 
@@ -666,7 +682,7 @@ impl Spiller {
 
   fn their_name(&self, tmp: Temp, from: NodeId, to: NodeId) -> Temp {
     match self.phis.get(&to).find(&tmp) {
-      Some(map) => map[from],
+      Some(map) => *map.get(&from),
       None => tmp
     }
   }

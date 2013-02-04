@@ -1,5 +1,4 @@
 use core::hashmap::linear::LinearMap;
-use map = std::oldmap;
 
 use io::WriterUtil;
 use middle::{ssa, label};
@@ -12,7 +11,7 @@ pub struct Program {
 
 pub struct Function {
   name: ~str,
-  cfg: graph::Graph<@~[@Statement], Edge>,
+  cfg: ssa::CFG<Statement>,
   root: graph::NodeId,
   types: LinearMap<Temp, Type>,
 
@@ -143,9 +142,9 @@ impl Statement {
         @Call(defs(tmp), e, args)
       }
       @Arguments(ref tmps) => @Arguments(tmps.map(|&t| defs(t))),
-      @Phi(def, map) => {
-        let newmap = map::HashMap();
-        for map.each_ref |&k, &v| {
+      @Phi(def, ref map) => {
+        let mut newmap = LinearMap::new();
+        for map.each |&k, &v| {
           newmap.insert(k, uses(v));
         }
         @Phi(defs(def), newmap)
@@ -153,17 +152,15 @@ impl Statement {
     }
   }
 
-  fn each_def<T>(&self, f: &fn(Temp) -> T) {
+  fn each_def(&self, f: &fn(Temp) -> bool) {
     match *self {
       Load(tmp, _) | Move(tmp, _) | Call(tmp, _, _) | Phi(tmp, _) => {f(tmp);}
-      Arguments(ref tmps) => {
-        for tmps.each |&t| { f(t); }
-      }
+      Arguments(ref tmps) => tmps.each(|&t| f(t)),
       _ => ()
     }
   }
 
-  fn each_use<T>(&self, f: &fn(Temp) -> T) {
+  fn each_use(&self, f: &fn(Temp) -> bool) {
     match *self {
       Move(_, e) | Load(_, e) | Condition(e) | Return(e) | Die(e) =>
         e.each_temp(f),
@@ -172,7 +169,7 @@ impl Statement {
         e.each_temp(f);
         for args.each |&e| { e.each_temp(f); }
       }
-      Phi(_, map) => { for map.each_value_ref |&t| { f(t); } }
+      Phi(_, ref map) => { for map.each_value |&t| { f(t); } }
       Arguments(*) => ()
     }
   }
@@ -186,12 +183,12 @@ impl Statement: ssa::Statement {
     self.map_temps(uses, defs)
   }
 
-  fn each_def<T>(&self, f: &fn(Temp) -> T) { self.each_def(f) }
-  fn each_use<T>(&self, f: &fn(Temp) -> T) { self.each_use(f) }
+  fn each_def(&self, f: &fn(Temp) -> bool) { self.each_def(f) }
+  fn each_use(&self, f: &fn(Temp) -> bool) { self.each_use(f) }
 
-  fn phi_info(&self) -> Option<(Temp, ssa::PhiMap)> {
+  fn phi_info(&self) -> Option<(Temp, &self/ssa::PhiMap)> {
     match *self {
-      Phi(d, m) => Some((d, m)),
+      Phi(d, ref m) => Some((d, m)),
       _             => None
     }
   }
@@ -211,7 +208,7 @@ impl Statement: PrettyPrint {
              str::connect(E.map(|e| e.pp()), ~", ")),
       Phi(tmp, ref map) => {
         let mut s = tmp.pp() + ~" <- phi(";
-        for map.each_ref |&id, &tmp| {
+        for map.each |&id, &tmp| {
           s += fmt!("[ %s - n%d ] ", tmp.pp(), id as int);
         }
         s + ~")"
@@ -232,7 +229,7 @@ impl Expression {
     }
   }
 
-  fn each_temp<T>(&self, f: &fn(Temp) -> T) {
+  fn each_temp(&self, f: &fn(Temp) -> bool) {
     match *self {
       Const(*) | LabelExp(*) => (),
       BinaryOp(_, e1, e2) => { e1.each_temp(f); e2.each_temp(f); }

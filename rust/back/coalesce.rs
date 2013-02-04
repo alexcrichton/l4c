@@ -157,7 +157,7 @@ impl Coalescer {
   fn run(&mut self) {
     /* TODO: why can't this be above */
     do profile::dbg("building use/def") {
-      for self.f.cfg.each_node |id, &ins| {
+      for self.f.cfg.each_node |id, ins| {
         self.build_use_def(id, ins);
       }
     }
@@ -169,7 +169,7 @@ impl Coalescer {
    * information about where each temp is defined and the set of uses for each
    * temp.
    */
-  fn build_use_def(&mut self, n: NodeId, ins: @~[@assem::Instruction]) {
+  fn build_use_def(&mut self, n: NodeId, ins: &~[@assem::Instruction]) {
     macro_rules! add_use(
       ($tmp:expr, $loc:expr) => ({
         let mut set = match self.uses.pop(&$tmp) {
@@ -189,7 +189,7 @@ impl Coalescer {
       match ins.phi_info() {
         None => (),
         Some((_, m)) => {
-          for m.each_ref |&pred, &tmp| {
+          for m.each |&pred, &tmp| {
             add_use!(tmp, (pred, int::max_value));
           }
         }
@@ -599,8 +599,8 @@ impl Coalescer {
       let weight = weight + if self.f.loops.contains_key(&n) { 1 } else { 0 };
       for self.f.cfg[n].each |&ins| {
         match ins {
-          @assem::Phi(def, map) => {
-            for map.each_value_ref |&tmp| {
+          @assem::Phi(def, ref map) => {
+            for map.each |_, &tmp| {
               /* TODO(#4650): when this ICE is fixed, uncomment */
               /*affine!(def, tmp, weight);*/
               add_affine!(tmp, def, weight);
@@ -609,7 +609,7 @@ impl Coalescer {
             }
           }
           @assem::PCopy(ref copies) => {
-            for copies.each_ref |&a, &b| {
+            for copies.each |&(a, b)| {
               /* TODO(#4650): when ICE is fixed, uncomment */
               /*affine!(a, b, weight);*/
               add_affine!(a, b, weight);

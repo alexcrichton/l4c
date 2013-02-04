@@ -39,8 +39,8 @@ impl Eliminator {
     for self.f.cfg.each_node |_, stms| {
       for stms.each |&s| {
         match s {
-          @Phi(_, m) => {
-            for m.each_value_ref |&t| {
+          @Phi(_, ref m) => {
+            for m.each |_, &t| {
               self.used.set(t, true);
             }
           }
@@ -63,7 +63,7 @@ impl Eliminator {
       block.truncate(end);
       changed = changed || orig != block.len();
 
-      self.f.cfg.update_node(n, @block);
+      self.f.cfg.update_node(n, block);
     }
     return changed;
   }

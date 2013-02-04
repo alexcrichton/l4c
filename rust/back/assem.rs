@@ -1,8 +1,6 @@
 use core::io::WriterUtil;
 use core::hashmap::linear::{LinearMap, LinearSet};
 
-use map = std::oldmap;
-
 use middle::{label, ir, liveness};
 pub use middle::ssa;
 use middle::temp::Temp;
@@ -13,7 +11,7 @@ pub type Label = label::Label;
 pub type Edge = ir::Edge;
 pub type Size = ir::Type;
 pub type Tag = uint;
-pub type CFG = graph::Graph<@~[@Instruction], Edge>;
+pub type CFG = ssa::CFG<Instruction>;
 
 pub struct Program {
   funs: ~[Function]
@@ -48,7 +46,7 @@ pub enum Instruction {
   Reload(Temp, Tag),
   Spill(Temp, Tag),
   Use(Temp),              /* used when constraining non-commutative ops */
-  PCopy(map::HashMap<Temp, Temp>), /* parallel copy of temps */
+  PCopy(~[(Temp, Temp)]), /* parallel copy of temps */
   Arg(Temp, uint),        /* nth argument is wired to this temp */
 }
 
@@ -100,7 +98,7 @@ impl Constraint {
 
 impl Instruction {
   #[inline(always)]
-  fn each_def<T>(&self, f: &fn(Temp) -> T) {
+  fn each_def(&self, f: &fn(Temp) -> bool) {
     match *self {
       BinaryOp(_, @Temp(t), _, _) |
       Move(@Temp(t), _) |
@@ -111,14 +109,14 @@ impl Instruction {
       Arg(t, _)
         => { f(t); }
 
-      PCopy(copies) => for copies.each_key_ref |&t| { f(t); },
+      PCopy(ref copies) => copies.each(|&(def, _)| f(def)),
 
       _ => ()
     }
   }
 
   #[inline(always)]
-  fn each_use<T>(&self, f: &fn(Temp) -> T) {
+  fn each_use(&self, f: &fn(Temp) -> bool) {
     match *self {
       Condition(_, @Temp(t1), @Temp(t2)) |
       Die(_, @Temp(t1), @Temp(t2)) |
@@ -154,14 +152,14 @@ impl Instruction {
         }
       }
 
-      PCopy(copies) => for copies.each_value_ref |&t| { f(t); },
+      PCopy(ref copies) => copies.each(|&(_, t)| f(t)),
 
       _ => ()
     }
   }
-  fn phi_info(&self) -> Option<(Temp, ssa::PhiMap)> {
+  fn phi_info(&self) -> Option<(Temp, &self/ssa::PhiMap)> {
     match *self {
-      Phi(d, m) => Some((d, m)),
+      Phi(d, ref m) => Some((d, m)),
       _         => None
     }
   }
@@ -170,9 +168,9 @@ impl Instruction {
 impl Instruction: ssa::Statement {
   static fn phi(t: Temp, map: ssa::PhiMap) -> @Instruction { @Phi(t, map) }
 
-  fn each_def<T>(&self, f: &fn(Temp) -> T) { self.each_def(f) }
-  fn each_use<T>(&self, f: &fn(Temp) -> T) { self.each_use(f) }
-  fn phi_info(&self) -> Option<(Temp, ssa::PhiMap)> { self.phi_info() }
+  fn each_def(&self, f: &fn(Temp) -> bool) { self.each_def(f) }
+  fn each_use(&self, f: &fn(Temp) -> bool) { self.each_use(f) }
+  fn phi_info(&self) -> Option<(Temp, &self/ssa::PhiMap)> { self.phi_info() }
 
   fn map_temps(@self, uses: &fn(Temp) -> Temp,
                defs: &fn(Temp) -> Temp) -> @Instruction {
@@ -196,7 +194,14 @@ impl Instruction: ssa::Statement {
         @Condition(c, o1.map_temps(uses), o2.map_temps(uses)),
       @Spill(t, tag) => @Spill(uses(t), tag),
       @Reload(dest, tag) => @Reload(defs(dest), tag),
-      @Phi(t, map) => @Phi(defs(t), map),
+      @Phi(t, ref map) => {
+        /* TODO: is the duplicate needed? */
+        let mut dup = LinearMap::new();
+        for map.each |&k, &v| {
+          dup.insert(k, v);
+        }
+        @Phi(defs(t), dup)
+      }
       @Call(dst, fun, ref args) => {
         let fun = fun.map_temps(uses);
         let args = args.map(|&arg| arg.map_temps(uses));
@@ -206,13 +211,13 @@ impl Instruction: ssa::Statement {
       @Return(t) => @Return(t.map_temps(uses)),
       @Raw(*) => self,
       @Arg(t, n) => @Arg(defs(t), n),
-      @PCopy(copies) => {
-        let map = map::HashMap();
-        for copies.each_ref |&dst, &src| {
+      @PCopy(ref copies) => {
+        let mut new = ~[];
+        for copies.each |&(dst, src)| {
           let src = uses(src);
-          map.insert(defs(dst), src);
+          new.push((defs(dst), src));
         }
-        @PCopy(map)
+        @PCopy(new)
       }
     }
   }
@@ -290,25 +295,25 @@ impl Instruction: PrettyPrint {
       Call(dst, e, ref args) =>
         fmt!("call %s // %s <- %s", e.pp(), dst.pp(),
              ~"(" + str::connect(args.map(|a| a.pp()), ~", ") + ~")"),
-      Phi(tmp, map) => {
+      Phi(tmp, ref map) => {
         let mut s = ~"//" + tmp.pp() + ~" <- phi(";
-        for map.each_ref |&id, &tmp| {
+        for map.each |&id, &tmp| {
           s += fmt!("[ %s - n%? ] ", tmp.pp(), id);
         }
         s + ~")"
       }
-      MemPhi(tag, map) => {
+      MemPhi(tag, ref map) => {
         let mut s = fmt!("//m%? <- mphi(", tag);
-        for map.each_ref |&id, &tag| {
+        for map.each |&id, &tag| {
           s += fmt!("[ m%? - n%? ] ", tag, id);
         }
         s + ~")"
       }
       Spill(t, tag) => fmt!("SPILL %s -> %?", t.pp(), tag),
       Reload(t, tag) => fmt!("RELOAD %s <= %?", t.pp(), tag),
-      PCopy(copies) => {
+      PCopy(ref copies) => {
         let mut s = ~"{";
-        for copies.each_ref |&k, &v| {
+        for copies.each |&(k, v)| {
           s += fmt!("(%? <= %?) ", k, v);
         }
         s + ~"}"

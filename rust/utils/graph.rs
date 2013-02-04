@@ -7,19 +7,19 @@ pub type NodeSet = LinearSet<NodeId>;
 
 pub struct Graph<N, E> {
   priv nodes: LinearMap<NodeId, N>,
-  priv succ:  LinearMap<NodeId, ~mut LinearMap<NodeId, E>>,
-  priv pred:  LinearMap<NodeId, ~mut NodeSet>,
+  priv succ:  LinearMap<NodeId, ~LinearMap<NodeId, E>>,
+  priv pred:  LinearMap<NodeId, ~NodeSet>,
   priv next:  NodeId
 }
 
-pub fn Graph<N: Copy, E: Copy>() -> Graph<N, E>{
+pub fn Graph<N, E>() -> Graph<N, E>{
   Graph{ nodes: LinearMap::new(),
          succ:  LinearMap::new(),
          pred:  LinearMap::new(),
          next:  0 }
 }
 
-impl<N: Copy, E: Copy> Graph<N, E> {
+impl<N, E> Graph<N, E> {
   pure fn num_nodes(&self, ) -> uint {
     self.nodes.len()
   }
@@ -33,18 +33,18 @@ impl<N: Copy, E: Copy> Graph<N, E> {
   fn new_id(&mut self) -> NodeId {
     let ret = self.next;
     self.next += 1;
-    self.succ.insert(ret, ~mut LinearMap::new());
-    self.pred.insert(ret, ~mut LinearSet::new());
+    self.succ.insert(ret, ~LinearMap::new());
+    self.pred.insert(ret, ~LinearSet::new());
     ret
   }
 
-  pure fn node(&self, id: NodeId) -> N {
-    *self.nodes.get(&id)
+  pure fn node(&self, id: NodeId) -> &self/N {
+    self.nodes.get(&id)
   }
 
-  pure fn edge(&self, a: NodeId, b: NodeId) -> E {
+  pure fn edge(&self, a: NodeId, b: NodeId) -> &self/E {
     let a_succ = self.succ.get(&a);
-    return *a_succ.get(&b);
+    return a_succ.get(&b);
   }
 
   fn add_node(&mut self, id: NodeId, n: N) {
@@ -64,27 +64,42 @@ impl<N: Copy, E: Copy> Graph<N, E> {
     let succ = self.succ.pop(&n).unwrap();
     let pred = self.pred.pop(&n).unwrap();
     for succ.each_key |k| {
-      assert self.pred.get(k).remove(&n)
+      let mut map = self.pred.pop(k).unwrap();
+      map.remove(&n);
+      self.pred.insert(*k, map);
     }
     for pred.each |k| {
-      assert self.succ.get(k).remove(&n);
+      let mut map = self.succ.pop(k).unwrap();
+      map.remove(&n);
+      self.succ.insert(*k, map);
     }
   }
 
   fn remove_edge(&mut self, n1: NodeId, n2: NodeId) -> E {
-    assert self.pred.get(&n2).remove(&n1);
-    return self.succ.get(&n1).pop(&n2).unwrap();
+    let mut pred = self.pred.pop(&n2).unwrap();
+    pred.remove(&n1);
+    self.pred.insert(n2, pred);
+
+    let mut succ = self.succ.pop(&n1).unwrap();
+    let ret = succ.pop(&n2).unwrap();
+    self.succ.insert(n1, succ);
+
+    return ret;
   }
 
   fn add_edge(&mut self, n1: NodeId, n2: NodeId, e: E) {
-    self.succ.get(&n1).insert(n2, e);
-    self.pred.get(&n2).insert(n1);
+    let mut succ = self.succ.pop(&n1).unwrap();
+    succ.insert(n2, e);
+    let mut pred = self.pred.pop(&n2).unwrap();
+    pred.insert(n1);
+
+    self.succ.insert(n1, succ);
+    self.pred.insert(n2, pred);
   }
 
   pure fn each_edge(&self, f: fn(NodeId, NodeId) -> bool) {
     for self.succ.each |&a, map| {
-      /* TODO(purity): this shouldn't be unsafe */
-      unsafe { map.each_key(|&b| f(a, b)); }
+      map.each_key(|&b| f(a, b));
     }
   }
 
@@ -124,35 +139,33 @@ impl<N: Copy, E: Copy> Graph<N, E> {
     let mut keys = ~[];
     for self.nodes.each_key |&k| { keys.push(k); }
     for keys.each |&k| {
-      let new = f(k, *self.nodes.get(&k));
-      self.nodes.insert(k, new);
+      self.map_consume_node(k, |n| f(k, n));
     }
   }
 
-  fn map<N2: Copy, E2: Copy>(&self, n: fn(NodeId, &N) -> N2,
-                               e: fn(&E) -> E2) -> Graph<N2, E2> {
+  fn map_consume_node(&mut self, id: NodeId, f: fn(N) -> N) {
+    let node = self.nodes.pop(&id).unwrap();
+    self.nodes.insert(id, f(node));
+  }
+
+  fn map<N2, E2>(&self, n: fn(NodeId, &N) -> N2,
+                 e: fn(&E) -> E2) -> Graph<N2, E2> {
     let mut g2 = Graph();
     g2.next = self.next;
     for self.nodes.each |&k, v| {
       g2.nodes.insert(k, n(k, v));
     }
     for self.pred.each |&k, v| {
-      let set = ~mut LinearSet::new();
-      /* TODO(purity): this shouldn't be unsafe */
-      unsafe {
-        for v.each |&value| {
-          set.insert(value);
-        }
+      let mut set = ~LinearSet::new();
+      for v.each |&value| {
+        set.insert(value);
       }
       g2.pred.insert(k, set);
     }
     for self.succ.each |&k, v| {
-      let map = ~mut LinearMap::new();
-      /* TODO(purity): this shouldn't be unsafe */
-      unsafe {
-        for v.each |&k, v| {
-          map.insert(k, e(v));
-        }
+      let mut map = ~LinearMap::new();
+      for v.each |&k, v| {
+        map.insert(k, e(v));
       }
       g2.succ.insert(k, map);
     }
@@ -215,8 +228,8 @@ impl<N: Copy, E: Copy> Graph<N, E> {
   }
 }
 
-impl<N: Copy, E: Copy> Graph<N, E>: Index<NodeId, N> {
-  pure fn index(&self, id: NodeId) -> N {
+impl<N, E> Graph<N, E>: Index<NodeId, &self/N> {
+  pure fn index(&self, id: NodeId) -> &self/N {
     self.node(id)
   }
 }

@@ -3,7 +3,6 @@ use core::util::unreachable;
 use core::either::*;
 
 use std::bitv;
-use map = std::oldmap;
 use std::smallintmap::SmallIntMap;
 
 use middle::{ssa, ir, liveness};
@@ -250,16 +249,16 @@ impl Allocator {
         }
         debug!("processing previous pcopy");
         match pcopy {
-          Some(@PCopy(copies)) => {
+          Some(@PCopy(ref copies)) => {
             let regstmp = RegisterSet();
-            for copies.each_ref |&dst, &src| {
+            for copies.each |&(dst, src)| {
               assert dst != src;
               match self.colors.find(&dst) {
                 Some(&c) => { regstmp.set(c, true); }
                 None    => ()
               }
             }
-            for copies.each_key_ref |&dst| {
+            for copies.each |&(dst, _)| {
               process!(dst, regstmp);
             }
           }
@@ -314,33 +313,42 @@ impl Allocator {
     let cfg = &mut self.f.cfg;
     for cfg.each_node |id, ins| {
       let mut phi_vars = ~[];
-      let mut phi_maps = ~[];
+      let mut phi_maps = LinearMap::new();
       let mut mem_vars = ~[];
-      let mut mem_maps = ~[];
+      let mut mem_maps = LinearMap::new();
+      for cfg.each_pred(id) |pred| {
+        phi_maps.insert(pred, ~[]);
+        mem_maps.insert(pred, ~[]);
+      }
+
       for ins.each |&ins| {
         match ins {
-          @Phi(tmp, map) => {
+          @Phi(tmp, ref map) => {
             debug!("phi var %? %?", tmp, *self.colors.get(&tmp));
             phi_vars.push(*self.colors.get(&tmp));
-            phi_maps.push(map);
+            for map.each |&pred, &tmp| {
+              let mut L = phi_maps.pop(&pred).unwrap();
+              L.push(tmp);
+              phi_maps.insert(pred, L);
+            }
           }
-          @MemPhi(def, map) => {
+          @MemPhi(def, ref map) => {
             mem_vars.push(def);
-            mem_maps.push(map);
+            for map.each |&pred, &slot| {
+              let mut L = mem_maps.pop(&pred).unwrap();
+              L.push(slot);
+              mem_maps.insert(pred, L);
+            }
           }
           _ => break
         }
       }
 
       for cfg.each_pred(id) |pred| {
-        let mut perm = ~[];
-        let mut mems = ~[];
-        for phi_maps.each |map| {
-          debug!("%? %?", map[pred], self.colors.get(&map[pred]));
-          perm.push(*self.colors.get(&map[pred]));
-        }
-        for mem_maps.each |map| { mems.push(map[pred]); }
-        /* there are no critical edges in the graph, so we can just append */
+        let mut perm = phi_maps.pop(&pred).unwrap();
+        let mut mems = mem_maps.pop(&pred).unwrap();
+        perm = perm.map(|&tmp| *self.colors.get(&tmp));
+
         debug!("resolving phi for %? <= %?", id, pred);
         let mut ins = self.resolve_perm(phi_vars, perm);
 
@@ -356,7 +364,8 @@ impl Allocator {
         }
 
         if ins.len() == 0 { loop }
-        cfg.update_node(pred, @(cfg[pred] + ins));
+        /* there are no critical edges in the graph, so we can just append */
+        cfg.map_consume_node(pred, |stms| stms + ins);
       }
     }
   }
@@ -391,7 +400,7 @@ impl Allocator {
           self.alloc_ins(ins, push);
         }
       });
-      self.f.cfg.update_node(id, @ins);
+      self.f.cfg.update_node(id, ins);
     }
   }
 
@@ -464,11 +473,11 @@ impl Allocator {
         push(@Call(dst, self.alloc_op(fun),
              args.map(|&arg| self.alloc_op(arg)))),
 
-      @PCopy(copies) => {
+      @PCopy(ref copies) => {
         debug!("%?", copies);
         let mut dsts = ~[];
         let mut srcs = ~[];
-        for copies.each_ref |&dst, &src| {
+        for copies.each |&(dst, src)| {
           dsts.push(*self.colors.get(&dst));
           srcs.push(*self.colors.get(&src));
         }

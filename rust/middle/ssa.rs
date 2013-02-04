@@ -1,7 +1,5 @@
 use core::hashmap::linear::{LinearMap, LinearSet};
 
-use map = std::oldmap;
-
 use middle::{temp, liveness, ir};
 use middle::temp::Temp;
 use utils::{graph, set, profile, PrettyPrint};
@@ -15,10 +13,10 @@ pub struct Analysis {
 
 pub trait Statement: PrettyPrint {
   static fn phi(Temp, PhiMap) -> @Self;
-  fn each_def<T>(&self, &fn(Temp) -> T);
-  fn each_use<T>(&self, &fn(Temp) -> T);
+  fn each_def(&self, &fn(Temp) -> bool);
+  fn each_use(&self, &fn(Temp) -> bool);
   fn map_temps(@self, u: &fn(Temp) -> Temp, d: &fn(Temp) -> Temp) -> @Self;
-  fn phi_info(&self) -> Option<(Temp, PhiMap)>;
+  fn phi_info(&self) -> Option<(Temp, &self/PhiMap)>;
 }
 
 type TempMap = LinearMap<Temp, Temp>;
@@ -28,8 +26,8 @@ type PhiLocations = LinearMap<graph::NodeId, ~LinearSet<Temp>>;
 type PhiMappings = LinearMap<graph::NodeId, TempMap>;
 pub type Idominators = LinearMap<graph::NodeId, graph::NodeId>;
 pub type Idominated = LinearMap<graph::NodeId, ~LinearSet<graph::NodeId>>;
-pub type PhiMap = map::HashMap<graph::NodeId, Temp>;
-pub type CFG<T> = graph::Graph<@~[@T], ir::Edge>;
+pub type PhiMap = LinearMap<graph::NodeId, Temp>;
+pub type CFG<T> = graph::Graph<~[@T], ir::Edge>;
 
 struct Converter<T> {
   cfg: &mut CFG<T>,
@@ -119,7 +117,7 @@ impl<T: Statement> Converter<T> {
   fn find_defs(&mut self) -> Definitions {
     let mut defs = LinearMap::new();
     for self.cfg.each_node |id, stms| {
-      for stms.each |&s| {
+      for stms.each |s| {
         for s.each_def |tmp| {
           let mut set = match defs.pop(&tmp) {
             Some(s) => s, None => ~LinearSet::new()
@@ -227,7 +225,7 @@ impl<T: Statement> Converter<T> {
     self.versions.insert(n, map);
 
     /* Update our node with our altered statements */
-    self.cfg.update_node(n, @stms);
+    self.cfg.update_node(n, stms);
   }
 
   /* Alter the temp mapping for a specified non-ssa temp */
@@ -244,12 +242,12 @@ impl<T: Statement> Converter<T> {
    */
   fn map_phi_temps(&mut self, n: graph::NodeId) {
     let stms = self.cfg[n];
-    self.cfg.update_node(n, @stms.map(|&stm|
+    self.cfg.update_node(n, stms.map(|&stm|
       match stm.phi_info() {
         None => stm,
         Some((def, map)) => {
-          let mut new = map::HashMap();
-          for map.each_ref |&pred, &tmp| {
+          let mut new = LinearMap::new();
+          for map.each |&pred, &tmp| {
             new.insert(pred, *self.versions.get(&pred).get(&tmp));
           }
           Statement::phi(def, new)
@@ -268,7 +266,7 @@ impl<T: Statement> Converter<T> {
     let mut block = ~[];
     for temps.each |tmp_before, &tmp_after| {
       debug!("placing phi for %? at %?", tmp_before, n);
-      let preds = map::HashMap();
+      let mut preds = LinearMap::new();
       /* Our phi function operates on the last known ssa-temp for this node's
          non-ssa temp at each of our predecessors */
       for self.cfg.each_pred(n) |p| {
@@ -282,7 +280,7 @@ impl<T: Statement> Converter<T> {
     }
 
     /* Update our node with the phi nodes */
-    self.cfg.update_node(n, @(block + *self.cfg[n]));
+    self.cfg.map_consume_node(n, |prev| block + prev);
   }
 }
 

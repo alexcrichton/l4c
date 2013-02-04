@@ -10,7 +10,6 @@
  */
 
 use core::hashmap::linear::LinearMap;
-use map = std::oldmap;
 
 use middle::ir::*;
 
@@ -35,11 +34,11 @@ impl ConstantFolder {
     /* Be sure to start at the top of the graph to visit definitions first */
     let (order, _) = self.f.cfg.postorder(self.f.root);
     for vec::rev_each(order) |&n| {
-      self.f.cfg.update_node(n, @self.f.cfg[n].map(|&s| self.stm(s)));
+      self.f.cfg.map_consume_node(n, |stms| vec::map_consume(stms, |s| self.stm(s)));
     }
 
     do self.f.cfg.map_nodes |_, stms| {
-      @stms.map(|&s| {
+      vec::map_consume(stms, |s| {
         s.map_temps(|t| *self.temps.find(&t).get_or_default(&t), |t| t)
       })
     }

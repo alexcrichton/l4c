@@ -10,7 +10,7 @@ pub fn constrain(p: &mut Program) {
     liveness::calculate(&f.cfg, f.root, &mut live);
     let mut temps = temp::new_init(f.temps);
     do f.cfg.map_nodes |id, stms| {
-      @constrain_block(live.in.get(&id), *live.deltas.get(&id), |t| {
+      constrain_block(live.in.get(&id), *live.deltas.get(&id), |t| {
         let tmp = temps.new();
         /* TODO: why can't this be one statement */
         let size;
@@ -24,7 +24,7 @@ pub fn constrain(p: &mut Program) {
 
 fn constrain_block(live: &temp::TempSet, delta: &[liveness::Delta],
                    tmpclone: &fn(Temp) -> Temp,
-                   ins: @~[@Instruction]) -> ~[@Instruction] {
+                   ins: ~[@Instruction]) -> ~[@Instruction] {
   let mut new = ~[];
   let mut synthetic = ~[];
   let mut live_in = LinearSet::new();
@@ -36,11 +36,11 @@ fn constrain_block(live: &temp::TempSet, delta: &[liveness::Delta],
 
   /* SSA will deal with these renamings later */
   fn pcopy(live: &temp::TempSet) -> @Instruction {
-    let dup = map::HashMap();
+    let mut copies = ~[];
     for live.each |&tmp| {
-      dup.insert(tmp, tmp);
+      copies.push((tmp, tmp));
     }
-    @PCopy(dup)
+    @PCopy(copies)
   }
 
   /* If a constrained use is also always clobbered as a result of an
@@ -64,7 +64,7 @@ fn constrain_block(live: &temp::TempSet, delta: &[liveness::Delta],
     )
   );
 
-  for vec::each2(*ins, delta) |&ins, delta| {
+  for vec::each2(ins, delta) |&ins, delta| {
     liveness::apply(&mut live_out, delta);
 
     match ins {

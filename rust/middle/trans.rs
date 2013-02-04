@@ -539,7 +539,7 @@ impl Translator {
     let mut L = ~[];
     L <-> self.stms; /* swap a new block into place */
     let id = replace(&mut self.cur_id, next);
-    self.f.cfg.add_node(id, @L);
+    self.f.cfg.add_node(id, L);
     return id;
   }
 
