@@ -377,7 +377,7 @@ impl Coalescer {
     if self.fixed.get(t) { debug!("fixed %?", t); return }
 
     /* Mark 't' as changed, and then attempt to recolor all our interferences */
-    let mut changed = LinearSet::new();
+    let mut changed = ~[];
     self.set_color(t, c, &mut changed);
     debug!("recoloring %? to %?", t, c);
 
@@ -396,15 +396,15 @@ impl Coalescer {
     }
   }
 
-  fn set_color(&mut self, t: Temp, c: uint, changed: &mut TempSet) {
+  fn set_color(&mut self, t: Temp, c: uint, changed: &mut ~[Temp]) {
     debug!("setting %? to %?", t, c);
     self.fixed.set(t, true);
     self.old_color.insert(t, *self.colors.get(&t));
-    changed.insert(t);
+    changed.push(t);
     self.colors.insert(t, c);
   }
 
-  fn avoid_color(&mut self, t: Temp, c: uint, changed: &mut TempSet) -> bool {
+  fn avoid_color(&mut self, t: Temp, c: uint, changed: &mut ~[Temp]) -> bool {
     let color = *self.colors.get(&t);
     /* Certainly avoided if it's already not this color */
     if color != c { debug!("avoided %? %?", t, c); return true }
@@ -427,7 +427,7 @@ impl Coalescer {
     self.set_color(t, color, changed);
     for self.interferences(t) |tmp| {
       if !self.avoid_color(tmp, color, changed) {
-        debug!("die!ed to avoid on interference %?", tmp);
+        debug!("failed to avoid on interference %?", tmp);
         return false;
       }
     }
