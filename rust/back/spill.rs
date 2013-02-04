@@ -204,6 +204,16 @@ impl Spiller {
 
     /* Union each of our predecessors into the 'bottom' map */
     for self.f.cfg.each_succ(n) |succ| {
+      /* at the end the next use of each of the temps we transfer to the next
+         node via phis is the length of the block that we're at */
+      match self.phis.find(&succ) {
+        None => (),
+        Some(map) => {
+          for map.each |_, &phis| {
+            bottom.insert(phis[n], block.len());
+          }
+        }
+      }
       if !self.next_use.contains_key(&succ) { loop }
       let edge_cost = match self.f.cfg.edge(n, succ) {
         ir::LoopOut | ir::FLoopOut => loop_out_weight, _ => 0
@@ -607,6 +617,8 @@ impl Spiller {
 
       /* for each of my names for this temp, see if a spill is needed */
       for self.my_names(tmp, pred, succ) |mine| {
+        debug!("name %? %? %?", mine, succ_regs.contains(&mine),
+               nxt.contains_key(&mine));
         if !succ_regs.contains(&mine) && nxt.contains_key(&mine) {
           append.push(@Spill(tmp, tmp));
         }
