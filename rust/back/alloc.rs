@@ -3,6 +3,7 @@ use core::util::unreachable;
 use core::either::*;
 
 use std::{map, bitv};
+use std::smallintmap::SmallIntMap;
 
 use middle::{ssa, ir, liveness};
 use middle::temp::Temp;
@@ -12,7 +13,8 @@ use utils::profile;
 
 type CFG = graph::Graph<@~[@Instruction], ir::Edge>;
 type RegisterSet = bitv::Bitv;
-pub type ColorMap = LinearMap<Temp, uint>;
+pub type ColorMap = SmallIntMap<uint>;
+pub type ConstraintMap = SmallIntMap<Constraint>;
 /* Left = move(dst, src), Right = xchg(r1, r1) */
 type Resolution = Either<(uint, uint), (uint, uint)>;
 
@@ -26,16 +28,16 @@ struct Allocator {
 
   /* data needed for coalescing */
   precolored: LinearSet<Temp>,
-  constraints: LinearMap<Temp, Constraint>,
+  constraints: ConstraintMap,
 }
 
 pub fn color(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
     liveness::calculate(&f.cfg, f.root, &mut f.liveness);
 
-    let mut a = Allocator{ colors: LinearMap::new(),
+    let mut a = Allocator{ colors: SmallIntMap::new(),
                            precolored: LinearSet::new(),
-                           constraints: LinearMap::new(),
+                           constraints: SmallIntMap::new(),
                            slots: LinearMap::new(),
                            f: f,
                            max_slot: 0,

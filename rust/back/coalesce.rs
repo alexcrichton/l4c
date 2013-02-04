@@ -51,7 +51,7 @@ use std::smallintmap::SmallIntMap;
 
 use middle::{ir, ssa, liveness};
 use middle::temp::{Temp, TempSet};
-use back::{assem, arch};
+use back::{assem, arch, alloc};
 use utils::profile;
 use utils::graph::{NodeSet, NodeId};
 
@@ -67,9 +67,9 @@ struct Coalescer {
   precolored: bitv::Bitv,
   /* For all temps with constraints, contains mapping of the constraints. This
      is used when determining the admissible registers for a temp */
-  constraints: SmallIntMap<assem::Constraint>,
+  constraints: &alloc::ConstraintMap,
   /* Actual coloring information that's modified */
-  colors: SmallIntMap<uint>,
+  colors: &mut alloc::ColorMap,
 
   /* Mapping of a temp to where it's defined */
   defs: LinearMap<Temp, Location>,
@@ -99,21 +99,13 @@ struct Coalescer {
 }
 
 pub fn optimize(f: &mut assem::Function,
-                colors: &mut LinearMap<Temp, uint>,
+                colors: &mut alloc::ColorMap,
                 precolored: &TempSet,
-                constraints: &LinearMap<Temp, assem::Constraint>) {
+                constraints: &alloc::ConstraintMap) {
   let liveness_map = liveness_map(&f.cfg, &f.liveness, f.temps);
   let pre = bitv::Bitv(f.temps, false);
   for precolored.each |&t| {
     pre.set(t, true);
-  }
-  let mut colors2 = SmallIntMap::new();
-  for colors.each |&k, &v| {
-    colors2.insert(k, v);
-  }
-  let mut constraints2 = SmallIntMap::new();
-  for constraints.each |&k, &v| {
-    constraints2.insert(k, v);
   }
   let mut c = Coalescer { defs: LinearMap::new(),
                           uses: LinearMap::new(),
@@ -121,15 +113,15 @@ pub fn optimize(f: &mut assem::Function,
                           f: f,
                           liveness_map: liveness_map,
                           affinities: LinearMap::new(),
-                          colors: colors2,
+                          colors: colors,
                           old_color: SmallIntMap::new(),
                           precolored: pre,
-                          constraints: constraints2,
+                          constraints: constraints,
                           interference_cache: LinearMap::new(),
                           interferences_cache: LinearMap::new(),
                           admissible_cache: LinearMap::new(),
                           dominates_cache: LinearMap::new() };
-  c.run(colors);
+  c.run();
 }
 
 /**
@@ -162,7 +154,7 @@ fn liveness_map(cfg: &assem::CFG, live: &liveness::Analysis, max: uint)
 }
 
 impl Coalescer {
-  fn run(&mut self, colors: &mut LinearMap<Temp, uint>) {
+  fn run(&mut self) {
     /* TODO: why can't this be above */
     do profile::dbg("building use/def") {
       for self.f.cfg.each_node |id, &ins| {
@@ -170,9 +162,6 @@ impl Coalescer {
       }
     }
     self.coalesce();
-    for self.colors.each |&k, &v| {
-      colors.insert(k, v);
-    }
   }
 
   /**
