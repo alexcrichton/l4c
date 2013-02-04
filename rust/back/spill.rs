@@ -416,7 +416,7 @@ impl Spiller {
           }
           /* TODO: extract this logic */
           let extra = match ins {
-            @BinaryOp(Div, _, _, _) | @BinaryOp(Mod, _, _, _) => 1,
+            @BinaryOp(op, _, _, _) if op.constrained() => 1,
             @Call(*) => arch::caller_regs,
             _ => 0
           };
