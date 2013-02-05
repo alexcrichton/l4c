@@ -1,6 +1,5 @@
 use core::hashmap::linear::{LinearMap, LinearSet};
 use core::util::unreachable;
-use core::either::*;
 
 use std::bitv;
 use std::smallintmap::SmallIntMap;

@@ -1,6 +1,5 @@
 use core::hashmap::linear::{LinearMap, LinearSet};
 
-use either::*;
 use middle::temp::{Temp, TempSet};
 use middle::ssa::{CFG, Statement};
 use utils::graph::*;
