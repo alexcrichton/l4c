@@ -5,7 +5,7 @@ use middle::{label, ir, liveness};
 pub use middle::ssa;
 use middle::temp::Temp;
 use back::arch;
-use utils::{set, graph, Graphable, PrettyPrint};
+use utils::{graph, Graphable, PrettyPrint};
 
 pub type Label = label::Label;
 pub type Edge = ir::Edge;

@@ -1,5 +1,4 @@
 use core::hashmap::linear::LinearMap;
-use core::managed;
 use core::to_bytes;
 
 pub struct Symbol{

@@ -3,7 +3,6 @@ use core::util::with;
 
 use front::error;
 use front::ast::*;
-use utils::set;
 
 struct Typechecker {
   err:     error::List,

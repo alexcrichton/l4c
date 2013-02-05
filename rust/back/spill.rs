@@ -23,7 +23,6 @@
  */
 
 use core::hashmap::linear::{LinearMap, LinearSet};
-use core::util::replace;
 
 use std::sort;
 use middle::ssa;

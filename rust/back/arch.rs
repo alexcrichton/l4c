@@ -1,6 +1,4 @@
-use middle::ir;
 use back::assem::*;
-use back::codegen::CodeGenerator;
 
 pub const arg_regs: uint = 6;
 pub const ptrsize: uint = 8;
