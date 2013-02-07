@@ -48,7 +48,7 @@ pub enum Expression {
   BinaryOp(Binop, @Expression, @Expression),
   UnaryOp(Unop, @Expression),
   Ternary(@Expression, @Expression, @Expression, Ref<@Type>),
-  Call(@Expression, ~[@Expression], Ref<(@Type, @~[@Type])>),
+  Call(@Expression, ~[@Expression], Ref<(@Type)>),
   Deref(@Expression, Ref<@Type>),
   Field(@Expression, Ident, Ref<Ident>),
   ArrSub(@Expression, @Expression, Ref<@Type>),

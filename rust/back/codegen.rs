@@ -14,7 +14,6 @@ pub struct CodeGenerator {
 }
 
 pub fn codegen(mut p: ir::Program) -> assem::Program {
-  /* TODO: is there a better way to consume a field? */
   let mut funs = ~[];
   p.funs <-> funs;
   assem::Program{ funs: vec::map_consume(funs, translate) }
@@ -49,7 +48,6 @@ impl CodeGenerator {
     for self.f.types.each |k, v| {
       debug!("%? sized %?", k, v);
     }
-    /* TODO: is there a better way to consume a field? */
     let mut loops = LinearMap::new();
     let mut sizes = LinearMap::new();
     self.f.loops <-> loops;

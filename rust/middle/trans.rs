@@ -336,8 +336,7 @@ impl Translator {
         self.tern(e1, e2, e3, typ(t.get()), addr),
 
       @ast::Call(e, ref args, ref t) => {
-        let (ret, argtyps) = t.get();
-        ignore(argtyps); // TODO: remove this entirely?
+        let ret = t.get();
         let fun = self.exp(e, false);
         let args = args.map(|&e| self.exp(e, false));
         let typ = typ(ret);

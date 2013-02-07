@@ -299,8 +299,6 @@ impl Allocator {
         }
       }
       debug!("after %s %s", tmplive.pp(), registers.pp());
-      /* TODO: size of a bit vector */
-      /*assert(registers.size() == tmplive.size());*/
     }
 
     for self.f.ssa.idominated.get(&n).each |&id| {

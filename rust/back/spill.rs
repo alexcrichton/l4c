@@ -350,21 +350,6 @@ impl Spiller {
             if !spill.contains(&tmp) && next_use.contains_key(&tmp) {
               debug!("spilling %?", tmp);
               block.push(@Spill(tmp, tmp));
-            /* TODO: remove all this? */
-            /*} else if spill.contains(&tmp) {*/
-              /*debug!("removing %?", tmp);*/
-              /* If after a pcopy a temp was spilled, then we don't need to
-                 actually preserve the temp over the pcopy if we spilled it
-                 before it's next use relative to the pcopy */
-              /*match last_pcopy {*/
-              /*  None => (),*/
-              /*  Some((map, ref next_use)) => {*/
-              /*    if map.contains_key_ref(&tmp) && *next_use.get(&tmp) > i {*/
-              /*      debug!("ignoring %? from previous pcopy", tmp);*/
-              /*      map.remove(&tmp);*/
-              /*    }*/
-              /*  }*/
-              /*}*/
             }
             regs.remove(&tmp);
             spill.remove(&tmp);
@@ -390,7 +375,6 @@ impl Spiller {
 
     debug!("%s", next_use.pp());
     let mut i = 0;
-    /*let mut last_pcopy = None;*//* TODO: remove? */
     for vec::each2(*self.f.cfg[n], *self.deltas.get(&n)) |&ins, delta| {
       debug!("%2? %30s  %s %s", i, ins.pp(), next_use.pp(),
              str::connect(delta.map(|a| fmt!("%?", a)), ~", "));
@@ -426,7 +410,6 @@ impl Spiller {
             dup.insert(k, v);
           }
           block.push(@PCopy(newcopies));
-          /*last_pcopy = Some((newcopies, dup));*//*TODO: remove?*/
           apply_delta(delta);
         }
 
@@ -440,7 +423,6 @@ impl Spiller {
             regs.insert(tmp);
             spill.insert(tmp);
           }
-          /* TODO: extract this logic */
           let extra = match ins {
             @BinaryOp(op, _, _, _) if op.constrained() => 1,
             @Call(*) => arch::caller_regs,

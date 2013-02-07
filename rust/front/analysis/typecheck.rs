@@ -180,7 +180,7 @@ impl Typechecker {
               self.tc_ensure(e, t2);
             }
           }
-          r.set((ret, argtyps));
+          r.set(ret);
           ret
         },
         _ => self.err.die(~"expected a pointer to a function type")
