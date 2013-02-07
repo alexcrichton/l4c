@@ -22,6 +22,7 @@ pub struct Function {
 pub enum Statement {
   Arguments(~[Temp]),
   Move(Temp, @Expression),
+  Cast(Temp, Temp),
   Load(Temp, @Expression),
   Call(Temp, @Expression, ~[@Expression]),
   Phi(Temp, ssa::PhiMap),
@@ -149,12 +150,17 @@ impl Statement {
         }
         @Phi(defs(def), newmap)
       }
+      @Cast(t1, t2) => {
+        assert t1 != t2;
+        @Cast(defs(t1), uses(t2))
+      }
     }
   }
 
   fn each_def(&self, f: &fn(Temp) -> bool) {
     match *self {
-      Load(tmp, _) | Move(tmp, _) | Call(tmp, _, _) | Phi(tmp, _) => {f(tmp);}
+      Load(tmp, _) | Move(tmp, _) | Call(tmp, _, _) | Phi(tmp, _) |
+        Cast(tmp, _) => { f(tmp); }
       Arguments(ref tmps) => tmps.each(|&t| f(t)),
       _ => ()
     }
@@ -170,6 +176,7 @@ impl Statement {
         for args.each |&e| { e.each_temp(f); }
       }
       Phi(_, ref map) => { for map.each_value |&t| { f(t); } }
+      Cast(_, t) => { f(t); }
       Arguments(*) => ()
     }
   }
@@ -198,6 +205,7 @@ impl Statement: PrettyPrint {
   pure fn pp(&self) -> ~str {
     match *self {
       Move(tmp, e) => tmp.pp() + ~" <- " + e.pp(),
+      Cast(t1, t2) => t1.pp() + ~" < cast - " + t2.pp(),
       Load(tmp, e) => ~"load " + tmp.pp() + ~" <- " + e.pp(),
       Store(e1, e2) => ~"store" + ~" " + e1.pp() + " <- " + e2.pp(),
       Condition(e) => ~"cond " + e.pp(),

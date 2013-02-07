@@ -166,6 +166,9 @@ impl CodeGenerator {
       @ir::Move(tmp, e) =>
         self.push(@assem::Move(@assem::Temp(self.tmp(tmp)),
                                self.half(e))),
+      @ir::Cast(t1, t2) =>
+        self.push(@assem::Move(@assem::Temp(self.tmp(t1)),
+                               @assem::Temp(self.tmp(t2)))),
       @ir::Load(tmp, e) => {
         self.push(@assem::Load(@assem::Temp(self.tmp(tmp)), self.addr(e)));
       }

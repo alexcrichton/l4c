@@ -353,8 +353,13 @@ impl Translator {
       @ast::ArrSub(arr, idx, ref t) => {
         let base = self.exp(arr, false);
         let idx = self.exp(idx, false);
+        let idxt = self.tmp(ir::Int);
+        self.stms.push(@ir::Move(idxt, idx));
+        let idxp = self.tmp(ir::Pointer);
+        self.stms.push(@ir::Cast(idxp, idxt));
+
         let elsize = self.constp(typ_size(t.get(), &self.t.structs) as i32);
-        let offset = @ir::BinaryOp(ir::Mul, idx, elsize);
+        let offset = @ir::BinaryOp(ir::Mul, @ir::Temp(idxp), elsize);
         let address = @ir::BinaryOp(ir::Add, base, offset);
         self.check_null(base);
         self.check_bounds(base, idx);

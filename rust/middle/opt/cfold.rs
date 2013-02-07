@@ -49,7 +49,7 @@ impl ConstantFolder {
    */
   fn stm(&mut self, s: @Statement) -> @Statement {
     match s {
-      @Arguments(*) | @Phi(*) => s,
+      @Arguments(*) | @Phi(*) | @Cast(*) => s,
       @Move(t, e) => {
         let e = self.exp(e).first();
         match e {
