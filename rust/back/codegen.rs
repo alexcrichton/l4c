@@ -105,6 +105,39 @@ impl CodeGenerator {
     }
   }
 
+  fn addr(&mut self, e: @ir::Expression) -> @assem::Address {
+    use M = back::assem::Multiplier;
+    use middle::ir::{BinaryOp, Mul, Const, Add};
+
+    /* When optimizations are turned on, constants are favored on the left-hand
+       side of binops, so that assumption is made here to test for fewer cases
+       and make things all-around easier */
+    debug!("%s", e.pp());
+    let offsetify = |e: @ir::Expression| {
+      match e {
+        @BinaryOp(Add, e2, @BinaryOp(Mul, @Const(c, _), e1)) if M::valid(c) => {
+          debug!("e1: %s e2: %s c: %?", e1.pp(), e2.pp(), c);
+          (e2, Some((self.half(e1), M::from_int(c))))
+        }
+        @BinaryOp(Add, e1, e2) => {
+          (e1, Some((self.half(e2), assem::One)))
+        }
+        _ => (e, None)
+      }
+    };
+    match e {
+      @BinaryOp(Add, @Const(c, _), e) => {
+        let (e, mulpart) = offsetify(e);
+        @assem::MOp(self.half(e), Some(c as uint), mulpart)
+      }
+
+      _ => {
+        let (e, mulpart) = offsetify(e);
+        @assem::MOp(self.half(e), None, mulpart)
+      }
+    }
+  }
+
   fn stm(&mut self, s: @ir::Statement) {
     match s {
       @ir::Arguments(ref tmps) => {
@@ -133,15 +166,11 @@ impl CodeGenerator {
       @ir::Move(tmp, e) =>
         self.push(@assem::Move(@assem::Temp(self.tmp(tmp)),
                                self.half(e))),
-      /* TODO: match on Load(tmp, @BinaryOp(Const)) */
       @ir::Load(tmp, e) => {
-        let addr = @assem::MOp(self.half(e));
-        self.push(@assem::Load(@assem::Temp(self.tmp(tmp)), addr));
+        self.push(@assem::Load(@assem::Temp(self.tmp(tmp)), self.addr(e)));
       }
       @ir::Store(e1, e2) => {
-        let addr = @assem::MOp(self.half(e1));
-        let val  = self.half(e2);
-        self.push(@assem::Store(addr, val));
+        self.push(@assem::Store(self.addr(e1), self.half(e2)));
       }
       @ir::Condition(@ir::BinaryOp(cond, e1, e2)) =>
         self.push(@assem::Condition(self.cond(cond), self.half(e1),
@@ -236,18 +265,33 @@ impl CodeGenerator {
       },
 
       /* x86 can't load/store to immediate addresses */
-      @assem::Store(@assem::MOp(a @ @assem::Immediate(*)), e) => {
-        let tmp = self.tmpnew(ir::Pointer);
-        self.stms.push(@assem::Move(tmp, a));
-        self.stms.push(@assem::Store(@assem::MOp(tmp), e));
-      }
-      @assem::Load(e, @assem::MOp(a @ @assem::Immediate(*))) => {
-        let tmp = self.tmpnew(ir::Pointer);
-        self.stms.push(@assem::Move(tmp, a));
-        self.stms.push(@assem::Load(e, @assem::MOp(tmp)));
-      }
+      @assem::Store(a, e) =>
+        self.stms.push(@assem::Store(self.constrain_addr(a), e)),
+      @assem::Load(e, a) =>
+        self.stms.push(@assem::Load(e, self.constrain_addr(a))),
 
       _ => self.stms.push(ins)
+    }
+  }
+
+  fn constrain_addr(&mut self, a: @assem::Address) -> @assem::Address {
+    let unimm = |o: @assem::Operand| {
+      match o {
+        @assem::Immediate(*) => {
+          let tmp = self.tmpnew(ir::Pointer);
+          self.stms.push(@assem::Move(tmp, o));
+          tmp
+        }
+        _ => o
+      }
+    };
+    match a {
+      @assem::MOp(base, disp, off) => {
+        let base = unimm(base);
+        let off = off.map(|&(o, m)| (unimm(o), m));
+        @assem::MOp(base, disp, off)
+      }
+      _ => a
     }
   }
 

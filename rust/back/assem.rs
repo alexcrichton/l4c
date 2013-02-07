@@ -58,9 +58,14 @@ pub enum Operand {
 }
 
 pub enum Address {
-  MOp(@Operand),
+  /*   base      offset         multplier reg    multiplier size */
+  MOp(@Operand, Option<uint>, Option<(@Operand, Multiplier)>),
   Stack(uint),
   StackArg(uint),
+}
+
+pub enum Multiplier {
+  One, Two, Four, Eight
 }
 
 #[deriving_eq]
@@ -120,13 +125,9 @@ impl Instruction {
     match *self {
       Condition(_, @Temp(t1), @Temp(t2)) |
       Die(_, @Temp(t1), @Temp(t2)) |
-      Store(@MOp(@Temp(t1)), @Temp(t2)) |
       BinaryOp(_, _, @Temp(t1), @Temp(t2))
         => { f(t1); f(t2); }
 
-      Load(_, @MOp(@Temp(t))) |
-      Store(@MOp(@Temp(t)), _) |
-      Store(_, @Temp(t)) |
       Condition(_, @Temp(t), _) |
       Condition(_, _, @Temp(t)) |
       Die(_, @Temp(t), _) |
@@ -138,6 +139,9 @@ impl Instruction {
       Use(t) |
       Return(@Temp(t))
         => { f(t); }
+
+      Store(addr, src) => { addr.each_temp(f); src.each_temp(f); }
+      Load(_, addr) => { addr.each_temp(f); }
 
       Call(_, fun, ref args) => {
         match fun {
@@ -163,6 +167,8 @@ impl Instruction {
       _         => None
     }
   }
+
+  pure fn is_phi(&self) -> bool { match *self { Phi(*) => true, _ => false } }
 }
 
 impl Instruction: ssa::Statement {
@@ -223,10 +229,6 @@ impl Instruction: ssa::Statement {
       }
     }
   }
-}
-
-impl Instruction {
-  pure fn is_phi(&self) -> bool { match *self { Phi(*) => true, _ => false } }
 }
 
 impl Instruction: PrettyPrint {
@@ -342,21 +344,17 @@ impl Operand {
       Temp(*) => ir::Int
     }
   }
-}
 
-impl Operand {
+  fn each_temp(&self, f: fn(Temp) -> bool) {
+    match *self {
+      Temp(t) => { f(t); }
+      _ => ()
+    }
+  }
+
   fn map_temps(@self, f: &fn(Temp) -> Temp) -> @Operand {
     match self {
       @Temp(t) => @Temp(f(t)),
-      _        => self
-    }
-  }
-}
-
-impl Address {
-  fn map_temps(@self, f: &fn(Temp) -> Temp) -> @Address {
-    match self {
-      @MOp(t) => @MOp(t.map_temps(f)),
       _        => self
     }
   }
@@ -385,10 +383,44 @@ impl Operand: cmp::Eq {
   pure fn ne(&self, other: &Operand) -> bool { !self.eq(other) }
 }
 
+impl Address {
+  fn map_temps(@self, f: &fn(Temp) -> Temp) -> @Address {
+    match self {
+      @MOp(t, disp, off) =>
+        @MOp(t.map_temps(f), disp, off.map(|&(x, m)| (x.map_temps(f), m))),
+      _ => self
+    }
+  }
+
+  fn each_temp(&self, f: fn(Temp) -> bool) {
+    match *self {
+      MOp(o, _, off) => {
+        o.each_temp(f);
+        for off.each |&(x, _)| {
+          x.each_temp(f);
+        }
+      }
+      Stack(*) | StackArg(*) => ()
+    }
+  }
+}
+
 impl Address: PrettyPrint {
   pure fn pp(&self) -> ~str {
     match *self {
-      MOp(o) => ~"(" + o.pp() + ~")",
+      MOp(o, disp, off) => {
+        let mut s = ~"";
+        for disp.each |&d| { s += fmt!("%?", d); }
+        s += ~"(";
+        s += o.pp();
+        match (off) {
+          None => (),
+          Some((off, mult)) => {
+            s += fmt!(", %s, %s", off.pp(), mult.pp());
+          }
+        }
+        s + ~")"
+      }
       Stack(i) => fmt!("%?(%%rsp)", i),
       StackArg(i) => fmt!("arg[%?]", i),
     }
@@ -516,6 +548,27 @@ impl Register {
       (R14D, ir::Pointer) => ~"%r14",
       (R15D, ir::Int)     => ~"%r15d",
       (R15D, ir::Pointer) => ~"%r15",
+    }
+  }
+}
+
+impl Multiplier {
+  static fn valid(i: i32) -> bool {
+    i == 1 || i == 2 || i == 4 || i == 8
+  }
+
+  static fn from_int(i: i32) -> Multiplier {
+    match i {
+      1 => One, 2 => Two, 4 => Four, 8 => Eight,
+      _ => die!(fmt!("can't make multiplier for %?", i))
+    }
+  }
+}
+
+impl Multiplier: PrettyPrint {
+  pure fn pp(&self) -> ~str {
+    match *self {
+      One => ~"1", Two => ~"2", Four => ~"4", Eight => ~"8"
     }
   }
 }

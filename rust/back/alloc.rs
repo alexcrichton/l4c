@@ -405,15 +405,10 @@ impl Allocator {
     match i {
       @Spill(t, tag) => push(@Store(self.stack_pos(tag), self.alloc_tmp(t))),
       @Reload(t, tag) => push(@Load(self.alloc_tmp(t), self.stack_pos(tag))),
-      @Load(dst, @MOp(addr)) =>
-        push(@Load(self.alloc_op(dst), @MOp(self.alloc_op(addr)))),
-      @Load(dst, @StackArg(idx)) =>
-        push(@Load(self.alloc_op(dst),
-             @Stack((idx + 1) * arch::ptrsize + self.stack_size(true)))),
-      @Load(dst, addr) => push(@Load(self.alloc_op(dst), addr)),
-      @Store(@MOp(addr), src) =>
-        push(@Store(@MOp(self.alloc_op(addr)), self.alloc_op(src))),
-      @Store(addr, src) => push(@Store(addr, self.alloc_op(src))),
+      @Load(dst, addr) =>
+        push(@Load(self.alloc_op(dst), self.alloc_addr(addr))),
+      @Store(addr, src) => push(@Store(self.alloc_addr(addr),
+                                       self.alloc_op(src))),
       @Raw(*) => push(i),
       @Condition(c, o1, o2) =>
         push(@Condition(c, self.alloc_op(o1), self.alloc_op(o2))),
@@ -483,6 +478,17 @@ impl Allocator {
           push(ins);
         }
       }
+    }
+  }
+
+  fn alloc_addr(&self, addr: @Address) -> @Address {
+    match addr {
+      @Stack(*) => addr,
+      @StackArg(idx) =>
+        @Stack((idx + 1) * arch::ptrsize + self.stack_size(true)),
+      @MOp(base, disp, off) =>
+        @MOp(self.alloc_op(base), disp,
+             off.map_consume(|(x, mult)| (self.alloc_op(x), mult)))
     }
   }
 
