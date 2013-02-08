@@ -106,7 +106,7 @@ impl<T: Statement> Converter<T> {
 
     /* Finally place our new phi nodes */
     do profile::dbg("placing phis") {
-      for phi_temps.each |&k, v| {
+      for phi_temps.each |&(&k, v)| {
         self.place_phis(k, v);
       }
     }
@@ -197,7 +197,7 @@ impl<T: Statement> Converter<T> {
                phi_temps: &mut PhiMappings) {
     let mut map = LinearMap::new();
     let idom = self.analysis.idominator.get(&n);
-    for self.versions.get(idom).each |&k, &v| {
+    for self.versions.get(idom).each |&(&k, &v)| {
       map.insert(k, v);
     }
 
@@ -248,7 +248,7 @@ impl<T: Statement> Converter<T> {
         None => stm,
         Some((def, map)) => {
           let mut new = LinearMap::new();
-          for map.each |&pred, &tmp| {
+          for map.each |&(&pred, &tmp)| {
             new.insert(pred, *self.versions.get(&pred).get(&tmp));
           }
           Statement::phi(def, new)
@@ -265,7 +265,7 @@ impl<T: Statement> Converter<T> {
   fn place_phis(&mut self, n: graph::NodeId, temps: &LinearMap<Temp, Temp>) {
     debug!("generating %? phis at %?", temps.len(), n);
     let mut block = ~[];
-    for temps.each |tmp_before, &tmp_after| {
+    for temps.each |&(tmp_before, &tmp_after)| {
       debug!("placing phi for %? at %?", tmp_before, n);
       let mut preds = LinearMap::new();
       /* Our phi function operates on the last known ssa-temp for this node's
@@ -364,10 +364,10 @@ fn analyze<T>(cfg: &CFG<T>, root: graph::NodeId, analysis: &mut Analysis) {
 
   /* Afterwards, calculate the set of nodes that each node immediately dominates
    * up front so it doesn't have to be done again */
-  for idoms.each |&a, _| {
+  for idoms.each |&(&a, _)| {
     analysis.idominated.insert(a, ~LinearSet::new());
   }
-  for idoms.each |&a, &b| {
+  for idoms.each |&(&a, &b)| {
     if a != b {
       let mut set = analysis.idominated.pop(&b).unwrap();
       set.insert(a);

@@ -128,7 +128,7 @@ fn eliminate_critical(cfg: &mut CFG) {
         @Phi(def, ref map) => {
           /* TODO: shouldn't need dup */
           let mut dup = LinearMap::new();
-          for map.each |&k, &v| {
+          for map.each |&(&k, &v)| {
             dup.insert(k, v);
           }
           dup.insert(new, *map.get(&n1));
@@ -173,7 +173,7 @@ impl Spiller {
     for self.f.cfg[n].each |&ins| {
       match ins {
         @Phi(my_name, ref renamings) => {
-          for renamings.each |&pred, &their_name| {
+          for renamings.each |&(&pred, &their_name)| {
             let mut map = match self.renamings.pop(&(pred, n)) {
               Some(m) => m,
               None    => ~LinearMap::new()
@@ -187,7 +187,7 @@ impl Spiller {
           }
           /* TODO: is the dup necessary? */
           let mut dup = LinearMap::new();
-          for renamings.each |&k, &v| {
+          for renamings.each |&(&k, &v)| {
             dup.insert(k, v);
           }
           assert phis.insert(my_name, dup);
@@ -219,7 +219,7 @@ impl Spiller {
       match self.phis.find(&succ) {
         None => (),
         Some(map) => {
-          for map.each |_, phis| {
+          for map.each |&(_, phis)| {
             bottom.insert(*phis.get(&n), block.len());
           }
         }
@@ -236,7 +236,7 @@ impl Spiller {
 
       /* Temps may change names along edges because of phi nodes, so be sure to
          account for that here */
-      for self.next_use.get(&succ).each |&tmp, &next| {
+      for self.next_use.get(&succ).each |&(&tmp, &next)| {
         let cost = next + edge_cost;
         let mytmp = self.their_name(tmp, n, succ);
         match bottom.pop(&mytmp) {
@@ -334,7 +334,7 @@ impl Spiller {
 
     /* next_use is always relative to the top of the block */
     let mut next_use = LinearMap::new();
-    for self.next_use.get(&n).each |&k, &v| {
+    for self.next_use.get(&n).each |&(&k, &v)| {
       next_use.insert(k, v);
     }
 
@@ -389,7 +389,7 @@ impl Spiller {
           } else if next_use.contains_key(&tmp) {
             /* TODO: is the duplicate needed? */
             let mut dup = LinearMap::new();
-            for map.each |&k, &v| {
+            for map.each |&(&k, &v)| {
               dup.insert(k, v);
             }
             block.push(@MemPhi(tmp, dup));
@@ -406,7 +406,7 @@ impl Spiller {
             }
           }
           let mut dup = LinearMap::new();
-          for next_use.each |&k, &v| {
+          for next_use.each |&(&k, &v)| {
             dup.insert(k, v);
           }
           block.push(@PCopy(newcopies));
@@ -490,7 +490,7 @@ impl Spiller {
     }
     debug!("frequencies: %s", freq.pp());
     let preds = self.f.cfg.num_pred(n);
-    for freq.each |&tmp, &n| {
+    for freq.each |&(&tmp, &n)| {
       if n == preds {
         take.insert(tmp);
       } else {
@@ -515,7 +515,7 @@ impl Spiller {
     let mut cand = LinearSet::new();
     /* If a variable is used in the loop, then its next_use as viewed from the
        body of the loop would be less than loop_out_weight */
-    for self.next_use.get(&n).each |&tmp, &n| {
+    for self.next_use.get(&n).each |&(&tmp, &n)| {
       if n < loop_out_weight {
         cand.insert(tmp);
       }
@@ -587,8 +587,8 @@ impl Spiller {
       }
     }
     /* TODO: this needs a better solution... */
-    for self.phis.get(&n).each |&k, _| {
-      spill.remove(&k);
+    for self.phis.get(&n).each |&(k, _)| {
+      spill.remove(k);
     }
     debug!("node %? entry regs:%s spill:%s", n, entry.pp(), spill.pp());
     return spill;

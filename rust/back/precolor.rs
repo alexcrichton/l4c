@@ -108,7 +108,7 @@ fn constrain_block(live: &temp::TempSet, delta: &[liveness::Delta],
          specific registers */
       @Call(dst, fun, ref args) => {
         let mut i = -1;
-        let args = do args.filter_map |&arg| {
+        let args = do args.filter_mapped |&arg| {
           i += 1;
           /* the first few arguments in registers need to be copied because all
              argument registers are caller-saved registers */

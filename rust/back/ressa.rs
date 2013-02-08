@@ -22,7 +22,7 @@ fn ressa(f: &mut assem::Function) {
   /* update all type information for the new temps */
   f.sizes.clear();
   let mut max = 0;
-  for newsizes.each |&k, &v| {
+  for newsizes.each |&(&k, &v)| {
     f.sizes.insert(k, v);
     max = uint::max(max, k as uint);
   }

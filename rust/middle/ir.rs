@@ -145,7 +145,7 @@ impl Statement {
       @Arguments(ref tmps) => @Arguments(tmps.map(|&t| defs(t))),
       @Phi(def, ref map) => {
         let mut newmap = LinearMap::new();
-        for map.each |&k, &v| {
+        for map.each |&(&k, &v)| {
           newmap.insert(k, uses(v));
         }
         @Phi(defs(def), newmap)
@@ -216,7 +216,7 @@ impl Statement: PrettyPrint {
              str::connect(E.map(|e| e.pp()), ~", ")),
       Phi(tmp, ref map) => {
         let mut s = tmp.pp() + ~" <- phi(";
-        for map.each |&id, &tmp| {
+        for map.each |&(&id, &tmp)| {
           s += fmt!("[ %s - n%d ] ", tmp.pp(), id as int);
         }
         s + ~")"
@@ -293,7 +293,7 @@ priv fn ssa_fun(f: &mut Function) {
 
   /* And, convert! */
   let mapping = ssa::convert(&mut f.cfg, f.root, &mut f.analysis);
-  for mapping.each |&new, old| {
+  for mapping.each |&(&new, old)| {
     newtypes.insert(new, *f.types.get(old));
   }
   /* update all type information for the new temps */

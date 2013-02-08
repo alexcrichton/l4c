@@ -98,13 +98,13 @@ impl<N, E> Graph<N, E> {
   }
 
   pure fn each_edge(&self, f: fn(NodeId, NodeId) -> bool) {
-    for self.succ.each |&a, map| {
+    for self.succ.each |&(&a, map)| {
       map.each_key(|&b| f(a, b));
     }
   }
 
   pure fn each_node(&self, f: fn(NodeId, &N) -> bool) {
-    self.nodes.each(|&a, b| f(a, b));
+    self.nodes.each(|&(&a, b)| f(a, b));
   }
 
   pure fn each_pred(&self, n: NodeId, f: fn(NodeId) -> bool) {
@@ -122,7 +122,7 @@ impl<N, E> Graph<N, E> {
   pure fn each_succ_edge(&self, n: NodeId, f: fn(NodeId, E) -> bool) {
     let succ = self.succ.get(&n);
     /* TODO(purity): this shouldn't be unsafe */
-    unsafe { succ.each(|&n, &e| f(n, e)); }
+    unsafe { succ.each(|&(&n, &e)| f(n, e)); }
   }
 
   fn each_postorder(&self, root: NodeId, f: fn(&NodeId) -> bool) {
@@ -152,19 +152,19 @@ impl<N, E> Graph<N, E> {
                  e: fn(&E) -> E2) -> Graph<N2, E2> {
     let mut g2 = Graph();
     g2.next = self.next;
-    for self.nodes.each |&k, v| {
+    for self.nodes.each |&(&k, v)| {
       g2.nodes.insert(k, n(k, v));
     }
-    for self.pred.each |&k, v| {
+    for self.pred.each |&(&k, v)| {
       let mut set = ~LinearSet::new();
       for v.each |&value| {
         set.insert(value);
       }
       g2.pred.insert(k, set);
     }
-    for self.succ.each |&k, v| {
+    for self.succ.each |&(&k, v)| {
       let mut map = ~LinearMap::new();
-      for v.each |&k, v| {
+      for v.each |&(&k, v)| {
         map.insert(k, e(v));
       }
       g2.succ.insert(k, map);
@@ -176,16 +176,16 @@ impl<N, E> Graph<N, E> {
          nid: &fn(NodeId) -> ~str,
          node: &fn(NodeId, &N) -> ~str,
          edge: &fn(&E) -> ~str) {
-    for self.nodes.each |&id, n| {
+    for self.nodes.each |&(&id, n)| {
       out.write_str(nid(id));
       out.write_str(~" [");
       out.write_str(node(id, n));
       out.write_str(~"];\n");
     }
-    for self.succ.each |&id1, neighbors| {
+    for self.succ.each |&(&id1, neighbors)| {
       /* TODO(purity): this shouldn't be unsafe */
       unsafe {
-        for neighbors.each |&id2, e| {
+        for neighbors.each |&(&id2, e)| {
           out.write_str(nid(id1));
           out.write_str(~" -> ");
           out.write_str(nid(id2));
@@ -202,7 +202,7 @@ impl<N, E> Graph<N, E> {
     self.traverse(&mut ordering, root, 0);
     let mut v = ~[];
     vec::grow(&mut v, ordering.len(), &root);
-    for ordering.each |&id, &pos| {
+    for ordering.each |&(&id, &pos)| {
       v[pos] = id;
     }
     return (v, ordering);
@@ -217,7 +217,7 @@ impl<N, E> Graph<N, E> {
         let succ = self.succ.get(&n);
         /* TODO(purity): this shouldn't be unsafe */
         unsafe {
-          for succ.each |&id, _| {
+          for succ.each |&(&id, _)| {
             next = self.traverse(o, id, next);
           }
         }

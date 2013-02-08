@@ -113,7 +113,7 @@ fn main() {
   }
 
   /* front */
-  let prog = get_json(m);
+  let mut prog = get_json(m);
   let json = do prof(m, "reading/parsing json") {
     match (json::from_reader(prog.output()), prog.finish()) {
       (result::Ok(j), 0)  => j,
@@ -185,7 +185,7 @@ fn get_json(m : &std::getopts::Matches) -> run::Program {
     None => copy m.free,
     Some(file) => vec::append(~[file], m.free)
   };
-  let prog = run::start_program("parse/parser", *files);
+  let mut prog = run::start_program("parse/parser", *files);
   prog.close_input();
   return prog;
 }

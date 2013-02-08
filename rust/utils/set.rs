@@ -24,7 +24,7 @@ impl<K: Eq IterBytes Hash ToStr, V: ToStr> LinearMap<K, V>: PrettyPrint {
   pure fn pp(&self) -> ~str {
     let mut s = ~"{";
     let mut first = true;
-    for self.each |k, v| {
+    for self.each |&(k, v)| {
       if first {
         first = false;
       } else {

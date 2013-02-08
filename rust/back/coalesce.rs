@@ -189,7 +189,7 @@ impl Coalescer {
       match ins.phi_info() {
         None => (),
         Some((_, m)) => {
-          for m.each |&pred, &tmp| {
+          for m.each |&(&pred, &tmp)| {
             add_use!(tmp, (pred, int::max_value));
           }
         }
@@ -324,7 +324,7 @@ impl Coalescer {
         subset.insert(tmp);
         left.remove(&tmp);
         assert self.affinities.contains_key(&tmp);
-        for self.affinities.get(&tmp).each |&next, &weight| {
+        for self.affinities.get(&tmp).each |&(&next, &weight)| {
           debug!("%? affine with %? cost %?", tmp, next, weight);
           if left.contains(&next) && !subset.contains(&next) {
             debug!("adding %?", next);
@@ -600,7 +600,7 @@ impl Coalescer {
       for self.f.cfg[n].each |&ins| {
         match ins {
           @assem::Phi(def, ref map) => {
-            for map.each |_, &tmp| {
+            for map.each |&(_, &tmp)| {
               /* TODO(#4650): when this ICE is fixed, uncomment */
               /*affine!(def, tmp, weight);*/
               add_affine!(tmp, def, weight);

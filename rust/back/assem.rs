@@ -205,7 +205,7 @@ impl Instruction: ssa::Statement {
       @Phi(t, ref map) => {
         /* TODO: is the duplicate needed? */
         let mut dup = LinearMap::new();
-        for map.each |&k, &v| {
+        for map.each |&(&k, &v)| {
           dup.insert(k, v);
         }
         @Phi(defs(t), dup)
@@ -301,14 +301,14 @@ impl Instruction: PrettyPrint {
              ~"(" + str::connect(args.map(|a| a.pp()), ~", ") + ~")"),
       Phi(tmp, ref map) => {
         let mut s = ~"//" + tmp.pp() + ~" <- phi(";
-        for map.each |&id, &tmp| {
+        for map.each |&(&id, &tmp)| {
           s += fmt!("[ %s - n%? ] ", tmp.pp(), id);
         }
         s + ~")"
       }
       MemPhi(tag, ref map) => {
         let mut s = fmt!("//m%? <- mphi(", tag);
-        for map.each |&id, &tag| {
+        for map.each |&(&id, &tag)| {
           s += fmt!("[ m%? - n%? ] ", tag, id);
         }
         s + ~")"

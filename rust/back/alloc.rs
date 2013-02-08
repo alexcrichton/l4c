@@ -67,7 +67,7 @@ impl Allocator {
     info!("coloring: %s", self.f.name);
 
     do profile::dbg("coloring") { self.color(self.f.root); }
-    for self.colors.each |tmp, color| {
+    for self.colors.each |&(tmp, color)| {
       debug!("%s => %?", tmp.to_str(), color);
     }
 
@@ -323,7 +323,7 @@ impl Allocator {
           @Phi(tmp, ref map) => {
             debug!("phi var %? %?", tmp, *self.colors.get(&tmp));
             phi_vars.push(*self.colors.get(&tmp));
-            for map.each |&pred, &tmp| {
+            for map.each |&(&pred, &tmp)| {
               let mut L = phi_maps.pop(&pred).unwrap();
               L.push(tmp);
               phi_maps.insert(pred, L);
@@ -331,7 +331,7 @@ impl Allocator {
           }
           @MemPhi(def, ref map) => {
             mem_vars.push(def);
-            for map.each |&pred, &slot| {
+            for map.each |&(&pred, &slot)| {
               let mut L = mem_maps.pop(&pred).unwrap();
               L.push(slot);
               mem_maps.insert(pred, L);
@@ -380,7 +380,7 @@ impl Allocator {
     for vec::rev_each(order) |&id| {
       let ins = vec::build(|push| {
         if id == self.f.root {
-          for self.colors.each |_, &color| {
+          for self.colors.each |&(_, &color)| {
             let reg = arch::num_reg(color);
             if arch::callee_reg(reg) && !self.callee_saved.contains(&color) {
               self.callee_saved.push(color);

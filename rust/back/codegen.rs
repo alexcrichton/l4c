@@ -45,7 +45,7 @@ impl CodeGenerator {
       |&edge| edge
     );
     info!("codegen of %s done", self.f.name);
-    for self.f.types.each |k, v| {
+    for self.f.types.each |&(k, v)| {
       debug!("%? sized %?", k, v);
     }
     let mut loops = LinearMap::new();
@@ -153,7 +153,7 @@ impl CodeGenerator {
       }
       @ir::Phi(tmp, ref map) => {
         let mut map2 = LinearMap::new();
-        for map.each |&k, &v| {
+        for map.each |&(&k, &v)| {
           map2.insert(k, self.tmp(v));
         }
         self.push(@assem::Phi(self.tmp(tmp), map2));
