@@ -59,8 +59,10 @@ impl<N, E> Graph<N, E> {
     self.nodes.insert(id, n);
   }
 
-  fn remove_node(&mut self, n: NodeId) {
-    assert self.nodes.remove(&n);
+  fn remove_node(&mut self, n: NodeId) -> N {
+    let ret = self.nodes.pop(&n);
+    assert ret.is_some();
+    let ret = ret.unwrap();
     let succ = self.succ.pop(&n).unwrap();
     let pred = self.pred.pop(&n).unwrap();
     for succ.each_key |k| {
@@ -73,6 +75,7 @@ impl<N, E> Graph<N, E> {
       map.remove(&n);
       self.succ.insert(*k, map);
     }
+    return ret;
   }
 
   fn remove_edge(&mut self, n1: NodeId, n2: NodeId) -> E {

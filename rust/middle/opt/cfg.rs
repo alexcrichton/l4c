@@ -11,6 +11,7 @@ use utils::graph::{NodeId, NodeSet};
 pub fn simplify(p: &mut ir::Program) {
   for vec::each_mut(p.funs) |f| {
     prune(&mut f.cfg, f.root);
+    merge(&mut f.cfg, f.root);
   }
 }
 
@@ -82,4 +83,37 @@ pub fn eliminate_critical<T: Statement>(cfg: &mut CFG<T>) {
       }
     }));
   }
+}
+
+pub fn merge<T>(cfg: &mut CFG<T>, root: NodeId) {
+  fn domerge<T>(cfg: &mut CFG<T>, visited: &mut NodeSet,
+                root: NodeId, mut n: NodeId) {
+    visited.insert(n);
+    let mut preds = 0;
+    let mut pred = 0;
+    for cfg.each_pred(n) |p| {
+      preds += 1;
+      pred = p;
+    }
+    /* Try to merge 'n' up to its predecessor */
+    if n != root && preds == 1 && cfg.num_succ(pred) == 1 {
+      /* Add all of n's outgoing edges as outgoing edges of pred */
+      for cfg.each_succ_edge(n) |succ, edge| {
+        cfg.add_edge(pred, succ, edge);
+      }
+      let blk = cfg.remove_node(n);
+      do cfg.map_consume_node(pred) |s| {
+        s + blk
+      }
+      n = pred; /* don't recurse on a non-existent node */
+    }
+    for cfg.each_succ(n) |succ| {
+      if !visited.contains(&succ) {
+        domerge(cfg, visited, root, succ);
+      }
+    }
+  }
+
+  let mut visited = LinearSet::new();
+  domerge(cfg, &mut visited, root, root);
 }

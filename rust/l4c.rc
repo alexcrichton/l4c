@@ -95,7 +95,7 @@ fn main() {
     optflag("f"), optflag("profile"),
     optopt("header"), optopt("l"),
     optflag("dot-ir"), optflag("dot-ssa"), optflag("dot-cfold"),
-    optflag("dot-deadcode"),
+    optflag("dot-deadcode"), optflag("dot-simplify"),
     optflag("dot-assem"), optflag("dot-spilled"), optflag("dot-ressa"),
     optflag("dot-colored"), optflag("dot-precolor"), optflag("dot-peephole"),
     optflag("safe"), optflag("unsafe"),
@@ -141,7 +141,8 @@ fn main() {
   if opt_present(m, "dot-ir")  { ir.dot(io::stdout()); }
   pass(ir::ssa, &mut ir, m, "dot-ssa");
 
-  pass(opt::cfold::optimize, &mut ir, m, "dot-cfold");
+  pass(opt::cfold::optimize,    &mut ir, m, "dot-cfold");
+  pass(opt::cfg::simplify,      &mut ir, m, "dot-simplify");
   pass(opt::deadcode::optimize, &mut ir, m, "dot-deadcode");
 
   /* backend */
