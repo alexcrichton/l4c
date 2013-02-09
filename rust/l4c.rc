@@ -1,7 +1,4 @@
 #[link(name = "l4c")];
-#[deny(implicit_copies)];
-#[deny(non_implicitly_copyable_typarams)];
-#[warn(unused_imports)];
 
 extern mod std;
 
