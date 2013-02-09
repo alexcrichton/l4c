@@ -302,7 +302,7 @@ impl CodeGenerator {
                    c: assem::Cond,
                    o1: @assem::Operand,
                    o2: @assem::Operand,
-                   f: &fn(assem::Cond, @assem::Operand, @assem::Operand)
+                   f: fn(assem::Cond, @assem::Operand, @assem::Operand)
                           -> assem::Instruction) {
     match (o1, o2) {
       (@assem::Immediate(*), @assem::Immediate(*)) => {

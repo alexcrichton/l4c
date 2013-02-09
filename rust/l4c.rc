@@ -160,7 +160,7 @@ fn main() {
   }
 }
 
-fn pass<T : Graphable, U>(f : &fn(&mut T) -> U, p : &mut T,
+fn pass<T : Graphable, U>(f : fn(&mut T) -> U, p : &mut T,
                           m : &std::getopts::Matches, s : &str) -> U {
   let ret = do prof(m, s) { f(p) };
   if std::getopts::opt_present(m, s) {
@@ -169,7 +169,7 @@ fn pass<T : Graphable, U>(f : &fn(&mut T) -> U, p : &mut T,
   return ret;
 }
 
-fn prof<U>(m : &std::getopts::Matches, s : &str, f : &fn() -> U) -> U {
+fn prof<U>(m : &std::getopts::Matches, s : &str, f : fn() -> U) -> U {
   if std::getopts::opt_present(m, "profile") {
     profile::run(f, s)
   } else {

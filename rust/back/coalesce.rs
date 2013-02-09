@@ -700,7 +700,7 @@ impl Coalescer {
    *
    * To see problems in optimization, see find_interferences
    */
-  fn interferences(&mut self, t: Temp, f: &fn(Temp) -> bool) {
+  fn interferences(&mut self, t: Temp, f: fn(Temp) -> bool) {
     /* definitely cache information once we've calculated it */
     match self.interference_cache.find(&t) {
       Some(ref s) => { s.each(|&t| f(t)); return }

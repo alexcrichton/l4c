@@ -173,9 +173,9 @@ impl<N, E> Graph<N, E> {
   }
 
   fn dot(&self, out: io::Writer,
-         nid: &fn(NodeId) -> ~str,
-         node: &fn(NodeId, &N) -> ~str,
-         edge: &fn(&E) -> ~str) {
+         nid: fn(NodeId) -> ~str,
+         node: fn(NodeId, &N) -> ~str,
+         edge: fn(&E) -> ~str) {
     for self.nodes.each |&(&id, n)| {
       out.write_str(nid(id));
       out.write_str(~" [");

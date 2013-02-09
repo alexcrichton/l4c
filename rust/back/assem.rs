@@ -103,7 +103,7 @@ impl Constraint {
 
 impl Instruction {
   #[inline(always)]
-  fn each_def(&self, f: &fn(Temp) -> bool) {
+  fn each_def(&self, f: fn(Temp) -> bool) {
     match *self {
       BinaryOp(_, @Temp(t), _, _) |
       Move(@Temp(t), _) |
@@ -121,7 +121,7 @@ impl Instruction {
   }
 
   #[inline(always)]
-  fn each_use(&self, f: &fn(Temp) -> bool) {
+  fn each_use(&self, f: fn(Temp) -> bool) {
     match *self {
       Condition(_, @Temp(t1), @Temp(t2)) |
       Die(_, @Temp(t1), @Temp(t2)) |
@@ -174,14 +174,14 @@ impl Instruction {
 impl Instruction: ssa::Statement {
   static fn phi(t: Temp, map: ssa::PhiMap) -> @Instruction { @Phi(t, map) }
 
-  fn each_def(&self, f: &fn(Temp) -> bool) { self.each_def(f) }
-  fn each_use(&self, f: &fn(Temp) -> bool) { self.each_use(f) }
+  fn each_def(&self, f: fn(Temp) -> bool) { self.each_def(f) }
+  fn each_use(&self, f: fn(Temp) -> bool) { self.each_use(f) }
   static fn phi_info(me: &v/Instruction) -> Option<(Temp, &v/ssa::PhiMap)> {
     me.phi_info()
   }
 
-  fn map_temps(@self, uses: &fn(Temp) -> Temp,
-               defs: &fn(Temp) -> Temp) -> @Instruction {
+  fn map_temps(@self, uses: fn(Temp) -> Temp,
+               defs: fn(Temp) -> Temp) -> @Instruction {
     match self {
       @MemPhi(*) => self,
       @BinaryOp(op, o1, o2, o3) => {
@@ -352,7 +352,7 @@ impl Operand {
     }
   }
 
-  fn map_temps(@self, f: &fn(Temp) -> Temp) -> @Operand {
+  fn map_temps(@self, f: fn(Temp) -> Temp) -> @Operand {
     match self {
       @Temp(t) => @Temp(f(t)),
       _        => self
@@ -384,7 +384,7 @@ impl Operand: cmp::Eq {
 }
 
 impl Address {
-  fn map_temps(@self, f: &fn(Temp) -> Temp) -> @Address {
+  fn map_temps(@self, f: fn(Temp) -> Temp) -> @Address {
     match self {
       @MOp(t, disp, off) =>
         @MOp(t.map_temps(f), disp, off.map(|&(x, m)| (x.map_temps(f), m))),
