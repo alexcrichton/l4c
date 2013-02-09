@@ -112,20 +112,17 @@ impl<N, E> Graph<N, E> {
 
   pure fn each_pred(&self, n: NodeId, f: fn(NodeId) -> bool) {
     let preds = self.pred.get(&n);
-    /* TODO(purity): this shouldn't be unsafe */
-    unsafe { preds.each(|&k| f(k)); }
+    preds.each(|&k| f(k));
   }
 
   pure fn each_succ(&self, n: NodeId, f: fn(NodeId) -> bool) {
     let succ = self.succ.get(&n);
-    /* TODO(purity): this shouldn't be unsafe */
-    unsafe { succ.each_key(|&k| f(k)); }
+    succ.each_key(|&k| f(k));
   }
 
   pure fn each_succ_edge(&self, n: NodeId, f: fn(NodeId, E) -> bool) {
     let succ = self.succ.get(&n);
-    /* TODO(purity): this shouldn't be unsafe */
-    unsafe { succ.each(|&(&n, &e)| f(n, e)); }
+    succ.each(|&(&n, &e)| f(n, e));
   }
 
   fn each_postorder(&self, root: NodeId, f: fn(&NodeId) -> bool) {
@@ -186,16 +183,13 @@ impl<N, E> Graph<N, E> {
       out.write_str(~"];\n");
     }
     for self.succ.each |&(&id1, neighbors)| {
-      /* TODO(purity): this shouldn't be unsafe */
-      unsafe {
-        for neighbors.each |&(&id2, e)| {
-          out.write_str(nid(id1));
-          out.write_str(~" -> ");
-          out.write_str(nid(id2));
-          out.write_str(~" [");
-          out.write_str(edge(e));
-          out.write_str(~"];\n");
-        }
+      for neighbors.each |&(&id2, e)| {
+        out.write_str(nid(id1));
+        out.write_str(~" -> ");
+        out.write_str(nid(id2));
+        out.write_str(~" [");
+        out.write_str(edge(e));
+        out.write_str(~"];\n");
       }
     }
   }
@@ -218,11 +212,8 @@ impl<N, E> Graph<N, E> {
         o.insert(n, -1);
         let mut next = i;
         let succ = self.succ.get(&n);
-        /* TODO(purity): this shouldn't be unsafe */
-        unsafe {
-          for succ.each |&(&id, _)| {
-            next = self.traverse(o, id, next);
-          }
+        for succ.each |&(&id, _)| {
+          next = self.traverse(o, id, next);
         }
         o.insert(n, next);
         return next + 1;
