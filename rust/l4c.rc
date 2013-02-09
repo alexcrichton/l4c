@@ -60,6 +60,7 @@ mod back {
   mod precolor;
   mod ressa;
   mod spill;
+  mod peephole;
 }
 
 fn help() {
@@ -98,7 +99,7 @@ fn main() {
     optflag("dot-ir"), optflag("dot-ssa"), optflag("dot-cfold"),
     optflag("dot-deadcode"),
     optflag("dot-assem"), optflag("dot-spilled"), optflag("dot-ressa"),
-    optflag("dot-colored"), optflag("dot-precolor"),
+    optflag("dot-colored"), optflag("dot-precolor"), optflag("dot-peephole"),
     optflag("safe"), optflag("unsafe"),
     optopt("O"), optopt("optimize"),
     optopt("m"), optopt("arch"),
@@ -148,6 +149,7 @@ fn main() {
   /* backend */
   let mut assem = codegen::codegen(ir);
   if opt_present(m, "dot-assem") { assem.dot(io::stdout()); }
+  pass(peephole::optimize,  &mut assem, m, "dot-peephole");
   pass(precolor::constrain, &mut assem, m, "dot-precolor");
   pass(spill::spill,        &mut assem, m, "dot-spilled");
   pass(ressa::convert,      &mut assem, m, "dot-ressa");

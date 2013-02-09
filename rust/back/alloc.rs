@@ -636,7 +636,7 @@ fn resolve_test(from: &[uint], to: &[uint]) {
     }
   }
   debug!("%?", regs);
-  for map.each |&k, _| {
+  for map.each |&(k, _)| {
     if regs[k] != k {
       die!(fmt!("clobbered %? to %?", k, regs[k]));
     }

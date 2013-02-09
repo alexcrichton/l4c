@@ -31,18 +31,24 @@ pub fn new(t: &mut Symtab, s: &~str) -> @Symbol {
   }
 }
 
-#[test]
-fn test_coalesces () {
-  let mut tab = Symtab();
-  let a = new(&mut tab, &~"a");
-  let b = new(&mut tab, &~"a");
-  assert managed::ptr_eq(a, b)
-}
+#[cfg(test)]
+mod test {
+  use core::managed;
+  use front::symbol::{Symtab, new};
 
-#[test]
-fn test_different() {
-  let mut tab = Symtab();
-  let a = new(&mut tab, &~"a");
-  let b = new(&mut tab, &~"b");
-  assert !managed::ptr_eq(a, b)
+  #[test]
+  fn test_coalesces () {
+    let mut tab = Symtab();
+    let a = new(&mut tab, &~"a");
+    let b = new(&mut tab, &~"a");
+    assert managed::ptr_eq(a, b)
+  }
+
+  #[test]
+  fn test_different() {
+    let mut tab = Symtab();
+    let a = new(&mut tab, &~"a");
+    let b = new(&mut tab, &~"b");
+    assert !managed::ptr_eq(a, b)
+  }
 }
