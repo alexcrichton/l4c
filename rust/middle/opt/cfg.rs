@@ -86,6 +86,12 @@ pub fn eliminate_critical<T: Statement>(cfg: &mut CFG<T>) {
   }
 }
 
+/**
+ * Attempts to merge nodes in the control flow graph
+ *
+ * Node B is merged into node A if A has only one successor and B has only one
+ * predecessor
+ */
 pub fn merge<T>(cfg: &mut CFG<T>, root: NodeId) {
   fn domerge<T>(cfg: &mut CFG<T>, visited: &mut NodeSet,
                 root: NodeId, mut n: NodeId) {
