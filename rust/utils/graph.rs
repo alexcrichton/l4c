@@ -38,6 +38,14 @@ impl<N, E> Graph<N, E> {
     ret
   }
 
+  fn contains(&self, id: NodeId) -> bool {
+    self.nodes.contains_key(&id)
+  }
+
+  fn contains_edge(&self, a: NodeId, b: NodeId) -> bool {
+    match self.succ.find(&a) { Some(m) => m.contains_key(&b), None => false }
+  }
+
   pure fn node(&self, id: NodeId) -> &self/N {
     self.nodes.get(&id)
   }
@@ -113,6 +121,11 @@ impl<N, E> Graph<N, E> {
   pure fn each_pred(&self, n: NodeId, f: fn(NodeId) -> bool) {
     let preds = self.pred.get(&n);
     preds.each(|&k| f(k));
+  }
+
+  pure fn each_pred_edge(&self, n: NodeId, f: fn(NodeId, &E) -> bool) {
+    let preds = self.pred.get(&n);
+    preds.each(|&k| f(k, self.edge(k, n)));
   }
 
   pure fn each_succ(&self, n: NodeId, f: fn(NodeId) -> bool) {
@@ -211,8 +224,7 @@ impl<N, E> Graph<N, E> {
       None => {
         o.insert(n, -1);
         let mut next = i;
-        let succ = self.succ.get(&n);
-        for succ.each |&(&id, _)| {
+        for self.succ.get(&n).each |&(&id, _)| {
           next = self.traverse(o, id, next);
         }
         o.insert(n, next);

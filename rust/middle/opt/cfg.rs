@@ -9,9 +9,42 @@ use middle::ir;
 use utils::graph::{NodeId, NodeSet};
 
 pub fn simplify(p: &mut ir::Program) {
+  fn resolve(map: &LinearMap<NodeId, NodeId>, mut id: NodeId) -> NodeId {
+    while map.contains_key(&id) {
+      id = *map.get(&id);
+    }
+    return id;
+  }
+
+  /* TODO: this may need to be integrated with constant folding as part of it?
+           to see this, look at ../tests1/kestrel-logical01.l2 */
   for vec::each_mut(p.funs) |f| {
+    /* Take out all the dead branches/edges */
+    eliminate_dead(&mut f.cfg);
+    /* Remove all unreachable nodes */
     prune(&mut f.cfg, f.root);
-    merge(&mut f.cfg, f.root);
+    /* Fix all phis or remove them from the previous operation */
+    fix_phis(&mut f.cfg);
+    /* Finally merge nodes together if we can */
+    let (newroot, changes) = merge(&mut f.cfg, f.root);
+
+    /* After merging, we need to update the 'loops' array metadata which
+       maintains information about what's a loop header and where its loop body
+       and ending node both start. */
+    let mut changes = changes;
+    for changes.each |&(from, &to)| {
+      match f.loops.pop(from) {
+        None => (),
+        Some((body, end)) => {
+          let to = resolve(&changes, to);
+          if f.cfg.num_pred(to) > 1 {
+            f.loops.insert(to, (resolve(&changes, body),
+                                resolve(&changes, end)));
+          }
+        }
+      }
+    }
+    f.root = newroot;
   }
 }
 
@@ -92,9 +125,12 @@ pub fn eliminate_critical<T: Statement>(cfg: &mut CFG<T>) {
  * Node B is merged into node A if A has only one successor and B has only one
  * predecessor
  */
-pub fn merge<T>(cfg: &mut CFG<T>, root: NodeId) {
+pub fn merge<T>(cfg: &mut CFG<T>,
+                root: NodeId) -> (NodeId, LinearMap<NodeId, NodeId>) {
   fn domerge<T>(cfg: &mut CFG<T>, visited: &mut NodeSet,
-                root: NodeId, mut n: NodeId) {
+                changes: &mut LinearMap<NodeId, NodeId>,
+                mut root: NodeId,
+                mut n: NodeId) -> NodeId {
     visited.insert(n);
     let mut preds = 0;
     let mut pred = 0;
@@ -102,25 +138,99 @@ pub fn merge<T>(cfg: &mut CFG<T>, root: NodeId) {
       preds += 1;
       pred = p;
     }
-    /* Try to merge 'n' up to its predecessor */
-    if n != root && preds == 1 && cfg.num_succ(pred) == 1 {
-      /* Add all of n's outgoing edges as outgoing edges of pred */
-      for cfg.each_succ_edge(n) |succ, edge| {
-        cfg.add_edge(pred, succ, edge);
+    /* Try to merge n's predecessor into it */
+    if preds == 1 && cfg.num_succ(pred) == 1 {
+      /* Add all of pred's incoming edges as incoming edges to n */
+      for cfg.each_pred_edge(pred) |pred, &edge| {
+        cfg.add_edge(pred, n, edge);
       }
-      let blk = cfg.remove_node(n);
-      do cfg.map_consume_node(pred) |s| {
-        s + blk
+      let blk = cfg.remove_node(pred);
+      do cfg.map_consume_node(n) |s| {
+        blk + s
       }
-      n = pred; /* don't recurse on a non-existent node */
-    }
-    for cfg.each_succ(n) |succ| {
-      if !visited.contains(&succ) {
-        domerge(cfg, visited, root, succ);
+      changes.insert(pred, n);
+      if pred == root {
+        root = n
       }
     }
+    let mut succ = ~[];
+    for cfg.each_succ(n) |s| {
+      succ.push(s);
+    }
+    for succ.each |&succ| {
+      if cfg.contains(succ) && !visited.contains(&succ) {
+        root = domerge(cfg, visited, changes, root, succ);
+      }
+    }
+    return root;
   }
 
   let mut visited = LinearSet::new();
-  domerge(cfg, &mut visited, root, root);
+  let mut changes = LinearMap::new();
+  return (domerge(cfg, &mut visited, &mut changes, root, root), changes);
+}
+
+/**
+ * Eliminates all dead control flow paths in a CFG
+ *
+ * This takes care of constant branches by removing one half of the branch and
+ * modifying the other edge to be and 'Always' or a 'Branch' as appropriate.
+ */
+fn eliminate_dead(cfg: &mut ir::CFG) {
+  let mut constant = ~[];
+  for cfg.each_node |n, stms| {
+    match vec::last_opt(*stms) {
+      Some(@ir::Condition(@ir::Const(c, _))) => { constant.push((n, c)); }
+      _ => ()
+    }
+  }
+
+  for constant.each |&(node, c)| {
+    for cfg.each_succ_edge(node) |succ, edge| {
+      let to_update = match edge {
+        ir::False if c == 0 => ir::Always,
+        ir::FBranch | ir::FLoopOut if c == 0 => ir::Branch,
+        ir::True if c != 0 => ir::Always,
+        ir::TBranch if c != 0 => ir::Branch,
+        _ => { cfg.remove_edge(node, succ); loop; }
+      };
+      cfg.add_edge(node, succ, to_update);
+    }
+    do cfg.map_consume_node(node) |mut stms| {
+      stms.pop(); /* remove 'Condition' */
+      stms
+    }
+  }
+}
+
+/**
+ * Fixes all phi functions in a CFG after we've eliminated predecessors and
+ * probably broken most of the functions. This will remove arguments from any
+ * deleted predecessors, and it will delete the phi function entirely if
+ * there's only one argument now.
+ */
+fn fix_phis(cfg: &mut ir::CFG) {
+  do cfg.map_nodes |n, stms| {
+    do vec::map_consume(stms) |s| {
+      match s {
+        @ir::Phi(def, ref map) => {
+          /* TODO: shouldn't have to make a dup */
+          let mut dup = LinearMap::new();
+          let mut predtmp = def;
+          for map.each |&(&pred, &tmp)| {
+            if cfg.contains_edge(pred, n) {
+              dup.insert(pred, tmp);
+              predtmp = tmp;
+            }
+          }
+          if dup.len() == 1 {
+            @ir::Move(def, @ir::Temp(predtmp))
+          } else {
+            @ir::Phi(def, dup)
+          }
+        }
+        _ => s
+      }
+    }
+  }
 }
