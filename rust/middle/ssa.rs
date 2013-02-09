@@ -1,6 +1,6 @@
 use core::hashmap::linear::{LinearMap, LinearSet};
 
-use middle::{temp, liveness, ir};
+use middle::{temp, liveness, ir, opt};
 use middle::temp::Temp;
 use utils::{graph, set, profile, PrettyPrint};
 
@@ -58,7 +58,7 @@ pub fn convert<T: Statement>(cfg: &mut CFG<T>,
                               results: &mut Analysis) -> LinearMap<Temp, Temp> {
   let mut live = liveness::Analysis();
 
-  do profile::dbg("pruning") { prune_unreachable(cfg, root); }
+  do profile::dbg("pruning") { opt::cfg::prune(cfg, root); }
   do profile::dbg("liveness") { liveness::calculate(cfg, root, &mut live) }
   do profile::dbg("dominance") { analyze(cfg, root, results); }
   let frontiers = do profile::dbg("frontiers") {
@@ -282,36 +282,6 @@ impl<T: Statement> Converter<T> {
 
     /* Update our node with the phi nodes */
     self.cfg.map_consume_node(n, |prev| block + prev);
-  }
-}
-
-/**
- * Given the root node of the control flow graph, removes all unreachable
- * nodes by doing a DFS traversal of the graph and seeing whatever wasn't
- * reached during the traversal.
- */
-fn prune_unreachable<T>(cfg: &mut CFG<T>, root: graph::NodeId) {
-  fn visit<T>(cfg: &CFG<T>, visited: &mut graph::NodeSet, n: graph::NodeId) {
-    if !visited.contains(&n) {
-      visited.insert(n);
-      for cfg.each_succ(n) |id| {
-        visit(cfg, visited, id);
-      }
-    }
-  }
-
-  let mut visited = LinearSet::new();
-  visit(cfg, &mut visited, root);
-  /* Can't modify the graph while iterating */
-  let mut to_remove = ~[];
-  for cfg.each_node |id, _| {
-    if !visited.contains(&id) {
-      to_remove.push(id);
-    }
-  }
-  /* TODO: make sure this is an error to put in the loop above */
-  for to_remove.each |&id| {
-    cfg.remove_node(id);
   }
 }
 

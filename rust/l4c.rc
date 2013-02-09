@@ -42,8 +42,9 @@ mod middle {
   pub mod liveness;
   mod trans;
 
-  mod opt {
+  pub mod opt {
     mod cfold;
+    mod cfg;
     mod deadcode;
   }
 }

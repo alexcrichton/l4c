@@ -9,9 +9,11 @@ pub struct Program {
   funs: ~[Function]
 }
 
+pub type CFG = ssa::CFG<Statement>;
+
 pub struct Function {
   name: ~str,
-  cfg: ssa::CFG<Statement>,
+  cfg: CFG,
   root: graph::NodeId,
   types: LinearMap<Temp, Type>,
 

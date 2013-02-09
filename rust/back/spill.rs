@@ -25,7 +25,7 @@
 use core::hashmap::linear::{LinearMap, LinearSet};
 
 use std::sort;
-use middle::ssa;
+use middle::{ssa, opt};
 use middle::temp::{Temp, TempSet};
 use back::assem::*;
 use utils::graph::*;
@@ -64,7 +64,7 @@ struct Spiller {
 
 pub fn spill(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
-    eliminate_critical(&mut f.cfg);
+    opt::cfg::eliminate_critical(&mut f.cfg);
 
     let mut s = Spiller{ f: f,
                          next_use: LinearMap::new(),
@@ -97,48 +97,6 @@ fn sort(set: &TempSet, s: &NextUse) -> ~[Temp] {
     }
   });
   return v;
-}
-
-/**
- * Eliminate all critical edges in the graph by splitting them and placing a
- * basic block on the edge. The fact that there are no critical edges in the
- * graph is leveraged when spilling registers and removing phi nodes.
- */
-fn eliminate_critical(cfg: &mut CFG) {
-  /* can't modify the graph during traversal */
-  let mut critical = ~[];
-  for cfg.each_edge |n1, n2| {
-    /* critical edges are defined as those whose source has multiple out edges
-       and whose target has multiple in edges */
-    if cfg.num_succ(n1) > 1 && cfg.num_pred(n2) > 1 {
-      critical.push((n1, n2));
-    }
-  }
-  for critical.each |&(n1, n2)| {
-    debug!("splitting critical edge %? %?", n1, n2);
-    let edge = cfg.remove_edge(n1, n2);
-    let new = cfg.new_id();
-    cfg.add_node(new, ~[]);
-    cfg.add_edge(n1, new, edge);
-    cfg.add_edge(new, n2, ir::Always);
-
-    /* Be sure to fix the predecessor of each phi node in our successor */
-    cfg.map_consume_node(n2, |stms| vec::map_consume(stms, |ins| {
-      match ins {
-        @Phi(def, ref map) => {
-          /* TODO: shouldn't need dup */
-          let mut dup = LinearMap::new();
-          for map.each |&(&k, &v)| {
-            dup.insert(k, v);
-          }
-          dup.insert(new, *map.get(&n1));
-          dup.remove(&n1);
-          @Phi(def, dup)
-        }
-        _ => ins
-      }
-    }));
-  }
 }
 
 impl Spiller {
