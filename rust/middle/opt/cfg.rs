@@ -38,7 +38,8 @@ pub fn prune<T>(cfg: &mut CFG<T>, root: NodeId) {
     }
   }
 
-  do to_delete.consume |_, id| {
+  /* TODO: if this is 'consume', there's a segfault... */
+  for to_delete.each |&id| {
     cfg.remove_node(id);
   }
 }
