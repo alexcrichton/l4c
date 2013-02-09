@@ -7,7 +7,7 @@ l4c: bin/l4c
 opt: l4c
 opt: RUSTFLAGS += --opt-level=3
 dbg: l4c
-dbg: RUSTFLAGS += -g
+dbg: RUSTFLAGS += -Z debug-info
 
 check:
 	$(RUSTC) $(RUSTFLAGS) l4c.rc --no-trans
