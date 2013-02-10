@@ -3,7 +3,7 @@ use front::{mark, error, symbol};
 use utils::PrettyPrint;
 
 pub struct Program {
-  decls: ~[@GDecl],
+  decls: ~[~GDecl],
 }
 
 struct Elaborator {
@@ -17,45 +17,45 @@ struct Elaborator {
 pub type Ident = @symbol::Symbol;
 
 pub enum GDecl {
-  Markedg(~mark::Mark<GDecl>),
+  Markedg(mark::Mark<GDecl>),
   Typedef(Ident, @Type),
   StructDef(Ident, ~[(Ident, @Type)]),
   StructDecl(Ident),
-  Function(@Type, Ident, ~[(Ident, @Type)], @Statement),
+  Function(@Type, Ident, ~[(Ident, @Type)], ~Statement),
   FunIDecl(@Type, Ident, ~[(Ident, @Type)]),
   FunEDecl(@Type, Ident, ~[(Ident, @Type)])
 }
 
 pub enum Statement {
-  Assign(@Expression, Option<Binop>, @Expression),
-  If(@Expression, @Statement, @Statement),
-  While(@Expression, @Statement),
-  For(@Statement, @Expression, @Statement, @Statement),
-  Express(@Expression),
+  Assign(~Expression, Option<Binop>, ~Expression),
+  If(~Expression, ~Statement, ~Statement),
+  While(~Expression, ~Statement),
+  For(~Statement, ~Expression, ~Statement, ~Statement),
+  Express(~Expression),
   Continue,
   Break,
   Nop,
-  Return(@Expression),
-  Seq(@Statement, @Statement),
-  Declare(Ident, @Type, Option<@Expression>, @Statement),
-  Markeds(~mark::Mark<Statement>)
+  Return(~Expression),
+  Seq(~Statement, ~Statement),
+  Declare(Ident, @Type, Option<~Expression>, ~Statement),
+  Markeds(mark::Mark<Statement>)
 }
 
 pub enum Expression {
   Var(Ident),
   Boolean(bool),
   Const(i32),
-  BinaryOp(Binop, @Expression, @Expression),
-  UnaryOp(Unop, @Expression),
-  Ternary(@Expression, @Expression, @Expression, Ref<@Type>),
-  Call(@Expression, ~[@Expression], Ref<(@Type)>),
-  Deref(@Expression, Ref<@Type>),
-  Field(@Expression, Ident, Ref<Ident>),
-  ArrSub(@Expression, @Expression, Ref<@Type>),
+  BinaryOp(Binop, ~Expression, ~Expression),
+  UnaryOp(Unop, ~Expression),
+  Ternary(~Expression, ~Expression, ~Expression, Ref<@Type>),
+  Call(~Expression, ~[~Expression], Ref<(@Type)>),
+  Deref(~Expression, Ref<@Type>),
+  Field(~Expression, Ident, Ref<Ident>),
+  ArrSub(~Expression, ~Expression, Ref<@Type>),
   Alloc(@Type),
-  AllocArray(@Type, @Expression),
+  AllocArray(@Type, ~Expression),
   Null,
-  Marked(~mark::Mark<Expression>)
+  Marked(mark::Mark<Expression>)
 }
 
 pub enum Type {
@@ -90,18 +90,19 @@ impl<T: Copy> Ref<T> {
   }
 }
 
-pub fn new(g: ~[@GDecl]) -> Program {
+pub fn new(g: ~[~GDecl]) -> Program {
   Program{decls: g}
 }
 
 impl Program {
-  fn elaborate(&self) -> Program {
+  fn elaborate(self) -> Program {
+    let Program{decls} = self;
     let mut e = Elaborator{ efuns:   LinearSet::new(),
                             funs:    LinearSet::new(),
                             structs: LinearSet::new(),
                             types:   LinearMap::new(),
                             err:     error::new() };
-    let prog = new(self.decls.map(|x| e.elaborate(*x)));
+    let prog = new(vec::map_consume(decls, |x| e.elaborate(x)));
     e.err.check();
     prog
   }
@@ -114,16 +115,16 @@ impl Program: PrettyPrint {
 }
 
 impl GDecl {
-  fn unmark(@self) -> @GDecl {
+  fn unmark(~self) -> ~GDecl {
     match self {
-      @Markedg(ref m) => m.data.unmark(),
-      _ => self
+      ~Markedg(mark::Mark{data, _}) => data,
+      g => g
     }
   }
 }
 
 impl Elaborator {
-  fn elaborate(&mut self, g: @GDecl) -> @GDecl {
+  fn elaborate(&mut self, g: ~GDecl) -> ~GDecl {
     /* TODO(#4653): in this macro, it should be $id instead of 'id' */
     macro_rules! check_set (
       ($set:expr, $id:expr, $name:expr) => {
@@ -133,114 +134,118 @@ impl Elaborator {
       }
     );
     match g {
-      @FunEDecl(typ, id, ref args) => {
+      ~FunEDecl(typ, id, args) => {
         self.check_id(id);
         self.efuns.insert(id);
-        @FunEDecl(self.resolve(typ), id, self.resolve_pairs(args))
+        ~FunEDecl(self.resolve(typ), id, self.resolve_pairs(args))
       }
-      @FunIDecl(typ, id, ref args) => {
+      ~FunIDecl(typ, id, args) => {
         self.check_id(id);
-        @FunIDecl(self.resolve(typ), id, self.resolve_pairs(args))
+        ~FunIDecl(self.resolve(typ), id, self.resolve_pairs(args))
       }
-      @StructDecl(_) => g,
-      @Markedg(ref m) => {
-        m.data = self.err.with(m, |x| self.elaborate(x));
-        g
-      }
-      @Typedef(id, typ) => {
+      ~Markedg(mark) =>
+        ~Markedg(self.err.map_mark(mark, |g| self.elaborate(g))),
+      ~Typedef(id, typ) => {
         self.check_id(id);
-        check_set!(self.efuns, id, ~"function");
-        check_set!(self.efuns, id, ~"function");
-        check_set!(self.funs, id, ~"function");
+        check_set!(self.efuns, *id, ~"function");
+        check_set!(self.efuns, *id, ~"function");
+        check_set!(self.funs, *id, ~"function");
         let typ = self.resolve(typ);
         self.types.insert(id, typ);
-        g
+        /* TODO: shouldn't have to re-build the typedef here */
+        ~Typedef(id, typ)
       }
-      @StructDef(id, ref fields) => {
+      ~StructDef(id, fields) => {
         check_set!(self.structs, id, ~"struct");
         self.structs.insert(id);
-        @StructDef(id, self.resolve_pairs(fields))
+        ~StructDef(id, self.resolve_pairs(fields))
       }
-      @Function(ret, id, ref args, body) => {
+      ~Function(ret, id, args, body) => {
         self.check_id(id);
         check_set!(self.efuns, id, ~"function");
         check_set!(self.funs, id, ~"function");
         self.funs.insert(id);
-        @Function(self.resolve(ret), id, self.resolve_pairs(args),
+        ~Function(self.resolve(ret), id, self.resolve_pairs(args),
                   self.elaborate_stm(body))
       }
+      /* TODO: shouldn't have to rebuild the StructDecl */
+      ~StructDecl(id) => ~StructDecl(id),
     }
   }
 
-  fn elaborate_stm(&mut self, s: @Statement) -> @Statement {
+  fn elaborate_stm(&mut self, s: ~Statement) -> ~Statement {
     match s {
-      @Markeds(ref m) => {
-        m.data = self.err.with(m, |x| self.elaborate_stm(x));
-        s
-      },
-      @Continue | @Break | @Nop => s,
-      @Declare(id, typ, init, rest) => {
+      ~Markeds(mark) =>
+        ~Markeds(self.err.map_mark(mark, |s| self.elaborate_stm(s))),
+      /* TODO: shouldn't have to rebuild these structures */
+      ~Continue => ~Continue,
+      ~Break => ~Break,
+      ~Nop => ~Nop,
+      ~Declare(id, typ, init, rest) => {
         self.check_id(id);
-        @Declare(id, self.resolve(typ), init.map(|x| self.elaborate_exp(*x)),
+        ~Declare(id, self.resolve(typ),
+                 init.map_consume(|x| self.elaborate_exp(x)),
                  self.elaborate_stm(rest))
       },
-      @For(@Declare(id, typ, init, s1), e1, s2, s3) =>
-        self.elaborate_stm(@Declare(id, typ, init, @For(s1, e1, s2, s3))),
-      @For(@Markeds(ref m), e1, s2, s3) =>
-        self.elaborate_stm(@For(m.data, e1, s2, s3)),
-      @For(s1, e1, s2, s3) =>
-        @For(self.elaborate_stm(s1), self.elaborate_exp(e1),
+      ~For(~Declare(id, typ, init, s1), e1, s2, s3) =>
+        self.elaborate_stm(~Declare(id, typ, init, ~For(s1, e1, s2, s3))),
+      ~For(~Markeds(mark::Mark{data, _}), e1, s2, s3) =>
+        self.elaborate_stm(~For(data, e1, s2, s3)),
+      ~For(s1, e1, s2, s3) =>
+        ~For(self.elaborate_stm(s1), self.elaborate_exp(e1),
              self.elaborate_stm(s2), self.elaborate_stm(s3)),
-      @If(e, s1, s2) =>
-        @If(self.elaborate_exp(e), self.elaborate_stm(s1),
+      ~If(e, s1, s2) =>
+        ~If(self.elaborate_exp(e), self.elaborate_stm(s1),
             self.elaborate_stm(s2)),
-      @While(e, s) => @While(self.elaborate_exp(e), self.elaborate_stm(s)),
-      @Return(e) => @Return(self.elaborate_exp(e)),
-      @Express(e) => @Express(self.elaborate_exp(e)),
-      @Seq(s1, s2) => {
+      ~While(e, s) => ~While(self.elaborate_exp(e), self.elaborate_stm(s)),
+      ~Return(e) => ~Return(self.elaborate_exp(e)),
+      ~Express(e) => ~Express(self.elaborate_exp(e)),
+      ~Seq(s1, s2) => {
         match s1 {
-          @Declare(id, typ, init, s1) =>
-            self.elaborate_stm(@Declare(id, typ, init, @Seq(s1, s2))),
-          @Markeds(ref m) => {
-            m.data = @Seq(m.data, s2);
-            self.elaborate_stm(s1)
-          },
-          _ => @Seq(self.elaborate_stm(s1), self.elaborate_stm(s2)),
+          ~Declare(id, typ, init, s1) =>
+            self.elaborate_stm(~Declare(id, typ, init, ~Seq(s1, s2))),
+          ~Markeds(mark::Mark{data, pos}) =>
+            ~Markeds(mark::make(~Seq(self.elaborate_stm(data), s2), pos)),
+          s1 => ~Seq(self.elaborate_stm(s1), self.elaborate_stm(s2)),
         }
       },
-      @Assign(e1, o, e2) => {
+      ~Assign(e1, o, e2) => {
         match (e1, o) {
-          (@Marked(ref m), _) => self.elaborate_stm(@Assign(m.data, o, e2)),
-          (@Var(id), Some(o)) =>
-            self.elaborate_stm(@Assign(@Var(id), None, @BinaryOp(o, e1, e2))),
-          _ => @Assign(self.elaborate_exp(e1), o, self.elaborate_exp(e2))
+          (~Marked(mark::Mark{data, _}), _) =>
+            self.elaborate_stm(~Assign(data, o, e2)),
+          (~Var(id), Some(o)) =>
+            self.elaborate_stm(~Assign(~Var(id), None,
+                               ~BinaryOp(o, ~Var(id), e2))),
+          (e1, _) => ~Assign(self.elaborate_exp(e1), o, self.elaborate_exp(e2))
         }
       }
     }
   }
 
-  fn elaborate_exp(&mut self, e: @Expression) -> @Expression {
+  fn elaborate_exp(&mut self, e: ~Expression) -> ~Expression {
     match e {
-      @Marked(ref m) => {
-        m.data = self.err.with(m, |x| self.elaborate_exp(x));
-        e
-      },
-      @Var(_) | @Boolean(_) | @Const(_) | @Null => e,
-      @UnaryOp(o, e) =>
-        @UnaryOp(o, self.elaborate_exp(e)),
-      @BinaryOp(o, e1, e2) =>
-        @BinaryOp(o, self.elaborate_exp(e1), self.elaborate_exp(e2)),
-      @Ternary(e1, e2, e3, _) =>
-        @Ternary(self.elaborate_exp(e1), self.elaborate_exp(e2),
+      ~Marked(mark) =>
+        ~Marked(self.err.map_mark(mark, |e| self.elaborate_exp(e))),
+      /* TODO: shouldn't have to rebuild these structures */
+      ~Var(id) => ~Var(id),
+      ~Boolean(b) => ~Boolean(b),
+      ~Const(c) => ~Const(c),
+      ~Null => ~Null,
+      ~UnaryOp(o, e) =>
+        ~UnaryOp(o, self.elaborate_exp(e)),
+      ~BinaryOp(o, e1, e2) =>
+        ~BinaryOp(o, self.elaborate_exp(e1), self.elaborate_exp(e2)),
+      ~Ternary(e1, e2, e3, _) =>
+        ~Ternary(self.elaborate_exp(e1), self.elaborate_exp(e2),
                  self.elaborate_exp(e3), Ref()),
-      @Call(id, ref L, _) =>
-        @Call(id, L.map(|x| self.elaborate_exp(*x)), Ref()),
-      @Deref(e, _) => @Deref(self.elaborate_exp(e), Ref()),
-      @Field(e, id, _) => @Field(self.elaborate_exp(e), id, Ref()),
-      @ArrSub(e1, e2, _) =>
-        @ArrSub(self.elaborate_exp(e1), self.elaborate_exp(e2), Ref()),
-      @Alloc(t) => @Alloc(self.resolve(t)),
-      @AllocArray(t, e) => @AllocArray(self.resolve(t), self.elaborate_exp(e))
+      ~Call(id, L, _) =>
+        ~Call(id, vec::map_consume(L, |x| self.elaborate_exp(x)), Ref()),
+      ~Deref(e, _) => ~Deref(self.elaborate_exp(e), Ref()),
+      ~Field(e, id, _) => ~Field(self.elaborate_exp(e), id, Ref()),
+      ~ArrSub(e1, e2, _) =>
+        ~ArrSub(self.elaborate_exp(e1), self.elaborate_exp(e2), Ref()),
+      ~Alloc(t) => ~Alloc(self.resolve(t)),
+      ~AllocArray(t, e) => ~AllocArray(self.resolve(t), self.elaborate_exp(e))
     }
   }
 
@@ -268,20 +273,27 @@ impl Elaborator {
     }
   }
 
-  fn resolve_pairs(&mut self, pairs: &~[(Ident, @Type)]) -> ~[(Ident, @Type)] {
-    pairs.map(|&(id, typ)| (id, self.resolve(typ)))
+  fn resolve_pairs(&mut self, pairs: ~[(Ident, @Type)]) -> ~[(Ident, @Type)] {
+    vec::map_consume(pairs, |(id, typ)| (id, self.resolve(typ)))
   }
 }
 
 impl Expression {
   pure fn lvalue(&self) -> bool {
     match *self {
-      Var(_)          => true,
-      Field(e, _, _)  => e.lvalue(),
-      Deref(e, _)     => e.lvalue(),
-      ArrSub(e, _, _) => e.lvalue(),
-      Marked(ref m)   => m.data.lvalue(),
-      _               => false
+      Var(_)              => true,
+      Field(ref e, _, _)  => e.lvalue(),
+      Deref(ref e, _)     => e.lvalue(),
+      ArrSub(ref e, _, _) => e.lvalue(),
+      Marked(ref m)       => m.data.lvalue(),
+      _                   => false
+    }
+  }
+
+  fn unmark(~self) -> ~Expression {
+    match self {
+      ~Marked(mark::Mark{data, _}) => data,
+      self => self
     }
   }
 }

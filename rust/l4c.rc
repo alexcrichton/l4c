@@ -126,7 +126,7 @@ fn main() {
   let mut ast = do prof(m, "generating ast") {
     parse::from_json(&json, copy m.free[0])
   };
-  do prof(m, "elaborating") { ast.elaborate(); }
+  ast = ast.elaborate();
   if opt_present(m, "dump-ast") {
     io::println(ast.pp());
   }

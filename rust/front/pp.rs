@@ -58,23 +58,23 @@ impl Type: PrettyPrint {
 impl Expression: PrettyPrint {
   pure fn pp(&self) -> ~str {
     match *self {
-      Var(s)            => copy s.val,
-      Boolean(b)        => b.to_str(),
-      Const(i)          => i.to_str(),
-      UnaryOp(o, e)     => o.pp() + ~"(" + e.pp() + ~")",
-      Deref(e, _)       => ~"*(" + e.pp() + ~")",
-      Field(e, f, _)    => e.pp() + ~"." + f.val,
-      ArrSub(e1, e2, _) => e1.pp() + ~"[" + e2.pp() + ~"]",
-      Alloc(t)          => ~"alloc(" + t.pp() + ~")",
-      Null              => ~"NULL",
-      Marked(ref m)     => m.data.pp(),
-      AllocArray(t, e)  =>
+      Var(s)                    => copy s.val,
+      Boolean(b)                => b.to_str(),
+      Const(i)                  => i.to_str(),
+      UnaryOp(o, ref e)         => o.pp() + ~"(" + e.pp() + ~")",
+      Deref(ref e, _)           => ~"*(" + e.pp() + ~")",
+      Field(ref e, f, _)        => e.pp() + ~"." + f.val,
+      ArrSub(ref e1, ref e2, _) => e1.pp() + ~"[" + e2.pp() + ~"]",
+      Alloc(t)                  => ~"alloc(" + t.pp() + ~")",
+      Null                      => ~"NULL",
+      Marked(ref m)             => m.data.pp(),
+      AllocArray(t, ref e) =>
         ~"alloc_array(" + t.pp() + ~", " + e.pp() + ~")",
-      Call(e, ref E, _) =>
+      Call(ref e, ref E, _) =>
         e.pp() + ~"(" + str::connect(E.map(|e| e.pp()), ~", ") + ~")",
-      BinaryOp(o, e1, e2) =>
+      BinaryOp(o, ref e1, ref e2) =>
         ~"(" + e1.pp() + ~" " + o.pp() + ~" " + e2.pp() + ~")",
-      Ternary(e1, e2, e3, _) =>
+      Ternary(ref e1, ref e2, ref e3, _) =>
         ~"((" + e1.pp() + ~") ? (" + e2.pp() +
         ~"): (" + e3.pp() + ~"))"
     }
@@ -87,9 +87,9 @@ impl Statement: PrettyPrint {
       Continue => ~"continue",
       Break => ~"break",
       Nop => ~"",
-      Return(e) => ~"return " + e.pp(),
-      Express(e) => e.pp(),
-      Declare(v, t, init, s) =>
+      Return(ref e) => ~"return " + e.pp(),
+      Express(ref e) => e.pp(),
+      Declare(v, t, ref init, ref s) =>
         t.pp() + ~" " + v.val + pp_opt(init) + ~"\n" + tab(s.pp()),
       Markeds(ref m) => m.data.pp(),
       While(ref e, ref s) =>
@@ -104,15 +104,15 @@ impl Statement: PrettyPrint {
         e1.pp() +
         match *o { None => ~" = ", Some(o) => ~" " + o.pp() + ~"= " } +
         e2.pp(),
-      Seq(@Nop, ref s) | Seq(ref s, @Nop) => s.pp(),
+      Seq(~Nop, ref s) | Seq(ref s, ~Nop) => s.pp(),
       Seq(ref s1, ref s2) => s1.pp() + ~"\n" + s2.pp()
     }
   }
 }
 
-pure fn pp_opt(o: Option<@Expression>) -> ~str {
-  match o {
-    Some(e) => ~" = " + e.pp(),
+pure fn pp_opt(o: &Option<~Expression>) -> ~str {
+  match *o {
+    Some(ref e) => ~" = " + e.pp(),
     None => ~""
   }
 }
@@ -135,7 +135,7 @@ impl GDecl: PrettyPrint {
         ~"struct " + s.val + "{\n" + str::connect(L.map(ppair), "\n") + "\n}",
       FunIDecl(t, s, ref args) => pfun(t, s, args),
       FunEDecl(t, s, ref args) => ~"extern " + pfun(t, s, args),
-      Function(t, s, ref args, body) =>
+      Function(t, s, ref args, ref body) =>
         pfun(t, s, args) + ~" {\n" + tab(body.pp()) + ~"\n}"
     }
   }

@@ -1,7 +1,7 @@
 use core::util::{ignore, with, swap, replace};
 use core::hashmap::linear::LinearMap;
 
-use front::ast;
+use front::{ast, mark};
 use middle::{temp, ir, label};
 use utils::graph;
 
@@ -26,7 +26,7 @@ struct Translator {
   /* loop translation */
   break_to: graph::NodeId,
   continue_to: graph::NodeId,
-  for_step: @ast::Statement,
+  for_step: ~ast::Statement,
 
   /* different codegen flags */
   safe: bool,
@@ -37,12 +37,13 @@ pub fn translate(p: ast::Program, safe: bool) -> ir::Program {
   /* TODO: rename to 'info' once it's not a global log level */
   let mut pi = ProgramInfo { funs: LinearMap::new(), structs: LinearMap::new() };
   pi.build(&p);
+  let ast::Program{decls} = p;
 
   debug!("translating");
   let mut accum = ~[];
-  for p.decls.each |&d| {
+  do decls.consume |_, d| {
     match d.unmark() {
-      @ast::Function(_, id, ref args, body) => {
+      ~ast::Function(_, id, args, body) => {
         let mut f = ir::Function(copy id.val);
         f.root = f.cfg.new_id();
         {
@@ -56,7 +57,7 @@ pub fn translate(p: ast::Program, safe: bool) -> ir::Program {
             stms: ~[],
             break_to: 0,
             continue_to: 0,
-            for_step: @ast::Nop,
+            for_step: ~ast::Nop,
             safe: safe
           };
           trans.run(args, body);
@@ -91,15 +92,15 @@ pure fn typ_size(t: @ast::Type, structs: &AllStructInfo) -> uint {
 
 impl ProgramInfo {
   fn build(&mut self, p: &ast::Program) {
-    for p.decls.each |&d| {
-      self.build_gdecl(d)
+    for p.decls.each |d| {
+      self.build_gdecl(*d)
     }
   }
 
-  fn build_gdecl(&mut self, g: @ast::GDecl) {
-    match g {
-      @ast::Markedg(ref m) => self.build_gdecl(m.data),
-      @ast::StructDef(id, ref fields) => {
+  fn build_gdecl(&mut self, g: &ast::GDecl) {
+    match *g {
+      ast::Markedg(ref m) => self.build_gdecl(m.data),
+      ast::StructDef(id, ref fields) => {
         let mut table = LinearMap::new();
         let mut size = 0;
         for fields.each |&(id, t)| {
@@ -112,13 +113,13 @@ impl ProgramInfo {
         }
         self.structs.insert(id, (table, size));
       }
-      @ast::FunIDecl(_, id, _) => {
+      ast::FunIDecl(_, id, _) => {
         self.funs.insert(id, @ir::LabelExp(label::Internal(copy id.val)));
       }
-      @ast::FunEDecl(_, id, _) => {
+      ast::FunEDecl(_, id, _) => {
         self.funs.insert(id, @ir::LabelExp(label::External(copy id.val)));
       }
-      @ast::Function(_, id, _, _) => {
+      ast::Function(_, id, _, _) => {
         if !self.funs.contains_key(&id) {
           self.funs.insert(id, @ir::LabelExp(label::Internal(copy id.val)));
         }
@@ -129,14 +130,14 @@ impl ProgramInfo {
 }
 
 impl Translator {
-  fn run(&mut self, args: &~[(ast::Ident, @ast::Type)], body: @ast::Statement) {
+  fn run(&mut self, args: ~[(ast::Ident, @ast::Type)], body: ~ast::Statement) {
     /* TODO: why can't this be above */
     self.arguments(args);
     self.stm(body);
   }
 
-  fn arguments(&mut self, args: &~[(ast::Ident, @ast::Type)]) {
-    let args = args.map(|&(id, t)| {
+  fn arguments(&mut self, args: ~[(ast::Ident, @ast::Type)]) {
+    let args = vec::map_consume(args, |(id, t)| {
       let tmp = self.tmp(typ(t));
       self.vars.insert(id, tmp);
       tmp
@@ -144,42 +145,44 @@ impl Translator {
     self.stms.push(@ir::Arguments(args));
   }
 
-  fn stm(&mut self, s: @ast::Statement) {
+  fn stm(&mut self, s: ~ast::Statement) {
     match s {
-      @ast::Nop => (),
-      @ast::Markeds(ref m) => self.stm(m.data),
-      @ast::Seq(s1, s2) => {
+      ~ast::Nop => (),
+      ~ast::Markeds(m) => self.stm(m.unwrap()),
+      ~ast::Seq(s1, s2) => {
         self.stm(s1);
         self.stm(s2);
       }
-      @ast::Continue => {
-        self.stm(self.for_step);
+      ~ast::Continue => {
+        /* TODO: can this copy be avoided? */
+        self.stm(copy self.for_step);
         self.f.cfg.add_edge(self.commit(), self.continue_to, ir::Branch);
       }
-      @ast::Break => {
+      ~ast::Break => {
         self.f.cfg.add_edge(self.commit(), self.break_to, ir::LoopOut);
       }
-      @ast::Return(e) => {
+      ~ast::Return(e) => {
         self.stms.push(@ir::Return(self.exp(e, false)));
         self.commit();
       }
-      @ast::Express(e) => {
+      ~ast::Express(e) => {
         let e = self.exp(e, false);
         let size = self.f.size(e);
         self.stms.push(@ir::Move(self.tmp(size), e));
       }
-      @ast::For(init, cond, step, body) => {
+      ~ast::For(init, cond, step, body) => {
         self.stm(init);
-        do with(&mut self.for_step, step) {
-          self.trans_loop(cond, @ast::Seq(body, step));
-        }
+        /* TODO: can this copy be avoided? */
+        let prevstep = replace(&mut self.for_step, copy step);
+        self.trans_loop(cond, ~ast::Seq(body, step));
+        self.for_step = prevstep;
       }
-      @ast::While(cond, body) => {
-        do with(&mut self.for_step, @ast::Nop) {
-          self.trans_loop(cond, body);
-        }
+      ~ast::While(cond, body) => {
+        let prevstep = replace(&mut self.for_step, ~ast::Nop);
+        self.trans_loop(cond, body);
+        self.for_step = prevstep;
       }
-      @ast::If(cond, t, f) => {
+      ~ast::If(cond, t, f) => {
         let true_id = self.f.cfg.new_id();
         let false_id = self.f.cfg.new_id();
         self.condition(cond, true_id, ir::True, false_id, ir::False, true_id);
@@ -192,7 +195,7 @@ impl Translator {
         self.f.cfg.add_edge(true_end, self.cur_id, ir::Branch);
         self.f.cfg.add_edge(false_end, self.cur_id, ir::Always);
       }
-      @ast::Declare(id, t, exp, s) => {
+      ~ast::Declare(id, t, exp, s) => {
         let tmp = self.tmp(typ(t));
         match exp {
           None => (),
@@ -204,12 +207,13 @@ impl Translator {
         self.stm(s);
         self.vars.remove(&id);
       }
-      @ast::Assign(e1, op, e2) => {
-        let (ismem, leftsize) = match self.unmark(e1) {
-          @ast::Var(_) => (false, ir::Int), /* size doesn't matter */
-          @ast::Deref(_, ref t) | @ast::ArrSub(_, _, ref t) =>
+      ~ast::Assign(e1, op, e2) => {
+        let e1 = e1.unmark();
+        let (ismem, leftsize) = match e1 {
+          ~ast::Var(_) => (false, ir::Int), /* size doesn't matter */
+          ~ast::Deref(_, ref t) | ~ast::ArrSub(_, _, ref t) =>
             (true, typ(t.get())),
-          @ast::Field(_, ref f, ref s) => {
+          ~ast::Field(_, ref f, ref s) => {
             /* TODO(#4653): make this actually sane */
             /*let &(ref fields, _) = self.t.structs.get(&s.get());*/
             let sinfo = self.t.structs.get(&s.get());
@@ -241,14 +245,7 @@ impl Translator {
     }
   }
 
-  pure fn unmark(&self, e: @ast::Expression) -> @ast::Expression {
-    match e {
-      @ast::Marked(ref m) => self.unmark(m.data),
-      _ => e
-    }
-  }
-
-  fn trans_loop(&mut self, cond: @ast::Expression, body: @ast::Statement) {
+  fn trans_loop(&mut self, cond: ~ast::Expression, body: ~ast::Statement) {
     let pred = self.commit();
     let condid = self.cur_id;
     let bodyid = self.f.cfg.new_id();
@@ -256,33 +253,36 @@ impl Translator {
     self.f.cfg.add_edge(pred, condid, ir::Always);
     self.condition(cond, bodyid, ir::True, afterid, ir::FLoopOut, bodyid);
 
-    do with(&mut self.continue_to, condid) {
-      do with(&mut self.break_to, afterid) {
-        self.stm(body);
-      }
+    {
+      let prevcont = replace(&mut self.continue_to, condid);
+      let prevbreak = replace(&mut self.break_to, afterid);
+      self.stm(body);
+      self.continue_to = prevcont;
+      self.break_to = prevbreak;
     }
+
     let bodyend = self.commit_with(afterid);
     self.f.cfg.add_edge(bodyend, condid, ir::Always);
     self.f.loops.insert(condid, (bodyid, afterid));
   }
 
-  fn condition(&mut self, e: @ast::Expression, tid: graph::NodeId,
+  fn condition(&mut self, e: ~ast::Expression, tid: graph::NodeId,
                tedge: ir::Edge, fid: graph::NodeId, fedge: ir::Edge,
                into: graph::NodeId) {
     match e {
-      @ast::Marked(ref m) =>
-        self.condition(m.data, tid, tedge, fid, fedge, into),
-      @ast::BinaryOp(ast::LOr, e1, e2) => {
+      ~ast::Marked(mark::Mark{data, _}) =>
+        self.condition(data, tid, tedge, fid, fedge, into),
+      ~ast::BinaryOp(ast::LOr, e1, e2) => {
         let next = self.f.cfg.new_id();
         self.condition(e1, tid, ir::TBranch, next, ir::False, next);
         self.condition(e2, tid, tedge, fid, fedge, into);
       }
-      @ast::BinaryOp(ast::LAnd, e1, e2) => {
+      ~ast::BinaryOp(ast::LAnd, e1, e2) => {
         let next = self.f.cfg.new_id();
         self.condition(e1, next, ir::True, fid, ir::FBranch, next);
         self.condition(e2, tid, tedge, fid, fedge, into);
       }
-      _ => {
+      e => {
         self.stms.push(@ir::Condition(self.exp(e, false)));
         let id = self.commit_with(into);
         self.f.cfg.add_edge(id, tid, tedge);
@@ -291,32 +291,32 @@ impl Translator {
     }
   }
 
-  fn exp(&mut self, e: @ast::Expression, addr: bool) -> @ir::Expression {
+  fn exp(&mut self, e: ~ast::Expression, addr: bool) -> @ir::Expression {
     match e {
-      @ast::Marked(ref m) => self.exp(m.data, addr),
-      @ast::Boolean(b) => self.consti(if b { 1 } else { 0 }),
-      @ast::Const(c) => self.consti(c),
-      @ast::Var(ref id) => match self.vars.find(id) {
+      ~ast::Marked(mark::Mark{data, _}) => self.exp(data, addr),
+      ~ast::Boolean(b) => self.consti(if b { 1 } else { 0 }),
+      ~ast::Const(c) => self.consti(c),
+      ~ast::Var(ref id) => match self.vars.find(id) {
         Some(&t) => @ir::Temp(t),
         None    => *self.t.funs.get(id)
       },
-      @ast::Null => self.constp(0),
+      ~ast::Null => self.constp(0),
 
       /* All unary ops can be expressed as binary ops */
-      @ast::UnaryOp(ast::Negative, e) =>
+      ~ast::UnaryOp(ast::Negative, e) =>
         @ir::BinaryOp(ir::Sub, self.consti(0), self.exp(e, addr)),
-      @ast::UnaryOp(ast::Invert, e) =>
+      ~ast::UnaryOp(ast::Invert, e) =>
         @ir::BinaryOp(ir::Xor, self.consti(-1), self.exp(e, addr)),
-      @ast::UnaryOp(ast::Bang, e) =>
+      ~ast::UnaryOp(ast::Bang, e) =>
         @ir::BinaryOp(ir::Xor, self.consti(1), self.exp(e, addr)),
 
       /* Take care of logical binops as ternaries */
-      @ast::BinaryOp(ast::LOr, e1, e2) =>
-        self.tern(e1, @ast::Boolean(true), e2, ir::Int, false),
-      @ast::BinaryOp(ast::LAnd, e1, e2) =>
-        self.tern(e1, e2, @ast::Boolean(false), ir::Int, false),
+      ~ast::BinaryOp(ast::LOr, e1, e2) =>
+        self.tern(e1, ~ast::Boolean(true), e2, ir::Int, false),
+      ~ast::BinaryOp(ast::LAnd, e1, e2) =>
+        self.tern(e1, e2, ~ast::Boolean(false), ir::Int, false),
 
-      @ast::BinaryOp(op, e1, e2) => {
+      ~ast::BinaryOp(op, e1, e2) => {
         let v1 = self.exp(e1, addr);
         let v2 = self.exp(e2, addr);
         let op = self.oper(op);
@@ -332,25 +332,25 @@ impl Translator {
         }
       }
 
-      @ast::Ternary(e1, e2, e3, ref t) =>
+      ~ast::Ternary(e1, e2, e3, t) =>
         self.tern(e1, e2, e3, typ(t.get()), addr),
 
-      @ast::Call(e, ref args, ref t) => {
+      ~ast::Call(e, args, t) => {
         let ret = t.get();
         let fun = self.exp(e, false);
-        let args = args.map(|&e| self.exp(e, false));
+        let args = vec::map_consume(args, |e| self.exp(e, false));
         let typ = typ(ret);
         let tmp = self.tmp(typ);
         self.stms.push(@ir::Call(tmp, fun, args));
         @ir::Temp(tmp)
       }
 
-      @ast::Alloc(t) =>
+      ~ast::Alloc(t) =>
         self.alloc(t, self.consti(1), ~"salloc"),
-      @ast::AllocArray(t, e) =>
+      ~ast::AllocArray(t, e) =>
         self.alloc(t, self.exp(e, false), ~"salloc_array"),
 
-      @ast::ArrSub(arr, idx, ref t) => {
+      ~ast::ArrSub(arr, idx, t) => {
         let base = self.exp(arr, false);
         let idx = self.exp(idx, false);
         let idxt = self.tmp(ir::Int);
@@ -371,13 +371,13 @@ impl Translator {
         @ir::Temp(dest)
       }
 
-      @ast::Field(e, ref id, ref s) => {
+      ~ast::Field(e, id, s) => {
         let base = self.exp(e, true);
         /* TODO(#4653): make this actually sane */
         /*let &(ref fields, _) = self.t.structs.get(&s.get());*/
         let sinfo = self.t.structs.get(&s.get());
         let fields = match *sinfo { (ref fields, _) => fields };
-        let &(typ, size) = fields.get(id);
+        let &(typ, size) = fields.get(&id);
         let address = @ir::BinaryOp(ir::Add, base, self.constp(size as i32));
         self.check_null(address);
         if addr {
@@ -388,7 +388,7 @@ impl Translator {
         @ir::Temp(dest)
       }
 
-      @ast::Deref(e, ref t) => {
+      ~ast::Deref(e, t) => {
         let address = self.exp(e, false);
         self.check_null(address);
         if addr {
@@ -424,8 +424,8 @@ impl Translator {
    *
    * This returns the temp which holds the result of the ternary statement.
    */
-  fn tern(&mut self, cond: @ast::Expression, t: @ast::Expression,
-          f: @ast::Expression, size: ir::Type, addr: bool) -> @ir::Expression {
+  fn tern(&mut self, cond: ~ast::Expression, t: ~ast::Expression,
+          f: ~ast::Expression, size: ir::Type, addr: bool) -> @ir::Expression {
     let dst = self.tmp(size);
     let end = self.f.cfg.new_id();
     self.dotern(cond, t, f, dst, addr,
@@ -448,8 +448,8 @@ impl Translator {
    *                       types of edges that should be used to go from the
    *                       true branch and false branch to the end
    */
-  fn dotern(&mut self, c: @ast::Expression,
-            t: @ast::Expression, f: @ast::Expression,
+  fn dotern(&mut self, c: ~ast::Expression,
+            t: ~ast::Expression, f: ~ast::Expression,
             dst: temp::Temp, addr: bool,
             (end, endt, endf): (graph::NodeId, ir::Edge, ir::Edge)) {
     /* Translate the conditional, terminating the basic block */
@@ -459,24 +459,24 @@ impl Translator {
 
     macro_rules! process(
       ($e:expr, $typ:expr) => (
-        match self.unmark($e) {
+        match $e.unmark() {
           /* Some cases don't necessarily always need a 'join' node */
-          @ast::Ternary(e1, e2, e3, _) => {
+          ~ast::Ternary(e1, e2, e3, _) => {
             self.dotern(e1, e2, e3, dst, addr,
                         (end, ir::Branch, $typ));
           }
-          @ast::BinaryOp(ast::LOr, e1, e2) => {
-            self.dotern(e1, @ast::Boolean(true), e2, dst, addr,
+          ~ast::BinaryOp(ast::LOr, e1, e2) => {
+            self.dotern(e1, ~ast::Boolean(true), e2, dst, addr,
                         (end, ir::Branch, $typ));
           }
-          @ast::BinaryOp(ast::LAnd, e1, e2) => {
-            self.dotern(e1, e2, @ast::Boolean(false), dst, addr,
+          ~ast::BinaryOp(ast::LAnd, e1, e2) => {
+            self.dotern(e1, e2, ~ast::Boolean(false), dst, addr,
                         (end, ir::Branch, $typ));
           }
 
           /* Otherwise, we have to finish things up */
-          _ => {
-            self.stms.push(@ir::Move(dst, self.exp($e, addr)));
+          e => {
+            self.stms.push(@ir::Move(dst, self.exp(e, addr)));
             self.f.cfg.add_edge(self.cur_id, end, $typ);
           }
         }

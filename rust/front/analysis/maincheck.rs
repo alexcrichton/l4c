@@ -19,10 +19,10 @@ impl MainChecker {
     }
   }
 
-  fn ismain(&mut self, g: @GDecl) -> bool {
-    match g {
-      @Markedg(ref m) => self.ismain(m.data),
-      @Function(ret, id, ref args, _) => {
+  fn ismain(&mut self, g: &GDecl) -> bool {
+    match *g {
+      Markedg(ref m) => self.ismain(m.data),
+      Function(ret, id, ref args, _) => {
         if id.val == ~"main" {
           if ret != @Int {
             self.err.add(fmt!("main should return int, not %s", ret.pp()));

@@ -32,146 +32,146 @@ impl Typechecker {
     }
   }
 
-  fn tc_gdecl(&mut self, g: @GDecl) {
-    match g {
-      @Markedg(ref m) => self.err.with(m, |x| self.tc_gdecl(x)),
-      @Typedef(_, _) => (),
-      @StructDecl(id) => {
+  fn tc_gdecl(&mut self, g: &GDecl) {
+    match *g {
+      Markedg(ref m) => self.err.with(m, |x| self.tc_gdecl(x)),
+      Typedef(_, _) => (),
+      StructDecl(id) => {
         if !self.structs.contains_key(&id) {
           self.structs.insert(id, None);
         }
       }
-      @StructDef(id, ref fields) => self.bind_struct(id, fields),
-      @FunIDecl(ret, id, ref args) => { self.bind_fun(id, ret, args); },
-      @FunEDecl(ret, id, ref args) => { self.bind_fun(id, ret, args); },
-      @Function(ret, id, ref args, body) => {
+      StructDef(id, ref fields) => self.bind_struct(id, fields),
+      FunIDecl(ret, id, ref args) => { self.bind_fun(id, ret, args); },
+      FunEDecl(ret, id, ref args) => { self.bind_fun(id, ret, args); },
+      Function(ret, id, ref args, ref body) => {
         if self.bind_fun(id, ret, args) {
           self.vars.clear();
           for args.each |&(id, typ)| {
             self.vars.insert(id, typ);
           }
           self.ret = ret;
-          self.tc_stm(body);
+          self.tc_stm(*body);
         }
       }
     }
   }
 
-  fn tc_stm(&mut self, s: @Statement) {
-    match s {
-      @Markeds(ref m) => self.err.with(m, |x| self.tc_stm(x)),
-      @Continue | @Break => {
+  fn tc_stm(&mut self, s: &Statement) {
+    match *s {
+      Markeds(ref m) => self.err.with(m, |x| self.tc_stm(x)),
+      Continue | Break => {
         if self.loops == 0 {
           self.err.add(fmt!("'%s' outside of loops isn't allowed", s.pp()));
         }
       },
-      @Nop => (),
-      @Seq(s1, s2) => { self.tc_stm(s1); self.tc_stm(s2) },
-      @Express(e) => { self.tc_exp(e); },
-      @Return(e) => self.tc_ensure(e, self.ret),
-      @While(e, s) => {
-        self.tc_ensure(e, @Bool);
+      Nop => (),
+      Seq(ref s1, ref s2) => { self.tc_stm(*s1); self.tc_stm(*s2) },
+      Express(ref e) => { self.tc_exp(*e); },
+      Return(ref e) => self.tc_ensure(*e, self.ret),
+      While(ref e, ref s) => {
+        self.tc_ensure(*e, @Bool);
         do with(&mut self.loops, self.loops + 1) {
-          self.tc_stm(s);
+          self.tc_stm(*s);
         }
       },
-      @If(e, s1, s2) => {
-        self.tc_ensure(e, @Bool);
-        self.tc_stm(s1);
-        self.tc_stm(s2);
+      If(ref e, ref s1, ref s2) => {
+        self.tc_ensure(*e, @Bool);
+        self.tc_stm(*s1);
+        self.tc_stm(*s2);
       },
-      @For(s1, e, s2, s3) => {
-        self.tc_ensure(e, @Bool);
-        self.tc_stm(s1);
+      For(ref s1, ref e, ref s2, ref s3) => {
+        self.tc_ensure(*e, @Bool);
+        self.tc_stm(*s1);
         do with(&mut self.loops, self.loops + 1) {
-          self.tc_stm(s2);
-          self.tc_stm(s3);
+          self.tc_stm(*s2);
+          self.tc_stm(*s3);
         }
       },
-      @Assign(e1, _, e2) => {
-        let t1 = self.tc_exp(e1);
+      Assign(ref e1, _, ref e2) => {
+        let t1 = self.tc_exp(*e1);
         if !e1.lvalue() {
           self.err.add(~"not an lvalue");
         } else if self.tc_small(t1) {
-          self.tc_ensure(e2, t1);
+          self.tc_ensure(*e2, t1);
         }
       },
-      @Declare(id, typ, init, stm) => {
+      Declare(id, typ, ref init, ref stm) => {
         self.tc_small(typ);
         init.iter(|x| self.tc_ensure(*x, typ));
         if self.vars.contains_key(&id) {
           self.err.add(fmt!("Redeclared var '%s'", id.val));
         } else {
           self.vars.insert(id, typ);
-          self.tc_stm(stm);
+          self.tc_stm(*stm);
           self.vars.remove(&id);
         }
       }
     }
   }
 
-  fn tc_exp(&mut self, e: @Expression) -> @Type {
-    match e {
-      @Marked(ref m) => self.err.with(m, |x| self.tc_exp(x)),
-      @Const(_) => @Int,
-      @Boolean(_) => @Bool,
-      @Null => @Nullp,
-      @Var(id) => match self.vars.find(&id) {
+  fn tc_exp(&mut self, e: &Expression) -> @Type {
+    match *e {
+      Marked(ref m) => self.err.with(m, |x| self.tc_exp(x)),
+      Const(_) => @Int,
+      Boolean(_) => @Bool,
+      Null => @Nullp,
+      Var(id) => match self.vars.find(&id) {
         Some(&t) => t,
         None => match self.funs.find(&id) {
           Some(&(ret, args)) => @Pointer(@Fun(ret, args)),
           None => self.err.die(fmt!("Unknown variable '%s'", id.val))
         }
       },
-      @Alloc(t) => { self.tc_defined(t); @Pointer(t) },
-      @AllocArray(t, e) => {
+      Alloc(t) => { self.tc_defined(t); @Pointer(t) },
+      AllocArray(t, ref e) => {
         self.tc_defined(t);
-        self.tc_ensure(e, @Int);
+        self.tc_ensure(*e, @Int);
         @Array(t)
       },
-      @BinaryOp(op, e1, e2) => match op {
+      BinaryOp(op, ref e1, ref e2) => match op {
         Less | LessEq | Greater | GreaterEq => {
-          self.tc_ensure(e1, @Int);
-          self.tc_ensure(e2, @Int);
+          self.tc_ensure(*e1, @Int);
+          self.tc_ensure(*e2, @Int);
           @Bool
         },
         Equals | NEquals => {
-          let t1 = self.tc_exp(e1);
+          let t1 = self.tc_exp(*e1);
           self.tc_small(t1);
-          self.tc_ensure(e2, t1);
+          self.tc_ensure(*e2, t1);
           @Bool
         },
         LAnd | LOr => {
-          self.tc_ensure(e1, @Bool);
-          self.tc_ensure(e2, @Bool);
+          self.tc_ensure(*e1, @Bool);
+          self.tc_ensure(*e2, @Bool);
           @Bool
         },
         _ => {
-          self.tc_ensure(e1, @Int);
-          self.tc_ensure(e2, @Int);
+          self.tc_ensure(*e1, @Int);
+          self.tc_ensure(*e2, @Int);
           @Int
         }
       },
-      @UnaryOp(op, e) => match op {
-        Bang => { self.tc_ensure(e, @Bool); @Bool },
-        _    => { self.tc_ensure(e, @Int); @Int }
+      UnaryOp(op, ref e) => match op {
+        Bang => { self.tc_ensure(*e, @Bool); @Bool },
+        _    => { self.tc_ensure(*e, @Int); @Int }
       },
-      @Ternary(e1, e2, e3, ref r) => {
-        self.tc_ensure(e1, @Bool);
-        let t = self.tc_exp(e2);
-        self.tc_ensure(e3, t);
+      Ternary(ref e1, ref e2, ref e3, ref r) => {
+        self.tc_ensure(*e1, @Bool);
+        let t = self.tc_exp(*e2);
+        self.tc_ensure(*e3, t);
         r.set(t);
         t
       },
-      @Deref(e, ref r) => match self.tc_exp(e) {
+      Deref(ref e, ref r) => match self.tc_exp(*e) {
         @Pointer(t) => { r.set(t); t },
         _ => self.err.die(~"must be a pointer type")
       },
-      @ArrSub(e1, e2, ref r) => match self.tc_exp(e1) {
-        @Array(t) => { self.tc_ensure(e2, @Int); r.set(t); t },
+      ArrSub(ref e1, ref e2, ref r) => match self.tc_exp(*e1) {
+        @Array(t) => { self.tc_ensure(*e2, @Int); r.set(t); t },
         _ => self.err.die(~"must be an array type")
       },
-      @Call(e, ref args, ref r) => match self.tc_exp(e) {
+      Call(ref e, ref args, ref r) => match self.tc_exp(*e) {
         @Pointer(@Fun(ret, argtyps)) => {
           if argtyps.len() != args.len() {
             self.err.add(~"mismatched number of arguments");
@@ -185,8 +185,8 @@ impl Typechecker {
         },
         _ => self.err.die(~"expected a pointer to a function type")
       },
-      @Field(e, id, ref r) => {
-        let err = match self.tc_exp(e) {
+      Field(ref e, id, ref r) => {
+        let err = match self.tc_exp(*e) {
           @Struct(s) => {
             r.set(s);
             match self.structs.find(&s) {
@@ -266,7 +266,7 @@ impl Typechecker {
     prev == self.err.size()
   }
 
-  fn tc_ensure(&mut self, e: @Expression, t: @Type) {
+  fn tc_ensure(&mut self, e: &Expression, t: @Type) {
     self.tc_equal(t, self.tc_exp(e));
   }
 
