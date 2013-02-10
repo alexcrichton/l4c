@@ -205,7 +205,8 @@ impl Elaborator {
           ~Declare(id, typ, init, s1) =>
             self.elaborate_stm(~Declare(id, typ, init, ~Seq(s1, s2))),
           ~Markeds(mark::Mark{data, pos}) =>
-            ~Markeds(mark::make(~Seq(self.elaborate_stm(data), s2), pos)),
+            ~Markeds(mark::Mark{data: self.elaborate_stm(~Seq(data, s2)),
+                                pos: pos}),
           s1 => ~Seq(self.elaborate_stm(s1), self.elaborate_stm(s2)),
         }
       },
