@@ -87,7 +87,7 @@ struct Coalescer {
    * and associated components, and because interference information is very
    * costly to generate, there are a number of caches which store the results of
    * this computation to facilitate usage later on */
-  interference_cache: LinearMap<Temp, TempSet>,
+  interference_cache: LinearMap<Temp, ~TempSet>,
   interferences_cache: LinearMap<(Temp, Temp), bool>,
   admissible_cache: LinearMap<(Temp, uint), bool>,
   dominates_cache: LinearMap<(NodeId, NodeId), bool>,
@@ -724,7 +724,7 @@ impl Coalescer {
         self.find_interferences(t, block, &mut bitv, &mut visited);
       }
     }
-    let mut set = LinearSet::new();
+    let mut set = ~LinearSet::new();
     for bitv.ones |x| {
       if x != t {
         set.insert(x);
