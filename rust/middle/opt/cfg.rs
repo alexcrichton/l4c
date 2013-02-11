@@ -10,9 +10,11 @@ use utils::graph::{NodeId, NodeSet};
 
 pub fn simplify(p: &mut ir::Program) {
   fn resolve(map: &LinearMap<NodeId, NodeId>, mut id: NodeId) -> NodeId {
+    let orig = id;
     while map.contains_key(&id) {
       id = *map.get(&id);
     }
+    debug!("resolved %? to %?", orig, id);
     return id;
   }
 
@@ -32,16 +34,14 @@ pub fn simplify(p: &mut ir::Program) {
        maintains information about what's a loop header and where its loop body
        and ending node both start. */
     let mut changes = changes;
-    for changes.each |&(from, &to)| {
-      match f.loops.pop(from) {
-        None => (),
-        Some((body, end)) => {
-          let to = resolve(&changes, to);
-          if f.cfg.num_pred(to) > 1 {
-            f.loops.insert(to, (resolve(&changes, body),
-                                resolve(&changes, end)));
-          }
-        }
+    let mut loops = LinearMap::new();
+    loops <-> f.loops;
+    do loops.consume |cond, (body, end)| {
+      let cond = resolve(&changes, cond);
+      let body = resolve(&changes, body);
+      let end  = resolve(&changes, end);
+      if f.cfg.contains(cond) && f.cfg.contains(body) {
+        f.loops.insert(cond, (body, end));
       }
     }
     f.root = newroot;
@@ -140,6 +140,7 @@ pub fn merge<T>(cfg: &mut CFG<T>,
     }
     /* Try to merge n's predecessor into it */
     if preds == 1 && cfg.num_succ(pred) == 1 {
+      debug!("merging %? down into %?", pred, n);
       /* Add all of pred's incoming edges as incoming edges to n */
       for cfg.each_pred_edge(pred) |pred, &edge| {
         cfg.add_edge(pred, n, edge);
@@ -192,7 +193,11 @@ fn eliminate_dead(cfg: &mut ir::CFG) {
         ir::FBranch | ir::FLoopOut if c == 0 => ir::Branch,
         ir::True if c != 0 => ir::Always,
         ir::TBranch if c != 0 => ir::Branch,
-        _ => { cfg.remove_edge(node, succ); loop; }
+        _ => {
+          debug!("removing edge %? %?", node, succ);
+          cfg.remove_edge(node, succ);
+          loop;
+        }
       };
       cfg.add_edge(node, succ, to_update);
     }
