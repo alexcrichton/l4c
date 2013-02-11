@@ -43,7 +43,7 @@ pub fn translate(p: ast::Program, safe: bool) -> ir::Program {
   let mut accum = ~[];
   /* TODO(#4878): 'decls.consume' causes segfault */
   do vec::consume(decls) |_, d| {
-    match d.unmark() {
+    match ast::unmarkg(d) {
       ~ast::Function(_, id, args, body) => {
         let mut f = ir::Function(copy id.val);
         f.root = f.cfg.new_id();
@@ -209,7 +209,7 @@ impl Translator {
         self.vars.remove(&id);
       }
       ~ast::Assign(e1, op, e2) => {
-        let e1 = e1.unmark();
+        let e1 = ast::unmarke(e1);
         let (ismem, leftsize) = match e1 {
           ~ast::Var(_) => (false, ir::Int), /* size doesn't matter */
           ~ast::Deref(_, ref t) | ~ast::ArrSub(_, _, ref t) =>
@@ -459,8 +459,10 @@ impl Translator {
     self.stms.push(@ir::Condition(self.exp(c, false)));
 
     macro_rules! process(
-      ($e:expr, $typ:expr) => (
-        match $e.unmark() {
+      ($e:expr, $typ:expr) => ({
+        /* TODO(#4541): putting this in the match causes a double-free */
+        let foo = ast::unmarke($e);
+        match foo {
           /* Some cases don't necessarily always need a 'join' node */
           ~ast::Ternary(e1, e2, e3, _) => {
             self.dotern(e1, e2, e3, dst, addr,
@@ -481,7 +483,7 @@ impl Translator {
             self.f.cfg.add_edge(self.cur_id, end, $typ);
           }
         }
-      )
+      })
     );
 
     /* translate each true/false branch */

@@ -114,12 +114,20 @@ impl Program: PrettyPrint {
   }
 }
 
-impl GDecl {
-  fn unmark(~self) -> ~GDecl {
-    match self {
-      ~Markedg(mark::Mark{data, _}) => data,
-      g => g
-    }
+/* TODO(#4355): this used to cause a segfault */
+/*impl GDecl {*/
+/*  fn unmark(~self) -> ~GDecl {*/
+/*    match self {*/
+/*      ~Markedg(mark::Mark{data, _}) => data,*/
+/*      g => g*/
+/*    }*/
+/*  }*/
+/*}*/
+
+pub fn unmarkg(g: ~GDecl) -> ~GDecl {
+  match g {
+    ~Markedg(mark::Mark{data, _}) => data,
+    g => g
   }
 }
 
@@ -291,11 +299,19 @@ impl Expression {
     }
   }
 
-  fn unmark(~self) -> ~Expression {
-    match self {
-      ~Marked(mark::Mark{data, _}) => data,
-      self => self
-    }
+  /* TODO(#4355): this used to cause a segfault */
+  /*fn unmark(~self) -> ~Expression {*/
+  /*  match self {*/
+  /*    ~Marked(mark::Mark{data, _}) => data,*/
+  /*    self => self*/
+  /*  }*/
+  /*}*/
+}
+
+pub fn unmarke(e: ~Expression) -> ~Expression {
+  match e {
+    ~Marked(mark::Mark{data, _}) => data,
+    e => e
   }
 }
 
