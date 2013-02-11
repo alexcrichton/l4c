@@ -176,8 +176,8 @@ impl Typechecker {
           if argtyps.len() != args.len() {
             self.err.add(~"mismatched number of arguments");
           } else {
-            for vec::each2(*args, *argtyps) |&e, &t2| {
-              self.tc_ensure(e, t2);
+            for vec::each2(*args, *argtyps) |e, &t2| {
+              self.tc_ensure(*e, t2);
             }
           }
           r.set(ret);
