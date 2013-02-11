@@ -41,7 +41,8 @@ pub fn translate(p: ast::Program, safe: bool) -> ir::Program {
 
   debug!("translating");
   let mut accum = ~[];
-  do decls.consume |_, d| {
+  /* TODO(#4878): 'decls.consume' causes segfault */
+  do vec::consume(decls) |_, d| {
     match d.unmark() {
       ~ast::Function(_, id, args, body) => {
         let mut f = ir::Function(copy id.val);
