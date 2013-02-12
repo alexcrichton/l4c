@@ -9,7 +9,7 @@ type StructInfo = LinearMap<ast::Ident, (ir::Type, uint)>;
 type AllStructInfo = LinearMap<ast::Ident, (StructInfo, uint)>;
 
 struct ProgramInfo {
-  funs: LinearMap<ast::Ident, @ir::Expression>,
+  funs: LinearMap<ast::Ident, ~ir::Expression>,
   structs: AllStructInfo,
 }
 
@@ -21,7 +21,7 @@ struct Translator {
 
   /* cfg creation */
   cur_id: graph::NodeId,
-  stms: ~[@ir::Statement],
+  stms: ~[~ir::Statement],
 
   /* loop translation */
   break_to: graph::NodeId,
@@ -115,14 +115,14 @@ impl ProgramInfo {
         self.structs.insert(id, (table, size));
       }
       ast::FunIDecl(_, id, _) => {
-        self.funs.insert(id, @ir::LabelExp(label::Internal(copy id.val)));
+        self.funs.insert(id, ~ir::LabelExp(label::Internal(copy id.val)));
       }
       ast::FunEDecl(_, id, _) => {
-        self.funs.insert(id, @ir::LabelExp(label::External(copy id.val)));
+        self.funs.insert(id, ~ir::LabelExp(label::External(copy id.val)));
       }
       ast::Function(_, id, _, _) => {
         if !self.funs.contains_key(&id) {
-          self.funs.insert(id, @ir::LabelExp(label::Internal(copy id.val)));
+          self.funs.insert(id, ~ir::LabelExp(label::Internal(copy id.val)));
         }
       }
       _ => ()
@@ -143,7 +143,7 @@ impl Translator {
       self.vars.insert(id, tmp);
       tmp
     });
-    self.stms.push(@ir::Arguments(args));
+    self.stms.push(~ir::Arguments(args));
   }
 
   fn stm(&mut self, s: ~ast::Statement) {
@@ -163,13 +163,13 @@ impl Translator {
         self.f.cfg.add_edge(self.commit(), self.break_to, ir::LoopOut);
       }
       ~ast::Return(e) => {
-        self.stms.push(@ir::Return(self.exp(e, false)));
+        self.stms.push(~ir::Return(self.exp(e, false)));
         self.commit();
       }
       ~ast::Express(e) => {
         let e = self.exp(e, false);
         let size = self.f.size(e);
-        self.stms.push(@ir::Move(self.tmp(size), e));
+        self.stms.push(~ir::Move(self.tmp(size), e));
       }
       ~ast::For(init, cond, step, body) => {
         self.stm(init);
@@ -201,7 +201,7 @@ impl Translator {
         match exp {
           None => (),
           Some(init) => {
-            self.stms.push(@ir::Move(tmp, self.exp(init, false)));
+            self.stms.push(~ir::Move(tmp, self.exp(init, false)));
           }
         }
         self.vars.insert(id, tmp);
@@ -229,18 +229,18 @@ impl Translator {
           Some(op) => {
             if ismem {
               let tmp = self.tmp(leftsize);
-              self.stms.push(@ir::Load(tmp, left));
-              @ir::BinaryOp(self.oper(op), @ir::Temp(tmp), self.exp(e2, false))
+              self.stms.push(~ir::Load(tmp, copy left));
+              ~ir::BinaryOp(self.oper(op), ~ir::Temp(tmp), self.exp(e2, false))
             } else {
-              @ir::BinaryOp(self.oper(op), left, self.exp(e2, false))
+              ~ir::BinaryOp(self.oper(op), copy left, self.exp(e2, false))
             }
           }
         };
         if ismem {
-          self.stms.push(@ir::Store(left, right));
+          self.stms.push(~ir::Store(left, right));
         } else {
-          let tmp = match left { @ir::Temp(t) => t, _ => die!(~"bad left") };
-          self.stms.push(@ir::Move(tmp, right));
+          let tmp = match left { ~ir::Temp(t) => t, _ => die!(~"bad left") };
+          self.stms.push(~ir::Move(tmp, right));
         }
       }
     }
@@ -284,7 +284,7 @@ impl Translator {
         self.condition(e2, tid, tedge, fid, fedge, into);
       }
       e => {
-        self.stms.push(@ir::Condition(self.exp(e, false)));
+        self.stms.push(~ir::Condition(self.exp(e, false)));
         let id = self.commit_with(into);
         self.f.cfg.add_edge(id, tid, tedge);
         self.f.cfg.add_edge(id, fid, fedge);
@@ -292,24 +292,24 @@ impl Translator {
     }
   }
 
-  fn exp(&mut self, e: ~ast::Expression, addr: bool) -> @ir::Expression {
+  fn exp(&mut self, e: ~ast::Expression, addr: bool) -> ~ir::Expression {
     match e {
       ~ast::Marked(mark::Mark{data, _}) => self.exp(data, addr),
       ~ast::Boolean(b) => self.consti(if b { 1 } else { 0 }),
       ~ast::Const(c) => self.consti(c),
       ~ast::Var(ref id) => match self.vars.find(id) {
-        Some(&t) => @ir::Temp(t),
-        None    => *self.t.funs.get(id)
+        Some(&t) => ~ir::Temp(t),
+        None     => copy *self.t.funs.get(id)
       },
       ~ast::Null => self.constp(0),
 
       /* All unary ops can be expressed as binary ops */
       ~ast::UnaryOp(ast::Negative, e) =>
-        @ir::BinaryOp(ir::Sub, self.consti(0), self.exp(e, addr)),
+        ~ir::BinaryOp(ir::Sub, self.consti(0), self.exp(e, addr)),
       ~ast::UnaryOp(ast::Invert, e) =>
-        @ir::BinaryOp(ir::Xor, self.consti(-1), self.exp(e, addr)),
+        ~ir::BinaryOp(ir::Xor, self.consti(-1), self.exp(e, addr)),
       ~ast::UnaryOp(ast::Bang, e) =>
-        @ir::BinaryOp(ir::Xor, self.consti(1), self.exp(e, addr)),
+        ~ir::BinaryOp(ir::Xor, self.consti(1), self.exp(e, addr)),
 
       /* Take care of logical binops as ternaries */
       ~ast::BinaryOp(ast::LOr, e1, e2) =>
@@ -321,13 +321,13 @@ impl Translator {
         let v1 = self.exp(e1, addr);
         let v2 = self.exp(e2, addr);
         let op = self.oper(op);
-        let ret = @ir::BinaryOp(op, v1, v2);
+        let ret = ~ir::BinaryOp(op, v1, v2);
         match op {
           /* div/mod have side effects, the result is a temp so they happen */
           ir::Div | ir::Mod => {
             let tmp = self.tmp(ir::Int);
-            self.stms.push(@ir::Move(tmp, ret));
-            @ir::Temp(tmp)
+            self.stms.push(~ir::Move(tmp, ret));
+            ~ir::Temp(tmp)
           }
           _ => ret
         }
@@ -342,8 +342,8 @@ impl Translator {
         let args = vec::map_consume(args, |e| self.exp(e, false));
         let typ = typ(ret);
         let tmp = self.tmp(typ);
-        self.stms.push(@ir::Call(tmp, fun, args));
-        @ir::Temp(tmp)
+        self.stms.push(~ir::Call(tmp, fun, args));
+        ~ir::Temp(tmp)
       }
 
       ~ast::Alloc(t) =>
@@ -355,21 +355,22 @@ impl Translator {
         let base = self.exp(arr, false);
         let idx = self.exp(idx, false);
         let idxt = self.tmp(ir::Int);
-        self.stms.push(@ir::Move(idxt, idx));
+        self.stms.push(~ir::Move(idxt, idx));
         let idxp = self.tmp(ir::Pointer);
-        self.stms.push(@ir::Cast(idxp, idxt));
+        self.stms.push(~ir::Cast(idxp, idxt));
+
+        self.check_null(base);
+        self.check_bounds(base, ~ir::Temp(idxt));
 
         let elsize = self.constp(typ_size(t.get(), &self.t.structs) as i32);
-        let offset = @ir::BinaryOp(ir::Mul, @ir::Temp(idxp), elsize);
-        let address = @ir::BinaryOp(ir::Add, base, offset);
-        self.check_null(base);
-        self.check_bounds(base, idx);
+        let offset = ~ir::BinaryOp(ir::Mul, ~ir::Temp(idxp), elsize);
+        let address = ~ir::BinaryOp(ir::Add, base, offset);
         if addr {
           return address;
         }
         let dest = self.tmp(typ(t.get()));
-        self.stms.push(@ir::Load(dest, address));
-        @ir::Temp(dest)
+        self.stms.push(~ir::Load(dest, address));
+        ~ir::Temp(dest)
       }
 
       ~ast::Field(e, id, s) => {
@@ -379,14 +380,14 @@ impl Translator {
         let sinfo = self.t.structs.get(&s.get());
         let fields = match *sinfo { (ref fields, _) => fields };
         let &(typ, size) = fields.get(&id);
-        let address = @ir::BinaryOp(ir::Add, base, self.constp(size as i32));
+        let address = ~ir::BinaryOp(ir::Add, base, self.constp(size as i32));
         self.check_null(address);
         if addr {
           return address;
         }
         let dest = self.tmp(typ);
-        self.stms.push(@ir::Load(dest, address));
-        @ir::Temp(dest)
+        self.stms.push(~ir::Load(dest, address));
+        ~ir::Temp(dest)
       }
 
       ~ast::Deref(e, t) => {
@@ -396,20 +397,20 @@ impl Translator {
           return address;
         }
         let dest = self.tmp(typ(t.get()));
-        self.stms.push(@ir::Load(dest, address));
-        @ir::Temp(dest)
+        self.stms.push(~ir::Load(dest, address));
+        ~ir::Temp(dest)
       }
     }
   }
 
-  fn alloc(&mut self, t: @ast::Type, cnt: @ir::Expression,
-           safe: ~str) -> @ir::Expression {
+  fn alloc(&mut self, t: @ast::Type, cnt: ~ir::Expression,
+           safe: ~str) -> ~ir::Expression {
     let fun = label::External(if self.safe { safe } else { ~"calloc" });
-    let fun = @ir::LabelExp(fun);
+    let fun = ~ir::LabelExp(fun);
     let result = self.tmp(ir::Pointer);
     let args = ~[cnt, self.constp(typ_size(t, &self.t.structs) as i32)];
-    self.stms.push(@ir::Call(result, fun, args));
-    @ir::Temp(result)
+    self.stms.push(~ir::Call(result, fun, args));
+    ~ir::Temp(result)
   }
 
   /**
@@ -426,13 +427,13 @@ impl Translator {
    * This returns the temp which holds the result of the ternary statement.
    */
   fn tern(&mut self, cond: ~ast::Expression, t: ~ast::Expression,
-          f: ~ast::Expression, size: ir::Type, addr: bool) -> @ir::Expression {
+          f: ~ast::Expression, size: ir::Type, addr: bool) -> ~ir::Expression {
     let dst = self.tmp(size);
     let end = self.f.cfg.new_id();
     self.dotern(cond, t, f, dst, addr,
                 (end, ir::Branch, ir::Always));
     self.commit_with(end);
-    @ir::Temp(dst)
+    ~ir::Temp(dst)
   }
 
   /**
@@ -456,7 +457,7 @@ impl Translator {
     /* Translate the conditional, terminating the basic block */
     let true_id = self.f.cfg.new_id();
     let false_id = self.f.cfg.new_id();
-    self.stms.push(@ir::Condition(self.exp(c, false)));
+    self.stms.push(~ir::Condition(self.exp(c, false)));
 
     macro_rules! process(
       ($e:expr, $typ:expr) => ({
@@ -479,7 +480,7 @@ impl Translator {
 
           /* Otherwise, we have to finish things up */
           e => {
-            self.stms.push(@ir::Move(dst, self.exp(e, addr)));
+            self.stms.push(~ir::Move(dst, self.exp(e, addr)));
             self.f.cfg.add_edge(self.cur_id, end, $typ);
           }
         }
@@ -495,22 +496,22 @@ impl Translator {
     process!(f, endf);
   }
 
-  fn check_null(&mut self, e: @ir::Expression) {
+  fn check_null(&mut self, e: &ir::Expression) {
     if !self.safe { return; }
-    let cond = @ir::BinaryOp(ir::Eq, e, self.constp(0));
-    self.stms.push(@ir::Die(cond));
+    let cond = ~ir::BinaryOp(ir::Eq, ~copy *e, self.constp(0));
+    self.stms.push(~ir::Die(cond));
   }
 
-  fn check_bounds(&mut self, base: @ir::Expression, idx: @ir::Expression) {
+  fn check_bounds(&mut self, base: &ir::Expression, idx: &ir::Expression) {
     if !self.safe { return; }
     let tmp = self.tmp(ir::Int);
-    let size = @ir::BinaryOp(ir::Sub, base, self.constp(8));
-    self.stms.push(@ir::Load(tmp, size));
+    let size = ~ir::BinaryOp(ir::Sub, ~copy *base, self.constp(8));
+    self.stms.push(~ir::Load(tmp, size));
 
-    let under = @ir::BinaryOp(ir::Lt, idx, self.consti(0));
-    self.stms.push(@ir::Die(under));
-    let over = @ir::BinaryOp(ir::Gte, idx, @ir::Temp(tmp));
-    self.stms.push(@ir::Die(over));
+    let under = ~ir::BinaryOp(ir::Lt, ~copy *idx, self.consti(0));
+    self.stms.push(~ir::Die(under));
+    let over = ~ir::BinaryOp(ir::Gte, ~copy *idx, ~ir::Temp(tmp));
+    self.stms.push(~ir::Die(over));
   }
 
   fn oper(&mut self, b: ast::Binop) -> ir::Binop {
@@ -539,8 +540,8 @@ impl Translator {
     self.commit_with(self.f.cfg.new_id())
   }
 
-  pure fn consti(&self, c: i32) -> @ir::Expression { @ir::Const(c, ir::Int) }
-  pure fn constp(&self, c: i32) -> @ir::Expression { @ir::Const(c, ir::Pointer) }
+  pure fn consti(&self, c: i32) -> ~ir::Expression { ~ir::Const(c, ir::Int) }
+  pure fn constp(&self, c: i32) -> ~ir::Expression { ~ir::Const(c, ir::Pointer) }
 
   fn commit_with(&mut self, next: graph::NodeId) -> graph::NodeId {
     let mut L = ~[];

@@ -160,8 +160,7 @@ impl Elaborator {
         check_set!(self.funs, *id, ~"function");
         let typ = self.resolve(typ);
         self.types.insert(id, typ);
-        /* TODO: shouldn't have to re-build the typedef here */
-        ~Typedef(id, typ)
+        ~Typedef(id, typ) /* TODO: shouldn't have to re-build */
       }
       ~StructDef(id, fields) => {
         check_set!(self.structs, id, ~"struct");
@@ -176,7 +175,7 @@ impl Elaborator {
         ~Function(self.resolve(ret), id, self.resolve_pairs(args),
                   self.elaborate_stm(body))
       }
-      /* TODO: shouldn't have to rebuild the StructDecl */
+      /* TODO: shouldn't have to re-build */
       ~StructDecl(id) => ~StructDecl(id),
     }
   }

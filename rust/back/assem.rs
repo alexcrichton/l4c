@@ -30,14 +30,14 @@ pub struct Function {
 }
 
 pub enum Instruction {
-  BinaryOp(Binop, @Operand, @Operand, @Operand),
-  Move(@Operand, @Operand),
-  Load(@Operand, @Address),
-  Store(@Address, @Operand),
-  Condition(Cond, @Operand, @Operand),
-  Die(Cond, @Operand, @Operand),
-  Return(@Operand),
-  Call(Temp, @Operand, ~[@Operand]),
+  BinaryOp(Binop, ~Operand, ~Operand, ~Operand),
+  Move(~Operand, ~Operand),
+  Load(~Operand, ~Address),
+  Store(~Address, ~Operand),
+  Condition(Cond, ~Operand, ~Operand),
+  Die(Cond, ~Operand, ~Operand),
+  Return(~Operand),
+  Call(Temp, ~Operand, ~[~Operand]),
   Raw(~str),
 
   /* pseudo-instructions that are just use for analysis/coloring/spilling */
@@ -59,7 +59,7 @@ pub enum Operand {
 
 pub enum Address {
   /*   base      offset         multplier reg    multiplier size */
-  MOp(@Operand, Option<uint>, Option<(@Operand, Multiplier)>),
+  MOp(~Operand, Option<uint>, Option<(~Operand, Multiplier)>),
   Stack(uint),
   StackArg(uint),
 }
@@ -105,10 +105,10 @@ impl Instruction {
   #[inline(always)]
   fn each_def(&self, f: fn(Temp) -> bool) {
     match *self {
-      BinaryOp(_, @Temp(t), _, _) |
-      Move(@Temp(t), _) |
+      BinaryOp(_, ~Temp(t), _, _) |
+      Move(~Temp(t), _) |
       Phi(t, _) |
-      Load(@Temp(t), _) |
+      Load(~Temp(t), _) |
       Call(t, _, _) |
       Reload(t, _) |
       Arg(t, _)
@@ -123,34 +123,34 @@ impl Instruction {
   #[inline(always)]
   fn each_use(&self, f: fn(Temp) -> bool) {
     match *self {
-      Condition(_, @Temp(t1), @Temp(t2)) |
-      Die(_, @Temp(t1), @Temp(t2)) |
-      BinaryOp(_, _, @Temp(t1), @Temp(t2))
+      Condition(_, ~Temp(t1), ~Temp(t2)) |
+      Die(_, ~Temp(t1), ~Temp(t2)) |
+      BinaryOp(_, _, ~Temp(t1), ~Temp(t2))
         => { f(t1); f(t2); }
 
-      Condition(_, @Temp(t), _) |
-      Condition(_, _, @Temp(t)) |
-      Die(_, @Temp(t), _) |
-      Die(_, _, @Temp(t)) |
-      BinaryOp(_, _, @Temp(t), _) |
-      BinaryOp(_, _, _, @Temp(t)) |
-      Move(_, @Temp(t)) |
+      Condition(_, ~Temp(t), _) |
+      Condition(_, _, ~Temp(t)) |
+      Die(_, ~Temp(t), _) |
+      Die(_, _, ~Temp(t)) |
+      BinaryOp(_, _, ~Temp(t), _) |
+      BinaryOp(_, _, _, ~Temp(t)) |
+      Move(_, ~Temp(t)) |
       Spill(t, _) |
       Use(t) |
-      Return(@Temp(t))
+      Return(~Temp(t))
         => { f(t); }
 
-      Store(addr, src) => { addr.each_temp(f); src.each_temp(f); }
-      Load(_, addr) => { addr.each_temp(f); }
+      Store(ref addr, ref src) => { addr.each_temp(f); src.each_temp(f); }
+      Load(_, ref addr) => { addr.each_temp(f); }
 
-      Call(_, fun, ref args) => {
-        match fun {
-          @Temp(t) => { f(t); }
+      Call(_, ref fun, ref args) => {
+        match *fun {
+          ~Temp(t) => { f(t); }
           _ => ()
         }
-        for args.each |&arg| {
-          match arg {
-            @Temp(t) => { f(t); }
+        for args.each |arg| {
+          match *arg {
+            ~Temp(t) => { f(t); }
             _ => ()
           }
         }
@@ -172,61 +172,57 @@ impl Instruction {
 }
 
 impl Instruction: ssa::Statement {
-  static fn phi(t: Temp, map: ssa::PhiMap) -> @Instruction { @Phi(t, map) }
+  static fn phi(t: Temp, map: ssa::PhiMap) -> ~Instruction { ~Phi(t, map) }
 
   fn each_def(&self, f: fn(Temp) -> bool) { self.each_def(f) }
   fn each_use(&self, f: fn(Temp) -> bool) { self.each_use(f) }
   static fn phi_info(me: &v/Instruction) -> Option<(Temp, &v/ssa::PhiMap)> {
     me.phi_info()
   }
+  static fn phi_unwrap(me: ~Instruction) -> Either<~Instruction, (Temp, ssa::PhiMap)> {
+    match me {
+      ~Phi(d, m) => Right((d, m)),
+      i          => Left(i)
+    }
+  }
 
-  fn map_temps(@self, uses: fn(Temp) -> Temp,
-               defs: fn(Temp) -> Temp) -> @Instruction {
+  fn map_temps(~self, uses: fn(Temp) -> Temp,
+               defs: fn(Temp) -> Temp) -> ~Instruction {
     match self {
-      @MemPhi(*) => self,
-      @BinaryOp(op, o1, o2, o3) => {
+      ~BinaryOp(op, o1, o2, o3) => {
         let (o2, o3) = (o2.map_temps(uses), o3.map_temps(uses));
-        @BinaryOp(op, o1.map_temps(defs), o2, o3)
+        ~BinaryOp(op, o1.map_temps(defs), o2, o3)
       }
-      @Move(dest, src) => {
+      ~Move(dest, src) => {
         let src = src.map_temps(uses);
-        @Move(dest.map_temps(defs), src)
+        ~Move(dest.map_temps(defs), src)
       }
-      @Load(dest, src) => {
+      ~Load(dest, src) => {
         let src = src.map_temps(uses);
-        @Load(dest.map_temps(defs), src)
+        ~Load(dest.map_temps(defs), src)
       }
-      @Store(dest, src) => @Store(dest.map_temps(uses), src.map_temps(uses)),
-      @Die(c, o1, o2) => @Die(c, o1.map_temps(uses), o2.map_temps(uses)),
-      @Condition(c, o1, o2) =>
-        @Condition(c, o1.map_temps(uses), o2.map_temps(uses)),
-      @Spill(t, tag) => @Spill(uses(t), tag),
-      @Reload(dest, tag) => @Reload(defs(dest), tag),
-      @Phi(t, ref map) => {
-        /* TODO: is the duplicate needed? */
-        let mut dup = LinearMap::new();
-        for map.each |&(&k, &v)| {
-          dup.insert(k, v);
-        }
-        @Phi(defs(t), dup)
-      }
-      @Call(dst, fun, ref args) => {
+      ~Store(dest, src) => ~Store(dest.map_temps(uses), src.map_temps(uses)),
+      ~Die(c, o1, o2) => ~Die(c, o1.map_temps(uses), o2.map_temps(uses)),
+      ~Condition(c, o1, o2) =>
+        ~Condition(c, o1.map_temps(uses), o2.map_temps(uses)),
+      ~Spill(t, tag) => ~Spill(uses(t), tag),
+      ~Reload(dest, tag) => ~Reload(defs(dest), tag),
+      ~Phi(t, map) => ~Phi(defs(t), map),
+      ~Call(dst, fun, args) => {
         let fun = fun.map_temps(uses);
-        let args = args.map(|&arg| arg.map_temps(uses));
-        @Call(defs(dst), fun, args)
+        let args = vec::map_consume(args, |arg| arg.map_temps(uses));
+        ~Call(defs(dst), fun, args)
       }
-      @Use(t) => @Use(uses(t)),
-      @Return(t) => @Return(t.map_temps(uses)),
-      @Raw(*) => self,
-      @Arg(t, n) => @Arg(defs(t), n),
-      @PCopy(ref copies) => {
-        let mut new = ~[];
-        for copies.each |&(dst, src)| {
+      ~Use(t) => ~Use(uses(t)),
+      ~Return(t) => ~Return(t.map_temps(uses)),
+      ~Arg(t, n) => ~Arg(defs(t), n),
+      ~PCopy(copies) => {
+        ~PCopy(vec::map_consume(copies, |(dst, src)| {
           let src = uses(src);
-          new.push((defs(dst), src));
-        }
-        @PCopy(new)
+          (defs(dst), src)
+        }))
       }
+      s => s
     }
   }
 }
@@ -236,39 +232,30 @@ impl Instruction: PrettyPrint {
     match *self {
       Raw(copy s) => s,
       Arg(t, i) => fmt!("%s = arg[%?]", t.pp(), i),
-      Return(t) => fmt!("ret // %s", t.pp()),
+      Return(ref t) => fmt!("ret // %s", t.pp()),
       Use(t) => fmt!("use %s", t.pp()),
-      Die(c, o1, o2) =>
+      Die(c, ref o1, ref o2) =>
         fmt!("cmp %s, %s; j%s %sraise_segv", o2.pp(), o1.pp(),
              c.suffix(), label::prefix()),
-      Condition(c, o1, o2) =>
+      Condition(c, ref o1, ref o2) =>
         fmt!("cmp %s, %s // %s", o2.pp(), o1.pp(), c.suffix()),
-      Load(dst, addr) =>
+      Load(ref dst, ref addr) =>
         fmt!("mov %s, %s", addr.pp(), dst.pp()),
-      Store(addr, src) => match src {
-        @Immediate(_, ir::Pointer) => fmt!("movq %s, %s", src.pp(), addr.pp()),
-        @Immediate(_, ir::Int)     => fmt!("movl %s, %s", src.pp(), addr.pp()),
+      Store(ref addr, ref src) => match *src {
+        ~Immediate(_, ir::Pointer) => fmt!("movq %s, %s", src.pp(), addr.pp()),
+        ~Immediate(_, ir::Int)     => fmt!("movl %s, %s", src.pp(), addr.pp()),
         _                          => fmt!("mov %s, %s", src.pp(), addr.pp()),
       },
-      Move(o1, o2) =>
+      Move(ref o1, ref o2) =>
         if o1.size() != o2.size() && !o2.imm() {
           ~"movslq " + o2.pp() + ~", " + o1.pp()
         } else {
           ~"mov " + o2.pp() + ~", " + o1.pp()
         },
-      BinaryOp(binop, dest, s1, s2) => match binop {
+      BinaryOp(binop, ref dest, ref s1, ref s2) => match binop {
         /* multiplications can have third operand if it's an immediate */
         Mul if s2.imm() && !s1.imm() => {
-          if s1.size() == dest.size() {
-            fmt!("imul %s, %s, %s", s2.pp(), s1.pp(), dest.pp())
-          } else {
-            let larger = match s1 {
-              @Register(r, _) => @Register(r, ir::Pointer),
-              _ => s1
-            };
-            fmt!("movslq %s, %s; imul %s, %s, %s", s1.pp(), larger.pp(),
-                 s2.pp(), larger.pp(), dest.pp())
-          }
+          fmt!("imul %s, %s, %s", s2.pp(), s1.pp(), dest.pp())
         }
         /* division/mod are both weird */
         Div | Mod => fmt!("cltd; idiv %s // %s <- %s %s %s", s2.pp(), dest.pp(),
@@ -277,17 +264,12 @@ impl Instruction: PrettyPrint {
         /* Shifting by immediates can only use lower 5 bits */
         Lsh | Rsh if s1.imm() =>
           fmt!("%s %s, %s", binop.pp(), s1.mask(0x1f).pp(), dest.pp()),
-        Lsh | Rsh if s1.reg() => {
-          match s1 {
-            @Register(ECX, _) => (),
-            _                 => die!(fmt!("expected ecx, not %?", s1))
-          }
-          fmt!("%s %%cl, %s", binop.pp(), dest.pp())
-        }
+        Lsh | Rsh if s1.reg() =>
+          fmt!("%s %%cl, %s", binop.pp(), dest.pp()),
 
         Cmp(cond) => {
-          let dstsmall = match dest {
-            @Register(r, _) => r.byte(), _ => dest.pp()
+          let dstsmall = match *dest {
+            ~Register(r, _) => r.byte(), _ => dest.pp()
           };
           fmt!("cmp %s, %s; set%s %s; movzbl %s, %s",
                s2.pp(), s1.pp(), cond.suffix(), dstsmall, dstsmall, dest.pp())
@@ -296,7 +278,7 @@ impl Instruction: PrettyPrint {
         _ => fmt!("%s %s, %s // %s"
                   binop.pp(), s1.pp(), dest.pp(), s2.pp()),
       },
-      Call(dst, e, ref args) =>
+      Call(dst, ref e, ref args) =>
         fmt!("call %s // %s <- %s", e.pp(), dst.pp(),
              ~"(" + str::connect(args.map(|a| a.pp()), ~", ") + ~")"),
       Phi(tmp, ref map) => {
@@ -330,9 +312,9 @@ impl Operand {
   pure fn imm(&self) -> bool { match *self { Immediate(*) => true, _ => false } }
   pure fn reg(&self) -> bool { match *self { Register(*) => true, _ => false } }
 
-  pure fn mask(&self, mask: i32) -> @Operand {
+  pure fn mask(&self, mask: i32) -> ~Operand {
     match *self {
-      Immediate(n, s) => @Immediate(n & mask, s),
+      Immediate(n, s) => ~Immediate(n & mask, s),
       _ => die!(~"can't mask non-immediate")
     }
   }
@@ -352,10 +334,10 @@ impl Operand {
     }
   }
 
-  fn map_temps(@self, f: fn(Temp) -> Temp) -> @Operand {
+  fn map_temps(~self, f: fn(Temp) -> Temp) -> ~Operand {
     match self {
-      @Temp(t) => @Temp(f(t)),
-      _        => self
+      ~Temp(t) => ~Temp(f(t)),
+      o        => o
     }
   }
 }
@@ -384,19 +366,21 @@ impl Operand: cmp::Eq {
 }
 
 impl Address {
-  fn map_temps(@self, f: fn(Temp) -> Temp) -> @Address {
+  fn map_temps(~self, f: fn(Temp) -> Temp) -> ~Address {
     match self {
-      @MOp(t, disp, off) =>
-        @MOp(t.map_temps(f), disp, off.map(|&(x, m)| (x.map_temps(f), m))),
-      _ => self
+      ~MOp(t, disp, off) =>
+        ~MOp(t.map_temps(f), disp, off.map(|&(x, m)| (x.map_temps(f), m))),
+      a => a
     }
   }
 
   fn each_temp(&self, f: fn(Temp) -> bool) {
     match *self {
-      MOp(o, _, off) => {
+      MOp(ref o, _, ref off) => {
         o.each_temp(f);
-        for off.each |&(x, _)| {
+        /* TODO(#4653): make this sane again */
+        for off.each |p| {
+          let x = match *p { (ref x, _) => x };
           x.each_temp(f);
         }
       }
@@ -408,14 +392,14 @@ impl Address {
 impl Address: PrettyPrint {
   pure fn pp(&self) -> ~str {
     match *self {
-      MOp(o, disp, off) => {
+      MOp(ref o, disp, ref off) => {
         let mut s = ~"";
         for disp.each |&d| { s += fmt!("%?", d); }
         s += ~"(";
         s += o.pp();
-        match (off) {
+        match *off {
           None => (),
-          Some((off, mult)) => {
+          Some((ref off, mult)) => {
             s += fmt!(", %s, %s", off.pp(), mult.pp());
           }
         }
@@ -670,7 +654,7 @@ impl Function {
             (Some((tedge, tid)), Some((fedge, fid))) => {
               /* On a conditional branch, the last ins must be Condition */
               let cond = match instructions.last() {
-                @Condition(c, _, _) => c,
+                ~Condition(c, _, _) => c,
                 _ => die!(~"Need a condition with true/false edges")
               };
 

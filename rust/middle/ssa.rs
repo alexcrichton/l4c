@@ -12,23 +12,24 @@ pub struct Analysis {
 }
 
 pub trait Statement: PrettyPrint {
-  static fn phi(Temp, PhiMap) -> @Self;
+  static fn phi(Temp, PhiMap) -> ~Self;
   fn each_def(&self, fn(Temp) -> bool);
   fn each_use(&self, fn(Temp) -> bool);
-  fn map_temps(@self, u: fn(Temp) -> Temp, d: fn(Temp) -> Temp) -> @Self;
+  fn map_temps(~self, u: fn(Temp) -> Temp, d: fn(Temp) -> Temp) -> ~Self;
   /* TODO: once fixed, this should be a member function */
   static fn phi_info(me: &v/Self) -> Option<(Temp, &v/PhiMap)>;
+  static fn phi_unwrap(me: ~Self) -> Either<~Self, (Temp, PhiMap)>;
 }
 
 type TempMap = LinearMap<Temp, Temp>;
-type DomFrontiers = LinearMap<graph::NodeId, graph::NodeSet>;
+type DomFrontiers = LinearMap<graph::NodeId, ~graph::NodeSet>;
 type Definitions = LinearMap<Temp, ~graph::NodeSet>;
 type PhiLocations = LinearMap<graph::NodeId, ~LinearSet<Temp>>;
-type PhiMappings = LinearMap<graph::NodeId, TempMap>;
+type PhiMappings = LinearMap<graph::NodeId, ~TempMap>;
 pub type Idominators = LinearMap<graph::NodeId, graph::NodeId>;
 pub type Idominated = LinearMap<graph::NodeId, ~LinearSet<graph::NodeId>>;
 pub type PhiMap = LinearMap<graph::NodeId, Temp>;
-pub type CFG<T> = graph::Graph<~[@T], ir::Edge>;
+pub type CFG<T> = graph::Graph<~[~T], ir::Edge>;
 
 struct Converter<T> {
   cfg: &mut CFG<T>,
@@ -107,7 +108,7 @@ impl<T: Statement> Converter<T> {
     /* Finally place our new phi nodes */
     do profile::dbg("placing phis") {
       for phi_temps.each |&(&k, v)| {
-        self.place_phis(k, v);
+        self.place_phis(k, *v);
       }
     }
     info!("ssa finished");
@@ -208,7 +209,7 @@ impl<T: Statement> Converter<T> {
       Some(ref temps) => {
         /* Keep track of what we changed our temps to so the phi functions can
            be placed correctly in the next step */
-        let mut mapping = LinearMap::new();
+        let mut mapping = ~LinearMap::new();
         for temps.each |&tmp| {
           mapping.insert(tmp, self.bump(&mut map, tmp));
         }
@@ -242,13 +243,13 @@ impl<T: Statement> Converter<T> {
    * their predecessor's edges
    */
   fn map_phi_temps(&mut self, n: graph::NodeId) {
-    let stms = self.cfg[n];
-    self.cfg.update_node(n, stms.map(|&stm|
-      match Statement::phi_info(stm) {
-        None => stm,
-        Some((def, map)) => {
+    self.cfg.map_consume_node(n, |stms| vec::map_consume(stms, |stm|
+      match Statement::phi_unwrap(stm) {
+        Left(stm) => stm,
+        Right((def, map)) => {
+          let mut map = map;
           let mut new = LinearMap::new();
-          for map.each |&(&pred, &tmp)| {
+          do map.consume |pred, tmp| {
             new.insert(pred, *self.versions.get(&pred).get(&tmp));
           }
           Statement::phi(def, new)
@@ -281,7 +282,8 @@ impl<T: Statement> Converter<T> {
     }
 
     /* Update our node with the phi nodes */
-    self.cfg.map_consume_node(n, |prev| block + prev);
+    block.push_all_move(self.cfg.pop_node(n));
+    self.cfg.update_node(n, block);
   }
 }
 
@@ -358,7 +360,7 @@ fn dom_frontiers<T>(cfg: &CFG<T>, root: graph::NodeId,
      for calculating the dominance frontier of a node */
   let mut frontiers: DomFrontiers = LinearMap::new(); /* TODO: remove type? */
   for cfg.each_postorder(root) |&a| {
-    let mut frontier = LinearSet::new();
+    let mut frontier = ~LinearSet::new();
 
     /* df_local[a] */
     debug!("df_local[%d]...", a as int);

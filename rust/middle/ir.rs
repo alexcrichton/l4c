@@ -23,21 +23,21 @@ pub struct Function {
 
 pub enum Statement {
   Arguments(~[Temp]),
-  Move(Temp, @Expression),
+  Move(Temp, ~Expression),
   Cast(Temp, Temp),
-  Load(Temp, @Expression),
-  Call(Temp, @Expression, ~[@Expression]),
+  Load(Temp, ~Expression),
+  Call(Temp, ~Expression, ~[~Expression]),
   Phi(Temp, ssa::PhiMap),
-  Store(@Expression, @Expression),
-  Condition(@Expression),
-  Return(@Expression),
-  Die(@Expression),
+  Store(~Expression, ~Expression),
+  Condition(~Expression),
+  Return(~Expression),
+  Die(~Expression),
 }
 
 pub enum Expression {
   Temp(Temp),
   Const(i32, Type),
-  BinaryOp(Binop, @Expression, @Expression),
+  BinaryOp(Binop, ~Expression, ~Expression),
   LabelExp(label::Label),
 }
 
@@ -84,25 +84,19 @@ impl Program: Graphable {
   }
 }
 
-pub impl Type {
-  static fn max(t1: Type, t2: Type) -> Type {
-    match (t1, t2) { (Int, Int) => Int, _ => Pointer }
-  }
-}
-
 impl Function {
-  pure fn size(&self, e: @Expression) -> Type {
-    match e {
-      @Const(_, size) => size,
-      @LabelExp(_) => Pointer,
-      @BinaryOp(Eq, _, _) | @BinaryOp(Neq, _, _) => Int,
-      @BinaryOp(_, e1, e2) => {
-        match self.size(e1) {
-          Int => self.size(e2),
+  pure fn size(&self, e: &Expression) -> Type {
+    match *e {
+      Const(_, size) => size,
+      LabelExp(_) => Pointer,
+      BinaryOp(Eq, _, _) | BinaryOp(Neq, _, _) => Int,
+      BinaryOp(_, ref e1, ref e2) => {
+        match self.size(*e1) {
+          Int => self.size(*e2),
           Pointer => Pointer
         }
       },
-      @Temp(ref t) => *self.types.get(t)
+      Temp(ref t) => *self.types.get(t)
     }
   }
 }
@@ -124,37 +118,38 @@ impl Binop {
 }
 
 impl Statement {
-  fn map_temps(@self, uses: fn(Temp) -> Temp,
-               defs: fn(Temp) -> Temp) -> @Statement {
+  fn map_temps(~self, uses: fn(Temp) -> Temp,
+               defs: fn(Temp) -> Temp) -> ~Statement {
     match self {
-      @Move(tmp, e) => {
+      ~Move(tmp, e) => {
         let e = e.map_temps(uses);
-        @Move(defs(tmp), e)
+        ~Move(defs(tmp), e)
       }
-      @Load(tmp, e) => {
+      ~Load(tmp, e) => {
         let e = e.map_temps(uses);
-        @Load(defs(tmp), e)
+        ~Load(defs(tmp), e)
       }
-      @Store(e1, e2) => @Store(e1.map_temps(uses), e2.map_temps(uses)),
-      @Condition(e) => @Condition(e.map_temps(uses)),
-      @Return(e) => @Return(e.map_temps(uses)),
-      @Die(e) => @Die(e.map_temps(uses)),
-      @Call(tmp, e, ref args) => {
+      ~Store(e1, e2) => ~Store(e1.map_temps(uses), e2.map_temps(uses)),
+      ~Condition(e) => ~Condition(e.map_temps(uses)),
+      ~Return(e) => ~Return(e.map_temps(uses)),
+      ~Die(e) => ~Die(e.map_temps(uses)),
+      ~Call(tmp, e, args) => {
         let e = e.map_temps(uses);
-        let args = args.map(|&x| x.map_temps(uses));
-        @Call(defs(tmp), e, args)
+        let args = vec::map_consume(args, |x| x.map_temps(uses));
+        ~Call(defs(tmp), e, args)
       }
-      @Arguments(ref tmps) => @Arguments(tmps.map(|&t| defs(t))),
-      @Phi(def, ref map) => {
+      ~Arguments(tmps) => ~Arguments(vec::map_consume(tmps, |t| defs(t))),
+      ~Phi(def, map) => {
+        let mut map = map;
         let mut newmap = LinearMap::new();
-        for map.each |&(&k, &v)| {
+        do map.consume |k, v| {
           newmap.insert(k, uses(v));
         }
-        @Phi(defs(def), newmap)
+        ~Phi(defs(def), newmap)
       }
-      @Cast(t1, t2) => {
+      ~Cast(t1, t2) => {
         assert t1 != t2;
-        @Cast(defs(t1), uses(t2))
+        ~Cast(defs(t1), uses(t2))
       }
     }
   }
@@ -170,12 +165,12 @@ impl Statement {
 
   fn each_use(&self, f: fn(Temp) -> bool) {
     match *self {
-      Move(_, e) | Load(_, e) | Condition(e) | Return(e) | Die(e) =>
-        e.each_temp(f),
-      Store(e1, e2) => { e1.each_temp(f); e2.each_temp(f); }
-      Call(_, e, ref args) => {
+      Move(_, ref e) | Load(_, ref e) | Condition(ref e) |
+        Return(ref e) | Die(ref e) => e.each_temp(f),
+      Store(ref e1, ref e2) => { e1.each_temp(f); e2.each_temp(f); }
+      Call(_, ref e, ref args) => {
         e.each_temp(f);
-        for args.each |&e| { e.each_temp(f); }
+        for args.each |e| { e.each_temp(f); }
       }
       Phi(_, ref map) => { for map.each_value |&t| { f(t); } }
       Cast(_, t) => { f(t); }
@@ -185,10 +180,10 @@ impl Statement {
 }
 
 impl Statement: ssa::Statement {
-  static fn phi(t: Temp, map: ssa::PhiMap) -> @Statement { @Phi(t, map) }
+  static fn phi(t: Temp, map: ssa::PhiMap) -> ~Statement { ~Phi(t, map) }
 
-  fn map_temps(@self, uses: fn(Temp) -> Temp,
-               defs: fn(Temp) -> Temp) -> @Statement {
+  fn map_temps(~self, uses: fn(Temp) -> Temp,
+               defs: fn(Temp) -> Temp) -> ~Statement {
     self.map_temps(uses, defs)
   }
 
@@ -201,19 +196,25 @@ impl Statement: ssa::Statement {
       _             => None
     }
   }
+  static fn phi_unwrap(me: ~Statement) -> Either<~Statement, (Temp, ssa::PhiMap)> {
+    match me {
+      ~Phi(d, m) => Right((d, m)),
+      s          => Left(s)
+    }
+  }
 }
 
 impl Statement: PrettyPrint {
   pure fn pp(&self) -> ~str {
     match *self {
-      Move(tmp, e) => tmp.pp() + ~" <- " + e.pp(),
+      Move(tmp, ref e) => tmp.pp() + ~" <- " + e.pp(),
       Cast(t1, t2) => t1.pp() + ~" < cast - " + t2.pp(),
-      Load(tmp, e) => ~"load " + tmp.pp() + ~" <- " + e.pp(),
-      Store(e1, e2) => ~"store" + ~" " + e1.pp() + " <- " + e2.pp(),
-      Condition(e) => ~"cond " + e.pp(),
-      Return(e) => ~"return " + e.pp(),
-      Die(e) => ~"die if " + e.pp(),
-      Call(t, e, ref E) =>
+      Load(tmp, ref e) => ~"load " + tmp.pp() + ~" <- " + e.pp(),
+      Store(ref e1, ref e2) => ~"store" + ~" " + e1.pp() + " <- " + e2.pp(),
+      Condition(ref e) => ~"cond " + e.pp(),
+      Return(ref e) => ~"return " + e.pp(),
+      Die(ref e) => ~"die if " + e.pp(),
+      Call(t, ref e, ref E) =>
         fmt!("%s <- %s(%s)", t.pp(), e.pp(),
              str::connect(E.map(|e| e.pp()), ~", ")),
       Phi(tmp, ref map) => {
@@ -230,19 +231,21 @@ impl Statement: PrettyPrint {
 }
 
 impl Expression {
-  fn map_temps(@self, f: fn(Temp) -> Temp) -> @Expression {
+  fn map_temps(~self, f: fn(Temp) -> Temp) -> ~Expression {
     match self {
-      @Const(*) | @LabelExp(*) => self,
-      @BinaryOp(op, e1, e2) =>
-        @BinaryOp(op, e1.map_temps(f), e2.map_temps(f)),
-      @Temp(tmp) => @Temp(f(tmp))
+      ~BinaryOp(op, e1, e2) =>
+        ~BinaryOp(op, e1.map_temps(f), e2.map_temps(f)),
+      ~Temp(tmp) => ~Temp(f(tmp)),
+      /* TODO: shouldn't have to re-build */
+      ~Const(c, s) => ~Const(c, s),
+      ~LabelExp(l) => ~LabelExp(l),
     }
   }
 
   fn each_temp(&self, f: fn(Temp) -> bool) {
     match *self {
       Const(*) | LabelExp(*) => (),
-      BinaryOp(_, e1, e2) => { e1.each_temp(f); e2.each_temp(f); }
+      BinaryOp(_, ref e1, ref e2) => { e1.each_temp(f); e2.each_temp(f); }
       Temp(tmp) => { f(tmp); }
     }
   }
@@ -253,7 +256,7 @@ impl Expression: PrettyPrint {
     match *self {
       Temp(ref t) => t.pp(),
       Const(c, _) => fmt!("0x%x", c as uint),
-      BinaryOp(op, e1, e2) =>
+      BinaryOp(op, ref e1, ref e2) =>
         ~"(" + e1.pp() + ~" " + op.pp() + ~" " + e2.pp() + ~")",
       LabelExp(ref l) => l.pp()
     }

@@ -130,7 +130,7 @@ impl Spiller {
     let mut phis = LinearMap::new();
     for self.f.cfg[n].each |&ins| {
       match ins {
-        @Phi(my_name, ref renamings) => {
+        ~Phi(my_name, ref renamings) => {
           for renamings.each |&(&pred, &their_name)| {
             let mut map = match self.renamings.pop(&(pred, n)) {
               Some(m) => m,
@@ -210,7 +210,7 @@ impl Spiller {
     for vec::rev_eachi(*block) |i, &ins| {
       let mut delta = ~[];
       match ins {
-        @PCopy(*) => { deltas.push(delta); loop; }
+        ~PCopy(*) => { deltas.push(delta); loop; }
         _ => ()
       }
       /* If we define a temp, then the distance to the next use from the start
@@ -307,7 +307,7 @@ impl Spiller {
           for sorted.view($max, sorted.len()).each |&tmp| {
             if !spill.contains(&tmp) && next_use.contains_key(&tmp) {
               debug!("spilling %?", tmp);
-              block.push(@Spill(tmp, tmp));
+              block.push(~Spill(tmp, tmp));
             }
             regs.remove(&tmp);
             spill.remove(&tmp);
@@ -341,37 +341,25 @@ impl Spiller {
         /* If the destination of a phi is not currently in the registers, then
            we don't need the phi instruction because it's been spilled and we
            don't want to put register moves onto the incoming edges */
-        @Phi(tmp, ref map) => {
+        ~Phi(tmp, map) => {
           if regs.contains(&tmp) {
-            block.push(ins);
+            block.push(~Phi(tmp, map));
           } else if next_use.contains_key(&tmp) {
-            /* TODO: is the duplicate needed? */
-            let mut dup = LinearMap::new();
-            for map.each |&(&k, &v)| {
-              dup.insert(k, v);
-            }
-            block.push(@MemPhi(tmp, dup));
+            block.push(~MemPhi(tmp, map));
           }
           apply_delta(delta);
         }
 
-        @PCopy(ref copies) => {
-          let mut newcopies = ~[];
-          for copies.each |&(dst, src)| {
+        ~PCopy(copies) => {
+          let newcopies = do vec::filter(copies) |&(dst, src)| {
             assert(dst == src);
-            if regs.contains(&src) {
-              newcopies.push((dst, src));
-            }
-          }
-          let mut dup = LinearMap::new();
-          for next_use.each |&(&k, &v)| {
-            dup.insert(k, v);
-          }
-          block.push(@PCopy(newcopies));
+            regs.contains(&src)
+          };
+          block.push(~PCopy(newcopies));
           apply_delta(delta);
         }
 
-        _ => {
+        ins => {
           /* Determine what needs to be reloaded */
           for ins.each_use |tmp| {
             debug!("%? %?", tmp, *next_use.get(&tmp));
@@ -382,8 +370,8 @@ impl Spiller {
             spill.insert(tmp);
           }
           let extra = match ins {
-            @BinaryOp(op, _, _, _) if op.constrained() => 1,
-            @Call(*) => arch::caller_regs,
+            ~BinaryOp(op, _, _, _) if op.constrained() => 1,
+            ~Call(*) => arch::caller_regs,
             _ => 0
           };
           /* This limit is relative to the next_use of this instruction */
@@ -405,7 +393,7 @@ impl Spiller {
 
           /* Finally reload all operands as necessary, and then run ins */
           for reloaded.each |&tmp| {
-            block.push(@Reload(tmp, tmp));
+            block.push(~Reload(tmp, tmp));
           }
           reloaded.truncate(0);
           block.push(ins);
@@ -576,7 +564,7 @@ impl Spiller {
         debug!("name %? %? %?", mine, succ_regs.contains(&mine),
                nxt.contains_key(&mine));
         if !succ_regs.contains(&mine) && nxt.contains_key(&mine) {
-          append.push(@Spill(tmp, tmp));
+          append.push(~Spill(tmp, tmp));
         }
       }
     }
@@ -586,7 +574,7 @@ impl Spiller {
       let theirs = self.their_name(tmp, pred, succ);
       if !pred_spill_exit.contains(&theirs) &&
           pred_regs_exit.contains(&theirs) {
-        append.push(@Spill(theirs, theirs));
+        append.push(~Spill(theirs, theirs));
       }
     }
 
@@ -595,7 +583,7 @@ impl Spiller {
       let theirs = self.their_name(tmp, pred, succ);
       debug!("ours %? theirs %?", tmp, theirs);
       if !pred_regs_exit.contains(&theirs) {
-        append.push(@Reload(theirs, theirs));
+        append.push(~Reload(theirs, theirs));
       }
     }
     if append.len() > 0 {

@@ -1,5 +1,5 @@
 /**
- * @brief A few optimizations thrown into one: constant folding, constant
+ * ~brief A few optimizations thrown into one: constant folding, constant
  *        propagation, and copy propagation
  *
  * This module will fold all constant expressions in the IR, reducing as much
@@ -34,7 +34,9 @@ impl ConstantFolder {
     /* Be sure to start at the top of the graph to visit definitions first */
     let (order, _) = self.f.cfg.postorder(self.f.root);
     for vec::rev_each(order) |&n| {
-      self.f.cfg.map_consume_node(n, |stms| vec::map_consume(stms, |s| self.stm(s)));
+      self.f.cfg.map_consume_node(n, |stms| {
+        vec::map_consume(stms, |s| self.stm(s))
+      });
     }
 
     do self.f.cfg.map_nodes |_, stms| {
@@ -47,14 +49,13 @@ impl ConstantFolder {
   /**
    * Apply constant folding to a statement, returning the folded statement
    */
-  fn stm(&mut self, s: @Statement) -> @Statement {
+  fn stm(&mut self, s: ~Statement) -> ~Statement {
     match s {
-      @Arguments(*) | @Phi(*) | @Cast(*) => s,
-      @Move(t, e) => {
+      ~Move(t, e) => {
         let e = self.exp(e).first();
         match e {
-          @Const(amt, _) => { self.constants.insert(t, amt); }
-          @Temp(cp)      => {
+          ~Const(amt, _) => { self.constants.insert(t, amt); }
+          ~Temp(cp)      => {
             let other = match self.temps.find(&cp) {
               Some(&other) => other, None => cp
             };
@@ -62,14 +63,20 @@ impl ConstantFolder {
           }
           _ => ()
         }
-        @Move(t, e)
+        ~Move(t, e)
       }
-      @Load(t, e) => @Load(t, self.exp(e).first()),
-      @Call(t, e, ref args) => @Call(t, e, args.map(|&e| self.exp(e).first())),
-      @Store(e1, e2) => @Store(self.exp(e1).first(), self.exp(e2).first()),
-      @Condition(e) => @Condition(self.exp(e).first()),
-      @Return(e) => @Return(self.exp(e).first()),
-      @Die(e) => @Die(self.exp(e).first())
+      ~Load(t, e) => ~Load(t, self.exp(e).first()),
+      ~Call(t, e, args) => ~Call(t, e,
+                                 vec::map_consume(args, |e| self.exp(e).first())),
+      ~Store(e1, e2) => ~Store(self.exp(e1).first(), self.exp(e2).first()),
+      ~Condition(e) => ~Condition(self.exp(e).first()),
+      ~Return(e) => ~Return(self.exp(e).first()),
+      ~Die(e) => ~Die(self.exp(e).first()),
+
+      /* TODO: shouldn't have to re-build these things */
+      ~Arguments(args) => ~Arguments(args),
+      ~Cast(t1, t2) => ~Cast(t1, t2),
+      ~Phi(t, map) => ~Phi(t, map)
     }
   }
 
@@ -79,57 +86,38 @@ impl ConstantFolder {
    * The boolean returned is whether the expression is considered 'pure' and is
    * safe for removal. This is false for things like div and mod
    */
-  fn exp(&self, e: @Expression) -> (@Expression, bool) {
+  fn exp(&self, e: ~Expression) -> (~Expression, bool) {
     match e {
-      @LabelExp(*) | @Const(*) => (e, true),
-      @Temp(t) => {
+      ~LabelExp(l) => (~LabelExp(l), true),
+      ~Const(c, s) => (~Const(c, s), true),
+      ~Temp(t) => {
         let opt = self.constants.find(&t);
-        let e = opt.map_default(e, |&x| @Const(*x, *self.f.types.get(&t)));
+        let e = opt.map_default(~Temp(t), |&x| ~Const(*x, *self.f.types.get(&t)));
         (e, true)
       }
-      @BinaryOp(op, e1, e2) => {
+      ~BinaryOp(op, e1, e2) => {
         let (e1, p1) = self.exp(e1);
         let (e2, p2) = self.exp(e2);
         let p = p1 && p2;
         match (e1, e2) {
           /* Two constants? let's actually fold them! */
-          (@Const(i1, t1), @Const(i2, t2)) => {
-            let t = Type::max(t1, t2);
-            match op {
-              Add => (@Const(i1 + i2, t), true),
-              Sub => (@Const(i1 - i2, t), true),
-              Mul => (@Const(i1 * i2, t), true),
-              Lt  => (@Const(if i1 < i2 { 1 } else { 0 }, t), true),
-              Lte => (@Const(if i1 <= i2 { 1 } else { 0 }, t), true),
-              Gt  => (@Const(if i1 > i2 { 1 } else { 0 }, t), true),
-              Gte => (@Const(if i1 >= i2 { 1 } else { 0 }, t), true),
-              Eq  => (@Const(if i1 == i2 { 1 } else { 0 }, t), true),
-              Neq => (@Const(if i1 != i2 { 1 } else { 0 }, t), true),
-              And => (@Const(i1 & i2, t), true),
-              Or  => (@Const(i1 | i2, t), true),
-              Xor => (@Const(i1 ^ i2, t), true),
-              Lsh => (@Const(i1 << i2, t), true),
-              Rsh => (@Const(i1 >> i2, t), true),
-              Div | Mod => {
-                if i2 == 0 || (i1 == i32::min_value && i2 == -1) {
-                  (@BinaryOp(op, e1, e2), false)
-                } else {
-                  match op {
-                    Div => (@Const(i1 / i2, t), true),
-                    Mod => (@Const(i1 % i2, t), true),
-                    _ => die!()
-                  }
-                }
-              }
-            }
+          (~Const(i1, t1), ~Const(i2, t2)) => {
+            assert t1 == t2;
+            do_op(op, i1, i2, t1)
           }
 
           /* Prefer the constant on the left */
-          (@Const(*), _) => self.binop(op, e1, e2, p),
-          (_, @Const(*)) if op.commutative() => self.binop(op, e2, e1, p),
-          (_, @Const(i, t)) if op == Sub => self.binop(Add, @Const(-i, t), e1, p),
-          (_, @Const(*)) => self.binop(op, e1, e2, p),
-          _ => (@BinaryOp(op, e1, e2), p)
+          (~Const(c, s), e2) => self.binop(op, ~Const(c, s), e2, p),
+          (e1, ~Const(c, s)) => {
+            if op.commutative() {
+              self.binop(op, ~Const(c, s), e1, p)
+            } else if op == Sub {
+              self.binop(Add, ~Const(-c, s), e1, p)
+            } else {
+              self.binop(op, e1, ~Const(c, s), p)
+            }
+          }
+          (e1, e2) => (~BinaryOp(op, e1, e2), p)
         }
       }
     }
@@ -142,25 +130,72 @@ impl ConstantFolder {
    * attempt to eliminate redundant instructions like divisions/multiplications
    * by 1, etc.
    */
-  fn binop(&self, o: Binop, e1: @Expression, e2: @Expression, ispure: bool)
-      -> (@Expression, bool) {
-    match (e1, e2) {
-      /* Rotate the two constants together to get folded */
-      (@Const(*), @BinaryOp(o2, c @ @Const(*), e3)) if o == o2 && o.associative()
-        => self.exp(@BinaryOp(o, @BinaryOp(o, e1, c), e3)),
+  fn binop(&self, o: Binop, e1: ~Expression, e2: ~Expression, ispure: bool)
+      -> (~Expression, bool) {
+    match e1 {
+      ~Const(c, s) => {
+        /* Attempt to rotate constants out of binops to the left */
+        let e2 = match e2 {
+          ~BinaryOp(o2, ~Const(c2, s2), e3) => {
+            assert s == s2;
+            if o == o2 && o.associative() {
+              let (e, _) = do_op(o, c, c2, s);
+              return self.exp(~BinaryOp(o, e, e3));
+            } else if o == o2 && o == Sub {
+              return self.exp(~BinaryOp(Add, ~Const(c - c2, s), e3));
+            }
+            ~BinaryOp(o2, ~Const(c2, s2), e3)
+          }
+          e2 => e2
+        };
 
-      /* Also rotate with subtraction (conversion to addition) */
-      (@Const(*), @BinaryOp(o2, c @ @Const(*), e3)) if o == o2 && o == Sub
-        => self.exp(@BinaryOp(Add, @BinaryOp(o, e1, c), e3)),
+        /* If no rotations are possible, catch simple math like multiplication
+           by 0, division by 1, etc. */
+        match c {
+          0 if o == Add || o == Or || o == Xor  => (e2, ispure),
+          0 if ispure && (o == Mul || o == And) => (~Const(0, s), true),
+          1 if o == Mul => (e2, ispure),
+          _ => (~BinaryOp(o, ~Const(c, s), e2), ispure)
+        }
+      }
 
-      /* Simplify easy arithmetic (i.e. 1 * n = n, 0 + n = n, etc. */
-      (_, @Const(1, _)) if o == Div => (e1, ispure),
-      (@Const(1, _), _) if o == Mul => (e2, ispure),
-      (@Const(0, _), _) if (o == Mul || o == And) && ispure => (e1, ispure),
-      (@Const(0, _), _) if o == Add || o == Or || o == Xor => (e2, ispure),
+      e1 => {
+        match e2 {
+          /* get rid of divisions by 1 */
+          ~Const(1, _) if o == Div => (e1, ispure),
+          e2 => (~BinaryOp(o, e1, e2), ispure)
+        }
+      }
+    }
+  }
+}
 
-      /* Catch all, sadly we can't optimize */
-      _ => (@BinaryOp(o, e1, e2), ispure)
+fn do_op(op: Binop, i1: i32, i2: i32, t: Type) -> (~Expression, bool) {
+  match op {
+    Add => (~Const(i1 + i2, t), true),
+    Sub => (~Const(i1 - i2, t), true),
+    Mul => (~Const(i1 * i2, t), true),
+    Lt  => (~Const(if i1 < i2 { 1 } else { 0 }, t), true),
+    Lte => (~Const(if i1 <= i2 { 1 } else { 0 }, t), true),
+    Gt  => (~Const(if i1 > i2 { 1 } else { 0 }, t), true),
+    Gte => (~Const(if i1 >= i2 { 1 } else { 0 }, t), true),
+    Eq  => (~Const(if i1 == i2 { 1 } else { 0 }, t), true),
+    Neq => (~Const(if i1 != i2 { 1 } else { 0 }, t), true),
+    And => (~Const(i1 & i2, t), true),
+    Or  => (~Const(i1 | i2, t), true),
+    Xor => (~Const(i1 ^ i2, t), true),
+    Lsh => (~Const(i1 << i2, t), true),
+    Rsh => (~Const(i1 >> i2, t), true),
+    Div | Mod => {
+      if i2 == 0 || (i1 == i32::min_value && i2 == -1) {
+        (~BinaryOp(op, ~Const(i1, t), ~Const(i2, t)), false)
+      } else {
+        match op {
+          Div => (~Const(i1 / i2, t), true),
+          Mod => (~Const(i1 % i2, t), true),
+          _ => die!()
+        }
+      }
     }
   }
 }

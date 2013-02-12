@@ -1,5 +1,4 @@
 use core::hashmap::linear::{LinearMap, LinearSet};
-use core::util::unreachable;
 
 use std::bitv;
 use std::smallintmap::SmallIntMap;
@@ -10,7 +9,6 @@ use back::coalesce;
 use back::assem::*;
 use utils::profile;
 
-type CFG = graph::Graph<@~[@Instruction], ir::Edge>;
 type RegisterSet = bitv::Bitv;
 pub type ColorMap = SmallIntMap<uint>;
 pub type ConstraintMap = SmallIntMap<Constraint>;
@@ -99,42 +97,42 @@ impl Allocator {
     debug!("%s", tmplive.pp())
 
     let mut pcopy = None;
-    for self.f.cfg[n].eachi |i, &ins| {
+    for self.f.cfg[n].eachi |i, ins| {
       /* examine data for next instruction for last use information */
       debug!("%s", ins.pp());
       debug!("deltas %?", tmpdelta[i]);
       debug!("before %s %s", tmplive.pp(), registers.pp());
       liveness::apply(&mut tmplive, &tmpdelta[i]);
 
-      match ins {
+      match *ins {
         /* If we found a pcopy, then we're breaking liveness */
-        @PCopy(*) => {
+        ~PCopy(copy copies) => {
           assert(pcopy.is_none());
-          pcopy = Some(ins);
+          pcopy = Some(copies);
           registers.clear();
           loop;
         }
         /* Be sure we always assign stack slots. It should be noted that these
          * are currently not in SSA form. */
-        @MemPhi(def, _) => {
+        ~MemPhi(def, _) => {
           if !self.slots.contains_key(&def) {
             self.slots.insert(def, self.max_slot);
             self.max_slot += 1;
           }
         }
-        @Spill(_, t) => {
+        ~Spill(_, t) => {
           if !self.slots.contains_key(&t) {
             self.slots.insert(t, self.max_slot);
             self.max_slot += 1;
           }
         }
         /* Keep track of the maximum number of args passed to called funs */
-        @Store(@Stack(pos), _) => {
+        ~Store(~Stack(pos), _) => {
           self.max_call_stack = uint::max(pos + arch::ptrsize,
                                           self.max_call_stack);
         }
         /* do simple precoloring of args up front */
-        @Arg(tmp, i) => {
+        ~Arg(tmp, i) => {
           let color = arch::reg_num(arch::arg_reg(i));
           self.colors.insert(tmp, color);
           self.precolored.insert(tmp);
@@ -151,8 +149,8 @@ impl Allocator {
         let banned = RegisterSet();
         macro_rules! precolor(
           ($o:expr, $r:expr) => (
-            match $o {
-              @Temp(t) => {
+            match *$o {
+              ~Temp(t) => {
                 assert self.colors.insert(t, arch::reg_num($r));
                 assert self.precolored.insert(t);
               }
@@ -161,8 +159,8 @@ impl Allocator {
           )
         );
 
-        match ins {
-          @BinaryOp(op, dst, op1, op2) if op.constrained() => {
+        match *ins {
+          ~BinaryOp(op, ref dst, ref op1, ref op2) if op.constrained() => {
             match op {
               /* div/mod both clobber eax/edx, and have the result in one */
               Div | Mod => {
@@ -173,8 +171,8 @@ impl Allocator {
                 for tmplive.each |&tmp| {
                   assert self.constraints.insert(tmp, Idiv);
                 }
-                match op2 {
-                  @Temp(t) => { self.constraints.insert(t, Idiv); }
+                match *op2 {
+                  ~Temp(t) => { self.constraints.insert(t, Idiv); }
                   _ => die!(~"not a tmp")
                 }
               }
@@ -190,10 +188,10 @@ impl Allocator {
 
           /* Calls precolor the result and arguments, and the caller-saved
              registers are all banned for this instruction */
-          @Call(dst, _, ref args) => {
+          ~Call(dst, _, ref args) => {
             self.colors.insert(dst, arch::reg_num(EAX));
             assert self.precolored.insert(dst);
-            for args.eachi |i, &arg| {
+            for args.eachi |i, arg| {
               precolor!(arg, arch::arg_reg(i));
             }
             for arch::each_caller |r| {
@@ -205,7 +203,7 @@ impl Allocator {
           }
 
           /* returns just have their argument precolored to EAX */
-          @Return(op) => {
+          ~Return(ref op) => {
             precolor!(op, EAX);
             banned.set(arch::reg_num(EAX), true);
           }
@@ -247,21 +245,17 @@ impl Allocator {
           }
         }
         debug!("processing previous pcopy");
-        match pcopy {
-          Some(@PCopy(ref copies)) => {
-            let regstmp = RegisterSet();
-            for copies.each |&(dst, src)| {
-              assert dst != src;
-              match self.colors.find(&dst) {
-                Some(&c) => { regstmp.set(c, true); }
-                None    => ()
-              }
-            }
-            for copies.each |&(dst, _)| {
-              process!(dst, regstmp);
-            }
+        let copies = pcopy.swap_unwrap();
+        let regstmp = RegisterSet();
+        for copies.each |&(dst, src)| {
+          assert dst != src;
+          match self.colors.find(&dst) {
+            Some(&c) => { regstmp.set(c, true); }
+            None    => ()
           }
-          _ => unreachable()
+        }
+        for copies.each |&(dst, _)| {
+          process!(dst, regstmp);
         }
         debug!("adding in all live-out temps");
         for tmplive.each |tmp| {
@@ -320,7 +314,7 @@ impl Allocator {
 
       for ins.each |&ins| {
         match ins {
-          @Phi(tmp, ref map) => {
+          ~Phi(tmp, ref map) => {
             debug!("phi var %? %?", tmp, *self.colors.get(&tmp));
             phi_vars.push(*self.colors.get(&tmp));
             for map.each |&(&pred, &tmp)| {
@@ -329,7 +323,7 @@ impl Allocator {
               phi_maps.insert(pred, L);
             }
           }
-          @MemPhi(def, ref map) => {
+          ~MemPhi(def, ref map) => {
             mem_vars.push(def);
             for map.each |&(&pred, &slot)| {
               let mut L = mem_maps.pop(&pred).unwrap();
@@ -353,11 +347,11 @@ impl Allocator {
            without using a register */
         for mems.eachi |i, &src| {
           let src = self.stack_loc(src);
-          ins.push(@Raw(fmt!("pushq %s", Stack(src + i * arch::ptrsize).pp())));
+          ins.push(~Raw(fmt!("pushq %s", Stack(src + i * arch::ptrsize).pp())));
         }
         for vec::rev_eachi(mem_vars) |i, &dst| {
           let dst = self.stack_loc(dst);
-          ins.push(@Raw(fmt!("popq %s", Stack(dst + i * arch::ptrsize).pp())));
+          ins.push(~Raw(fmt!("popq %s", Stack(dst + i * arch::ptrsize).pp())));
         }
 
         if ins.len() == 0 { loop }
@@ -384,13 +378,13 @@ impl Allocator {
             let reg = arch::num_reg(color);
             if arch::callee_reg(reg) && !self.callee_saved.contains(&color) {
               self.callee_saved.push(color);
-              push(@Raw(fmt!("push %s", reg.size(ir::Pointer))));
+              push(~Raw(fmt!("push %s", reg.size(ir::Pointer))));
             }
           }
           if self.stack_size(false) != 0 {
-            push(@BinaryOp(Sub, @Register(ESP, ir::Pointer),
-                           @Immediate(self.stack_size(false) as i32, ir::Pointer),
-                           @Register(ESP, ir::Pointer)));
+            push(~BinaryOp(Sub, ~Register(ESP, ir::Pointer),
+                           ~Immediate(self.stack_size(false) as i32, ir::Pointer),
+                           ~Register(ESP, ir::Pointer)));
           }
         }
         for self.f.cfg[id].each |&ins| {
@@ -401,71 +395,69 @@ impl Allocator {
     }
   }
 
-  fn alloc_ins(&self, i: @Instruction, push: &pure fn(@Instruction)) {
+  fn alloc_ins(&self, i: ~Instruction, push: &pure fn(~Instruction)) {
     match i {
-      @Spill(t, tag) => push(@Store(self.stack_pos(tag), self.alloc_tmp(t))),
-      @Reload(t, tag) => push(@Load(self.alloc_tmp(t), self.stack_pos(tag))),
-      @Load(dst, addr) =>
-        push(@Load(self.alloc_op(dst), self.alloc_addr(addr))),
-      @Store(addr, src) => push(@Store(self.alloc_addr(addr),
+      ~Spill(t, tag) => push(~Store(self.stack_pos(tag), self.alloc_tmp(t))),
+      ~Reload(t, tag) => push(~Load(self.alloc_tmp(t), self.stack_pos(tag))),
+      ~Load(dst, addr) =>
+        push(~Load(self.alloc_op(dst), self.alloc_addr(addr))),
+      ~Store(addr, src) => push(~Store(self.alloc_addr(addr),
                                        self.alloc_op(src))),
-      @Raw(*) => push(i),
-      @Condition(c, o1, o2) =>
-        push(@Condition(c, self.alloc_op(o1), self.alloc_op(o2))),
-      @Die(c, o1, o2) =>
-        push(@Die(c, self.alloc_op(o1), self.alloc_op(o2))),
-      @Move(o1, o2) => push(@Move(self.alloc_op(o1), self.alloc_op(o2))),
-      @MemPhi(*) | @Use(*) | @Phi(*) | @Arg(*) => (),
+      ~Raw(s) => push(~Raw(s)),
+      ~Condition(c, o1, o2) =>
+        push(~Condition(c, self.alloc_op(o1), self.alloc_op(o2))),
+      ~Die(c, o1, o2) =>
+        push(~Die(c, self.alloc_op(o1), self.alloc_op(o2))),
+      ~Move(o1, o2) => push(~Move(self.alloc_op(o1), self.alloc_op(o2))),
+      ~MemPhi(*) | ~Use(*) | ~Phi(*) | ~Arg(*) => (),
 
-      @Return(_) => {
+      ~Return(op) => {
         if self.stack_size(false) != 0 {
-          push(@BinaryOp(Add, @Register(ESP, ir::Pointer),
-                         @Immediate(self.stack_size(false) as i32, ir::Pointer),
-                         @Register(ESP, ir::Pointer)));
+          push(~BinaryOp(Add, ~Register(ESP, ir::Pointer),
+                         ~Immediate(self.stack_size(false) as i32, ir::Pointer),
+                         ~Register(ESP, ir::Pointer)));
         }
         for vec::rev_each(self.callee_saved) |&color| {
-          push(@Raw(fmt!("pop %s", arch::num_reg(color).size(ir::Pointer))));
+          push(~Raw(fmt!("pop %s", arch::num_reg(color).size(ir::Pointer))));
         }
-        push(i);
+        push(~Return(op));
       }
-
-      /* x86 imul can have 3 operands if one is an immediate */
-      @BinaryOp(Mul, d, s1, s2) if s1.imm() && !s2.imm() =>
-        push(@BinaryOp(Mul, self.alloc_op(d), self.alloc_op(s2), s1)),
-      @BinaryOp(Mul, d, s1, s2) if s2.imm() && !s1.imm() =>
-        push(@BinaryOp(Mul, self.alloc_op(d), self.alloc_op(s1), s2)),
 
       /* When going through formatting and on x86 -
             BinaryOp(op, d, s1, s2) <=> d = d op s1
          and s2 is put in the commments */
-      @BinaryOp(op, d, s1, s2) => {
+      ~BinaryOp(op, d, s1, s2) => {
         let d = self.alloc_op(d);
         let s1 = self.alloc_op(s1);
         let s2 = self.alloc_op(s2);
 
         match op {
           /* these are all special cases handled elsewhere */
-          Div | Mod | Cmp(*) => push(@BinaryOp(op, d, s1, s2)),
+          Div | Mod | Cmp(*) => push(~BinaryOp(op, d, s1, s2)),
+
+          /* x86 imul can have 3 operands if one is an immediate */
+          Mul if s1.imm() && !s2.imm() => push(~BinaryOp(Mul, d, s2, s1)),
+          Mul if s2.imm() && !s1.imm() => push(~BinaryOp(Mul, d, s1, s2)),
 
           /* d = d op s2, perfect! */
-          _ if s1 == d => push(@BinaryOp(op, d, s2, s1)),
+          _ if s1 == d => push(~BinaryOp(op, d, s2, s1)),
           /* d = s1 op d, can commute */
-          _ if s2 == d && op.commutative() => push(@BinaryOp(op, d, s1, s2)),
+          _ if s2 == d && op.commutative() => push(~BinaryOp(op, d, s1, s2)),
           /* should be handled elsewhere */
-          _ if s2 == d => die!(fmt!("shouldn't happen now %?", i)),
+          _ if s2 == d => die!(~"invalid instruction in alloc"),
           /* catch-all last resort, generate a move */
           _ => {
-            push(@Move(d, s1));
-            push(@BinaryOp(op, d, s2, s1));
+            push(~Move(copy d, copy s1));
+            push(~BinaryOp(op, d, s2, s1));
           }
 
         }
       }
-      @Call(dst, fun, ref args) =>
-        push(@Call(dst, self.alloc_op(fun),
-             args.map(|&arg| self.alloc_op(arg)))),
+      ~Call(dst, fun, args) =>
+        push(~Call(dst, self.alloc_op(fun),
+                   vec::map_consume(args, |arg| self.alloc_op(arg)))),
 
-      @PCopy(ref copies) => {
+      ~PCopy(ref copies) => {
         debug!("%?", copies);
         let mut dsts = ~[];
         let mut srcs = ~[];
@@ -481,13 +473,13 @@ impl Allocator {
     }
   }
 
-  fn alloc_addr(&self, addr: @Address) -> @Address {
+  fn alloc_addr(&self, addr: ~Address) -> ~Address {
     match addr {
-      @Stack(*) => addr,
-      @StackArg(idx) =>
-        @Stack((idx + 1) * arch::ptrsize + self.stack_size(true)),
-      @MOp(base, disp, off) =>
-        @MOp(self.alloc_op(base), disp,
+      ~Stack(i) => ~Stack(i),
+      ~StackArg(idx) =>
+        ~Stack((idx + 1) * arch::ptrsize + self.stack_size(true)),
+      ~MOp(base, disp, off) =>
+        ~MOp(self.alloc_op(base), disp,
              off.map_consume(|(x, mult)| (self.alloc_op(x), mult)))
     }
   }
@@ -499,8 +491,8 @@ impl Allocator {
     *self.slots.get(&tag) * arch::ptrsize + self.max_call_stack
   }
 
-  fn stack_pos(&self, tag: Tag) -> @Address {
-    @Stack(self.stack_loc(tag))
+  fn stack_pos(&self, tag: Tag) -> ~Address {
+    ~Stack(self.stack_loc(tag))
   }
 
   fn stack_size(&self, with_saves: bool) -> uint {
@@ -511,24 +503,24 @@ impl Allocator {
     return arch::align_stack(slots + calls + saves) - alter;
   }
 
-  fn alloc_op(&self, o: @Operand) -> @Operand {
+  fn alloc_op(&self, o: ~Operand) -> ~Operand {
     match o {
-      @Immediate(*) | @LabelOp(*) | @Register(*) => o,
-      @Temp(tmp) => self.alloc_tmp(tmp)
+      ~Immediate(*) | ~LabelOp(*) | ~Register(*) => o,
+      ~Temp(tmp) => self.alloc_tmp(tmp)
     }
   }
 
-  fn alloc_tmp(&self, tmp: Temp) -> @Operand {
-    @Register(arch::num_reg(*self.colors.get(&tmp)),
+  fn alloc_tmp(&self, tmp: Temp) -> ~Operand {
+    ~Register(arch::num_reg(*self.colors.get(&tmp)),
               *self.f.sizes.get(&tmp))
   }
 
-  fn resolve_perm(&self, result: &[uint], incoming: &[uint]) -> ~[@Instruction] {
-    let mkreg = |i: uint| @Register(arch::num_reg(i), ir::Pointer);
+  fn resolve_perm(&self, result: &[uint], incoming: &[uint]) -> ~[~Instruction] {
+    let mkreg = |i: uint| ~Register(arch::num_reg(i), ir::Pointer);
     resolve_perm(result, incoming).map(|&r| {
       match r {
-        Left((dst, src)) => @Move(mkreg(dst), mkreg(src)),
-        Right((r1, r2)) => @Raw(fmt!("xchg %s, %s", mkreg(r1).pp(),
+        Left((dst, src)) => ~Move(mkreg(dst), mkreg(src)),
+        Right((r1, r2)) => ~Raw(fmt!("xchg %s, %s", mkreg(r1).pp(),
                                      mkreg(r2).pp()))
       }
     })

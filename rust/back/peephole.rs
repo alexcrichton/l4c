@@ -1,5 +1,5 @@
 /**
- * @brief Peephole optimizations on assembly
+ * ~brief Peephole optimizations on assembly
  *
  * Does a peek at all the instructions in a program and optimizes them if
  * possible. This just does small things like 'a * 4' == 'a << 2' or things like
@@ -16,7 +16,7 @@ pub fn optimize(p: &mut Program) {
   }
 }
 
-fn peep(mut ins: ~[@Instruction]) -> ~[@Instruction] {
+fn peep(mut ins: ~[~Instruction]) -> ~[~Instruction] {
   use BO  = back::assem::BinaryOp;
   use Imm = back::assem::Immediate;
 
@@ -24,15 +24,22 @@ fn peep(mut ins: ~[@Instruction]) -> ~[@Instruction] {
   do vec::map_consume(ins) |i| {
     match i {
       /* shifting has constraints, so add if we can */
-      @BO(Mul, d, @Imm(2, _), t) | @BO(Mul, d, t, @Imm(2, _)) =>
-        @BO(Add, d, t, t),
-      @BO(Mul, d, @Imm(c, s), t) | @BO(Mul, d, t, @Imm(c, s)) if pow2(c) =>
-        @BO(Lsh, d, t, @Imm(log2(c), s)),
-      @BO(Div, d, t, @Imm(c, s)) if pow2(c) =>
-        @BO(Rsh, d, t, @Imm(log2(c), s)),
-      @BO(Mod, d, t, @Imm(c, s)) if pow2(c) =>
-        @BO(And, d, t, @Imm(c - 1, s)),
-      _ => i
+      ~BO(Mul, d, ~Imm(2, _), t) | ~BO(Mul, d, t, ~Imm(2, _)) =>
+        ~BO(Add, d, copy t, t),
+      /* Multiplying by a power of 2 is equivalent by shifting by the log */
+      ~BO(Mul, d, ~Imm(c, s), t) | ~BO(Mul, d, t, ~Imm(c, s)) => {
+        let (op, c) = if pow2(c) { (Lsh, log2(c)) } else { (Mul, c) };
+        ~BO(op, d, t, ~Imm(c, s))
+      }
+      /* dividing/mod by a power of 2 can also be simplified. */
+      ~BO(op, d, t, ~Imm(c, s)) => {
+        match (op, pow2(c)) {
+          (Div, true) => ~BO(Rsh, d, t, ~Imm(log2(c), s)),
+          (Mod, true) => ~BO(And, d, t, ~Imm(c - 1, s)),
+          _           => ~BO(op, d, t, ~Imm(c, s)),
+        }
+      }
+      i => i
     }
   }
 }

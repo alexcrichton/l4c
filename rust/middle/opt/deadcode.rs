@@ -1,5 +1,5 @@
 /**
- * @brief Dead code elimination
+ * ~brief Dead code elimination
  *
  * Because the graph is in SSA form, it's far easier to do dead code elimination
  * than it would normally be. This simply walks up the dominator tree from the
@@ -16,7 +16,7 @@ use middle::ir::*;
 struct Eliminator {
   f: &mut Function,
   used: bitv::Bitv,
-  stms: ~[@Statement],
+  stms: ~[~Statement],
 }
 
 pub fn optimize(p: &mut Program) {
@@ -39,7 +39,7 @@ impl Eliminator {
     for self.f.cfg.each_node |_, stms| {
       for stms.each |&s| {
         match s {
-          @Phi(_, ref m) => {
+          ~Phi(_, ref m) => {
             for m.each |&(_, &t)| {
               self.used.set(t, true);
             }
@@ -68,14 +68,14 @@ impl Eliminator {
     return changed;
   }
 
-  fn stm(&mut self, s: @Statement) -> bool {
-    match s {
+  fn stm(&mut self, s: ~Statement) -> bool {
+    let s = match s {
       /* Keep all argument statements */
-      @Arguments(*) => { self.stms.push(s); return true; }
+      ~Arguments(a) => { self.stms.push(~Arguments(a)); return true; }
       /* Impossible death doesn't need to be pushed back */
-      @Die(@Const(0, _)) => { return true; }
-      _ => ()
-    }
+      ~Die(~Const(0, _)) => { return true; }
+      s => s
+    };
     let mut def = None;
     for s.each_def |t| {
       assert def.is_none();
@@ -101,19 +101,19 @@ impl Eliminator {
     return true;
   }
 
-  fn ispure(&self, s: @Statement) -> bool {
-    match s {
-      @Call(*) | @Load(*) |
-        @Move(_, @BinaryOp(Div, _, _)) | @Move(_, @BinaryOp(Mod, _, _)) => false,
+  fn ispure(&self, s: &Statement) -> bool {
+    match *s {
+      Call(*) | Load(*) |
+        Move(_, ~BinaryOp(Div, _, _)) | Move(_, ~BinaryOp(Mod, _, _)) => false,
       _ => true
     }
   }
 
-  fn first_impossible(&self, b: &[@Statement]) -> uint {
+  fn first_impossible(&self, b: &[~Statement]) -> uint {
     for b.eachi |i, &stm| {
       match stm {
-        @Die(@Const(c, _)) if c != 0 => return i + 1,
-        @Return(*) => return i + 1,
+        ~Die(~Const(c, _)) if c != 0 => return i + 1,
+        ~Return(*) => return i + 1,
         _ => ()
       }
     }

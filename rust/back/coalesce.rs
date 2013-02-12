@@ -1,5 +1,5 @@
 /**
- * @brief Coalescing of a colored graph to reduce the amount of moves needed
+ * ~brief Coalescing of a colored graph to reduce the amount of moves needed
  *        when removing phi functions.
  *
  * This file implements the algorithm described in Sebastian Hack's thesis paper
@@ -169,7 +169,7 @@ impl Coalescer {
    * information about where each temp is defined and the set of uses for each
    * temp.
    */
-  fn build_use_def(&mut self, n: NodeId, ins: &~[@assem::Instruction]) {
+  fn build_use_def(&mut self, n: NodeId, ins: &~[~assem::Instruction]) {
     macro_rules! add_use(
       ($tmp:expr, $loc:expr) => ({
         let mut set = match self.uses.pop(&$tmp) {
@@ -599,7 +599,7 @@ impl Coalescer {
       let weight = weight + if self.f.loops.contains_key(&n) { 1 } else { 0 };
       for self.f.cfg[n].each |&ins| {
         match ins {
-          @assem::Phi(def, ref map) => {
+          ~assem::Phi(def, ref map) => {
             for map.each |&(_, &tmp)| {
               /* TODO(#4650): when this ICE is fixed, uncomment */
               /*affine!(def, tmp, weight);*/
@@ -608,7 +608,7 @@ impl Coalescer {
               pq.push(Affinity(tmp, def, weight));
             }
           }
-          @assem::PCopy(ref copies) => {
+          ~assem::PCopy(ref copies) => {
             for copies.each |&(a, b)| {
               /* TODO(#4650): when ICE is fixed, uncomment */
               /*affine!(a, b, weight);*/

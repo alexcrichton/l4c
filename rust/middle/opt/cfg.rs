@@ -71,8 +71,7 @@ pub fn prune<T>(cfg: &mut CFG<T>, root: NodeId) {
     }
   }
 
-  /* TODO: if this is 'consume', there's a segfault... */
-  for to_delete.each |&id| {
+  do vec::consume(to_delete) |_, id| {
     cfg.remove_node(id);
   }
 }
@@ -101,19 +100,15 @@ pub fn eliminate_critical<T: Statement>(cfg: &mut CFG<T>) {
     cfg.add_edge(new, n2, ir::Always);
 
     /* Be sure to fix the predecessor of each phi node in our successor */
-    cfg.map_consume_node(n2, |stms| vec::map_consume(stms, |ins| {
-      match Statement::phi_info(ins) {
-        Some((def, map)) => {
-          /* TODO: shouldn't need dup */
-          let mut dup = LinearMap::new();
-          for map.each |&(&k, &v)| {
-            dup.insert(k, v);
-          }
-          dup.insert(new, *map.get(&n1));
-          dup.remove(&n1);
-          Statement::phi(def, dup)
+    cfg.map_consume_node(n2, |stms| vec::map_consume(stms, |stm| {
+      match Statement::phi_unwrap(stm) {
+        Right((def, map)) => {
+          let mut map = map;
+          let prev = map.pop(&n1).unwrap();
+          map.insert(new, prev);
+          Statement::phi(def, map)
         }
-        None => ins
+        Left(stm) => stm
       }
     }));
   }
@@ -145,10 +140,9 @@ pub fn merge<T>(cfg: &mut CFG<T>,
       for cfg.each_pred_edge(pred) |pred, &edge| {
         cfg.add_edge(pred, n, edge);
       }
-      let blk = cfg.remove_node(pred);
-      do cfg.map_consume_node(n) |s| {
-        blk + s
-      }
+      let mut blk = cfg.remove_node(pred);
+      blk.push_all_move(cfg.pop_node(n));
+      cfg.update_node(n, blk);
       changes.insert(pred, n);
       if pred == root {
         root = n
@@ -181,7 +175,7 @@ fn eliminate_dead(cfg: &mut ir::CFG) {
   let mut constant = ~[];
   for cfg.each_node |n, stms| {
     match vec::last_opt(*stms) {
-      Some(@ir::Condition(@ir::Const(c, _))) => { constant.push((n, c)); }
+      Some(~ir::Condition(~ir::Const(c, _))) => { constant.push((n, c)); }
       _ => ()
     }
   }
@@ -218,7 +212,7 @@ fn fix_phis(cfg: &mut ir::CFG) {
   do cfg.map_nodes |n, stms| {
     do vec::map_consume(stms) |s| {
       match s {
-        @ir::Phi(def, ref map) => {
+        ~ir::Phi(def, ref map) => {
           /* TODO: shouldn't have to make a dup */
           let mut dup = LinearMap::new();
           let mut predtmp = def;
@@ -229,9 +223,9 @@ fn fix_phis(cfg: &mut ir::CFG) {
             }
           }
           if dup.len() == 1 {
-            @ir::Move(def, @ir::Temp(predtmp))
+            ~ir::Move(def, ~ir::Temp(predtmp))
           } else {
-            @ir::Phi(def, dup)
+            ~ir::Phi(def, dup)
           }
         }
         _ => s

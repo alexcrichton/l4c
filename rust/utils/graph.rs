@@ -62,9 +62,13 @@ impl<N, E> Graph<N, E> {
   }
 
   fn update_node(&mut self, id: NodeId, n: N) {
-    assert(self.nodes.contains_key(&id));
+    /* may not be in 'nodes' due to 'pop_node' */
     assert(self.succ.contains_key(&id));
     self.nodes.insert(id, n);
+  }
+
+  fn pop_node(&mut self, n: NodeId) -> N {
+    self.nodes.pop(&n).unwrap()
   }
 
   fn remove_node(&mut self, n: NodeId) -> N {
@@ -115,7 +119,13 @@ impl<N, E> Graph<N, E> {
   }
 
   pure fn each_node(&self, f: fn(NodeId, &N) -> bool) {
-    self.nodes.each(|&(&a, b)| f(a, b));
+    /* TODO(#4856): need some compiler checks so we don't fuck ourselves */
+    self.succ.each(|&(&a, _)| {
+      match self.nodes.find(&a) {
+        Some(b) => f(a, b),
+        None => true
+      }
+    });
   }
 
   pure fn each_pred(&self, n: NodeId, f: fn(NodeId) -> bool) {
@@ -234,7 +244,7 @@ impl<N, E> Graph<N, E> {
   }
 }
 
-impl<N, E> Graph<N, E>: Index<NodeId, &self/N> {
+impl<N, E> Graph<N, E>: Index<NodeId, &N> {
   pure fn index(&self, id: NodeId) -> &self/N {
     self.node(id)
   }

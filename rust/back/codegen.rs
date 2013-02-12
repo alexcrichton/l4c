@@ -3,13 +3,13 @@ use core::hashmap::linear::{LinearMap, LinearSet};
 use middle::{ir, temp, ssa, liveness, label};
 use back::{assem, arch};
 
-type Builder = fn(@assem::Instruction);
+type Builder = fn(~assem::Instruction);
 
 pub struct CodeGenerator {
   priv f: ir::Function,
   priv temps: temp::Allocator,
   priv sizes: LinearMap<temp::Temp, assem::Size>,
-  priv stms: ~[@assem::Instruction],
+  priv stms: ~[~assem::Instruction],
   priv tmap: LinearMap<temp::Temp, temp::Temp>,
 }
 
@@ -91,21 +91,22 @@ impl CodeGenerator {
     }
   }
 
-  fn half(&mut self, e: @ir::Expression) -> @assem::Operand {
+  fn half(&mut self, e: ~ir::Expression) -> ~assem::Operand {
+    let size = self.f.size(e);
     match e {
-      @ir::Temp(t) => @assem::Temp(self.tmp(t)),
-      @ir::Const(c, size) => @assem::Immediate(c, size),
-      @ir::LabelExp(copy l) => @assem::LabelOp(l),
-      @ir::BinaryOp(op, e1, e2) => {
-        let out = self.tmpnew(self.f.size(e));
-        self.push(@assem::BinaryOp(self.op(op), out, self.half(e1),
+      ~ir::Temp(t) => ~assem::Temp(self.tmp(t)),
+      ~ir::Const(c, size) => ~assem::Immediate(c, size),
+      ~ir::LabelExp(copy l) => ~assem::LabelOp(l),
+      ~ir::BinaryOp(op, e1, e2) => {
+        let out = self.tmpnew(size);
+        self.push(~assem::BinaryOp(self.op(op), copy out, self.half(e1),
                                    self.half(e2)));
         return out;
       }
     }
   }
 
-  fn addr(&mut self, e: @ir::Expression) -> @assem::Address {
+  fn addr(&mut self, e: ~ir::Expression) -> ~assem::Address {
     use M = back::assem::Multiplier;
     use middle::ir::{BinaryOp, Mul, Const, Add};
 
@@ -113,205 +114,221 @@ impl CodeGenerator {
        side of binops, so that assumption is made here to test for fewer cases
        and make things all-around easier */
     debug!("%s", e.pp());
-    let offsetify = |e: @ir::Expression| {
+    let offsetify = |e: ~ir::Expression| {
       match e {
-        @BinaryOp(Add, e2, @BinaryOp(Mul, @Const(c, _), e1)) if M::valid(c) => {
-          debug!("e1: %s e2: %s c: %?", e1.pp(), e2.pp(), c);
-          (e2, Some((self.half(e1), M::from_int(c))))
+        ~BinaryOp(Add, e1, e2) => {
+          match e2 {
+            ~BinaryOp(Mul, ~Const(c, s), e2) => {
+              if M::valid(c) {
+                (e1, Some((self.half(e2), M::from_int(c))))
+              } else {
+                (e1, Some((self.half(~BinaryOp(Mul, ~Const(c, s), e2)),
+                           assem::One)))
+              }
+            }
+            e2 => (e1, Some((self.half(e2), assem::One)))
+          }
         }
-        @BinaryOp(Add, e1, e2) => {
-          (e1, Some((self.half(e2), assem::One)))
-        }
-        _ => (e, None)
+        e => (e, None)
       }
     };
     match e {
-      @BinaryOp(Add, @Const(c, _), e) => {
+      ~BinaryOp(Add, ~Const(c, _), e) => {
         let (e, mulpart) = offsetify(e);
-        @assem::MOp(self.half(e), Some(c as uint), mulpart)
+        ~assem::MOp(self.half(e), Some(c as uint), mulpart)
       }
 
-      _ => {
+      e => {
         let (e, mulpart) = offsetify(e);
-        @assem::MOp(self.half(e), None, mulpart)
+        ~assem::MOp(self.half(e), None, mulpart)
       }
     }
   }
 
-  fn stm(&mut self, s: @ir::Statement) {
+  fn stm(&mut self, s: ~ir::Statement) {
     match s {
-      @ir::Arguments(ref tmps) => {
+      ~ir::Arguments(ref tmps) => {
         for tmps.eachi |i, &tmp| {
           let tmp = self.tmp(tmp);
           if i < arch::arg_regs {
-            self.push(@assem::Arg(tmp, i));
+            self.push(~assem::Arg(tmp, i));
           } else {
-            let loc = @assem::StackArg(i - arch::arg_regs);
-            self.push(@assem::Load(@assem::Temp(tmp), loc));
+            let loc = ~assem::StackArg(i - arch::arg_regs);
+            self.push(~assem::Load(~assem::Temp(tmp), loc));
           }
         }
       }
-      @ir::Phi(tmp, ref map) => {
+      ~ir::Phi(tmp, ref map) => {
         let mut map2 = LinearMap::new();
         for map.each |&(&k, &v)| {
           map2.insert(k, self.tmp(v));
         }
-        self.push(@assem::Phi(self.tmp(tmp), map2));
+        self.push(~assem::Phi(self.tmp(tmp), map2));
       }
-      @ir::Move(tmp, @ir::BinaryOp(op, e1, e2)) =>
-        self.push(@assem::BinaryOp(self.op(op),
-                                   @assem::Temp(self.tmp(tmp)),
+      ~ir::Move(tmp, ~ir::BinaryOp(op, e1, e2)) =>
+        self.push(~assem::BinaryOp(self.op(op),
+                                   ~assem::Temp(self.tmp(tmp)),
                                    self.half(e1),
                                    self.half(e2))),
-      @ir::Move(tmp, e) =>
-        self.push(@assem::Move(@assem::Temp(self.tmp(tmp)),
+      ~ir::Move(tmp, e) =>
+        self.push(~assem::Move(~assem::Temp(self.tmp(tmp)),
                                self.half(e))),
-      @ir::Cast(t1, t2) =>
-        self.push(@assem::Move(@assem::Temp(self.tmp(t1)),
-                               @assem::Temp(self.tmp(t2)))),
-      @ir::Load(tmp, e) => {
-        self.push(@assem::Load(@assem::Temp(self.tmp(tmp)), self.addr(e)));
+      ~ir::Cast(t1, t2) =>
+        self.push(~assem::Move(~assem::Temp(self.tmp(t1)),
+                               ~assem::Temp(self.tmp(t2)))),
+      ~ir::Load(tmp, e) => {
+        self.push(~assem::Load(~assem::Temp(self.tmp(tmp)), self.addr(e)));
       }
-      @ir::Store(e1, e2) => {
-        self.push(@assem::Store(self.addr(e1), self.half(e2)));
+      ~ir::Store(e1, e2) => {
+        self.push(~assem::Store(self.addr(e1), self.half(e2)));
       }
-      @ir::Condition(@ir::BinaryOp(cond, e1, e2)) =>
-        self.push(@assem::Condition(self.cond(cond), self.half(e1),
+      ~ir::Condition(~ir::BinaryOp(cond, e1, e2)) =>
+        self.push(~assem::Condition(self.cond(cond), self.half(e1),
                                     self.half(e2))),
-      @ir::Condition(e) =>
-        self.push(@assem::Condition(assem::Neq,
-                                    @assem::Immediate(0, ir::Int),
+      ~ir::Condition(e) =>
+        self.push(~assem::Condition(assem::Neq,
+                                    ~assem::Immediate(0, ir::Int),
                                     self.half(e))),
-      @ir::Die(@ir::BinaryOp(cond, e1, e2)) =>
-        self.push(@assem::Die(self.cond(cond), self.half(e1), self.half(e2))),
-      @ir::Die(@ir::Const(0, _)) => (),
-      @ir::Die(@ir::Const(*)) =>
-        self.push(@assem::Raw(fmt!("jmp %sraise_segv", label::prefix()))),
-      @ir::Die(_) => die!(~"invalid die"),
-      @ir::Return(e) => self.push(@assem::Return(self.half(e))),
-      @ir::Call(tmp, fun, ref args) => {
+      ~ir::Die(~ir::BinaryOp(cond, e1, e2)) =>
+        self.push(~assem::Die(self.cond(cond), self.half(e1), self.half(e2))),
+      ~ir::Die(~ir::Const(0, _)) => (),
+      ~ir::Die(~ir::Const(*)) =>
+        self.push(~assem::Raw(fmt!("jmp %sraise_segv", label::prefix()))),
+      ~ir::Die(_) => die!(~"invalid die"),
+      ~ir::Return(e) => self.push(~assem::Return(self.half(e))),
+      ~ir::Call(tmp, fun, args) => {
         let fun = self.half(fun);
-        let args = args.map(|&arg| self.half(arg));
-        self.push(@assem::Call(self.tmp(tmp), fun, args));
+        let args = vec::map_consume(args, |arg| self.half(arg));
+        self.push(~assem::Call(self.tmp(tmp), fun, args));
       }
     }
   }
 
   /* Push the instruction into our basic block being built, while at the same
    * time constraining it for the x86-64 architecture */
-  fn push(&mut self, ins: @assem::Instruction) {
+  fn push(&mut self, ins: ~assem::Instruction) {
     match ins {
-      @assem::Condition(c, o1, o2) =>
-        self.constrain_cmp(c, o1, o2, assem::Condition),
-      @assem::Die(c, o1, o2) => self.constrain_cmp(c, o1, o2, assem::Die),
-      @assem::BinaryOp(op, d, s1, s2) => {
+      ~assem::Condition(c, o1, o2) => {
+        let (c, o1, o2) = self.constrain_cmp(c, o1, o2);
+        self.stms.push(~assem::Condition(c, o1, o2));
+      }
+      ~assem::Die(c, o1, o2) => {
+        let (c, o1, o2) = self.constrain_cmp(c, o1, o2);
+        self.stms.push(~assem::Die(c, o1, o2));
+      }
+      ~assem::BinaryOp(op, d, s1, s2) => {
         match op {
           /* the cmp instruction can only have immediates in a few places */
-          assem::Cmp(c) => self.constrain_cmp(c, s1, s2, |c, o1, o2| {
-            assem::BinaryOp(assem::Cmp(c), d, o1, o2)
-          }),
+          assem::Cmp(c) => {
+            let (c, s1, s2) = self.constrain_cmp(c, s1, s2);
+            self.stms.push(~assem::BinaryOp(assem::Cmp(c), d, s1, s2));
+          }
 
           /* div/mod can't operate on immediates, only registers */
           assem::Div | assem::Mod => {
             let s1 = if s1.imm() {
               let tmp = self.tmpnew(ir::Int);
-              self.stms.push(@assem::Move(tmp, s1));
+              self.stms.push(~assem::Move(copy tmp, s1));
               tmp
             } else { s1 };
             let s2 = if s2.imm() {
               let tmp = self.tmpnew(ir::Int);
-              self.stms.push(@assem::Move(tmp, s2));
+              self.stms.push(~assem::Move(copy tmp, s2));
               tmp
             } else { s2 };
-            self.stms.push(@assem::BinaryOp(op, d, s1, s2));
+            self.stms.push(~assem::BinaryOp(op, d, s1, s2));
           }
-          _ => self.stms.push(ins)
+
+          _ => self.stms.push(~assem::BinaryOp(op, d, s1, s2))
         }
       }
 
       /* When invoking functions, all argument registers must be actual
          registers, not immediates. Also the same register can't be an argument
          twice because it has to be in two different places */
-      @assem::Call(dst, fun, ref args) => {
+      ~assem::Call(dst, fun, args) => {
         let mut temps = LinearSet::new();
-        let args = args.mapi(|i, &arg| {
-          match arg {
+        let mut args2 = ~[];
+        do vec::consume(args) |i, arg| {
+          let arg = match arg {
             /* If we have first saw this temp, or the immediates/labels need to
                be stored on the stack, then no copy is needed */
-            @assem::Temp(t) if temps.insert(t) => arg,
-            @assem::Immediate(*) |
-              @assem::LabelOp(*) if i >= arch::arg_regs => arg,
+            ~assem::Temp(t) if temps.insert(t) => arg,
+            ~assem::Immediate(*) |
+              ~assem::LabelOp(*) if i >= arch::arg_regs => arg,
 
             /* Otherwise we need to create a temp to store this argument */
             _ if i < arch::arg_regs => {
               let size = match arg {
-                @assem::Temp(t) => *self.sizes.get(&t), _ => arg.size()
+                ~assem::Temp(t) => *self.sizes.get(&t), _ => arg.size()
               };
               let tmp = self.tmpnew(size);
-              self.stms.push(@assem::Move(tmp, arg));
+              self.stms.push(~assem::Move(copy tmp, arg));
               tmp
             }
             _ => arg
-          }
-        });
-        self.stms.push(@assem::Call(dst, fun, args));
+          };
+          args2.push(arg);
+        };
+        self.stms.push(~assem::Call(dst, fun, args2));
       }
 
       /* The return value must be placed in the %eax register */
-      @assem::Return(op) => match op {
-        @assem::Temp(*) => self.stms.push(ins),
-        _ => {
+      ~assem::Return(op) => match op {
+        ~assem::Temp(t) => self.stms.push(~assem::Return(~assem::Temp(t))),
+        op => {
           let tmp = self.tmpnew(op.size());
-          self.stms.push(@assem::Move(tmp, op));
-          self.stms.push(@assem::Return(tmp));
+          self.stms.push(~assem::Move(copy tmp, op));
+          self.stms.push(~assem::Return(tmp));
         }
       },
 
       /* x86 can't load/store to immediate addresses */
-      @assem::Store(a, e) =>
-        self.stms.push(@assem::Store(self.constrain_addr(a), e)),
-      @assem::Load(e, a) =>
-        self.stms.push(@assem::Load(e, self.constrain_addr(a))),
+      ~assem::Store(a, e) =>
+        self.stms.push(~assem::Store(self.constrain_addr(a), e)),
+      ~assem::Load(e, a) =>
+        self.stms.push(~assem::Load(e, self.constrain_addr(a))),
 
-      _ => self.stms.push(ins)
+      ins => self.stms.push(ins)
     }
   }
 
-  fn constrain_addr(&mut self, a: @assem::Address) -> @assem::Address {
-    let unimm = |o: @assem::Operand| {
+  fn constrain_addr(&mut self, a: ~assem::Address) -> ~assem::Address {
+    let unimm = |o: ~assem::Operand| {
       match o {
-        @assem::Immediate(*) => {
+        ~assem::Immediate(*) => {
           let tmp = self.tmpnew(ir::Pointer);
-          self.stms.push(@assem::Move(tmp, o));
+          self.stms.push(~assem::Move(copy tmp, o));
           tmp
         }
         _ => o
       }
     };
     match a {
-      @assem::MOp(base, disp, off) => {
+      ~assem::MOp(base, disp, off) => {
         let base = unimm(base);
         let off = off.map(|&(o, m)| (unimm(o), m));
-        @assem::MOp(base, disp, off)
+        ~assem::MOp(base, disp, off)
       }
-      _ => a
+      a => a
     }
   }
 
   fn constrain_cmp(&mut self,
                    c: assem::Cond,
-                   o1: @assem::Operand,
-                   o2: @assem::Operand,
-                   f: fn(assem::Cond, @assem::Operand, @assem::Operand)
-                          -> assem::Instruction) {
+                   o1: ~assem::Operand,
+                   o2: ~assem::Operand)
+                      -> (assem::Cond, ~assem::Operand, ~assem::Operand)
+  {
     match (o1, o2) {
-      (@assem::Immediate(*), @assem::Immediate(*)) => {
+      (~assem::Immediate(i1, s1), ~assem::Immediate(i2, s2)) => {
         let tmp = self.tmpnew(ir::Int);
-        self.stms.push(@assem::Move(tmp, o1));
-        self.stms.push(@f(c, tmp, o2));
+        self.stms.push(~assem::Move(copy tmp, ~assem::Immediate(i1, s1)));
+        (c, tmp, ~assem::Immediate(i2, s2))
       }
-      (@assem::Immediate(*), _) => self.stms.push(@f(c.flip(), o2, o1)),
-      _ => self.stms.push(@f(c, o1, o2))
+      (~assem::Immediate(i1, s1), o2) =>
+        (c.flip(), o2, ~assem::Immediate(i1, s1)),
+      (o1, o2) => (c, o1, o2)
     }
   }
 
@@ -326,9 +343,9 @@ impl CodeGenerator {
     return ret;
   }
 
-  fn tmpnew(&mut self, s: ir::Type) -> @assem::Operand {
+  fn tmpnew(&mut self, s: ir::Type) -> ~assem::Operand {
     let tmp = self.temps.new();
     self.sizes.insert(tmp, s);
-    @assem::Temp(tmp)
+    ~assem::Temp(tmp)
   }
 }
