@@ -29,8 +29,7 @@ fun gendef ((t, id, L, stm), ext) st = markg ((A.Fun (t, id, L, stm, st)), ext)
 fun typedef (typ, name) ext = (Symbol.addtype name;
                                markg (A.Typedef (name, typ), ext))
 
-fun gendecl (typ, name) exp ext =
-      marks (A.Declare (name, typ, exp, A.Nop), ext)
+fun gendecl (typ, name) exp = A.Declare (name, typ, exp, A.Nop)
 
 %%
 %header (functor L5LrValsFn (structure Token : TOKEN))
@@ -207,14 +206,10 @@ typfun     : typ LPAREN STAR IDENT RPAREN typfun_list
            | typ LPAREN IDENT RPAREN typfun_list
                                         (A.FUN (typ, typfun_list), IDENT)
 
-decl       : typ IDENT                  (gendecl (typ, IDENT) NONE
-                                                 (typleft, IDENTright))
-           | typfun                     (gendecl typfun NONE
-                                                 (typfunleft, typfunright))
-           | typ IDENT ASSIGN exp       (gendecl (typ, IDENT) (SOME exp)
-                                                 (typleft, expright))
-           | typfun ASSIGN exp          (gendecl typfun (SOME exp)
-                                                 (typfunleft, expright))
+decl       : typ IDENT                  (gendecl (typ, IDENT) NONE)
+           | typfun                     (gendecl typfun NONE)
+           | typ IDENT ASSIGN exp       (gendecl (typ, IDENT) (SOME exp))
+           | typfun ASSIGN exp          (gendecl typfun (SOME exp))
 
 stmts      :                                 (A.Nop)
            | stmt stmts                      (A.Seq (stmt, stmts))
@@ -249,9 +244,9 @@ control    : IF LPAREN exp RPAREN stmt elseopt  (A.If(exp, stmt, elseopt))
            | WHILE LPAREN exp RPAREN stmt       (A.While (exp, stmt))
            | FOR LPAREN simpopt SEMI exp SEMI step RPAREN stmt
                                       (A.For (simpopt, exp, step, stmt))
-           | CONTINUE SEMI   (marks (A.Continue, (CONTINUEleft, CONTINUEright)))
-           | BREAK SEMI      (marks (A.Break, (BREAKleft, BREAKright)))
-           | RETURN exp SEMI (marks (A.Return exp, (RETURNleft, expright)))
+           | CONTINUE SEMI                      (A.Continue)
+           | BREAK SEMI                         (A.Break)
+           | RETURN exp SEMI                    (A.Return exp)
 
 arg_list_follow :                               ([])
                 | COMMA exp arg_list_follow     (exp::arg_list_follow)
