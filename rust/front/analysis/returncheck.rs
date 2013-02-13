@@ -13,18 +13,18 @@ pub fn check(a: &Program) {
 }
 
 impl ReturnChecker {
-  fn check(&mut self, a: &Program) {
-    for a.decls.each |x| {
-      self.rc_gdecl(*x);
+  fn check(&mut self, p: &Program) {
+    for p.decls.each |x| {
+      self.rc_gdecl(p, *x);
     }
   }
 
-  fn rc_gdecl(&mut self, g: &GDecl) {
+  fn rc_gdecl(&mut self, p: &Program, g: &GDecl) {
     match *g {
-      Markedg(ref m) => self.err.with(m, |x| self.rc_gdecl(x)),
+      Markedg(ref m) => self.err.with(m, |x| self.rc_gdecl(p, x)),
       Function(_, id, _, ref body) => {
         if !self.returns(*body) {
-          self.err.add(fmt!("Function '%s' does not return", id.val));
+          self.err.add(fmt!("Function '%s' does not return", p.str(id)));
         }
       }
       _ => ()

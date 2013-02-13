@@ -1,9 +1,11 @@
 use core::hashmap::linear::{LinearSet, LinearMap};
-use front::{mark, error, symbol};
+use front::{mark, error};
 use utils::PrettyPrint;
 
 pub struct Program {
   decls: ~[~GDecl],
+  priv symbols: ~[~str],
+  mainid: Ident,
 }
 
 struct Elaborator {
@@ -11,10 +13,11 @@ struct Elaborator {
   funs:    LinearSet<Ident>,
   structs: LinearSet<Ident>,
   types:   LinearMap<Ident, @Type>,
-  err:     error::List
+  err:     error::List,
+  symbols: &[~str]
 }
 
-pub type Ident = @symbol::Symbol;
+pub type Ident = uint;
 
 pub enum GDecl {
   Markedg(mark::Mark<GDecl>),
@@ -90,27 +93,42 @@ impl<T: Copy> Ref<T> {
   }
 }
 
-pub fn new(g: ~[~GDecl]) -> Program {
-  Program{decls: g}
-}
-
 impl Program {
+  static fn new(decls: ~[~GDecl], mut syms: ~[~str]) -> Program {
+    let main = &~"main";
+    let mainid = match vec::position(syms, |s| s.eq(main)) {
+      Some(i) => i,
+      None => {
+        syms.push(~"main");
+        syms.len() - 1
+      }
+    };
+    Program{ decls: decls, symbols: syms, mainid: mainid }
+  }
+
   fn elaborate(self) -> Program {
-    let Program{decls} = self;
-    let mut e = Elaborator{ efuns:   LinearSet::new(),
-                            funs:    LinearSet::new(),
-                            structs: LinearSet::new(),
-                            types:   LinearMap::new(),
-                            err:     error::new() };
-    let prog = new(vec::map_consume(decls, |x| e.elaborate(x)));
-    e.err.check();
-    prog
+    let Program{decls, symbols, _} = self;
+    let mut decls = decls;
+    {
+      let mut e = Elaborator{ efuns:   LinearSet::new(),
+                              funs:    LinearSet::new(),
+                              structs: LinearSet::new(),
+                              types:   LinearMap::new(),
+                              err:     error::new(),
+                              symbols: symbols };
+      decls = e.run(decls);
+    }
+    Program::new(decls, symbols)
+  }
+
+  fn str(&self, id: Ident) -> ~str {
+    copy self.symbols[id]
   }
 }
 
 impl Program: PrettyPrint {
   fn pp(&self) -> ~str {
-    str::connect(self.decls.map(|d| d.pp()), "\n")
+    str::connect(self.decls.map(|d| d.pp(self)), "\n")
   }
 }
 
@@ -132,12 +150,17 @@ pub fn unmarkg(g: ~GDecl) -> ~GDecl {
 }
 
 impl Elaborator {
+  fn run(&mut self, decls: ~[~GDecl]) -> ~[~GDecl] {
+    let decls = vec::map_consume(decls, |x| self.elaborate(x));
+    self.err.check();
+    return decls;
+  }
   fn elaborate(&mut self, g: ~GDecl) -> ~GDecl {
     /* TODO(#4653): in this macro, it should be $id instead of 'id' */
     macro_rules! check_set (
       ($set:expr, $id:expr, $name:expr) => {
         if $set.contains(&id) {
-          self.err.add(fmt!("'%s' already a %s", id.val, $name));
+          self.err.add(fmt!("'%s' already a %s", self.symbols[id], $name));
         }
       }
     );
@@ -259,7 +282,7 @@ impl Elaborator {
 
   fn check_id(&mut self, s: Ident) {
     if self.types.contains_key(&s) {
-      self.err.add(fmt!("'%s' already a type", s.val));
+      self.err.add(fmt!("'%s' already a type", self.symbols[s]));
     }
   }
 
@@ -272,7 +295,7 @@ impl Elaborator {
         match self.types.find(&sym) {
           Some(&t) => t,
           None    => {
-            self.err.add(fmt!("'%s' is undefined", sym.val));
+            self.err.add(fmt!("'%s' is undefined", self.symbols[sym]));
             t
           }
         },

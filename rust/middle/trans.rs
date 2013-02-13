@@ -32,12 +32,13 @@ struct Translator {
   safe: bool,
 }
 
-pub fn translate(p: ast::Program, safe: bool) -> ir::Program {
+pub fn translate(mut p: ast::Program, safe: bool) -> ir::Program {
   debug!("building translation info");
   /* TODO: rename to 'info' once it's not a global log level */
   let mut pi = ProgramInfo { funs: LinearMap::new(), structs: LinearMap::new() };
   pi.build(&p);
-  let ast::Program{decls} = p;
+  let mut decls = ~[];
+  p.decls <-> decls;
 
   debug!("translating");
   let mut accum = ~[];
@@ -45,7 +46,7 @@ pub fn translate(p: ast::Program, safe: bool) -> ir::Program {
   do vec::consume(decls) |_, d| {
     match ast::unmarkg(d) {
       ~ast::Function(_, id, args, body) => {
-        let mut f = ir::Function(copy id.val);
+        let mut f = ir::Function(p.str(id));
         f.root = f.cfg.new_id();
         {
           /* loan f to trans for just this block of code */
@@ -94,13 +95,13 @@ fn typ_size(t: @ast::Type, structs: &AllStructInfo) -> uint {
 impl ProgramInfo {
   fn build(&mut self, p: &ast::Program) {
     for p.decls.each |d| {
-      self.build_gdecl(*d)
+      self.build_gdecl(p, *d)
     }
   }
 
-  fn build_gdecl(&mut self, g: &ast::GDecl) {
+  fn build_gdecl(&mut self, p: &ast::Program, g: &ast::GDecl) {
     match *g {
-      ast::Markedg(ref m) => self.build_gdecl(m.data),
+      ast::Markedg(ref m) => self.build_gdecl(p, m.data),
       ast::StructDef(id, ref fields) => {
         let mut table = LinearMap::new();
         let mut size = 0;
@@ -114,19 +115,23 @@ impl ProgramInfo {
         }
         self.structs.insert(id, (table, size));
       }
-      ast::FunIDecl(_, id, _) => {
-        self.funs.insert(id, ~ir::LabelExp(label::Internal(copy id.val)));
-      }
-      ast::FunEDecl(_, id, _) => {
-        self.funs.insert(id, ~ir::LabelExp(label::External(copy id.val)));
-      }
+      ast::FunIDecl(_, id, _) => { self.funs.insert(id, self.ilabel(p, id)); }
+      ast::FunEDecl(_, id, _) => { self.funs.insert(id, self.elabel(p, id)); }
       ast::Function(_, id, _, _) => {
         if !self.funs.contains_key(&id) {
-          self.funs.insert(id, ~ir::LabelExp(label::Internal(copy id.val)));
+          self.funs.insert(id, self.ilabel(p, id));
         }
       }
       _ => ()
     }
+  }
+
+  fn elabel(&self, p: &ast::Program, id: ast::Ident) -> ~ir::Expression {
+    ~ir::LabelExp(label::External(p.str(id)))
+  }
+
+  fn ilabel(&self, p: &ast::Program, id: ast::Ident) -> ~ir::Expression {
+    ~ir::LabelExp(label::Internal(p.str(id)))
   }
 }
 

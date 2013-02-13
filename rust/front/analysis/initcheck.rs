@@ -3,22 +3,23 @@ use front::error;
 use front::ast::*;
 
 struct Initchecker {
+  program: &Program,
   err: error::List,
   step: ~Statement,
 }
 
 pub fn check(a: &Program) {
-  let mut ic = Initchecker{ err: error::new(), step: ~Nop };
+  let mut ic = Initchecker{ program: a, err: error::new(), step: ~Nop };
   debug!("initchecking");
-  ic.check(a);
-  ic.err.check();
+  ic.run();
 }
 
 impl Initchecker {
-  fn check(&mut self, a: &Program) {
-    for a.decls.each |x| {
+  fn run(&mut self) {
+    for self.program.decls.each |x| {
       self.check_gdecl(*x);
     }
+    self.err.check();
   }
 
   fn check_gdecl(&mut self, g: &GDecl) {
@@ -38,7 +39,8 @@ impl Initchecker {
       While(_, ref s) => self.analyze(*s),
       Declare(id, _, None, ref s) =>
         if self.live(id, *s) {
-          self.err.add(fmt!("Uninitialized variable: '%s'", id.val));
+          self.err.add(fmt!("Uninitialized variable: '%s'",
+                            self.program.str(id)));
         } else {
           self.analyze(*s);
         },

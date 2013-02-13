@@ -40,103 +40,105 @@ impl Binop: PrettyPrint {
   }
 }
 
-impl Type: PrettyPrint {
-  fn pp(&self) -> ~str {
+impl Type {
+  fn pp(&self, p: &Program) -> ~str {
     match *self {
       Int           => ~"int",
       Bool          => ~"bool",
-      Alias(s)      => copy s.val,
-      Pointer(t)    => ~"*" + t.pp(),
-      Array(t)      => t.pp() + ~"[]",
-      Struct(s)     => copy s.val,
+      Alias(s)      => p.str(s),
+      Pointer(t)    => ~"*" + t.pp(p),
+      Array(t)      => t.pp(p) + ~"[]",
+      Struct(s)     => p.str(s),
       Nullp         => ~"(null)",
-      Fun(t, ref L) => t.pp() + ~"(" + str::connect(L.map(|x| x.pp()), ~", ")
+      Fun(t, ref L) => t.pp(p) + ~"(" + str::connect(L.map(|x| x.pp(p)), ~", ")
     }
   }
 }
 
-impl Expression: PrettyPrint {
-  fn pp(&self) -> ~str {
+impl Expression {
+  fn pp(&self, p: &Program) -> ~str {
     match *self {
-      Var(s)                    => copy s.val,
+      Var(s)                    => p.str(s),
       Boolean(b)                => b.to_str(),
       Const(i)                  => i.to_str(),
-      UnaryOp(o, ref e)         => o.pp() + ~"(" + e.pp() + ~")",
-      Deref(ref e, _)           => ~"*(" + e.pp() + ~")",
-      Field(ref e, f, _)        => e.pp() + ~"." + f.val,
-      ArrSub(ref e1, ref e2, _) => e1.pp() + ~"[" + e2.pp() + ~"]",
-      Alloc(t)                  => ~"alloc(" + t.pp() + ~")",
+      UnaryOp(o, ref e)         => o.pp() + ~"(" + e.pp(p) + ~")",
+      Deref(ref e, _)           => ~"*(" + e.pp(p) + ~")",
+      Field(ref e, f, _)        => e.pp(p) + ~"." + p.str(f),
+      ArrSub(ref e1, ref e2, _) => e1.pp(p) + ~"[" + e2.pp(p) + ~"]",
+      Alloc(t)                  => ~"alloc(" + t.pp(p) + ~")",
       Null                      => ~"NULL",
-      Marked(ref m)             => m.data.pp(),
+      Marked(ref m)             => m.data.pp(p),
       AllocArray(t, ref e) =>
-        ~"alloc_array(" + t.pp() + ~", " + e.pp() + ~")",
+        ~"alloc_array(" + t.pp(p) + ~", " + e.pp(p) + ~")",
       Call(ref e, ref E, _) =>
-        e.pp() + ~"(" + str::connect(E.map(|e| e.pp()), ~", ") + ~")",
+        e.pp(p) + ~"(" + str::connect(E.map(|e| e.pp(p)), ~", ") + ~")",
       BinaryOp(o, ref e1, ref e2) =>
-        ~"(" + e1.pp() + ~" " + o.pp() + ~" " + e2.pp() + ~")",
+        ~"(" + e1.pp(p) + ~" " + o.pp() + ~" " + e2.pp(p) + ~")",
       Ternary(ref e1, ref e2, ref e3, _) =>
-        ~"((" + e1.pp() + ~") ? (" + e2.pp() +
-        ~"): (" + e3.pp() + ~"))"
+        ~"((" + e1.pp(p) + ~") ? (" + e2.pp(p) +
+        ~"): (" + e3.pp(p) + ~"))"
     }
   }
 }
 
-impl Statement: PrettyPrint {
-  fn pp(&self) -> ~str {
+impl Statement {
+  fn pp(&self, p: &Program) -> ~str {
     match *self {
       Continue => ~"continue",
       Break => ~"break",
       Nop => ~"",
-      Return(ref e) => ~"return " + e.pp(),
-      Express(ref e) => e.pp(),
+      Return(ref e) => ~"return " + e.pp(p),
+      Express(ref e) => e.pp(p),
       Declare(v, t, ref init, ref s) =>
-        t.pp() + ~" " + v.val + pp_opt(init) + ~"\n" + tab(s.pp()),
-      Markeds(ref m) => m.data.pp(),
+        t.pp(p) + ~" " + p.str(v) + pp_opt(p, init) + ~"\n" + tab(s.pp(p)),
+      Markeds(ref m) => m.data.pp(p),
       While(ref e, ref s) =>
-        ~"while (" + e.pp() + ~") {\n" + tab(s.pp()) + ~"\n}",
+        ~"while (" + e.pp(p) + ~") {\n" + tab(s.pp(p)) + ~"\n}",
       If(ref e, ref s1, ref s2) =>
-        ~"if(" + e.pp() + ~") {\n" + tab(s1.pp()) +
-        ~"\n} else {\n" + tab(s2.pp()) + ~"\n}",
+        ~"if(" + e.pp(p) + ~") {\n" + tab(s1.pp(p)) +
+        ~"\n} else {\n" + tab(s2.pp(p)) + ~"\n}",
       For(ref s1, ref e, ref s2, ref s3) =>
-        ~"for (" + s1.pp() + ~"; " + e.pp() + ~"; " + s2.pp() +
-        ~") {\n" + tab(s3.pp()) + ~"\n}",
+        ~"for (" + s1.pp(p) + ~"; " + e.pp(p) + ~"; " + s2.pp(p) +
+        ~") {\n" + tab(s3.pp(p)) + ~"\n}",
       Assign(ref e1, ref o, ref e2) =>
-        e1.pp() +
+        e1.pp(p) +
         match *o { None => ~" = ", Some(o) => ~" " + o.pp() + ~"= " } +
-        e2.pp(),
-      Seq(~Nop, ref s) | Seq(ref s, ~Nop) => s.pp(),
-      Seq(ref s1, ref s2) => s1.pp() + ~"\n" + s2.pp()
+        e2.pp(p),
+      Seq(~Nop, ref s) | Seq(ref s, ~Nop) => s.pp(p),
+      Seq(ref s1, ref s2) => s1.pp(p) + ~"\n" + s2.pp(p)
     }
   }
 }
 
-fn pp_opt(o: &Option<~Expression>) -> ~str {
+fn pp_opt(p: &Program, o: &Option<~Expression>) -> ~str {
   match *o {
-    Some(ref e) => ~" = " + e.pp(),
+    Some(ref e) => ~" = " + e.pp(p),
     None => ~""
   }
 }
 
-fn ppair(p: &(Ident, @Type)) -> ~str {
-  match *p { (id, typ) => typ.pp() + ~" " + id.val }
+fn ppair(prog: &Program, p: &(Ident, @Type)) -> ~str {
+  match *p { (id, typ) => typ.pp(prog) + ~" " + prog.str(id) }
 }
 
-fn pfun(t: @Type, i: Ident, p: &~[(Ident, @Type)]) -> ~str {
-  t.pp() + ~" " + i.val + ~"(" + str::connect(p.map(ppair), ~", ") + ~")"
+fn pfun(prog: &Program, t: @Type, i: Ident, p: &~[(Ident, @Type)]) -> ~str {
+  t.pp(prog) + ~" " + prog.str(i) + ~"(" +
+    str::connect(p.map(|p| ppair(prog, p)), ~", ") + ~")"
 }
 
-impl GDecl: PrettyPrint {
-  fn pp(&self) -> ~str {
+impl GDecl {
+  fn pp(&self, p: &Program) -> ~str {
     match *self {
-      Markedg(ref m) => m.data.pp(),
-      Typedef(s, t) => ~"typedef " + t.pp() + ~" " + s.val,
-      StructDecl(s) => ~"struct " + s.val,
+      Markedg(ref m) => m.data.pp(p),
+      Typedef(s, t) => ~"typedef " + t.pp(p) + ~" " + p.str(s),
+      StructDecl(s) => ~"struct " + p.str(s),
       StructDef(s, ref L) =>
-        ~"struct " + s.val + "{\n" + str::connect(L.map(ppair), "\n") + "\n}",
-      FunIDecl(t, s, ref args) => pfun(t, s, args),
-      FunEDecl(t, s, ref args) => ~"extern " + pfun(t, s, args),
+        ~"struct " + p.str(s) + "{\n" +
+          str::connect(L.map(|t| ppair(p, t)), "\n") + "\n}",
+      FunIDecl(t, s, ref args) => pfun(p, t, s, args),
+      FunEDecl(t, s, ref args) => ~"extern " + pfun(p, t, s, args),
       Function(t, s, ref args, ref body) =>
-        pfun(t, s, args) + ~" {\n" + tab(body.pp()) + ~"\n}"
+        pfun(p, t, s, args) + ~" {\n" + tab(body.pp(p)) + ~"\n}"
     }
   }
 }

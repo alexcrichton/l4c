@@ -5,6 +5,7 @@ use front::error;
 use front::ast::*;
 
 struct Typechecker {
+  program: &Program,
   err:     error::List,
   funs:    LinearMap<Ident, (@Type, @~[@Type])>,
   structs: LinearMap<Ident, Option<LinearMap<Ident, @Type>>>,
@@ -14,22 +15,23 @@ struct Typechecker {
 }
 
 pub fn check(a: &Program) {
-  let mut tc = Typechecker{ err: error::new(),
+  let mut tc = Typechecker{ program: a,
+                            err: error::new(),
                             funs: LinearMap::new(),
                             structs: LinearMap::new(),
                             vars: LinearMap::new(),
                             loops: 0,
                             ret: @Nullp};
   debug!("typechecking");
-  tc.check(a);
-  tc.err.check();
+  tc.run()
 }
 
 impl Typechecker {
-  fn check(&mut self, a: &Program) {
-    for a.decls.each |x| {
+  fn run(&mut self) {
+    for self.program.decls.each |x| {
       self.tc_gdecl(*x)
     }
+    self.err.check();
   }
 
   fn tc_gdecl(&mut self, g: &GDecl) {
@@ -62,7 +64,8 @@ impl Typechecker {
       Markeds(ref m) => self.err.with(m, |x| self.tc_stm(x)),
       Continue | Break => {
         if self.loops == 0 {
-          self.err.add(fmt!("'%s' outside of loops isn't allowed", s.pp()));
+          self.err.add(fmt!("'%s' outside of loops isn't allowed",
+                            s.pp(self.program)));
         }
       },
       Nop => (),
@@ -100,7 +103,7 @@ impl Typechecker {
         self.tc_small(typ);
         init.iter(|x| self.tc_ensure(*x, typ));
         if self.vars.contains_key(&id) {
-          self.err.add(fmt!("Redeclared var '%s'", id.val));
+          self.err.add(fmt!("Redeclared var '%s'", self.program.str(id)));
         } else {
           self.vars.insert(id, typ);
           self.tc_stm(*stm);
@@ -120,7 +123,8 @@ impl Typechecker {
         Some(&t) => t,
         None => match self.funs.find(&id) {
           Some(&(ret, args)) => @Pointer(@Fun(ret, args)),
-          None => self.err.die(fmt!("Unknown variable '%s'", id.val))
+          None => self.err.die(fmt!("Unknown variable '%s'",
+                                    self.program.str(id)))
         }
       },
       Alloc(t) => { self.tc_defined(t); @Pointer(t) },
@@ -192,9 +196,9 @@ impl Typechecker {
             match self.structs.find(&s) {
               Some(&Some(ref t)) => match t.find(&id) {
                 Some(&t) => { return t; }
-                None => fmt!("Unknown field '%s'", id.val)
+                None => fmt!("Unknown field '%s'", self.program.str(id))
               },
-              _ => fmt!("Unknown struct '%s'", s.val)
+              _ => fmt!("Unknown struct '%s'", self.program.str(s))
             }
           }
           _ => fmt!("must be a struct type")
@@ -217,7 +221,7 @@ impl Typechecker {
     let mut table = LinearMap::new();
     for fields.each |&(field, typ)| {
       if table.contains_key(&field) {
-        self.err.add(fmt!("Duplicate field: '%s'", field.val));
+        self.err.add(fmt!("Duplicate field: '%s'", self.program.str(field)));
         loop;
       }
       /* Make sure structs are all defined and not recursive */
@@ -240,7 +244,7 @@ impl Typechecker {
     let mut names = LinearSet::new();
     for args.each |&(name, typ)| {
       if !names.insert(name) {
-        self.err.add(fmt!("Duplicate argument: %s", name.val));
+        self.err.add(fmt!("Duplicate argument: %s", self.program.str(name)));
       }
       self.tc_small(typ);
     }
@@ -277,7 +281,7 @@ impl Typechecker {
           Some(&Some(_)) => true, _ => false
         };
         if !defined {
-          self.err.add(fmt!("Struct not defined '%s'", id.val));
+          self.err.add(fmt!("Struct not defined '%s'", self.program.str(id)));
         }
         return defined;
       },
@@ -287,16 +291,16 @@ impl Typechecker {
 
   fn tc_equal(&mut self, t1: @Type, t2: @Type) -> bool {
     if t1 != t2 {
-      self.err.add(fmt!("Type mismatch: expected %s, got %s", t1.pp(), t2.pp()));
+      self.err.add(fmt!("Type mismatch: expected %s, got %s",
+                        t1.pp(self.program), t2.pp(self.program)));
     }
     t1 == t2
   }
 
   fn tc_small(&mut self, t: @Type) -> bool {
     if !t.small() {
-      self.err.add(fmt!("Type must be small: '%s'", t.pp()));
+      self.err.add(fmt!("Type must be small: '%s'", t.pp(self.program)));
     }
     t.small()
   }
-
 }

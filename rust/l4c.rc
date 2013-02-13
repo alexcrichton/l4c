@@ -1,4 +1,5 @@
 #[link(name = "l4c")];
+#[forbid(deprecated_self)];
 
 extern mod std;
 
@@ -24,7 +25,6 @@ mod front {
   pub mod mark;
   mod parse;
   mod pp;
-  pub mod symbol;
 
   mod analysis {
     mod initcheck;

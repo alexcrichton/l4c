@@ -1,14 +1,18 @@
+use core::hashmap::linear::LinearMap;
 use std::json::*;
-use front::{ast, symbol, mark};
+
+use front::{ast, mark};
 
 struct Parser {
   file:  @~str,
-  syms: symbol::Symtab,
-  main: ~str
+  main: ~str,
+  symtab: LinearMap<~str, uint>,
+  symbols: ~[~str],
 }
 
 pub fn from_json(j: &Json, main: ~str) -> ast::Program {
-  let mut parser = Parser{syms: symbol::Symtab(), file: @~"", main: main };
+  let mut parser = Parser{symtab: LinearMap::new(), file: @~"", main: main,
+                          symbols: ~[]};
   return parser.parse(j);
 }
 
@@ -28,7 +32,9 @@ impl Parser {
             _ => die!(~"malformed json")
           }
         }
-        return ast::new(decls);
+        let mut syms = ~[];
+        syms <-> self.symbols;
+        return ast::Program::new(decls, syms);
       }
       _ => die!(~"expected object")
     }
@@ -46,10 +52,17 @@ impl Parser {
   }
 
   fn to_id(&mut self, j: &Json) -> ast::Ident {
-    match *j {
-      String(ref s) => symbol::new(&mut self.syms, s),
+    let s = match *j {
+      String(ref s) => match self.symtab.find(s) {
+        Some(&i) => { return i }
+        None => copy *s
+      },
       _ => die!(~"not a string")
-    }
+    };
+    let ret = self.symbols.len();
+    self.symtab.insert(copy s, ret);
+    self.symbols.push(s);
+    return ret;
   }
 
   fn to_mark<T>(&mut self, o: &~Object, f: fn(&Json) -> ~T) -> mark::Mark<T> {
