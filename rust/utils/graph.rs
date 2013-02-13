@@ -20,13 +20,13 @@ pub fn Graph<N, E>() -> Graph<N, E>{
 }
 
 impl<N, E> Graph<N, E> {
-  pure fn num_nodes(&self, ) -> uint {
+  fn num_nodes(&self, ) -> uint {
     self.nodes.len()
   }
   pure fn num_pred(&self, n: NodeId) -> uint {
     self.pred.get(&n).len()
   }
-  pure fn num_succ(&self, n: NodeId) -> uint {
+  fn num_succ(&self, n: NodeId) -> uint {
     self.succ.get(&n).len()
   }
 
@@ -50,7 +50,7 @@ impl<N, E> Graph<N, E> {
     self.nodes.get(&id)
   }
 
-  pure fn edge(&self, a: NodeId, b: NodeId) -> &self/E {
+  fn edge(&self, a: NodeId, b: NodeId) -> &self/E {
     let a_succ = self.succ.get(&a);
     return a_succ.get(&b);
   }
@@ -112,13 +112,13 @@ impl<N, E> Graph<N, E> {
     self.pred.insert(n2, pred);
   }
 
-  pure fn each_edge(&self, f: fn(NodeId, NodeId) -> bool) {
+  fn each_edge(&self, f: fn(NodeId, NodeId) -> bool) {
     for self.succ.each |&(&a, map)| {
       map.each_key(|&b| f(a, b));
     }
   }
 
-  pure fn each_node(&self, f: fn(NodeId, &N) -> bool) {
+  fn each_node(&self, f: fn(NodeId, &N) -> bool) {
     /* TODO(#4856): need some compiler checks so we don't fuck ourselves */
     self.succ.each(|&(&a, _)| {
       match self.nodes.find(&a) {
@@ -128,22 +128,22 @@ impl<N, E> Graph<N, E> {
     });
   }
 
-  pure fn each_pred(&self, n: NodeId, f: fn(NodeId) -> bool) {
+  fn each_pred(&self, n: NodeId, f: fn(NodeId) -> bool) {
     let preds = self.pred.get(&n);
     preds.each(|&k| f(k));
   }
 
-  pure fn each_pred_edge(&self, n: NodeId, f: fn(NodeId, &E) -> bool) {
+  fn each_pred_edge(&self, n: NodeId, f: fn(NodeId, &E) -> bool) {
     let preds = self.pred.get(&n);
     preds.each(|&k| f(k, self.edge(k, n)));
   }
 
-  pure fn each_succ(&self, n: NodeId, f: fn(NodeId) -> bool) {
+  fn each_succ(&self, n: NodeId, f: fn(NodeId) -> bool) {
     let succ = self.succ.get(&n);
     succ.each_key(|&k| f(k));
   }
 
-  pure fn each_succ_edge(&self, n: NodeId, f: fn(NodeId, E) -> bool) {
+  fn each_succ_edge(&self, n: NodeId, f: fn(NodeId, E) -> bool) {
     let succ = self.succ.get(&n);
     succ.each(|&(&n, &e)| f(n, e));
   }

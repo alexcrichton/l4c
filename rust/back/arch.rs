@@ -11,7 +11,7 @@ pub fn each_reg(f: fn(uint) -> bool) {
   uint::range(1, num_regs + 1, f)
 }
 
-pub pure fn arg_reg(i: uint) -> Register {
+pub fn arg_reg(i: uint) -> Register {
   match i {
     0 => EDI,
     1 => ESI,
@@ -23,7 +23,7 @@ pub pure fn arg_reg(i: uint) -> Register {
   }
 }
 
-pub pure fn reg_num(r: Register) -> uint {
+pub fn reg_num(r: Register) -> uint {
   match r {
     R9D  => 1,
     R8D  => 2,

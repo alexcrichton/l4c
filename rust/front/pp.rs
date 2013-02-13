@@ -1,12 +1,12 @@
 use front::ast::*;
 use utils::PrettyPrint;
 
-pure fn tab(s: ~str) -> ~str {
+fn tab(s: ~str) -> ~str {
   ~"  " + str::replace(s, ~"\n", ~"\n  ")
 }
 
 impl Unop: PrettyPrint {
-  pure fn pp(&self) -> ~str {
+  fn pp(&self) -> ~str {
     match *self {
       Negative => ~"-",
       Invert   => ~"~",
@@ -16,7 +16,7 @@ impl Unop: PrettyPrint {
 }
 
 impl Binop: PrettyPrint {
-  pure fn pp(&self) -> ~str {
+  fn pp(&self) -> ~str {
     match *self {
       Plus      => ~"+",
       Minus     => ~"-",
@@ -41,7 +41,7 @@ impl Binop: PrettyPrint {
 }
 
 impl Type: PrettyPrint {
-  pure fn pp(&self) -> ~str {
+  fn pp(&self) -> ~str {
     match *self {
       Int           => ~"int",
       Bool          => ~"bool",
@@ -56,7 +56,7 @@ impl Type: PrettyPrint {
 }
 
 impl Expression: PrettyPrint {
-  pure fn pp(&self) -> ~str {
+  fn pp(&self) -> ~str {
     match *self {
       Var(s)                    => copy s.val,
       Boolean(b)                => b.to_str(),
@@ -82,7 +82,7 @@ impl Expression: PrettyPrint {
 }
 
 impl Statement: PrettyPrint {
-  pure fn pp(&self) -> ~str {
+  fn pp(&self) -> ~str {
     match *self {
       Continue => ~"continue",
       Break => ~"break",
@@ -110,23 +110,23 @@ impl Statement: PrettyPrint {
   }
 }
 
-pure fn pp_opt(o: &Option<~Expression>) -> ~str {
+fn pp_opt(o: &Option<~Expression>) -> ~str {
   match *o {
     Some(ref e) => ~" = " + e.pp(),
     None => ~""
   }
 }
 
-pure fn ppair(p: &(Ident, @Type)) -> ~str {
+fn ppair(p: &(Ident, @Type)) -> ~str {
   match *p { (id, typ) => typ.pp() + ~" " + id.val }
 }
 
-pure fn pfun(t: @Type, i: Ident, p: &~[(Ident, @Type)]) -> ~str {
+fn pfun(t: @Type, i: Ident, p: &~[(Ident, @Type)]) -> ~str {
   t.pp() + ~" " + i.val + ~"(" + str::connect(p.map(ppair), ~", ") + ~")"
 }
 
 impl GDecl: PrettyPrint {
-  pure fn pp(&self) -> ~str {
+  fn pp(&self) -> ~str {
     match *self {
       Markedg(ref m) => m.data.pp(),
       Typedef(s, t) => ~"typedef " + t.pp() + ~" " + s.val,

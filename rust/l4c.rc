@@ -11,7 +11,7 @@ pub mod utils {
   pub mod profile;
 
   pub trait PrettyPrint {
-    pure fn pp(&self) -> ~str;
+    fn pp(&self) -> ~str;
   }
   pub trait Graphable {
     fn dot(&self, io::Writer);

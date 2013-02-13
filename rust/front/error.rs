@@ -16,7 +16,7 @@ impl List {
     self.errs.push((self.coords, s))
   }
 
-  pure fn size(&self) -> uint {
+  fn size(&self) -> uint {
     self.errs.len()
   }
 

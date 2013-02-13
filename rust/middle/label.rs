@@ -6,13 +6,13 @@ pub enum Label {
 }
 
 #[cfg(target_os = "macos")]
-pub pure fn prefix() -> ~str { ~"_" }
+pub fn prefix() -> ~str { ~"_" }
 
 #[cfg(target_os = "linux")]
-pub pure fn prefix() -> ~str { ~"" }
+pub fn prefix() -> ~str { ~"" }
 
 impl Label: PrettyPrint {
-  pure fn pp(&self) -> ~str {
+  fn pp(&self) -> ~str {
     match *self {
       External(ref s) => prefix() + *s,
       Internal(ref s) => prefix() + ~"_c0_" + *s

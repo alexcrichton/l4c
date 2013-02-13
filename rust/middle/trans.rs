@@ -72,14 +72,14 @@ pub fn translate(p: ast::Program, safe: bool) -> ir::Program {
   return ir::Program { funs: accum };
 }
 
-pure fn typ(t: @ast::Type) -> ir::Type {
+fn typ(t: @ast::Type) -> ir::Type {
   match t {
     @ast::Array(_) | @ast::Struct(_) | @ast::Pointer(_) => ir::Pointer,
     _ => ir::Int
   }
 }
 
-pure fn typ_size(t: @ast::Type, structs: &AllStructInfo) -> uint {
+fn typ_size(t: @ast::Type, structs: &AllStructInfo) -> uint {
   match t {
     @ast::Int | @ast::Bool => 4,
     @ast::Pointer(_) | @ast::Array(_) => 8,
@@ -540,8 +540,8 @@ impl Translator {
     self.commit_with(self.f.cfg.new_id())
   }
 
-  pure fn consti(&self, c: i32) -> ~ir::Expression { ~ir::Const(c, ir::Int) }
-  pure fn constp(&self, c: i32) -> ~ir::Expression { ~ir::Const(c, ir::Pointer) }
+  fn consti(&self, c: i32) -> ~ir::Expression { ~ir::Const(c, ir::Int) }
+  fn constp(&self, c: i32) -> ~ir::Expression { ~ir::Const(c, ir::Pointer) }
 
   fn commit_with(&mut self, next: graph::NodeId) -> graph::NodeId {
     let mut L = ~[];

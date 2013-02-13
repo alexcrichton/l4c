@@ -85,7 +85,7 @@ impl Program: Graphable {
 }
 
 impl Function {
-  pure fn size(&self, e: &Expression) -> Type {
+  fn size(&self, e: &Expression) -> Type {
     match *e {
       Const(_, size) => size,
       LabelExp(_) => Pointer,
@@ -205,7 +205,7 @@ impl Statement: ssa::Statement {
 }
 
 impl Statement: PrettyPrint {
-  pure fn pp(&self) -> ~str {
+  fn pp(&self) -> ~str {
     match *self {
       Move(tmp, ref e) => tmp.pp() + ~" <- " + e.pp(),
       Cast(t1, t2) => t1.pp() + ~" < cast - " + t2.pp(),
@@ -252,7 +252,7 @@ impl Expression {
 }
 
 impl Expression: PrettyPrint {
-  pure fn pp(&self) -> ~str {
+  fn pp(&self) -> ~str {
     match *self {
       Temp(ref t) => t.pp(),
       Const(c, _) => fmt!("0x%x", c as uint),
@@ -264,7 +264,7 @@ impl Expression: PrettyPrint {
 }
 
 impl Binop: PrettyPrint {
-  pure fn pp(&self) -> ~str {
+  fn pp(&self) -> ~str {
     match *self {
       Add => ~"+",
       Sub => ~"-",

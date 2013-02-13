@@ -85,7 +85,7 @@ impl<T: Copy> Ref<T> {
     self.val = Some(t);
   }
 
-  pure fn get(&self) -> T {
+  fn get(&self) -> T {
     self.val.get()
   }
 }
@@ -109,7 +109,7 @@ impl Program {
 }
 
 impl Program: PrettyPrint {
-  pure fn pp(&self) -> ~str {
+  fn pp(&self) -> ~str {
     str::connect(self.decls.map(|d| d.pp()), "\n")
   }
 }
@@ -287,7 +287,7 @@ impl Elaborator {
 }
 
 impl Expression {
-  pure fn lvalue(&self) -> bool {
+  fn lvalue(&self) -> bool {
     match *self {
       Var(_)              => true,
       Field(ref e, _, _)  => e.lvalue(),
@@ -315,7 +315,7 @@ pub fn unmarke(e: ~Expression) -> ~Expression {
 }
 
 impl Type {
-  pure fn small(&self) -> bool {
+  fn small(&self) -> bool {
     match *self {
       Struct(_) => false,
       _ => true

@@ -395,7 +395,7 @@ impl Allocator {
     }
   }
 
-  fn alloc_ins(&self, i: ~Instruction, push: &pure fn(~Instruction)) {
+  fn alloc_ins(&self, i: ~Instruction, push: &fn(~Instruction)) {
     match i {
       ~Spill(t, tag) => push(~Store(self.stack_pos(tag), self.alloc_tmp(t))),
       ~Reload(t, tag) => push(~Load(self.alloc_tmp(t), self.stack_pos(tag))),
@@ -511,8 +511,7 @@ impl Allocator {
   }
 
   fn alloc_tmp(&self, tmp: Temp) -> ~Operand {
-    ~Register(arch::num_reg(*self.colors.get(&tmp)),
-              *self.f.sizes.get(&tmp))
+    ~Register(arch::num_reg(*self.colors.get(&tmp)), *self.f.sizes.get(&tmp))
   }
 
   fn resolve_perm(&self, result: &[uint], incoming: &[uint]) -> ~[~Instruction] {
@@ -528,7 +527,7 @@ impl Allocator {
 }
 
 impl bitv::Bitv: PrettyPrint {
-  pure fn pp(&self) -> ~str {
+  fn pp(&self) -> ~str {
     let mut s = ~"{";
     let mut first = true;
     /* TODO: does this really have to be pure? */

@@ -31,7 +31,7 @@ impl ReturnChecker {
     }
   }
 
-  pure fn returns(&self, s: &Statement) -> bool {
+  fn returns(&self, s: &Statement) -> bool {
     match *s {
       If(_, ref s1, ref s2)   => self.returns(*s1) && self.returns(*s2),
       Seq(ref s1, ref s2)     => self.returns(*s1) || self.returns(*s2),

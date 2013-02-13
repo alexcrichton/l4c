@@ -168,7 +168,7 @@ impl Instruction {
     }
   }
 
-  pure fn is_phi(&self) -> bool { match *self { Phi(*) => true, _ => false } }
+  fn is_phi(&self) -> bool { match *self { Phi(*) => true, _ => false } }
 }
 
 impl Instruction: ssa::Statement {
@@ -228,7 +228,7 @@ impl Instruction: ssa::Statement {
 }
 
 impl Instruction: PrettyPrint {
-  pure fn pp(&self) -> ~str {
+  fn pp(&self) -> ~str {
     match *self {
       Raw(copy s) => s,
       Arg(t, i) => fmt!("%s = arg[%?]", t.pp(), i),
@@ -309,17 +309,17 @@ impl Instruction: PrettyPrint {
 }
 
 impl Operand {
-  pure fn imm(&self) -> bool { match *self { Immediate(*) => true, _ => false } }
-  pure fn reg(&self) -> bool { match *self { Register(*) => true, _ => false } }
+  fn imm(&self) -> bool { match *self { Immediate(*) => true, _ => false } }
+  fn reg(&self) -> bool { match *self { Register(*) => true, _ => false } }
 
-  pure fn mask(&self, mask: i32) -> ~Operand {
+  fn mask(&self, mask: i32) -> ~Operand {
     match *self {
       Immediate(n, s) => ~Immediate(n & mask, s),
       _ => die!(~"can't mask non-immediate")
     }
   }
 
-  pure fn size(&self) -> Size {
+  fn size(&self) -> Size {
     match *self {
       Immediate(_, s) | Register(_, s) => s,
       LabelOp(*) => ir::Pointer,
@@ -343,7 +343,7 @@ impl Operand {
 }
 
 impl Operand: PrettyPrint {
-  pure fn pp(&self) -> ~str {
+  fn pp(&self) -> ~str {
     match *self {
       Immediate(c, _) => fmt!("$%d", c as int),
       Register(reg, s) => reg.size(s),
@@ -390,7 +390,7 @@ impl Address {
 }
 
 impl Address: PrettyPrint {
-  pure fn pp(&self) -> ~str {
+  fn pp(&self) -> ~str {
     match *self {
       MOp(ref o, disp, ref off) => {
         let mut s = ~"";
@@ -412,7 +412,7 @@ impl Address: PrettyPrint {
 }
 
 impl Cond {
-  pure fn flip(&self) -> Cond {
+  fn flip(&self) -> Cond {
     match *self {
       Lt  => Gt,
       Lte => Gte,
@@ -422,7 +422,7 @@ impl Cond {
       Neq => Neq
     }
   }
-  pure fn negate(&self) -> Cond {
+  fn negate(&self) -> Cond {
     match *self {
       Lt  => Gte,
       Lte => Gt,
@@ -432,7 +432,7 @@ impl Cond {
       Neq => Eq
     }
   }
-  pure fn suffix(&self) -> ~str {
+  fn suffix(&self) -> ~str {
     match *self {
       Lt  => ~"l",
       Lte => ~"le",
@@ -445,21 +445,21 @@ impl Cond {
 }
 
 impl Binop {
-  pure fn commutative(&self) -> bool {
+  fn commutative(&self) -> bool {
     match *self { Add | Mul | And | Or | Xor => true, _ => false }
   }
 
-  pure fn constrained(&self) -> bool {
+  fn constrained(&self) -> bool {
     match *self { Div | Mod | Lsh | Rsh => true, _ => false }
   }
 
-  pure fn divmod(&self) -> bool {
+  fn divmod(&self) -> bool {
     match *self { Div | Mod => true, _ => false }
   }
 }
 
 impl Binop: PrettyPrint {
-  pure fn pp(&self) -> ~str {
+  fn pp(&self) -> ~str {
     match *self {
       Add => ~"add",
       Sub => ~"sub",
@@ -477,7 +477,7 @@ impl Binop: PrettyPrint {
 }
 
 impl Register {
-  pure fn byte(&self) -> ~str {
+  fn byte(&self) -> ~str {
     match *self {
       EAX  => ~"%al",
       EBX  => ~"%bl",
@@ -498,7 +498,7 @@ impl Register {
     }
   }
 
-  pure fn size(&self, t: Size) -> ~str {
+  fn size(&self, t: Size) -> ~str {
     match (*self, t) {
       (EAX, ir::Int)      => ~"%eax",
       (EAX, ir::Pointer)  => ~"%rax",
@@ -550,7 +550,7 @@ impl Multiplier {
 }
 
 impl Multiplier: PrettyPrint {
-  pure fn pp(&self) -> ~str {
+  fn pp(&self) -> ~str {
     match *self {
       One => ~"1", Two => ~"2", Four => ~"4", Eight => ~"8"
     }
