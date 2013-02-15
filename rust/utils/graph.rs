@@ -266,7 +266,7 @@ fn test_basic() {
     } else if id == n2 {
       assert n == 2;
     } else {
-      die!(~"bad id provided");
+      fail!(~"bad id provided");
     }
   }
 }

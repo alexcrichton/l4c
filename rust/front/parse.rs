@@ -29,14 +29,14 @@ impl Parser {
                 decls.push(self.to_gdecl(j));
               }
             }
-            _ => die!(~"malformed json")
+            _ => fail!(~"malformed json")
           }
         }
         let mut syms = ~[];
         syms <-> self.symbols;
         return ast::Program::new(decls, syms);
       }
-      _ => die!(~"expected object")
+      _ => fail!(~"expected object")
     }
   }
 
@@ -45,9 +45,9 @@ impl Parser {
       Object(ref obj) =>
         match *(obj.get(&~"typ")) {
           String(copy s) => (s, obj),
-          _ => die!(~"expected string key")
+          _ => fail!(~"expected string key")
         },
-      _ => die!(~"gdecl expects an object")
+      _ => fail!(~"gdecl expects an object")
     }
   }
 
@@ -57,7 +57,7 @@ impl Parser {
         Some(&i) => { return i }
         None => copy *s
       },
-      _ => die!(~"not a string")
+      _ => fail!(~"not a string")
     };
     let ret = self.symbols.len();
     self.symtab.insert(copy s, ret);
@@ -75,7 +75,7 @@ impl Parser {
   fn to_coord(&self, j: &Json) -> (int, int) {
     match *j {
       List([Number(a), Number(b)]) => (a as int, b as int),
-      _ => die!(~"expected list with two pairs")
+      _ => fail!(~"expected list with two pairs")
     }
   }
 
@@ -102,7 +102,7 @@ impl Parser {
       ~"struct"  => ~ast::StructDef(self.to_id(fields.get(&~"val")),
                                     self.to_pairs(fields.get(&~"fields"))),
       ~"strdecl" => ~ast::StructDecl(self.to_id(fields.get(&~"val"))),
-      _ => die!(fmt!("Unknown gdecl type: %?", typ))
+      _ => fail!(fmt!("Unknown gdecl type: %?", typ))
     }
   }
 
@@ -113,10 +113,10 @@ impl Parser {
           match *x {
             Object(ref o) => (self.to_id(o.get(&~"name")),
                               self.to_typ(o.get(&~"typ"))),
-            _ => die!(~"expected object for each pair")
+            _ => fail!(~"expected object for each pair")
           }
         ),
-      _ => die!(~"expected list for arguments")
+      _ => fail!(~"expected list for arguments")
     }
   }
 
@@ -130,7 +130,7 @@ impl Parser {
       ~"struct"   => @ast::Struct(self.to_id(fields.get(&~"id"))),
       ~"ptr"      => @ast::Pointer(self.to_typ(fields.get(&~"to"))),
       ~"array"    => @ast::Array(self.to_typ(fields.get(&~"of"))),
-      _           => die!(~"invalid type")
+      _           => fail!(~"invalid type")
     }
   }
 
@@ -163,7 +163,7 @@ impl Parser {
                                   self.to_opt(fields.get(&~"extra"),
                                               |x| self.to_binop(x)),
                                   self.to_exp(fields.get(&~"e2"))),
-      _           => die!(fmt!("invalid stm: %?", typ))
+      _           => fail!(fmt!("invalid stm: %?", typ))
     }
   }
 
@@ -173,11 +173,11 @@ impl Parser {
       ~"var"      => ~ast::Var(self.to_id(fields.get(&~"var"))),
       ~"const"    => match *fields.get(&~"val") {
                        Number(f) => ~ast::Const(f as i32),
-                       _         => die!(~"expected number")
+                       _         => fail!(~"expected number")
                      },
       ~"bool"     => match *fields.get(&~"val") {
                        Boolean(b) => ~ast::Boolean(b),
-                       _          => die!(~"expected boolean")
+                       _          => fail!(~"expected boolean")
                      },
       ~"null"     => ~ast::Null,
       ~"deref"    => ~ast::Deref(self.to_exp(fields.get(&~"e")),
@@ -206,10 +206,10 @@ impl Parser {
           List(ref L) => ~ast::Call(self.to_exp(fields.get(&~"fun")),
                                     L.map(|x| self.to_exp(x)),
                                     ast::Ref()),
-          _ => die!(~"expected list")
+          _ => fail!(~"expected list")
         }
       },
-      _ => die!(fmt!("invalid exp: %?", typ))
+      _ => fail!(fmt!("invalid exp: %?", typ))
     }
   }
 
@@ -233,7 +233,7 @@ impl Parser {
       String(~"^")  => ast::Xor,
       String(~"<<") => ast::LShift,
       String(~">>") => ast::RShift,
-      _ => die!(fmt!("invalid binop: %?", j))
+      _ => fail!(fmt!("invalid binop: %?", j))
     }
   }
 
@@ -242,7 +242,7 @@ impl Parser {
       String(~"-")  => ast::Negative,
       String(~"~")  => ast::Invert,
       String(~"!")  => ast::Bang,
-      _ => die!(fmt!("invalid unop: %?", j))
+      _ => fail!(fmt!("invalid unop: %?", j))
     }
   }
 
@@ -251,7 +251,7 @@ impl Parser {
     match typ {
       ~"none" => None,
       ~"some" => Some(f(fields.get(&~"val"))),
-      _       => die!(fmt!("invalid extra: %?", typ))
+      _       => fail!(fmt!("invalid extra: %?", typ))
     }
   }
 }

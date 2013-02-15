@@ -154,7 +154,7 @@ impl Allocator {
                 assert self.colors.insert(t, arch::reg_num($r));
                 assert self.precolored.insert(t);
               }
-              _ => die!(fmt!("not a tmp %?", $o))
+              _ => fail!(fmt!("not a tmp %?", $o))
             }
           )
         );
@@ -173,7 +173,7 @@ impl Allocator {
                 }
                 match *op2 {
                   ~Temp(t) => { self.constraints.insert(t, Idiv); }
-                  _ => die!(~"not a tmp")
+                  _ => fail!(~"not a tmp")
                 }
               }
 
@@ -182,7 +182,7 @@ impl Allocator {
                 precolor!(op2, ECX);
                 banned.set(arch::reg_num(ECX), true);
               }
-              _ => die!(fmt!("implement %?", op))
+              _ => fail!(fmt!("implement %?", op))
             }
           }
 
@@ -444,7 +444,7 @@ impl Allocator {
           /* d = s1 op d, can commute */
           _ if s2 == d && op.commutative() => push(~BinaryOp(op, d, s1, s2)),
           /* should be handled elsewhere */
-          _ if s2 == d => die!(~"invalid instruction in alloc"),
+          _ if s2 == d => fail!(~"invalid instruction in alloc"),
           /* catch-all last resort, generate a move */
           _ => {
             push(~Move(copy d, copy s1));
@@ -486,7 +486,7 @@ impl Allocator {
 
   fn stack_loc(&self, tag: Tag) -> uint {
     if !self.slots.contains_key(&tag) {
-      die!(fmt!("no spill for %?", tag));
+      fail!(fmt!("no spill for %?", tag));
     }
     *self.slots.get(&tag) * arch::ptrsize + self.max_call_stack
   }
@@ -623,13 +623,13 @@ fn resolve_test(from: &[uint], to: &[uint]) {
   for vec::each2(from, to) |&f, &t| {
     map.remove(&t);
     if regs[t] != f {
-      die!(fmt!("expected %? to be %? but it was %?", t, f, regs[t]));
+      fail!(fmt!("expected %? to be %? but it was %?", t, f, regs[t]));
     }
   }
   debug!("%?", regs);
   for map.each |&(k, _)| {
     if regs[k] != k {
-      die!(fmt!("clobbered %? to %?", k, regs[k]));
+      fail!(fmt!("clobbered %? to %?", k, regs[k]));
     }
   }
 }

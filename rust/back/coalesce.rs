@@ -289,7 +289,7 @@ impl Coalescer {
   fn best_subset(&self, s: &TempSet, c: uint) -> Option<(TempSet, uint)> {
     fn first(s: &TempSet) -> Temp {
       for s.each |&t| { return t }
-      die!()
+      fail!()
     }
 
     let mut maxweight = 0;
@@ -354,7 +354,7 @@ impl Coalescer {
    * color. It works by fixing a temp at a color, and then attempting to recolor
    * all interfering neighbors of that temp recursively.
    *
-   * If this ever die!s, then the recoloration is rolled back and there's no
+   * If this ever fail!s, then the recoloration is rolled back and there's no
    * effect. Before and after an invocation of recolor() the color mapping will
    * be a valid mapping for all temps
    */

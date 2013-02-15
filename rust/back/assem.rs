@@ -315,7 +315,7 @@ impl Operand {
   fn mask(&self, mask: i32) -> ~Operand {
     match *self {
       Immediate(n, s) => ~Immediate(n & mask, s),
-      _ => die!(~"can't mask non-immediate")
+      _ => fail!(~"can't mask non-immediate")
     }
   }
 
@@ -544,7 +544,7 @@ impl Multiplier {
   static fn from_int(i: i32) -> Multiplier {
     match i {
       1 => One, 2 => Two, 4 => Four, 8 => Eight,
-      _ => die!(fmt!("can't make multiplier for %?", i))
+      _ => fail!(fmt!("can't make multiplier for %?", i))
     }
   }
 }
@@ -655,7 +655,7 @@ impl Function {
               /* On a conditional branch, the last ins must be Condition */
               let cond = match instructions.last() {
                 ~Condition(c, _, _) => c,
-                _ => die!(~"Need a condition with true/false edges")
+                _ => fail!(~"Need a condition with true/false edges")
               };
 
               match (tedge, fedge) {
@@ -676,10 +676,10 @@ impl Function {
                   out.write_str(fmt!("  j%s L%s\n", cond.suffix(), lbl(tid)));
                 }
 
-                _ => die!(~"invalidly specified edges")
+                _ => fail!(~"invalidly specified edges")
               }
             }
-            _ => die!(~"invalid edges")
+            _ => fail!(~"invalid edges")
           }
         }
       }

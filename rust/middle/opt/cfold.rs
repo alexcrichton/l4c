@@ -193,7 +193,7 @@ fn do_op(op: Binop, i1: i32, i2: i32, t: Type) -> (~Expression, bool) {
         match op {
           Div => (~Const(i1 / i2, t), true),
           Mod => (~Const(i1 % i2, t), true),
-          _ => die!()
+          _ => fail!()
         }
       }
     }

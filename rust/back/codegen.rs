@@ -71,7 +71,7 @@ impl CodeGenerator {
       ir::Eq  => assem::Eq,
       ir::Neq => assem::Neq,
       ir::Xor => assem::Neq,
-      _       => die!(fmt!("'%?' not a condition", c))
+      _       => fail!(fmt!("'%?' not a condition", c))
     }
   }
 
@@ -194,7 +194,7 @@ impl CodeGenerator {
       ~ir::Die(~ir::Const(0, _)) => (),
       ~ir::Die(~ir::Const(*)) =>
         self.push(~assem::Raw(fmt!("jmp %sraise_segv", label::prefix()))),
-      ~ir::Die(_) => die!(~"invalid die"),
+      ~ir::Die(_) => fail!(~"invalid die"),
       ~ir::Return(e) => self.push(~assem::Return(self.half(e))),
       ~ir::Call(tmp, fun, args) => {
         let fun = self.half(fun);
