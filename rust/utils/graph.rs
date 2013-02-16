@@ -244,7 +244,7 @@ impl<N, E> Graph<N, E> {
   }
 }
 
-impl<N, E> Graph<N, E>: Index<NodeId, &N> {
+impl<N, E> Index<NodeId, &N> for Graph<N, E> {
   pure fn index(&self, id: NodeId) -> &self/N {
     self.node(id)
   }

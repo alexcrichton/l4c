@@ -814,7 +814,7 @@ impl Coalescer {
   }
 }
 
-impl Affinity: cmp::Ord {
+impl cmp::Ord for Affinity {
   pure fn lt(&self, other: &Affinity) -> bool {
     match (self, other) { (&Affinity(_, _, a), &Affinity(_, _, b)) => a < b }
   }
@@ -823,7 +823,7 @@ impl Affinity: cmp::Ord {
   pure fn ge(&self, other: &Affinity) -> bool { !self.lt(other) }
 }
 
-impl Chunk: cmp::Ord {
+impl cmp::Ord for Chunk {
   pure fn lt(&self, other: &Chunk) -> bool {
     match (self, other) { (&Chunk(_, a), &Chunk(_, b)) => a < b }
   }

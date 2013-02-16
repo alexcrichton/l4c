@@ -4,7 +4,7 @@ use core::to_bytes::IterBytes;
 use core::hash::Hash;
 use utils::PrettyPrint;
 
-impl<T: Eq IterBytes Hash ToStr> LinearSet<T>: PrettyPrint {
+impl<T: Eq IterBytes Hash ToStr> PrettyPrint for LinearSet<T> {
   fn pp(&self) -> ~str {
     let mut s = ~"{";
     let mut first = true;
@@ -20,7 +20,7 @@ impl<T: Eq IterBytes Hash ToStr> LinearSet<T>: PrettyPrint {
   }
 }
 
-impl<K: Eq IterBytes Hash ToStr, V: ToStr> LinearMap<K, V>: PrettyPrint {
+impl<K: Eq IterBytes Hash ToStr, V: ToStr> PrettyPrint for LinearMap<K, V> {
   fn pp(&self) -> ~str {
     let mut s = ~"{";
     let mut first = true;

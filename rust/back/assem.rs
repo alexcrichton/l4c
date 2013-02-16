@@ -171,7 +171,7 @@ impl Instruction {
   fn is_phi(&self) -> bool { match *self { Phi(*) => true, _ => false } }
 }
 
-impl Instruction: ssa::Statement {
+impl ssa::Statement for Instruction {
   static fn phi(t: Temp, map: ssa::PhiMap) -> ~Instruction { ~Phi(t, map) }
 
   fn each_def(&self, f: fn(Temp) -> bool) { self.each_def(f) }
@@ -227,7 +227,7 @@ impl Instruction: ssa::Statement {
   }
 }
 
-impl Instruction: PrettyPrint {
+impl PrettyPrint for Instruction {
   fn pp(&self) -> ~str {
     match *self {
       Raw(copy s) => s,
@@ -342,7 +342,7 @@ impl Operand {
   }
 }
 
-impl Operand: PrettyPrint {
+impl PrettyPrint for Operand {
   fn pp(&self) -> ~str {
     match *self {
       Immediate(c, _) => fmt!("$%d", c as int),
@@ -353,7 +353,7 @@ impl Operand: PrettyPrint {
   }
 }
 
-impl Operand: cmp::Eq {
+impl cmp::Eq for Operand {
   pure fn eq(&self, other: &Operand) -> bool {
     match (self, other) {
       (&Register(a, _), &Register(b, _)) => a == b,
@@ -389,7 +389,7 @@ impl Address {
   }
 }
 
-impl Address: PrettyPrint {
+impl PrettyPrint for Address {
   fn pp(&self) -> ~str {
     match *self {
       MOp(ref o, disp, ref off) => {
@@ -458,7 +458,7 @@ impl Binop {
   }
 }
 
-impl Binop: PrettyPrint {
+impl PrettyPrint for Binop {
   fn pp(&self) -> ~str {
     match *self {
       Add => ~"add",
@@ -549,7 +549,7 @@ impl Multiplier {
   }
 }
 
-impl Multiplier: PrettyPrint {
+impl PrettyPrint for Multiplier {
   fn pp(&self) -> ~str {
     match *self {
       One => ~"1", Two => ~"2", Four => ~"4", Eight => ~"8"
@@ -557,7 +557,7 @@ impl Multiplier: PrettyPrint {
   }
 }
 
-impl Program: Graphable {
+impl Graphable for Program {
   fn dot(&self, out: io::Writer) {
     out.write_str(~"digraph {\n");
     for self.funs.each |f| {

@@ -68,7 +68,7 @@ pub fn Function(name: ~str) -> Function {
             analysis: ssa::Analysis() }
 }
 
-impl Program: Graphable {
+impl Graphable for Program {
   fn dot(&self, out: io::Writer) {
     out.write_str(~"digraph {\n");
     for self.funs.each |f| {
@@ -179,7 +179,7 @@ impl Statement {
   }
 }
 
-impl Statement: ssa::Statement {
+impl ssa::Statement for Statement {
   static fn phi(t: Temp, map: ssa::PhiMap) -> ~Statement { ~Phi(t, map) }
 
   fn map_temps(~self, uses: fn(Temp) -> Temp,
@@ -204,7 +204,7 @@ impl Statement: ssa::Statement {
   }
 }
 
-impl Statement: PrettyPrint {
+impl PrettyPrint for Statement {
   fn pp(&self) -> ~str {
     match *self {
       Move(tmp, ref e) => tmp.pp() + ~" <- " + e.pp(),
@@ -251,7 +251,7 @@ impl Expression {
   }
 }
 
-impl Expression: PrettyPrint {
+impl PrettyPrint for Expression {
   fn pp(&self) -> ~str {
     match *self {
       Temp(ref t) => t.pp(),
@@ -263,7 +263,7 @@ impl Expression: PrettyPrint {
   }
 }
 
-impl Binop: PrettyPrint {
+impl PrettyPrint for Binop {
   fn pp(&self) -> ~str {
     match *self {
       Add => ~"+",

@@ -526,7 +526,7 @@ impl Allocator {
   }
 }
 
-impl bitv::Bitv: PrettyPrint {
+impl PrettyPrint for bitv::Bitv {
   fn pp(&self) -> ~str {
     let mut s = ~"{";
     let mut first = true;

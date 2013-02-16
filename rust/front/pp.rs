@@ -5,7 +5,7 @@ fn tab(s: ~str) -> ~str {
   ~"  " + str::replace(s, ~"\n", ~"\n  ")
 }
 
-impl Unop: PrettyPrint {
+impl PrettyPrint for Unop {
   fn pp(&self) -> ~str {
     match *self {
       Negative => ~"-",
@@ -15,7 +15,7 @@ impl Unop: PrettyPrint {
   }
 }
 
-impl Binop: PrettyPrint {
+impl PrettyPrint for Binop {
   fn pp(&self) -> ~str {
     match *self {
       Plus      => ~"+",

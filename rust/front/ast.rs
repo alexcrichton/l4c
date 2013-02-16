@@ -126,7 +126,7 @@ impl Program {
   }
 }
 
-impl Program: PrettyPrint {
+impl PrettyPrint for Program {
   fn pp(&self) -> ~str {
     str::connect(self.decls.map(|d| d.pp(self)), "\n")
   }
@@ -356,7 +356,7 @@ impl Type {
   }
 }
 
-impl Type: cmp::Eq {
+impl cmp::Eq for Type {
   pure fn eq(&self, other: &Type) -> bool {
     match (self, other) {
       (&Bool, &Bool) | (&Int, &Int) | (&Nullp, &Nullp) => true,
