@@ -45,7 +45,7 @@ pub fn color(p: &mut Program) {
 }
 
 fn RegisterSet() -> RegisterSet {
-  bitv::Bitv(arch::num_regs + 1, false)
+  bitv::Bitv::new(arch::num_regs + 1, false)
 }
 
 fn min_vacant(colors: &RegisterSet) -> uint {

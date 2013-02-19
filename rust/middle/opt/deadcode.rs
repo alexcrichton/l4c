@@ -23,7 +23,7 @@ pub fn optimize(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
     let mut opt = Eliminator { f: f,
                                stms: ~[],
-                               used: bitv::Bitv(f.types.len(), false) };
+                               used: bitv::Bitv::new(f.types.len(), false) };
     /* TODO: surely this is easier on SSA form? */
     while opt.run() {}
   }

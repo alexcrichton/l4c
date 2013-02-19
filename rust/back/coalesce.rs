@@ -1,5 +1,5 @@
 /**
- * ~brief Coalescing of a colored graph to reduce the amount of moves needed
+ * @brief Coalescing of a colored graph to reduce the amount of moves needed
  *        when removing phi functions.
  *
  * This file implements the algorithm described in Sebastian Hack's thesis paper
@@ -103,13 +103,13 @@ pub fn optimize(f: &mut assem::Function,
                 precolored: &TempSet,
                 constraints: &alloc::ConstraintMap) {
   let liveness_map = liveness_map(&f.cfg, &f.liveness, f.temps);
-  let pre = bitv::Bitv(f.temps, false);
+  let pre = bitv::Bitv::new(f.temps, false);
   for precolored.each |&t| {
     pre.set(t, true);
   }
   let mut c = Coalescer { defs: LinearMap::new(),
                           uses: LinearMap::new(),
-                          fixed: bitv::Bitv(f.temps, false),
+                          fixed: bitv::Bitv::new(f.temps, false),
                           f: f,
                           liveness_map: liveness_map,
                           affinities: LinearMap::new(),
@@ -139,7 +139,7 @@ fn liveness_map(cfg: &assem::CFG, live: &liveness::Analysis, max: uint)
     for stms.eachi |i, &stm| {
       /* we care about 'live-out' variables on an instruction */
       liveness::apply(&mut set, &live.deltas.get(&id)[i]);
-      let mut bitv = bitv::Bitv(max, false);
+      let mut bitv = bitv::Bitv::new(max, false);
       for set.each |&t| { bitv.set(t, true); }
       /* at one instruction, the defined registers interfere with all live out
        * registers, even if the defined register isn't actually used anywhere */
@@ -709,7 +709,7 @@ impl Coalescer {
 
     /* Prelude to Algorithm 4.7 (find_interferences) */
     let mut visited = LinearSet::new();
-    let mut bitv = bitv::Bitv(self.f.temps, false);
+    let mut bitv = bitv::Bitv::new(self.f.temps, false);
     match self.uses.find(&t) {
       Some(uses) => {
         for uses.each |&(block, _)| {
