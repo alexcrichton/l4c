@@ -1,5 +1,5 @@
 RUSTC = rustc
-RUSTFLAGS = -W unused-imports
+RUSTFLAGS =
 SOURCES = $(shell find . -name '*.rs' -or -name '*.rc')
 
 all: bin/driver l4c
