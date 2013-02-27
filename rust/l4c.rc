@@ -1,5 +1,6 @@
 #[link(name = "l4c")];
 #[forbid(deprecated_self)];
+#[warn(unused_imports)];
 
 extern mod std;
 
@@ -23,10 +24,10 @@ mod front {
   pub mod ast;
   pub mod error;
   pub mod mark;
-  mod parse;
+  pub mod parse;
   mod pp;
 
-  mod analysis {
+  pub mod analysis {
     mod initcheck;
     mod maincheck;
     mod returncheck;
@@ -40,7 +41,7 @@ mod middle {
   pub mod temp;
   pub mod ssa;
   pub mod liveness;
-  mod trans;
+  pub mod trans;
 
   pub mod opt {
     mod cfold;
@@ -54,11 +55,11 @@ mod back {
   pub mod arch;
   pub mod assem;
   pub mod coalesce;
-  mod codegen;
-  mod precolor;
-  mod ressa;
-  mod spill;
-  mod peephole;
+  pub mod codegen;
+  pub mod precolor;
+  pub mod ressa;
+  pub mod spill;
+  pub mod peephole;
 }
 
 fn help() {

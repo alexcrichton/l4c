@@ -1,6 +1,7 @@
 use core::util::with;
 use front::error;
 use front::ast::*;
+use front::mark;
 
 struct Initchecker {
   program: &Program,

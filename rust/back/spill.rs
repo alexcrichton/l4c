@@ -25,7 +25,7 @@
 use core::hashmap::linear::{LinearMap, LinearSet};
 
 use std::sort;
-use middle::{ssa, opt};
+use middle::{ir, ssa, opt};
 use middle::temp::{Temp, TempSet};
 use back::assem::*;
 use utils::graph::*;
@@ -498,7 +498,7 @@ impl Spiller {
     return cand;
   }
 
-  fn max_pressure(&self, cur: NodeId, visited: &mut graph::NodeSet) -> uint {
+  fn max_pressure(&self, cur: NodeId, visited: &mut NodeSet) -> uint {
     if visited.contains(&cur) { return 0; }
 
     visited.insert(cur);

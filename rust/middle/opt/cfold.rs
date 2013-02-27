@@ -12,6 +12,7 @@
 use core::hashmap::linear::LinearMap;
 
 use middle::ir::*;
+use middle::temp::Temp;
 
 struct ConstantFolder {
   f: &mut Function,

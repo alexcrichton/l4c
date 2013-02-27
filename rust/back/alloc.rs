@@ -5,9 +5,10 @@ use std::smallintmap::SmallIntMap;
 
 use middle::{ssa, ir, liveness};
 use middle::temp::Temp;
-use back::coalesce;
+use back::arch;
 use back::assem::*;
-use utils::profile;
+use back::coalesce;
+use utils::{profile, graph, PrettyPrint};
 
 type RegisterSet = bitv::Bitv;
 pub type ColorMap = SmallIntMap<uint>;
@@ -89,7 +90,7 @@ impl Allocator {
     debug!("coloring %?", n);
     let mut tmplive = LinearSet::new();
     let tmpdelta = self.f.liveness.deltas.get(&n);
-    let registers = RegisterSet();
+    let mut registers = RegisterSet();
     for self.f.liveness.in.get(&n).each |&t| {
       tmplive.insert(t);
       registers.set(*self.colors.get(&t), true);
@@ -146,7 +147,7 @@ impl Allocator {
 
       /* If we found a pcopy, we need to think about being constrained */
       if pcopy.is_some() {
-        let banned = RegisterSet();
+        let mut banned = RegisterSet();
         macro_rules! precolor(
           ($o:expr, $r:expr) => (
             match *$o {
@@ -246,7 +247,7 @@ impl Allocator {
         }
         debug!("processing previous pcopy");
         let copies = pcopy.swap_unwrap();
-        let regstmp = RegisterSet();
+        let mut regstmp = RegisterSet();
         for copies.each |&(dst, src)| {
           assert dst != src;
           match self.colors.find(&dst) {

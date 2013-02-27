@@ -2,6 +2,7 @@ use core::hashmap::linear::LinearSet;
 
 use back::assem::*;
 use middle::{liveness, temp};
+use middle::temp::Temp;
 use back::arch;
 
 pub fn constrain(p: &mut Program) {
