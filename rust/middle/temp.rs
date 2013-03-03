@@ -16,7 +16,7 @@ pub fn new_init(next: uint) -> Allocator {
   Allocator{ next: next }
 }
 
-impl Allocator {
+pub impl Allocator {
   fn new(&mut self) -> Temp {
     let ret = self.next;
     self.next += 1;

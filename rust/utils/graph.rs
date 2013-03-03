@@ -1,6 +1,6 @@
 use core::hashmap::linear::{LinearMap, LinearSet};
 
-use io::WriterUtil;
+use core::io::WriterUtil;
 
 pub type NodeId = uint;
 pub type NodeSet = LinearSet<NodeId>;
@@ -19,7 +19,7 @@ pub fn Graph<N, E>() -> Graph<N, E>{
          next:  0 }
 }
 
-impl<N, E> Graph<N, E> {
+pub impl<N, E> Graph<N, E> {
   fn num_nodes(&self, ) -> uint {
     self.nodes.len()
   }
@@ -230,17 +230,16 @@ impl<N, E> Graph<N, E> {
 
   fn traverse(&self, o: &mut LinearMap<NodeId, int>, n: NodeId, i: int) -> int {
     match o.find(&n) {
-      Some(_) => i,
-      None => {
-        o.insert(n, -1);
-        let mut next = i;
-        for self.succ.get(&n).each |&(&id, _)| {
-          next = self.traverse(o, id, next);
-        }
-        o.insert(n, next);
-        return next + 1;
-      }
+      Some(_) => return i,
+      None => ()
     }
+    o.insert(n, -1);
+    let mut next = i;
+    for self.succ.get(&n).each |&(&id, _)| {
+      next = self.traverse(o, id, next);
+    }
+    o.insert(n, next);
+    return next + 1;
   }
 }
 

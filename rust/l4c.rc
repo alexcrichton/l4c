@@ -87,7 +87,7 @@ fn main() {
   use back::*;
   use std::getopts::*;
   use std::json;
-  use io::ReaderUtil;
+  use core::io::ReaderUtil;
 
   let flags = ~[
     optflag("v"), optflag("verbose"),

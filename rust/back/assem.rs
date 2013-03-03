@@ -573,7 +573,7 @@ impl Graphable for Program {
   }
 }
 
-impl Program {
+pub impl Program {
   fn output(&self, out: io::Writer) {
     for self.funs.each |f| {
       f.output(out);

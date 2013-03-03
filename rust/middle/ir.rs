@@ -1,6 +1,6 @@
 use core::hashmap::linear::LinearMap;
 
-use io::WriterUtil;
+use core::io::WriterUtil;
 use middle::{ssa, label};
 use middle::temp::Temp;
 use utils::{graph, PrettyPrint, Graphable};
@@ -84,7 +84,7 @@ impl Graphable for Program {
   }
 }
 
-impl Function {
+pub impl Function {
   fn size(&self, e: &Expression) -> Type {
     match *e {
       Const(_, size) => size,
@@ -101,7 +101,7 @@ impl Function {
   }
 }
 
-impl Binop {
+pub impl Binop {
   fn associative(&self) -> bool {
     match *self {
       Add | Mul | And | Or | Xor => true,
@@ -117,7 +117,7 @@ impl Binop {
   }
 }
 
-impl Statement {
+pub impl Statement {
   fn map_temps(~self, uses: fn(Temp) -> Temp,
                defs: fn(Temp) -> Temp) -> ~Statement {
     match self {
@@ -230,7 +230,7 @@ impl PrettyPrint for Statement {
   }
 }
 
-impl Expression {
+pub impl Expression {
   fn map_temps(~self, f: fn(Temp) -> Temp) -> ~Expression {
     match self {
       ~BinaryOp(op, e1, e2) =>

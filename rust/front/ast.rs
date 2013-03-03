@@ -83,7 +83,7 @@ pub fn Ref<T>() -> Ref<T> {
   Ref{ val: None }
 }
 
-impl<T: Copy> Ref<T> {
+pub impl<T: Copy> Ref<T> {
   pub fn set(&self, t: T) {
     self.val = Some(t);
   }
@@ -93,7 +93,7 @@ impl<T: Copy> Ref<T> {
   }
 }
 
-impl Program {
+pub impl Program {
   static fn new(decls: ~[~GDecl], mut syms: ~[~str]) -> Program {
     let main = &~"main";
     let mainid = match vec::position(syms, |s| s.eq(main)) {

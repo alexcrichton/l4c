@@ -1,5 +1,5 @@
 use core::util::{with, unreachable, replace};
-use io::WriterUtil;
+use core::io::WriterUtil;
 use front::mark;
 
 pub struct List {
@@ -11,7 +11,7 @@ pub fn new() -> List {
   List{errs: ~[], coords: None}
 }
 
-impl List {
+pub impl List {
   fn add(&mut self, s: ~str) {
     self.errs.push((self.coords, s))
   }
