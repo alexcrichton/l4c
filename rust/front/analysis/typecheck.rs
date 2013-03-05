@@ -101,7 +101,9 @@ impl Typechecker {
       },
       Declare(id, typ, ref init, ref stm) => {
         self.tc_small(typ);
-        init.iter(|x| self.tc_ensure(*x, typ));
+        for init.each |x| {
+          self.tc_ensure(*x, typ);
+        }
         if self.vars.contains_key(&id) {
           self.err.add(fmt!("Redeclared var '%s'", self.program.str(id)));
         } else {
