@@ -1,6 +1,4 @@
 #[link(name = "l4c")];
-#[forbid(deprecated_self)];
-#[warn(unused_imports)];
 
 extern mod std;
 
