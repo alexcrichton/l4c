@@ -103,7 +103,7 @@ impl ConstantFolder {
         match (e1, e2) {
           /* Two constants? let's actually fold them! */
           (~Const(i1, t1), ~Const(i2, t2)) => {
-            assert t1 == t2;
+            fail_unless!(t1 == t2);
             do_op(op, i1, i2, t1)
           }
 
@@ -138,7 +138,7 @@ impl ConstantFolder {
         /* Attempt to rotate constants out of binops to the left */
         let e2 = match e2 {
           ~BinaryOp(o2, ~Const(c2, s2), e3) => {
-            assert s == s2;
+            fail_unless!(s == s2);
             if o == o2 && o.associative() {
               let (e, _) = do_op(o, c, c2, s);
               return self.exp(~BinaryOp(o, e, e3));

@@ -181,7 +181,7 @@ impl Coalescer {
     );
     for ins.eachi |i, &ins| {
       for ins.each_def |tmp| {
-        assert self.defs.insert(tmp, (n, i as int));
+        fail_unless!(self.defs.insert(tmp, (n, i as int)));
       }
       for ins.each_use |tmp| {
         add_use!(tmp, (n, i as int));
@@ -241,7 +241,7 @@ impl Coalescer {
 
     /* Sanity check that we're not coalescing fixed temps */
     for tmps.each |&t| {
-      assert !self.fixed.get(t);
+      fail_unless!(!self.fixed.get(t));
     }
 
     /* For each register, attempt to color everything to that register */
@@ -323,7 +323,7 @@ impl Coalescer {
         let tmp = queue.pop();
         subset.insert(tmp);
         left.remove(&tmp);
-        assert self.affinities.contains_key(&tmp);
+        fail_unless!(self.affinities.contains_key(&tmp));
         for self.affinities.get(&tmp).each |&(&next, &weight)| {
           debug!("%? affine with %? cost %?", tmp, next, weight);
           if left.contains(&next) && !subset.contains(&next) {
@@ -375,7 +375,7 @@ impl Coalescer {
       if !self.avoid_color(tmp, c, &mut changed) {
         /* rollback */
         for changed.each |&tmp| {
-          assert self.old_color.contains_key(&tmp);
+          fail_unless!(self.old_color.contains_key(&tmp));
           self.colors.insert(tmp, *self.old_color.get(&tmp));
         }
       }
@@ -594,7 +594,7 @@ impl Coalescer {
 
     while to_visit.len() > 0 {
       let (n, weight) = to_visit.pop();
-      assert visited.insert(n);
+      fail_unless!(visited.insert(n));
       /* We have a more costly weight if we're moving into a loop */
       let weight = weight + if self.f.loops.contains_key(&n) { 1 } else { 0 };
       for self.f.cfg[n].each |&ins| {

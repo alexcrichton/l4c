@@ -82,10 +82,10 @@ pub fn align_stack(size: uint) -> uint {
 
 #[test]
 fn test_stack_alignment() {
-  assert align_stack(0) == 8;
-  assert align_stack(8) == 8;
-  assert align_stack(16) == 24;
-  assert align_stack(24) == 24;
-  assert align_stack(32) == 40;
-  assert align_stack(40) == 40;
+  fail_unless!(align_stack(0) == 8);
+  fail_unless!(align_stack(8) == 8);
+  fail_unless!(align_stack(16) == 24);
+  fail_unless!(align_stack(24) == 24);
+  fail_unless!(align_stack(32) == 40);
+  fail_unless!(align_stack(40) == 40);
 }

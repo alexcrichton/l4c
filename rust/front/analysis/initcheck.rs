@@ -4,7 +4,7 @@ use front::ast::*;
 use front::mark;
 
 struct Initchecker {
-  program: &Program,
+  program: &'self Program,
   err: error::List,
   step: ~Statement,
 }

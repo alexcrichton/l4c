@@ -56,14 +56,14 @@ pub impl<N, E> Graph<N, E> {
   }
 
   fn add_node(&mut self, id: NodeId, n: N) {
-    assert(!self.nodes.contains_key(&id));
-    assert(self.succ.contains_key(&id));
+    fail_unless!(!self.nodes.contains_key(&id));
+    fail_unless!(self.succ.contains_key(&id));
     self.nodes.insert(id, n);
   }
 
   fn update_node(&mut self, id: NodeId, n: N) {
     /* may not be in 'nodes' due to 'pop_node' */
-    assert(self.succ.contains_key(&id));
+    fail_unless!(self.succ.contains_key(&id));
     self.nodes.insert(id, n);
   }
 
@@ -73,7 +73,7 @@ pub impl<N, E> Graph<N, E> {
 
   fn remove_node(&mut self, n: NodeId) -> N {
     let ret = self.nodes.pop(&n);
-    assert ret.is_some();
+    fail_unless!(ret.is_some());
     let ret = ret.unwrap();
     let succ = self.succ.pop(&n).unwrap();
     let pred = self.pred.pop(&n).unwrap();
@@ -257,13 +257,13 @@ fn test_basic() {
   g.add_node(n2, 2);
   g.add_edge(n1, n2, 3);
   for g.each_succ_edge(n1) |n, e| {
-    assert n == n2 && e == 3;
+    fail_unless!(n == n2 && e == 3);
   }
   for g.each_node |id, &n| {
     if id == n1 {
-      assert n == 1;
+      fail_unless!(n == 1);
     } else if id == n2 {
-      assert n == 2;
+      fail_unless!(n == 2);
     } else {
       fail!(~"bad id provided");
     }

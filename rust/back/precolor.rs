@@ -55,7 +55,7 @@ fn constrain_block(live: &temp::TempSet, delta: &[liveness::Delta],
           let dup = tmpclone(t);
           let dst = ~Temp(dup);
           new.push(~Move(copy dst, ~Temp(t)));
-          assert live_in.insert(dup);
+          fail_unless!(live_in.insert(dup));
           synthetic.push(dup);
           dst
         }
