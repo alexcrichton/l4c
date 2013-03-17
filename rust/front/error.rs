@@ -41,14 +41,14 @@ pub impl List {
     unreachable();
   }
 
-  fn with<T, U>(&mut self, m: &mark::Mark<T>, f: fn(&T) -> U) -> U {
+  fn with<T, U>(&mut self, m: &mark::Mark<T>, f: &fn(&T) -> U) -> U {
     do with(&mut self.coords, Some(m.pos)) {
       f(m.data)
     }
   }
 
   fn map_mark<T>(&mut self, mark: mark::Mark<T>,
-                 f: fn(~T) -> ~T) -> mark::Mark<T> {
+                 f: &fn(~T) -> ~T) -> mark::Mark<T> {
     /* TODO(#4875): this should be bound in the parameters, not down here */
     let mark::Mark{data, pos} = mark;
     let prev = replace(&mut self.coords, Some(pos));

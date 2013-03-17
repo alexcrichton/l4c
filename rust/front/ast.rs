@@ -14,7 +14,7 @@ struct Elaborator {
   structs: LinearSet<Ident>,
   types:   LinearMap<Ident, @Type>,
   err:     error::List,
-  symbols: &[~str]
+  symbols: &'self [~str]
 }
 
 pub type Ident = uint;

@@ -14,7 +14,7 @@ use std::bitv;
 use middle::ir::*;
 
 struct Eliminator {
-  f: &mut Function,
+  f: &'self mut Function,
   used: bitv::Bitv,
   stms: ~[~Statement],
 }

@@ -592,7 +592,7 @@ impl Spiller {
     }
   }
 
-  fn my_names(&self, tmp: Temp, from: NodeId, to: NodeId, f: fn(Temp) -> bool) {
+  fn my_names(&self, tmp: Temp, from: NodeId, to: NodeId, f: &fn(Temp) -> bool) {
     match self.renamings.find(&(from, to)) {
       Some(m) => match m.find(&tmp) {
         Some(ret) => {

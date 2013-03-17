@@ -112,13 +112,13 @@ pub impl<N, E> Graph<N, E> {
     self.pred.insert(n2, pred);
   }
 
-  fn each_edge(&self, f: fn(NodeId, NodeId) -> bool) {
+  fn each_edge(&self, f: &fn(NodeId, NodeId) -> bool) {
     for self.succ.each |&(&a, map)| {
       map.each_key(|&b| f(a, b));
     }
   }
 
-  fn each_node(&self, f: fn(NodeId, &N) -> bool) {
+  fn each_node(&self, f: &fn(NodeId, &N) -> bool) {
     /* TODO(#4856): need some compiler checks so we don't fuck ourselves */
     self.succ.each(|&(&a, _)| {
       match self.nodes.find(&a) {
@@ -128,37 +128,37 @@ pub impl<N, E> Graph<N, E> {
     });
   }
 
-  fn each_pred(&self, n: NodeId, f: fn(NodeId) -> bool) {
+  fn each_pred(&self, n: NodeId, f: &fn(NodeId) -> bool) {
     let preds = self.pred.get(&n);
     preds.each(|&k| f(k));
   }
 
-  fn each_pred_edge(&self, n: NodeId, f: fn(NodeId, &E) -> bool) {
+  fn each_pred_edge(&self, n: NodeId, f: &fn(NodeId, &E) -> bool) {
     let preds = self.pred.get(&n);
     preds.each(|&k| f(k, self.edge(k, n)));
   }
 
-  fn each_succ(&self, n: NodeId, f: fn(NodeId) -> bool) {
+  fn each_succ(&self, n: NodeId, f: &fn(NodeId) -> bool) {
     let succ = self.succ.get(&n);
     succ.each_key(|&k| f(k));
   }
 
-  fn each_succ_edge(&self, n: NodeId, f: fn(NodeId, E) -> bool) {
+  fn each_succ_edge(&self, n: NodeId, f: &fn(NodeId, E) -> bool) {
     let succ = self.succ.get(&n);
     succ.each(|&(&n, &e)| f(n, e));
   }
 
-  fn each_postorder(&self, root: NodeId, f: fn(&NodeId) -> bool) {
+  fn each_postorder(&self, root: NodeId, f: &fn(&NodeId) -> bool) {
     let (order, _) = self.postorder(root);
     order.each(f);
   }
 
-  fn each_rev_postorder(&self, root: NodeId, f: fn(&NodeId) -> bool) {
+  fn each_rev_postorder(&self, root: NodeId, f: &fn(&NodeId) -> bool) {
     let (order, _) = self.postorder(root);
     vec::rev_each(order, f);
   }
 
-  fn map_nodes(&mut self, f: fn(NodeId, N) -> N) {
+  fn map_nodes(&mut self, f: &fn(NodeId, N) -> N) {
     let mut keys = ~[];
     for self.nodes.each_key |&k| { keys.push(k); }
     for keys.each |&k| {
@@ -166,13 +166,13 @@ pub impl<N, E> Graph<N, E> {
     }
   }
 
-  fn map_consume_node(&mut self, id: NodeId, f: fn(N) -> N) {
+  fn map_consume_node(&mut self, id: NodeId, f: &fn(N) -> N) {
     let node = self.nodes.pop(&id).unwrap();
     self.nodes.insert(id, f(node));
   }
 
-  fn map<N2, E2>(&self, n: fn(NodeId, &N) -> N2,
-                 e: fn(&E) -> E2) -> Graph<N2, E2> {
+  fn map<N2, E2>(&self, n: &fn(NodeId, &N) -> N2,
+                 e: &fn(&E) -> E2) -> Graph<N2, E2> {
     let mut g2 = Graph();
     g2.next = self.next;
     for self.nodes.each |&(&k, v)| {
@@ -195,10 +195,10 @@ pub impl<N, E> Graph<N, E> {
     return g2;
   }
 
-  fn dot(&self, out: io::Writer,
-         nid: fn(NodeId) -> ~str,
-         node: fn(NodeId, &N) -> ~str,
-         edge: fn(&E) -> ~str) {
+  fn dot(&self, out: @io::Writer,
+         nid: &fn(NodeId) -> ~str,
+         node: &fn(NodeId, &N) -> ~str,
+         edge: &fn(&E) -> ~str) {
     for self.nodes.each |&(&id, n)| {
       out.write_str(nid(id));
       out.write_str(~" [");
@@ -243,8 +243,8 @@ pub impl<N, E> Graph<N, E> {
   }
 }
 
-impl<N, E> Index<NodeId, &N> for Graph<N, E> {
-  pure fn index(&self, id: NodeId) -> &self/N {
+impl<N, E> Index<NodeId, &'self N> for Graph<N, E> {
+  pure fn index(&self, id: NodeId) -> &'self N {
     self.node(id)
   }
 }

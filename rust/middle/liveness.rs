@@ -15,8 +15,8 @@ pub struct Analysis {
 }
 
 struct Liveness<T> {
-  a: &mut Analysis,
-  cfg: &CFG<T>,
+  a: &'self mut Analysis,
+  cfg: &'self CFG<T>,
   phi_out: LinearMap<NodeId, ~TempSet>,
 }
 

@@ -23,7 +23,7 @@ pub fn constrain(p: &mut Program) {
 }
 
 fn constrain_block(live: &temp::TempSet, delta: &[liveness::Delta],
-                   tmpclone: fn(Temp) -> Temp,
+                   tmpclone: &fn(Temp) -> Temp,
                    ins: ~[~Instruction]) -> ~[~Instruction] {
   let mut new = ~[];
   let mut synthetic = ~[];

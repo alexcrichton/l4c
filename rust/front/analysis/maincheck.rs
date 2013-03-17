@@ -2,7 +2,7 @@ use front::error;
 use front::ast::*;
 
 struct MainChecker {
-  program: &Program,
+  program: &'self Program,
   err: error::List,
 }
 

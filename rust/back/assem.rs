@@ -103,7 +103,7 @@ impl Constraint {
 
 impl Instruction {
   #[inline(always)]
-  fn each_def(&self, f: fn(Temp) -> bool) {
+  fn each_def(&self, f: &fn(Temp) -> bool) {
     match *self {
       BinaryOp(_, ~Temp(t), _, _) |
       Move(~Temp(t), _) |
@@ -121,7 +121,7 @@ impl Instruction {
   }
 
   #[inline(always)]
-  fn each_use(&self, f: fn(Temp) -> bool) {
+  fn each_use(&self, f: &fn(Temp) -> bool) {
     match *self {
       Condition(_, ~Temp(t1), ~Temp(t2)) |
       Die(_, ~Temp(t1), ~Temp(t2)) |
@@ -174,8 +174,8 @@ impl Instruction {
 impl ssa::Statement for Instruction {
   static fn phi(t: Temp, map: ssa::PhiMap) -> ~Instruction { ~Phi(t, map) }
 
-  fn each_def(&self, f: fn(Temp) -> bool) { self.each_def(f) }
-  fn each_use(&self, f: fn(Temp) -> bool) { self.each_use(f) }
+  fn each_def(&self, f: &fn(Temp) -> bool) { self.each_def(f) }
+  fn each_use(&self, f: &fn(Temp) -> bool) { self.each_use(f) }
   static fn phi_info(me: &v/Instruction) -> Option<(Temp, &v/ssa::PhiMap)> {
     me.phi_info()
   }
@@ -186,8 +186,8 @@ impl ssa::Statement for Instruction {
     }
   }
 
-  fn map_temps(~self, uses: fn(Temp) -> Temp,
-               defs: fn(Temp) -> Temp) -> ~Instruction {
+  fn map_temps(~self, uses: &fn(Temp) -> Temp,
+               defs: &fn(Temp) -> Temp) -> ~Instruction {
     match self {
       ~BinaryOp(op, o1, o2, o3) => {
         let (o2, o3) = (o2.map_temps(uses), o3.map_temps(uses));
@@ -327,14 +327,14 @@ impl Operand {
     }
   }
 
-  fn each_temp(&self, f: fn(Temp) -> bool) {
+  fn each_temp(&self, f: &fn(Temp) -> bool) {
     match *self {
       Temp(t) => { f(t); }
       _ => ()
     }
   }
 
-  fn map_temps(~self, f: fn(Temp) -> Temp) -> ~Operand {
+  fn map_temps(~self, f: &fn(Temp) -> Temp) -> ~Operand {
     match self {
       ~Temp(t) => ~Temp(f(t)),
       o        => o
@@ -366,7 +366,7 @@ impl cmp::Eq for Operand {
 }
 
 impl Address {
-  fn map_temps(~self, f: fn(Temp) -> Temp) -> ~Address {
+  fn map_temps(~self, f: &fn(Temp) -> Temp) -> ~Address {
     match self {
       ~MOp(t, disp, off) =>
         ~MOp(t.map_temps(f), disp, off.map(|&(x, m)| (x.map_temps(f), m))),
@@ -374,7 +374,7 @@ impl Address {
     }
   }
 
-  fn each_temp(&self, f: fn(Temp) -> bool) {
+  fn each_temp(&self, f: &fn(Temp) -> bool) {
     match *self {
       MOp(ref o, _, ref off) => {
         o.each_temp(f);
@@ -558,7 +558,7 @@ impl PrettyPrint for Multiplier {
 }
 
 impl Graphable for Program {
-  fn dot(&self, out: io::Writer) {
+  fn dot(&self, out: @io::Writer) {
     out.write_str(~"digraph {\n");
     for self.funs.each |f| {
       f.cfg.dot(out,
@@ -574,7 +574,7 @@ impl Graphable for Program {
 }
 
 pub impl Program {
-  fn output(&self, out: io::Writer) {
+  fn output(&self, out: @io::Writer) {
     for self.funs.each |f| {
       f.output(out);
     }
@@ -586,7 +586,7 @@ impl Function {
    * Traverses the cfg and outputs a stream of instructions which can be
    * assembled to the actual program
    */
-  fn output(&self, out: io::Writer) {
+  fn output(&self, out: @io::Writer) {
     let base = label::Internal(copy self.name).pp();
     /* entry label */
     out.write_str(~".globl " + base + ~"\n");
@@ -653,7 +653,7 @@ impl Function {
 
             (Some((tedge, tid)), Some((fedge, fid))) => {
               /* On a conditional branch, the last ins must be Condition */
-              let cond = match instructions.last() {
+              let cond = match *instructions.last() {
                 ~Condition(c, _, _) => c,
                 _ => fail!(~"Need a condition with true/false edges")
               };

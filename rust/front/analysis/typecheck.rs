@@ -5,7 +5,7 @@ use front::error;
 use front::ast::*;
 
 struct Typechecker {
-  program: &Program,
+  program: &'self Program,
   err:     error::List,
   funs:    LinearMap<Ident, (@Type, @~[@Type])>,
   structs: LinearMap<Ident, Option<LinearMap<Ident, @Type>>>,

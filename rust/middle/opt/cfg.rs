@@ -175,7 +175,7 @@ fn eliminate_dead(cfg: &mut ir::CFG) {
   let mut constant = ~[];
   for cfg.each_node |n, stms| {
     match vec::last_opt(*stms) {
-      Some(~ir::Condition(~ir::Const(c, _))) => { constant.push((n, c)); }
+      Some(&~ir::Condition(~ir::Const(c, _))) => { constant.push((n, c)); }
       _ => ()
     }
   }

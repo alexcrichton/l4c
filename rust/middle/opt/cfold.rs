@@ -15,7 +15,7 @@ use middle::ir::*;
 use middle::temp::Temp;
 
 struct ConstantFolder {
-  f: &mut Function,
+  f: &'self mut Function,
   constants: LinearMap<Temp, i32>,
   temps: LinearMap<Temp, Temp>,
 }

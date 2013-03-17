@@ -69,7 +69,7 @@ pub fn Function(name: ~str) -> Function {
 }
 
 impl Graphable for Program {
-  fn dot(&self, out: io::Writer) {
+  fn dot(&self, out: @io::Writer) {
     out.write_str(~"digraph {\n");
     for self.funs.each |f| {
       f.cfg.dot(out,
@@ -118,8 +118,8 @@ pub impl Binop {
 }
 
 pub impl Statement {
-  fn map_temps(~self, uses: fn(Temp) -> Temp,
-               defs: fn(Temp) -> Temp) -> ~Statement {
+  fn map_temps(~self, uses: &fn(Temp) -> Temp,
+               defs: &fn(Temp) -> Temp) -> ~Statement {
     match self {
       ~Move(tmp, e) => {
         let e = e.map_temps(uses);
@@ -154,7 +154,7 @@ pub impl Statement {
     }
   }
 
-  fn each_def(&self, f: fn(Temp) -> bool) {
+  fn each_def(&self, f: &fn(Temp) -> bool) {
     match *self {
       Load(tmp, _) | Move(tmp, _) | Call(tmp, _, _) | Phi(tmp, _) |
         Cast(tmp, _) => { f(tmp); }
@@ -163,7 +163,7 @@ pub impl Statement {
     }
   }
 
-  fn each_use(&self, f: fn(Temp) -> bool) {
+  fn each_use(&self, f: &fn(Temp) -> bool) {
     match *self {
       Move(_, ref e) | Load(_, ref e) | Condition(ref e) |
         Return(ref e) | Die(ref e) => e.each_temp(f),
@@ -182,13 +182,13 @@ pub impl Statement {
 impl ssa::Statement for Statement {
   static fn phi(t: Temp, map: ssa::PhiMap) -> ~Statement { ~Phi(t, map) }
 
-  fn map_temps(~self, uses: fn(Temp) -> Temp,
-               defs: fn(Temp) -> Temp) -> ~Statement {
+  fn map_temps(~self, uses: &fn(Temp) -> Temp,
+               defs: &fn(Temp) -> Temp) -> ~Statement {
     self.map_temps(uses, defs)
   }
 
-  fn each_def(&self, f: fn(Temp) -> bool) { self.each_def(f) }
-  fn each_use(&self, f: fn(Temp) -> bool) { self.each_use(f) }
+  fn each_def(&self, f: &fn(Temp) -> bool) { self.each_def(f) }
+  fn each_use(&self, f: &fn(Temp) -> bool) { self.each_use(f) }
 
   static fn phi_info(me: &v/Statement) -> Option<(Temp, &v/ssa::PhiMap)> {
     match *me {
@@ -231,7 +231,7 @@ impl PrettyPrint for Statement {
 }
 
 pub impl Expression {
-  fn map_temps(~self, f: fn(Temp) -> Temp) -> ~Expression {
+  fn map_temps(~self, f: &fn(Temp) -> Temp) -> ~Expression {
     match self {
       ~BinaryOp(op, e1, e2) =>
         ~BinaryOp(op, e1.map_temps(f), e2.map_temps(f)),
@@ -242,7 +242,7 @@ pub impl Expression {
     }
   }
 
-  fn each_temp(&self, f: fn(Temp) -> bool) {
+  fn each_temp(&self, f: &fn(Temp) -> bool) {
     match *self {
       Const(*) | LabelExp(*) => (),
       BinaryOp(_, ref e1, ref e2) => { e1.each_temp(f); e2.each_temp(f); }

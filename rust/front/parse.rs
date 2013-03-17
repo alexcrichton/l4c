@@ -65,7 +65,7 @@ impl Parser {
     return ret;
   }
 
-  fn to_mark<T>(&mut self, o: &~Object, f: fn(&Json) -> ~T) -> mark::Mark<T> {
+  fn to_mark<T>(&mut self, o: &~Object, f: &fn(&Json) -> ~T) -> mark::Mark<T> {
     let left  = self.to_coord(o.get(&~"l"));
     let right = self.to_coord(o.get(&~"r"));
     let data  = f(o.get(&~"d"));
@@ -246,7 +246,7 @@ impl Parser {
     }
   }
 
-  fn to_opt<T>(&mut self, j: &Json, f: fn(&Json) -> T) -> Option<T> {
+  fn to_opt<T>(&mut self, j: &Json, f: &fn(&Json) -> T) -> Option<T> {
     let (typ, fields) = self.gettyp(j);
     match typ {
       ~"none" => None,

@@ -3,8 +3,6 @@ use core::hashmap::linear::{LinearMap, LinearSet};
 use middle::{ir, temp, ssa, liveness, label};
 use back::{assem, arch};
 
-type Builder = fn(~assem::Instruction);
-
 pub struct CodeGenerator {
   priv f: ir::Function,
   priv temps: temp::Allocator,

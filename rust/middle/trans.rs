@@ -14,8 +14,8 @@ struct ProgramInfo {
 }
 
 struct Translator {
-  t: &ProgramInfo,
-  f: &mut ir::Function,
+  t: &'self ProgramInfo,
+  f: &'self mut ir::Function,
   vars: LinearMap<ast::Ident, temp::Temp>,
   temps: temp::Allocator,
 
