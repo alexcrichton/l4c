@@ -46,11 +46,11 @@ pub impl<N, E> Graph<N, E> {
     match self.succ.find(&a) { Some(m) => m.contains_key(&b), None => false }
   }
 
-  pure fn node(&self, id: NodeId) -> &self/N {
+  pure fn node(&self, id: NodeId) -> &'self N {
     self.nodes.get(&id)
   }
 
-  fn edge(&self, a: NodeId, b: NodeId) -> &self/E {
+  fn edge(&self, a: NodeId, b: NodeId) -> &'self E {
     let a_succ = self.succ.get(&a);
     return a_succ.get(&b);
   }

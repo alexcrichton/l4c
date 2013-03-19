@@ -17,7 +17,7 @@ pub trait Statement: PrettyPrint {
   fn each_use(&self, &fn(Temp) -> bool);
   fn map_temps(~self, u: &fn(Temp) -> Temp, d: &fn(Temp) -> Temp) -> ~Self;
   /* TODO: once fixed, this should be a member function */
-  static fn phi_info(me: &v/Self) -> Option<(Temp, &v/PhiMap)>;
+  static fn phi_info(me: &'a Self) -> Option<(Temp, &'a PhiMap)>;
   static fn phi_unwrap(me: ~Self) -> Either<~Self, (Temp, PhiMap)>;
 }
 

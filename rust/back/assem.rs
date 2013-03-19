@@ -161,7 +161,7 @@ impl Instruction {
       _ => ()
     }
   }
-  fn phi_info(&self) -> Option<(Temp, &self/ssa::PhiMap)> {
+  fn phi_info(&self) -> Option<(Temp, &'self ssa::PhiMap)> {
     match *self {
       Phi(d, ref m) => Some((d, m)),
       _         => None
@@ -176,7 +176,7 @@ impl ssa::Statement for Instruction {
 
   fn each_def(&self, f: &fn(Temp) -> bool) { self.each_def(f) }
   fn each_use(&self, f: &fn(Temp) -> bool) { self.each_use(f) }
-  static fn phi_info(me: &v/Instruction) -> Option<(Temp, &v/ssa::PhiMap)> {
+  static fn phi_info(me: &'r Instruction) -> Option<(Temp, &'r ssa::PhiMap)> {
     me.phi_info()
   }
   static fn phi_unwrap(me: ~Instruction) -> Either<~Instruction, (Temp, ssa::PhiMap)> {
