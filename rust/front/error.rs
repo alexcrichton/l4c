@@ -47,10 +47,8 @@ pub impl List {
     }
   }
 
-  fn map_mark<T>(&mut self, mark: mark::Mark<T>,
+  fn map_mark<T>(&mut self, mark::Mark{data, pos}: mark::Mark<T>,
                  f: &fn(~T) -> ~T) -> mark::Mark<T> {
-    /* TODO(#4875): this should be bound in the parameters, not down here */
-    let mark::Mark{data, pos} = mark;
     let prev = replace(&mut self.coords, Some(pos));
     let ret = f(data);
     self.coords = prev;

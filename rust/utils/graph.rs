@@ -119,7 +119,6 @@ pub impl<N, E> Graph<N, E> {
   }
 
   fn each_node(&self, f: &fn(NodeId, &N) -> bool) {
-    /* TODO(#4856): need some compiler checks so we don't fuck ourselves */
     self.succ.each(|&(&a, _)| {
       match self.nodes.find(&a) {
         Some(b) => f(a, b),
