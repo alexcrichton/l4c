@@ -32,7 +32,7 @@ pub fn calculate<S: Statement>(cfg: &CFG<S>, root: NodeId,
   l.run(root);
 }
 
-impl<T: Statement> Liveness<T> {
+impl<T: Statement> Liveness<'self, T> {
   fn run(&mut self, root: NodeId) {
     /* TODO: why can't this be in the calculate() function above */
     for self.cfg.each_node |id, _| {

@@ -15,7 +15,7 @@ pub fn check(a: &Program) {
   ic.run();
 }
 
-impl Initchecker {
+impl Initchecker<'self> {
   fn run(&mut self) {
     for self.program.decls.each |x| {
       self.check_gdecl(*x);

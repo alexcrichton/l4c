@@ -37,7 +37,7 @@ const loop_out_weight: uint = 100000;
 type NextUse = LinearMap<Temp, uint>;
 
 struct Spiller {
-  f: &mut Function,
+  f: &'self mut Function,
   /* next_use information for each node in the graph */
   next_use: LinearMap<NodeId, NextUse>,
   /* Delta information for next_use as a block is traversed top down */
@@ -99,7 +99,7 @@ fn sort(set: &TempSet, s: &NextUse) -> ~[Temp] {
   return v;
 }
 
-impl Spiller {
+impl Spiller<'self> {
   fn run(&mut self) {
     /* TODO: why can't this all be above */
     /* Build up phi renaming maps */

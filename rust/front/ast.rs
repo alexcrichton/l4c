@@ -149,7 +149,7 @@ pub fn unmarkg(g: ~GDecl) -> ~GDecl {
   }
 }
 
-impl Elaborator {
+impl Elaborator<'self> {
   fn run(&mut self, decls: ~[~GDecl]) -> ~[~GDecl] {
     let decls = vec::map_consume(decls, |x| self.elaborate(x));
     self.err.check();

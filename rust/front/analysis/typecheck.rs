@@ -26,7 +26,7 @@ pub fn check(a: &Program) {
   tc.run()
 }
 
-impl Typechecker {
+impl Typechecker<'self> {
   fn run(&mut self) {
     for self.program.decls.each |x| {
       self.tc_gdecl(*x)

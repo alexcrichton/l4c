@@ -29,7 +29,7 @@ pub fn optimize(p: &mut Program) {
   }
 }
 
-impl Eliminator {
+impl Eliminator<'self> {
   /* TODO: why can't this all be above */
   fn run(&mut self) -> bool {
     fail_unless!(self.stms.len() == 0);

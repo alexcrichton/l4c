@@ -81,7 +81,7 @@ pub fn convert<T: Statement>(cfg: &mut CFG<T>,
   return ret;
 }
 
-impl<T: Statement> Converter<T> {
+impl<T: Statement> Converter<'self, T> {
   fn convert(&mut self) -> uint {
     /* First, find where all the phi functions need to be */
     let defs = self.find_defs();

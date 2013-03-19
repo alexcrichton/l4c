@@ -135,7 +135,7 @@ impl ProgramInfo {
   }
 }
 
-impl Translator {
+impl Translator<'self> {
   fn run(&mut self, args: ~[(ast::Ident, @ast::Type)], body: ~ast::Statement) {
     /* TODO: why can't this be above */
     self.arguments(args);

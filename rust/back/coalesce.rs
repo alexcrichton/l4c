@@ -62,14 +62,14 @@ struct Chunk(TempSet, uint);
 
 struct Coalescer {
   /* information passed to coalescing */
-  f: &mut assem::Function,
+  f: &'self mut assem::Function,
   /* set of temps that are precolored */
   precolored: bitv::Bitv,
   /* For all temps with constraints, contains mapping of the constraints. This
      is used when determining the admissible registers for a temp */
-  constraints: &alloc::ConstraintMap,
+  constraints: &'self alloc::ConstraintMap,
   /* Actual coloring information that's modified */
-  colors: &mut alloc::ColorMap,
+  colors: &'self mut alloc::ColorMap,
 
   /* Mapping of a temp to where it's defined */
   defs: LinearMap<Temp, Location>,
@@ -153,7 +153,7 @@ fn liveness_map(cfg: &assem::CFG, live: &liveness::Analysis, max: uint)
   return ret;
 }
 
-impl Coalescer {
+impl Coalescer<'self> {
   fn run(&mut self) {
     /* TODO: why can't this be above */
     do profile::dbg("building use/def") {

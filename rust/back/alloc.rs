@@ -17,7 +17,7 @@ pub type ConstraintMap = SmallIntMap<Constraint>;
 type Resolution = Either<(uint, uint), (uint, uint)>;
 
 struct Allocator {
-  f: &mut Function,
+  f: &'self mut Function,
   colors: ColorMap,
   slots: LinearMap<Tag, uint>,
   max_slot: uint,
@@ -59,7 +59,7 @@ fn min_vacant(colors: &RegisterSet) -> uint {
   return i;
 }
 
-impl Allocator {
+impl Allocator<'self> {
   fn run(&mut self) {
     /* TODO: why can't this be above */
     /* Color the graph completely */

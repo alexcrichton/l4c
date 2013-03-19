@@ -29,7 +29,7 @@ pub fn optimize(p: &mut Program) {
   }
 }
 
-impl ConstantFolder {
+impl ConstantFolder<'self> {
   /* TODO: why can't this all be above */
   fn run(&mut self) {
     /* Be sure to start at the top of the graph to visit definitions first */
