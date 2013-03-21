@@ -537,11 +537,11 @@ impl Register {
 }
 
 impl Multiplier {
-  static fn valid(i: i32) -> bool {
+  static pub fn valid(i: i32) -> bool {
     i == 1 || i == 2 || i == 4 || i == 8
   }
 
-  static fn from_int(i: i32) -> Multiplier {
+  static pub fn from_int(i: i32) -> Multiplier {
     match i {
       1 => One, 2 => Two, 4 => Four, 8 => Eight,
       _ => fail!(fmt!("can't make multiplier for %?", i))

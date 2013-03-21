@@ -350,7 +350,7 @@ impl Allocator<'self> {
           let src = self.stack_loc(src);
           ins.push(~Raw(fmt!("pushq %s", Stack(src + i * arch::ptrsize).pp())));
         }
-        for vec::rev_eachi(mem_vars) |i, &dst| {
+        for mem_vars.eachi_reverse |i, &dst| {
           let dst = self.stack_loc(dst);
           ins.push(~Raw(fmt!("popq %s", Stack(dst + i * arch::ptrsize).pp())));
         }
@@ -372,7 +372,7 @@ impl Allocator<'self> {
    */
   fn remove_temps(&mut self) {
     let (order, _) = self.f.cfg.postorder(self.f.root);
-    for vec::rev_each(order) |&id| {
+    for order.each_reverse |&id| {
       let ins = vec::build(|push| {
         if id == self.f.root {
           for self.colors.each |&(_, &color)| {
@@ -418,7 +418,7 @@ impl Allocator<'self> {
                          ~Immediate(self.stack_size(false) as i32, ir::Pointer),
                          ~Register(ESP, ir::Pointer)));
         }
-        for vec::rev_each(self.callee_saved) |&color| {
+        for self.callee_saved.each_reverse |&color| {
           push(~Raw(fmt!("pop %s", arch::num_reg(color).size(ir::Pointer))));
         }
         push(~Return(op));

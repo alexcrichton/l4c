@@ -154,7 +154,7 @@ pub impl<N, E> Graph<N, E> {
 
   fn each_rev_postorder(&self, root: NodeId, f: &fn(&NodeId) -> bool) {
     let (order, _) = self.postorder(root);
-    vec::rev_each(order, f);
+    order.each_reverse(f);
   }
 
   fn map_nodes(&mut self, f: &fn(NodeId, N) -> N) {

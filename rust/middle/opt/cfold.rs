@@ -34,7 +34,7 @@ impl ConstantFolder<'self> {
   fn run(&mut self) {
     /* Be sure to start at the top of the graph to visit definitions first */
     let (order, _) = self.f.cfg.postorder(self.f.root);
-    for vec::rev_each(order) |&n| {
+    for order.each_reverse |&n| {
       self.f.cfg.map_consume_node(n, |stms| {
         vec::map_consume(stms, |s| self.stm(s))
       });

@@ -54,7 +54,7 @@ impl Eliminator<'self> {
     let mut changed = false;
     for order.each |&n| {
       let orig = self.f.cfg[n].len();
-      vec::rev_each(*self.f.cfg[n], |&stm| self.stm(stm));
+      self.f.cfg[n].each_reverse(|&stm| self.stm(stm));
       let mut block = ~[];
       block <-> self.stms;
       vec::reverse(block);

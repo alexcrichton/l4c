@@ -86,7 +86,7 @@ impl<T: Statement> Liveness<'self, T> {
     for live.each |&t| { live_out.insert(t); }
     self.a.out.insert(n, live_out);
     let mut my_deltas = ~[];
-    for vec::rev_each(*self.cfg[n]) |ins| {
+    for self.cfg[n].each_reverse |ins| {
       let mut delta = ~[];
       for ins.each_def |def| {
         if live.remove(&def) {

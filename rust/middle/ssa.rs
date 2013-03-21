@@ -302,7 +302,7 @@ fn analyze<T>(cfg: &CFG<T>, root: graph::NodeId, analysis: &mut Analysis) {
   let mut changed = true;
   while changed {
     changed = false;
-    for vec::rev_each(order) |&b| {
+    for order.each_reverse |&b| {
       if b == root { loop }
       let mut new_idom = -1;
 

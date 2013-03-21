@@ -207,7 +207,7 @@ impl Spiller<'self> {
     /* Process all of our block's statements backwards */
     let mut deltas = ~[];
     let mut max = bottom.len();
-    for vec::rev_eachi(*block) |i, &ins| {
+    for block.eachi_reverse |i, &ins| {
       let mut delta = ~[];
       match ins {
         ~PCopy(*) => { deltas.push(delta); loop; }
@@ -323,7 +323,7 @@ impl Spiller<'self> {
          for down the road. We iterate in reverse order in case one instruction
          uses the same operand more than once. In this case the first listed
          delta is the one which is the relevant value */
-      for vec::rev_each(*delta) |&(tmp, amt)| {
+      for delta.each_reverse |&(tmp, amt)| {
         match amt {
           None    => { fail_unless!(next_use.remove(&tmp)); }
           Some(d) => { next_use.insert(tmp, d); }
