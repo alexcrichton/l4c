@@ -12,13 +12,13 @@ pub struct Analysis {
 }
 
 pub trait Statement: PrettyPrint {
-  static fn phi(Temp, PhiMap) -> ~Self;
+  fn phi(Temp, PhiMap) -> ~Self;
   fn each_def(&self, &fn(Temp) -> bool);
   fn each_use(&self, &fn(Temp) -> bool);
   fn map_temps(~self, u: &fn(Temp) -> Temp, d: &fn(Temp) -> Temp) -> ~Self;
   /* TODO: once fixed, this should be a member function */
-  static fn phi_info(me: &'a Self) -> Option<(Temp, &'a PhiMap)>;
-  static fn phi_unwrap(me: ~Self) -> Either<~Self, (Temp, PhiMap)>;
+  fn phi_info(me: &'a Self) -> Option<(Temp, &'a PhiMap)>;
+  fn phi_unwrap(me: ~Self) -> Either<~Self, (Temp, PhiMap)>;
 }
 
 type TempMap = LinearMap<Temp, Temp>;

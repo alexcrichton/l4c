@@ -1,11 +1,11 @@
 use back::assem::*;
 
-pub const arg_regs: uint = 6;
-pub const ptrsize: uint = 8;
-pub const intsize: uint = 4;
-pub const ret_reg: Register = EAX;
-pub const num_regs: uint = 15;
-pub const caller_regs: uint = 9;
+pub static arg_regs: uint = 6;
+pub static ptrsize: uint = 8;
+pub static intsize: uint = 4;
+pub static ret_reg: Register = EAX;
+pub static num_regs: uint = 15;
+pub static caller_regs: uint = 9;
 
 pub fn each_reg(f: &fn(uint) -> bool) {
   uint::range(1, num_regs + 1, f)
@@ -44,7 +44,7 @@ pub fn reg_num(r: Register) -> uint {
   }
 }
 
-pub pure fn num_reg(i: uint) -> Register {
+pub fn num_reg(i: uint) -> Register {
   match i {
      1 => R9D,
      2 => R8D,

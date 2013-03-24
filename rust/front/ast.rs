@@ -94,7 +94,7 @@ pub impl<T: Copy> Ref<T> {
 }
 
 pub impl Program {
-  static fn new(decls: ~[~GDecl], mut syms: ~[~str]) -> Program {
+  fn new(decls: ~[~GDecl], mut syms: ~[~str]) -> Program {
     let main = &~"main";
     let mainid = match vec::position(syms, |s| s.eq(main)) {
       Some(i) => i,
@@ -357,7 +357,7 @@ impl Type {
 }
 
 impl cmp::Eq for Type {
-  pure fn eq(&self, other: &Type) -> bool {
+  fn eq(&self, other: &Type) -> bool {
     match (self, other) {
       (&Bool, &Bool) | (&Int, &Int) | (&Nullp, &Nullp) => true,
       (&Nullp, &Pointer(_)) | (&Pointer(_), &Nullp) => true,
@@ -370,5 +370,5 @@ impl cmp::Eq for Type {
     }
   }
 
-  pure fn ne(&self, other: &Type) -> bool { !self.eq(other) }
+  fn ne(&self, other: &Type) -> bool { !self.eq(other) }
 }

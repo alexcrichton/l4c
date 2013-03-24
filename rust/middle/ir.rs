@@ -41,10 +41,10 @@ pub enum Expression {
   LabelExp(label::Label),
 }
 
-#[deriving_eq]
+#[deriving(Eq)]
 pub enum Type { Int, Pointer }
 
-#[deriving_eq]
+#[deriving(Eq)]
 pub enum Binop {
   Add, Sub, Mul, Div, Mod, Lt, Lte, Gt, Gte, Eq, Neq, And, Or, Xor, Lsh, Rsh
 }
@@ -180,7 +180,7 @@ pub impl Statement {
 }
 
 impl ssa::Statement for Statement {
-  static fn phi(t: Temp, map: ssa::PhiMap) -> ~Statement { ~Phi(t, map) }
+  fn phi(t: Temp, map: ssa::PhiMap) -> ~Statement { ~Phi(t, map) }
 
   fn map_temps(~self, uses: &fn(Temp) -> Temp,
                defs: &fn(Temp) -> Temp) -> ~Statement {
@@ -190,13 +190,13 @@ impl ssa::Statement for Statement {
   fn each_def(&self, f: &fn(Temp) -> bool) { self.each_def(f) }
   fn each_use(&self, f: &fn(Temp) -> bool) { self.each_use(f) }
 
-  static fn phi_info(me: &'r Statement) -> Option<(Temp, &'r ssa::PhiMap)> {
+  fn phi_info(me: &'r Statement) -> Option<(Temp, &'r ssa::PhiMap)> {
     match *me {
       Phi(d, ref m) => Some((d, m)),
       _             => None
     }
   }
-  static fn phi_unwrap(me: ~Statement) -> Either<~Statement, (Temp, ssa::PhiMap)> {
+  fn phi_unwrap(me: ~Statement) -> Either<~Statement, (Temp, ssa::PhiMap)> {
     match me {
       ~Phi(d, m) => Right((d, m)),
       s          => Left(s)

@@ -68,17 +68,17 @@ pub enum Multiplier {
   One, Two, Four, Eight
 }
 
-#[deriving_eq]
+#[deriving(Eq)]
 pub enum Binop {
   Add, Sub, Mul, Div, Mod, Cmp(Cond), And, Or, Xor, Lsh, Rsh
 }
 
-#[deriving_eq]
+#[deriving(Eq)]
 pub enum Cond {
   Lt, Lte, Gt, Gte, Eq, Neq
 }
 
-#[deriving_eq]
+#[deriving(Eq)]
 pub enum Register {
   EAX, EBX, ECX, EDX, EDI, ESI, ESP, EBP,
   R8D, R9D, R10D, R11D, R12D, R13D, R14D, R15D
@@ -172,14 +172,14 @@ impl Instruction {
 }
 
 impl ssa::Statement for Instruction {
-  static fn phi(t: Temp, map: ssa::PhiMap) -> ~Instruction { ~Phi(t, map) }
+  fn phi(t: Temp, map: ssa::PhiMap) -> ~Instruction { ~Phi(t, map) }
 
   fn each_def(&self, f: &fn(Temp) -> bool) { self.each_def(f) }
   fn each_use(&self, f: &fn(Temp) -> bool) { self.each_use(f) }
-  static fn phi_info(me: &'r Instruction) -> Option<(Temp, &'r ssa::PhiMap)> {
+  fn phi_info(me: &'r Instruction) -> Option<(Temp, &'r ssa::PhiMap)> {
     me.phi_info()
   }
-  static fn phi_unwrap(me: ~Instruction) -> Either<~Instruction, (Temp, ssa::PhiMap)> {
+  fn phi_unwrap(me: ~Instruction) -> Either<~Instruction, (Temp, ssa::PhiMap)> {
     match me {
       ~Phi(d, m) => Right((d, m)),
       i          => Left(i)
@@ -354,7 +354,7 @@ impl PrettyPrint for Operand {
 }
 
 impl cmp::Eq for Operand {
-  pure fn eq(&self, other: &Operand) -> bool {
+  fn eq(&self, other: &Operand) -> bool {
     match (self, other) {
       (&Register(a, _), &Register(b, _)) => a == b,
       (&Temp(a), &Temp(b)) => a == b,
@@ -362,7 +362,7 @@ impl cmp::Eq for Operand {
     }
   }
 
-  pure fn ne(&self, other: &Operand) -> bool { !self.eq(other) }
+  fn ne(&self, other: &Operand) -> bool { !self.eq(other) }
 }
 
 impl Address {
@@ -537,11 +537,11 @@ impl Register {
 }
 
 impl Multiplier {
-  static pub fn valid(i: i32) -> bool {
+  pub fn valid(i: i32) -> bool {
     i == 1 || i == 2 || i == 4 || i == 8
   }
 
-  static pub fn from_int(i: i32) -> Multiplier {
+  pub fn from_int(i: i32) -> Multiplier {
     match i {
       1 => One, 2 => Two, 4 => Four, 8 => Eight,
       _ => fail!(fmt!("can't make multiplier for %?", i))

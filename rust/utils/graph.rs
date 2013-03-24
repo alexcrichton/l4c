@@ -23,7 +23,7 @@ pub impl<N, E> Graph<N, E> {
   fn num_nodes(&self, ) -> uint {
     self.nodes.len()
   }
-  pure fn num_pred(&self, n: NodeId) -> uint {
+  fn num_pred(&self, n: NodeId) -> uint {
     self.pred.get(&n).len()
   }
   fn num_succ(&self, n: NodeId) -> uint {
@@ -46,7 +46,7 @@ pub impl<N, E> Graph<N, E> {
     match self.succ.find(&a) { Some(m) => m.contains_key(&b), None => false }
   }
 
-  pure fn node(&self, id: NodeId) -> &'self N {
+  fn node(&self, id: NodeId) -> &'self N {
     self.nodes.get(&id)
   }
 
@@ -243,7 +243,7 @@ pub impl<N, E> Graph<N, E> {
 }
 
 impl<N, E> Index<NodeId, &'self N> for Graph<N, E> {
-  pure fn index(&self, id: NodeId) -> &'self N {
+  fn index(&self, id: NodeId) -> &'self N {
     self.node(id)
   }
 }

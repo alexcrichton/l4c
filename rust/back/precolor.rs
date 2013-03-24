@@ -109,7 +109,7 @@ fn constrain_block(live: &temp::TempSet, delta: &[liveness::Delta],
       ~Call(dst, fun, args) => {
         let mut newargs = ~[];
         let mut tempregs = LinearSet::new();
-        for args.view(0, uint::min(arch::arg_regs, args.len())).each |t| {
+        for args.slice(0, uint::min(arch::arg_regs, args.len())).each |t| {
           match *t {
             ~Temp(t) => { tempregs.insert(t); }
             _ => ()

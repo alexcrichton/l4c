@@ -31,7 +31,7 @@ use back::assem::*;
 use utils::graph::*;
 use back::arch;
 
-const loop_out_weight: uint = 100000;
+static loop_out_weight: uint = 100000;
 
 /* If a temp isn't in a set, then its next_use distance is infinity */
 type NextUse = LinearMap<Temp, uint>;
@@ -304,7 +304,7 @@ impl Spiller<'self> {
         if regs.len() >= $max {
           let sorted = sort(&regs, &next_use);
           debug!("%? %s", sorted, next_use.pp());
-          for sorted.view($max, sorted.len()).each |&tmp| {
+          for sorted.slice($max, sorted.len()).each |&tmp| {
             if !spill.contains(&tmp) && next_use.contains_key(&tmp) {
               debug!("spilling %?", tmp);
               block.push(~Spill(tmp, tmp));
@@ -446,7 +446,7 @@ impl Spiller<'self> {
     if arch::num_regs - take.len() > 0 {
       let sorted = sort(&cand, self.next_use.get(&n));
       let max = arch::num_regs - take.len();
-      for sorted.view(0, uint::min(max, sorted.len())).each |&tmp| {
+      for sorted.slice(0, uint::min(max, sorted.len())).each |&tmp| {
         if self.next_use.get(&n).contains_key(&tmp) {
           take.insert(tmp);
         }
@@ -485,13 +485,13 @@ impl Spiller<'self> {
       if free > 0 {
         let sorted = sort(&live_through, self.next_use.get(&n));
         debug!("%?", sorted);
-        for sorted.view(0, uint::min(free as uint, sorted.len())).each |&tmp| {
+        for sorted.slice(0, uint::min(free as uint, sorted.len())).each |&tmp| {
           cand.insert(tmp);
         }
       }
     } else if cand.len() > arch::num_regs {
       let sorted = sort(&cand, self.next_use.get(&n));
-      for sorted.view(arch::num_regs, sorted.len()).each |tmp| {
+      for sorted.slice(arch::num_regs, sorted.len()).each |tmp| {
         cand.remove(tmp);
       }
     }
