@@ -52,7 +52,7 @@ use std::smallintmap::SmallIntMap;
 use middle::{ir, ssa, liveness};
 use middle::temp::{Temp, TempSet};
 use back::{assem, arch, alloc};
-use utils::profile;
+use utils::{profile, set};
 use utils::graph::{NodeSet, NodeId};
 
 type Location = (NodeId, int);
@@ -174,11 +174,7 @@ impl Coalescer<'self> {
       ($tmp:expr, $loc:expr) => ({
         match self.uses.find_mut(&$tmp) {
           Some(s) => { s.insert($loc); }
-          None => {
-            let s = ~LinearSet::new();
-            s.insert($loc);
-            self.uses.insert($tmp, s);
-          }
+          None => { self.uses.insert($tmp, ~set::singleton($loc)); }
         }
       })
     );

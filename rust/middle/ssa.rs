@@ -122,11 +122,7 @@ impl<T: Statement> Converter<'self, T> {
       for stms.each |s| {
         for s.each_def |tmp| {
           match defs.find_mut(&tmp) {
-            None => {
-              let mut s = ~LinearSet::new();
-              s.insert(id);
-              defs.insert(tmp, s);
-            }
+            None => { defs.insert(tmp, ~set::singleton(id)); }
             Some(s) => { s.insert(id); }
           }
         }
@@ -152,11 +148,7 @@ impl<T: Statement> Converter<'self, T> {
         for locs.each |n| {
           if !self.liveness.in.get(n).contains(&tmp) { loop }
           match phis.find_mut(n) {
-            None => {
-              let mut s = ~LinearSet::new();
-              s.insert(tmp);
-              phis.insert(*n, s);
-            }
+            None => { phis.insert(*n, ~set::singleton(tmp)); }
             Some(s) => { s.insert(tmp); }
           }
         }

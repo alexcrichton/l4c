@@ -4,6 +4,12 @@ use core::to_bytes::IterBytes;
 use core::hash::Hash;
 use utils::PrettyPrint;
 
+pub fn singleton<T: Eq + IterBytes + Hash>(t: T) -> LinearSet<T> {
+  let mut s = LinearSet::new();
+  s.insert(t);
+  return s;
+}
+
 impl<T: Eq + IterBytes + Hash + ToStr> PrettyPrint for LinearSet<T> {
   fn pp(&self) -> ~str {
     let mut s = ~"{";
