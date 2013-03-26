@@ -3,7 +3,7 @@ use core::hashmap::linear::{LinearMap, LinearSet};
 use std::bitv;
 use std::smallintmap::SmallIntMap;
 
-use middle::{ssa, ir, liveness};
+use middle::{ir, liveness};
 use middle::temp::Temp;
 use back::arch;
 use back::assem::*;

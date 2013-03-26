@@ -49,7 +49,7 @@ use std::bitv;
 use std::priority_queue::PriorityQueue;
 use std::smallintmap::SmallIntMap;
 
-use middle::{ir, ssa, liveness};
+use middle::{ir, liveness};
 use middle::temp::{Temp, TempSet};
 use back::{assem, arch, alloc};
 use utils::{profile, set};

@@ -1,4 +1,4 @@
-use core::util::{ignore, with, swap, replace};
+use core::util::replace;
 use core::hashmap::linear::LinearMap;
 
 use front::{ast, mark};
