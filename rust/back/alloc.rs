@@ -552,14 +552,14 @@ fn resolve_perm(result: &[uint], incoming: &[uint]) -> ~[Resolution] {
 
   /* maps describing src -> dst and dst -> src */
   /* TODO: can sim become better */
-  let mut src_dst = LinearMap::new::<Temp, ~[Temp]>();
+  let mut src_dst = LinearMap::new();
   let mut dst_src = SmallIntMap::new();
   for vec::each2(result, incoming) |&dst, &src| {
     if dst == src { loop }
     fail_unless!(dst_src.insert(dst, src));
     match src_dst.find_mut(&src) {
-      Some(l) => { l.push(dst); }
       None    => { src_dst.insert(src, ~[dst]); }
+      Some(l) => { l.push(dst); }
     }
   }
 

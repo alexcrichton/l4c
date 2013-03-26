@@ -122,12 +122,12 @@ impl<T: Statement> Converter<'self, T> {
       for stms.each |s| {
         for s.each_def |tmp| {
           match defs.find_mut(&tmp) {
-            Some(s) => { s.insert(id); }
             None => {
               let mut s = ~LinearSet::new();
               s.insert(id);
               defs.insert(tmp, s);
             }
+            Some(s) => { s.insert(id); }
           }
         }
       }
@@ -152,12 +152,12 @@ impl<T: Statement> Converter<'self, T> {
         for locs.each |n| {
           if !self.liveness.in.get(n).contains(&tmp) { loop }
           match phis.find_mut(n) {
-            Some(s) => { s.insert(tmp); }
             None => {
               let mut s = ~LinearSet::new();
               s.insert(tmp);
               phis.insert(*n, s);
             }
+            Some(s) => { s.insert(tmp); }
           }
         }
       }
