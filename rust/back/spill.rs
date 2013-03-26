@@ -132,16 +132,19 @@ impl Spiller<'self> {
       match ins {
         ~Phi(my_name, ref renamings) => {
           for renamings.each |&(&pred, &their_name)| {
-            let mut map = match self.renamings.pop(&(pred, n)) {
-              Some(m) => m,
-              None    => ~LinearMap::new()
-            };
-            let mut L = match map.pop(&their_name) {
-              None => ~[], Some(l) => l
-            };
-            L.push(my_name);
-            map.insert(their_name, L);
-            self.renamings.insert((pred, n), map);
+            match self.renamings.find(&(pred, n)) {
+              Some(m) => {
+                match m.find_mut(&their_name) {
+                  Some(l) => { l.push(my_name); }
+                  None => { m.insert(their_name, ~[my_name] ); }
+                }
+              }
+              None => {
+                let mut m = ~LinearMap::new();
+                m.insert(their_name, ~[my_name]);
+                self.renamings.insert((pred, n), m);
+              }
+            }
           }
           /* TODO: is the dup necessary? */
           let mut dup = LinearMap::new();

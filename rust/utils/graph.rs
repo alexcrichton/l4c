@@ -78,38 +78,22 @@ pub impl<N, E> Graph<N, E> {
     let succ = self.succ.pop(&n).unwrap();
     let pred = self.pred.pop(&n).unwrap();
     for succ.each_key |k| {
-      let mut map = self.pred.pop(k).unwrap();
-      map.remove(&n);
-      self.pred.insert(*k, map);
+      self.pred.find_mut(k).unwrap().remove(&n);
     }
     for pred.each |k| {
-      let mut map = self.succ.pop(k).unwrap();
-      map.remove(&n);
-      self.succ.insert(*k, map);
+      self.succ.find_mut(k).unwrap().remove(&n);
     }
     return ret;
   }
 
   fn remove_edge(&mut self, n1: NodeId, n2: NodeId) -> E {
-    let mut pred = self.pred.pop(&n2).unwrap();
-    pred.remove(&n1);
-    self.pred.insert(n2, pred);
-
-    let mut succ = self.succ.pop(&n1).unwrap();
-    let ret = succ.pop(&n2).unwrap();
-    self.succ.insert(n1, succ);
-
-    return ret;
+    self.pred.find_mut(&n2).unwrap().remove(&n1);
+    return self.succ.find_mut(&n1).unwrap().pop(&n2).unwrap();
   }
 
   fn add_edge(&mut self, n1: NodeId, n2: NodeId, e: E) {
-    let mut succ = self.succ.pop(&n1).unwrap();
-    succ.insert(n2, e);
-    let mut pred = self.pred.pop(&n2).unwrap();
-    pred.insert(n1);
-
-    self.succ.insert(n1, succ);
-    self.pred.insert(n2, pred);
+    self.succ.find_mut(&n1).unwrap().insert(n2, e);
+    self.pred.find_mut(&n2).unwrap().insert(n1);
   }
 
   fn each_edge(&self, f: &fn(NodeId, NodeId) -> bool) {

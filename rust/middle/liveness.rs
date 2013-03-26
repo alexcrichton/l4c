@@ -58,9 +58,7 @@ impl<T: Statement> Liveness<'self, T> {
       match Statement::phi_info(stm) {
         Some((_, map)) => {
           for map.each |&(&pred, &tmp)| {
-            let mut set = self.phi_out.pop(&pred).unwrap();
-            set.insert(tmp);
-            self.phi_out.insert(pred, set);
+            self.phi_out.find_mut(&pred).unwrap().insert(tmp);
           }
         }
         None => ()

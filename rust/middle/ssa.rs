@@ -121,11 +121,14 @@ impl<T: Statement> Converter<'self, T> {
     for self.cfg.each_node |id, stms| {
       for stms.each |s| {
         for s.each_def |tmp| {
-          let mut set = match defs.pop(&tmp) {
-            Some(s) => s, None => ~LinearSet::new()
-          };
-          set.insert(id);
-          defs.insert(tmp, set);
+          match defs.find_mut(&tmp) {
+            Some(s) => { s.insert(id); }
+            None => {
+              let mut s = ~LinearSet::new();
+              s.insert(id);
+              defs.insert(tmp, s);
+            }
+          }
         }
       }
     }
@@ -148,11 +151,14 @@ impl<T: Statement> Converter<'self, T> {
         let locs = self.idf(defs);
         for locs.each |n| {
           if !self.liveness.in.get(n).contains(&tmp) { loop }
-          let mut set = match phis.pop(n) {
-            Some(s) => s, None => ~LinearSet::new()
-          };
-          set.insert(tmp);
-          phis.insert(*n, set);
+          match phis.find_mut(n) {
+            Some(s) => { s.insert(tmp); }
+            None => {
+              let mut s = ~LinearSet::new();
+              s.insert(tmp);
+              phis.insert(*n, s);
+            }
+          }
         }
       }
     }
@@ -341,9 +347,7 @@ fn analyze<T>(cfg: &CFG<T>, root: graph::NodeId, analysis: &mut Analysis) {
   }
   for idoms.each |&(&a, &b)| {
     if a != b {
-      let mut set = analysis.idominated.pop(&b).unwrap();
-      set.insert(a);
-      analysis.idominated.insert(b, set);
+      analysis.idominated.find_mut(&b).unwrap().insert(a);
     }
   }
 }

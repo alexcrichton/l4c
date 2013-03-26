@@ -319,17 +319,13 @@ impl Allocator<'self> {
             debug!("phi var %? %?", tmp, *self.colors.get(&tmp));
             phi_vars.push(*self.colors.get(&tmp));
             for map.each |&(&pred, &tmp)| {
-              let mut L = phi_maps.pop(&pred).unwrap();
-              L.push(tmp);
-              phi_maps.insert(pred, L);
+              phi_maps.find_mut(&pred).unwrap().push(tmp);
             }
           }
           ~MemPhi(def, ref map) => {
             mem_vars.push(def);
             for map.each |&(&pred, &slot)| {
-              let mut L = mem_maps.pop(&pred).unwrap();
-              L.push(slot);
-              mem_maps.insert(pred, L);
+              mem_maps.find_mut(&pred).unwrap().push(slot);
             }
           }
           _ => break
@@ -555,14 +551,16 @@ fn resolve_perm(result: &[uint], incoming: &[uint]) -> ~[Resolution] {
   let mut ret = ~[];
 
   /* maps describing src -> dst and dst -> src */
-  let mut src_dst = LinearMap::new(); /* TODO: can sim become better? */
+  /* TODO: can sim become better */
+  let mut src_dst = LinearMap::new::<Temp, ~[Temp]>();
   let mut dst_src = SmallIntMap::new();
   for vec::each2(result, incoming) |&dst, &src| {
     if dst == src { loop }
     fail_unless!(dst_src.insert(dst, src));
-    let mut L; L = match src_dst.pop(&src) { None => ~[], Some(l) => l };
-    L.push(dst);
-    src_dst.insert(src, L);
+    match src_dst.find_mut(&src) {
+      Some(l) => { l.push(dst); }
+      None    => { src_dst.insert(src, ~[dst]); }
+    }
   }
 
   /* deal with all move chains first */

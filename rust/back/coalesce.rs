@@ -172,11 +172,14 @@ impl Coalescer<'self> {
   fn build_use_def(&mut self, n: NodeId, ins: &~[~assem::Instruction]) {
     macro_rules! add_use(
       ($tmp:expr, $loc:expr) => ({
-        let mut set = match self.uses.pop(&$tmp) {
-          Some(s) => s, None => ~LinearSet::new()
-        };
-        set.insert($loc);
-        self.uses.insert($tmp, set);
+        match self.uses.find_mut(&$tmp) {
+          Some(s) => { s.insert($loc); }
+          None => {
+            let s = ~LinearSet::new();
+            s.insert($loc);
+            self.uses.insert($tmp, s);
+          }
+        }
       })
     );
     for ins.eachi |i, &ins| {
@@ -573,11 +576,14 @@ impl Coalescer<'self> {
   fn find_affinities(&mut self) -> PriorityQueue<Affinity> {
     macro_rules! add_affine(
       ($a1:expr, $b1:expr, $weight1:expr) => ({
-        let mut map = match self.affinities.pop(&$a1) {
-          Some(m) => m, None => ~LinearMap::new()
-        };
-        map.insert($b1, $weight1);
-        self.affinities.insert($a1, map);
+        match self.affinities.find_mut(&$a1) {
+          Some(m) => { m.insert($b1, $weight1); }
+          None => {
+            let mut m = ~LinearMap::new();
+            m.insert($b1, $weight1);
+            self.affinities.insert($a1, m);
+          }
+        }
       })
     );
     macro_rules! affine(
