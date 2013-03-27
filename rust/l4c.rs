@@ -180,7 +180,7 @@ fn prof<U>(m : &std::getopts::Matches, s : &str, f: &fn() -> U) -> U {
 #[allow(non_implicitly_copyable_typarams)]
 fn get_json(m : &std::getopts::Matches) -> @run::Program {
   use std::getopts::*;
-  let header = option::or(opt_maybe_str(m, "l"), opt_maybe_str(m, "header"));
+  let header = opt_maybe_str(m, "l").or(opt_maybe_str(m, "header"));
   let files = &match header {
     None => copy m.free,
     Some(file) => vec::append(~[file], m.free)

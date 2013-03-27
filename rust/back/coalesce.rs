@@ -60,7 +60,7 @@ type Affinities = LinearMap<Temp, ~LinearMap<Temp, uint>>;
 struct Affinity(Temp, Temp, uint);
 struct Chunk(TempSet, uint);
 
-struct Coalescer {
+struct Coalescer<'self> {
   /* information passed to coalescing */
   f: &'self mut assem::Function,
   /* set of temps that are precolored */
@@ -153,7 +153,7 @@ fn liveness_map(cfg: &assem::CFG, live: &liveness::Analysis, max: uint)
   return ret;
 }
 
-impl Coalescer<'self> {
+impl<'self> Coalescer<'self> {
   fn run(&mut self) {
     /* TODO: why can't this be above */
     do profile::dbg("building use/def") {

@@ -13,7 +13,7 @@ use std::bitv;
 
 use middle::ir::*;
 
-struct Eliminator {
+struct Eliminator<'self> {
   f: &'self mut Function,
   used: bitv::Bitv,
   stms: ~[~Statement],
@@ -29,7 +29,7 @@ pub fn optimize(p: &mut Program) {
   }
 }
 
-impl Eliminator<'self> {
+impl<'self> Eliminator<'self> {
   /* TODO: why can't this all be above */
   fn run(&mut self) -> bool {
     assert!(self.stms.len() == 0);

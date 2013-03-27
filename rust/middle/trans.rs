@@ -13,7 +13,7 @@ struct ProgramInfo {
   structs: AllStructInfo,
 }
 
-struct Translator {
+struct Translator<'self> {
   t: &'self ProgramInfo,
   f: &'self mut ir::Function,
   vars: LinearMap<ast::Ident, temp::Temp>,
@@ -135,7 +135,7 @@ impl ProgramInfo {
   }
 }
 
-impl Translator<'self> {
+impl<'self> Translator<'self> {
   fn run(&mut self, args: ~[(ast::Ident, @ast::Type)], body: ~ast::Statement) {
     /* TODO: why can't this be above */
     self.arguments(args);

@@ -17,7 +17,7 @@ pub trait Statement: PrettyPrint {
   fn each_use(&self, &fn(Temp) -> bool);
   fn map_temps(~self, u: &fn(Temp) -> Temp, d: &fn(Temp) -> Temp) -> ~Self;
   /* TODO: once fixed, this should be a member function */
-  fn phi_info(me: &'a Self) -> Option<(Temp, &'a PhiMap)>;
+  fn phi_info<'a>(me: &'a Self) -> Option<(Temp, &'a PhiMap)>;
   fn phi_unwrap(me: ~Self) -> Either<~Self, (Temp, PhiMap)>;
 }
 
@@ -31,7 +31,7 @@ pub type Idominated = LinearMap<graph::NodeId, ~LinearSet<graph::NodeId>>;
 pub type PhiMap = LinearMap<graph::NodeId, Temp>;
 pub type CFG<T> = graph::Graph<~[~T], ir::Edge>;
 
-struct Converter<T> {
+struct Converter<'self, T> {
   cfg: &'self mut CFG<T>,
   root: graph::NodeId,
 
@@ -81,7 +81,7 @@ pub fn convert<T: Statement>(cfg: &mut CFG<T>,
   return ret;
 }
 
-impl<T: Statement> Converter<'self, T> {
+impl<'self, T: Statement> Converter<'self, T> {
   fn convert(&mut self) -> uint {
     /* First, find where all the phi functions need to be */
     let defs = self.find_defs();

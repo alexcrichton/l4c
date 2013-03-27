@@ -1,7 +1,7 @@
 use front::error;
 use front::ast::*;
 
-struct MainChecker {
+struct MainChecker<'self> {
   program: &'self Program,
   err: error::List,
 }
@@ -12,7 +12,7 @@ pub fn check(a: &Program) {
   mc.run();
 }
 
-impl MainChecker<'self> {
+impl<'self> MainChecker<'self> {
   fn run(&mut self) {
     if !vec::any(self.program.decls, |x| self.ismain(*x)) {
       self.err.add(~"No main function was found");

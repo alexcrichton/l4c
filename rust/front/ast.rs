@@ -8,7 +8,7 @@ pub struct Program {
   mainid: Ident,
 }
 
-struct Elaborator {
+struct Elaborator<'self> {
   efuns:   LinearSet<Ident>,
   funs:    LinearSet<Ident>,
   structs: LinearSet<Ident>,
@@ -149,7 +149,7 @@ pub fn unmarkg(g: ~GDecl) -> ~GDecl {
   }
 }
 
-impl Elaborator<'self> {
+impl<'self> Elaborator<'self> {
   fn run(&mut self, decls: ~[~GDecl]) -> ~[~GDecl] {
     let decls = vec::map_consume(decls, |x| self.elaborate(x));
     self.err.check();

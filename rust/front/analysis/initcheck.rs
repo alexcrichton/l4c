@@ -3,7 +3,7 @@ use front::error;
 use front::ast::*;
 use front::mark;
 
-struct Initchecker {
+struct Initchecker<'self> {
   program: &'self Program,
   err: error::List,
   step: ~Statement,
@@ -15,7 +15,7 @@ pub fn check(a: &Program) {
   ic.run();
 }
 
-impl Initchecker<'self> {
+impl<'self> Initchecker<'self> {
   fn run(&mut self) {
     for self.program.decls.each |x| {
       self.check_gdecl(*x);

@@ -40,7 +40,7 @@ impl Parser {
     }
   }
 
-  fn gettyp(&self, j: &'r Json) -> (~str, &'r ~Object) {
+  fn gettyp<'r>(&self, j: &'r Json) -> (~str, &'r ~Object) {
     match *j {
       Object(ref obj) =>
         match *(obj.get(&~"typ")) {

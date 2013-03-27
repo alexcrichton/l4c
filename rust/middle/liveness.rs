@@ -14,7 +14,7 @@ pub struct Analysis {
   deltas: DeltaMap,
 }
 
-struct Liveness<T> {
+struct Liveness<'self, T> {
   a: &'self mut Analysis,
   cfg: &'self CFG<T>,
   phi_out: LinearMap<NodeId, ~TempSet>,
@@ -32,7 +32,7 @@ pub fn calculate<S: Statement>(cfg: &CFG<S>, root: NodeId,
   l.run(root);
 }
 
-impl<T: Statement> Liveness<'self, T> {
+impl<'self, T: Statement> Liveness<'self, T> {
   fn run(&mut self, root: NodeId) {
     /* TODO: why can't this be in the calculate() function above */
     for self.cfg.each_node |id, _| {

@@ -14,7 +14,7 @@ use core::hashmap::linear::LinearMap;
 use middle::ir::*;
 use middle::temp::Temp;
 
-struct ConstantFolder {
+struct ConstantFolder<'self> {
   f: &'self mut Function,
   constants: LinearMap<Temp, i32>,
   temps: LinearMap<Temp, Temp>,
@@ -29,7 +29,7 @@ pub fn optimize(p: &mut Program) {
   }
 }
 
-impl ConstantFolder<'self> {
+impl<'self> ConstantFolder<'self> {
   /* TODO: why can't this all be above */
   fn run(&mut self) {
     /* Be sure to start at the top of the graph to visit definitions first */

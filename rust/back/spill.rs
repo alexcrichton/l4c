@@ -36,7 +36,7 @@ static loop_out_weight: uint = 100000;
 /* If a temp isn't in a set, then its next_use distance is infinity */
 type NextUse = LinearMap<Temp, uint>;
 
-struct Spiller {
+struct Spiller<'self> {
   f: &'self mut Function,
   /* next_use information for each node in the graph */
   next_use: LinearMap<NodeId, NextUse>,
@@ -99,7 +99,7 @@ fn sort(set: &TempSet, s: &NextUse) -> ~[Temp] {
   return v;
 }
 
-impl Spiller<'self> {
+impl<'self> Spiller<'self> {
   fn run(&mut self) {
     /* TODO: why can't this all be above */
     /* Build up phi renaming maps */

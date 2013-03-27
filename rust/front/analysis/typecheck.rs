@@ -4,7 +4,7 @@ use core::util::with;
 use front::error;
 use front::ast::*;
 
-struct Typechecker {
+struct Typechecker<'self> {
   program: &'self Program,
   err:     error::List,
   funs:    LinearMap<Ident, (@Type, @~[@Type])>,
@@ -26,7 +26,7 @@ pub fn check(a: &Program) {
   tc.run()
 }
 
-impl Typechecker<'self> {
+impl<'self> Typechecker<'self> {
   fn run(&mut self) {
     for self.program.decls.each |x| {
       self.tc_gdecl(*x)

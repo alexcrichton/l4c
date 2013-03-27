@@ -176,7 +176,7 @@ impl ssa::Statement for Instruction {
 
   fn each_def(&self, f: &fn(Temp) -> bool) { self.each_def(f) }
   fn each_use(&self, f: &fn(Temp) -> bool) { self.each_use(f) }
-  fn phi_info(me: &'r Instruction) -> Option<(Temp, &'r ssa::PhiMap)> {
+  fn phi_info<'r>(me: &'r Instruction) -> Option<(Temp, &'r ssa::PhiMap)> {
     me.phi_info()
   }
   fn phi_unwrap(me: ~Instruction) -> Either<~Instruction, (Temp, ssa::PhiMap)> {
