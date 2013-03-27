@@ -151,12 +151,12 @@ impl Spiller<'self> {
           for renamings.each |&(&k, &v)| {
             dup.insert(k, v);
           }
-          fail_unless!(phis.insert(my_name, dup));
+          assert!(phis.insert(my_name, dup));
         }
         _ => ()
       }
     }
-    fail_unless!(self.phis.insert(n, phis));
+    assert!(self.phis.insert(n, phis));
   }
 
   /**
@@ -316,7 +316,7 @@ impl Spiller<'self> {
             spill.remove(&tmp);
           }
         }
-        fail_unless!(regs.len() <= $max);
+        assert!(regs.len() <= $max);
       })
     );
 
@@ -328,7 +328,7 @@ impl Spiller<'self> {
          delta is the one which is the relevant value */
       for delta.each_reverse |&(tmp, amt)| {
         match amt {
-          None    => { fail_unless!(next_use.remove(&tmp)); }
+          None    => { assert!(next_use.remove(&tmp)); }
           Some(d) => { next_use.insert(tmp, d); }
         }
       }
@@ -355,7 +355,7 @@ impl Spiller<'self> {
 
         ~PCopy(copies) => {
           let newcopies = do vec::filter(copies) |&(dst, src)| {
-            fail_unless!(dst == src);
+            assert!(dst == src);
             regs.contains(&src)
           };
           block.push(~PCopy(newcopies));
@@ -366,7 +366,7 @@ impl Spiller<'self> {
           /* Determine what needs to be reloaded */
           for ins.each_use |tmp| {
             debug!("%? %?", tmp, *next_use.get(&tmp));
-            fail_unless!(*next_use.get(&tmp) == i);
+            assert!(*next_use.get(&tmp) == i);
             if regs.contains(&tmp) { loop }
             reloaded.push(tmp);
             regs.insert(tmp);
@@ -392,7 +392,7 @@ impl Spiller<'self> {
           for ins.each_def |tmp| {
             regs.insert(tmp);
           }
-          fail_unless!(regs.len() <= arch::num_regs);
+          assert!(regs.len() <= arch::num_regs);
 
           /* Finally reload all operands as necessary, and then run ins */
           for reloaded.each |&tmp| {
@@ -428,7 +428,7 @@ impl Spiller<'self> {
     unsafe {
       for self.f.cfg.each_pred(n) |pred| {
         debug!("pred %?", pred);
-        fail_unless!(self.regs_end.contains_key(&pred));
+        assert!(self.regs_end.contains_key(&pred));
         for self.regs_end.get(&pred).each |&tmp| {
           for self.my_names(tmp, pred, n) |mine| {
             let prev : uint = freq.find(&mine).map_default(0, |&x| *x);
@@ -633,9 +633,9 @@ fn test_sort_works1() {
   map.insert(4, 5);
   map.insert(5, 6);
   let sorted = sort(&set(~[4, 5, 6]), &map);
-  fail_unless!(sorted[0] == 4);
-  fail_unless!(sorted[1] == 5);
-  fail_unless!(sorted[2] == 6);
+  assert!(sorted[0] == 4);
+  assert!(sorted[1] == 5);
+  assert!(sorted[2] == 6);
 }
 
 #[test]
@@ -644,6 +644,6 @@ fn test_sort_works2() {
   map.insert(4, 5);
   map.insert(5, 6);
   let sorted = sort(&set(~[4, 5]), &map);
-  fail_unless!(sorted[0] == 4);
-  fail_unless!(sorted[1] == 5);
+  assert!(sorted[0] == 4);
+  assert!(sorted[1] == 5);
 }

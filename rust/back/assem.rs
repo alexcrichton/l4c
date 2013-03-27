@@ -621,15 +621,15 @@ impl Function {
         debug!("out of %? (%? - %?)", block, id, typ);
         match typ {
           ir::Always | ir::Branch | ir::LoopOut => {
-            fail_unless!(tedge.is_none() && fedge.is_none() && always.is_none());
+            assert!(tedge.is_none() && fedge.is_none() && always.is_none());
             always = Some((typ, id));
           }
           ir::True | ir::TBranch => {
-            fail_unless!(tedge.is_none() && always.is_none());
+            assert!(tedge.is_none() && always.is_none());
             tedge = Some((typ, id));
           }
           ir::False | ir::FBranch | ir::FLoopOut => {
-            fail_unless!(fedge.is_none() && always.is_none());
+            assert!(fedge.is_none() && always.is_none());
             fedge = Some((typ, id));
           }
         }

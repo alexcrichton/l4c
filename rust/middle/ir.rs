@@ -148,7 +148,7 @@ pub impl Statement {
         ~Phi(defs(def), newmap)
       }
       ~Cast(t1, t2) => {
-        fail_unless!(t1 != t2);
+        assert!(t1 != t2);
         ~Cast(defs(t1), uses(t2))
       }
     }

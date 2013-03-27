@@ -32,7 +32,7 @@ pub fn optimize(p: &mut Program) {
 impl Eliminator<'self> {
   /* TODO: why can't this all be above */
   fn run(&mut self) -> bool {
-    fail_unless!(self.stms.len() == 0);
+    assert!(self.stms.len() == 0);
     debug!("running");
     self.used.clear();
     /* Mark all phi function arguments as used before we go anywhere */
@@ -78,7 +78,7 @@ impl Eliminator<'self> {
     };
     let mut def = None;
     for s.each_def |t| {
-      fail_unless!(def.is_none());
+      assert!(def.is_none());
       def = Some(t);
     }
 

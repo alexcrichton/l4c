@@ -271,7 +271,7 @@ impl<T: Statement> Converter<'self, T> {
          non-ssa temp at each of our predecessors */
       for self.cfg.each_pred(n) |p| {
         let map = self.versions.get(&p);
-        fail_unless!(map.contains_key(tmp_before));
+        assert!(map.contains_key(tmp_before));
         preds.insert(p, *map.get(tmp_before));
       }
 
@@ -322,7 +322,7 @@ fn analyze<T>(cfg: &CFG<T>, root: graph::NodeId, analysis: &mut Analysis) {
           new_idom = b1;
         }
       }
-      fail_unless!(new_idom != -1);
+      assert!(new_idom != -1);
       let prev = match idoms.find(&b) { Some(&dom) => dom, None => -1 };
       if prev != new_idom {
         idoms.insert(b, new_idom);

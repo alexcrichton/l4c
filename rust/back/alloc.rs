@@ -108,7 +108,7 @@ impl Allocator<'self> {
       match *ins {
         /* If we found a pcopy, then we're breaking liveness */
         ~PCopy(copy copies) => {
-          fail_unless!(pcopy.is_none());
+          assert!(pcopy.is_none());
           pcopy = Some(copies);
           registers.clear();
           loop;
@@ -152,8 +152,8 @@ impl Allocator<'self> {
           ($o:expr, $r:expr) => (
             match *$o {
               ~Temp(t) => {
-                fail_unless!(self.colors.insert(t, arch::reg_num($r)));
-                fail_unless!(self.precolored.insert(t));
+                assert!(self.colors.insert(t, arch::reg_num($r)));
+                assert!(self.precolored.insert(t));
               }
               _ => fail!(fmt!("not a tmp %?", $o))
             }
@@ -170,7 +170,7 @@ impl Allocator<'self> {
                 banned.set(arch::reg_num(EDX), true);
                 banned.set(arch::reg_num(EAX), true);
                 for tmplive.each |&tmp| {
-                  fail_unless!(self.constraints.insert(tmp, Idiv));
+                  assert!(self.constraints.insert(tmp, Idiv));
                 }
                 match *op2 {
                   ~Temp(t) => { self.constraints.insert(t, Idiv); }
@@ -191,7 +191,7 @@ impl Allocator<'self> {
              registers are all banned for this instruction */
           ~Call(dst, _, ref args) => {
             self.colors.insert(dst, arch::reg_num(EAX));
-            fail_unless!(self.precolored.insert(dst));
+            assert!(self.precolored.insert(dst));
             for args.eachi |i, arg| {
               precolor!(arg, arch::arg_reg(i));
             }
@@ -199,7 +199,7 @@ impl Allocator<'self> {
               banned.set(arch::reg_num(r), true);
             }
             for tmplive.each |&tmp| {
-              fail_unless!(self.constraints.insert(tmp, Caller));
+              assert!(self.constraints.insert(tmp, Caller));
             }
           }
 
@@ -218,12 +218,12 @@ impl Allocator<'self> {
         macro_rules! process(
           ($t:expr, $regs:expr) => (
             if self.colors.contains_key(&$t) {
-              fail_unless!($regs.get(*self.colors.get(&$t)));
+              assert!($regs.get(*self.colors.get(&$t)));
             } else {
               let color = min_vacant(&$regs);
               /*debug!("assigning %s %? %s", $t.pp(), color, $regs.pp());*/
-              fail_unless!(color <= arch::num_regs);
-              fail_unless!(self.colors.insert($t, color));
+              assert!(color <= arch::num_regs);
+              assert!(self.colors.insert($t, color));
               $regs.set(color, true);
             }
           )
@@ -249,7 +249,7 @@ impl Allocator<'self> {
         let copies = pcopy.swap_unwrap();
         let mut regstmp = RegisterSet();
         for copies.each |&(dst, src)| {
-          fail_unless!(dst != src);
+          assert!(dst != src);
           match self.colors.find(&dst) {
             Some(&c) => { regstmp.set(c, true); }
             None    => ()
@@ -286,8 +286,8 @@ impl Allocator<'self> {
         }
         for ins.each_def |tmp| {
           let color = min_vacant(&registers);
-          fail_unless!(color <= arch::num_regs);
-          fail_unless!(self.colors.insert(tmp, color));
+          assert!(color <= arch::num_regs);
+          assert!(self.colors.insert(tmp, color));
           if tmplive.contains(&tmp) {
             registers.set(color, true);
           }
@@ -556,7 +556,7 @@ fn resolve_perm(result: &[uint], incoming: &[uint]) -> ~[Resolution] {
   let mut dst_src = SmallIntMap::new();
   for vec::each2(result, incoming) |&dst, &src| {
     if dst == src { loop }
-    fail_unless!(dst_src.insert(dst, src));
+    assert!(dst_src.insert(dst, src));
     match src_dst.find_mut(&src) {
       None    => { src_dst.insert(src, ~[dst]); }
       Some(l) => { l.push(dst); }
@@ -595,7 +595,7 @@ fn resolve_perm(result: &[uint], incoming: &[uint]) -> ~[Resolution] {
       let L = vec::filter(src_dst.pop(&cur).unwrap(),
                           |&x| dst_src.contains_key(&x));
       debug!("%?", L);
-      fail_unless!(L.len() == 1);
+      assert!(L.len() == 1);
       let nxt = L[0];
       if nxt == dst { break }
       ret.push(Right((dst, nxt)));

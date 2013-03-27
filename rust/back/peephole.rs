@@ -60,24 +60,24 @@ fn log2(mut c: i32) -> i32 {
 
 #[test]
 fn test_pow2() {
-  fail_unless!(pow2(2));
-  fail_unless!(pow2(4));
-  fail_unless!(pow2(8));
-  fail_unless!(pow2(16));
-  fail_unless!(pow2(32));
-  fail_unless!(pow2(64));
-  fail_unless!(pow2(1 << 22));
-  fail_unless!(!pow2(3));
-  fail_unless!(!pow2(5));
-  fail_unless!(!pow2(135318));
-  fail_unless!(!pow2(1991919));
+  assert!(pow2(2));
+  assert!(pow2(4));
+  assert!(pow2(8));
+  assert!(pow2(16));
+  assert!(pow2(32));
+  assert!(pow2(64));
+  assert!(pow2(1 << 22));
+  assert!(!pow2(3));
+  assert!(!pow2(5));
+  assert!(!pow2(135318));
+  assert!(!pow2(1991919));
 }
 
 #[test]
 fn test_log2() {
-  fail_unless!(log2(1) == 0);
-  fail_unless!(log2(2) == 1);
-  fail_unless!(log2(4) == 2);
-  fail_unless!(log2(8) == 3);
-  fail_unless!(log2(1 << 22) == 22);
+  assert!(log2(1) == 0);
+  assert!(log2(2) == 1);
+  assert!(log2(4) == 2);
+  assert!(log2(8) == 3);
+  assert!(log2(1 << 22) == 22);
 }
