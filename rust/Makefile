@@ -1,6 +1,6 @@
 RUSTC = rustc
 RUSTFLAGS =
-SOURCES = $(shell find . -name '*.rs' -or -name '*.rc')
+SOURCES = $(shell find . -name '*.rs')
 
 all: bin/driver l4c
 l4c: bin/l4c
@@ -10,11 +10,11 @@ dbg: l4c
 dbg: RUSTFLAGS += -Z debug-info
 
 check:
-	$(RUSTC) $(RUSTFLAGS) l4c.rc --no-trans
+	$(RUSTC) $(RUSTFLAGS) l4c.rs --no-trans
 
 bin/l4c: parse/parser $(SOURCES)
 	@mkdir -p bin
-	$(RUSTC) $(RUSTFLAGS) l4c.rc -o $@
+	$(RUSTC) $(RUSTFLAGS) l4c.rs -o $@
 .PHONY: l4c
 
 clean: parseclean
@@ -25,7 +25,7 @@ bin/driver: driver.go
 	go build -o $@ $<
 
 test:
-	$(RUSTC) $(RUSTFLAGS) --test l4c.rc -o bin/l4c-test
+	$(RUSTC) $(RUSTFLAGS) --test l4c.rs -o bin/l4c-test
 	./bin/l4c-test
 
 -include parse/parse.mk
