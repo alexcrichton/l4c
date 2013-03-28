@@ -227,8 +227,8 @@ pub impl<N, E> Graph<N, E> {
 }
 
 impl<'self, N, E> Index<NodeId, &'self N> for Graph<N, E> {
-  fn index(&self, id: NodeId) -> &'self N {
-    self.node(id)
+  fn index(&self, id: &NodeId) -> &'self N {
+    self.node(*id)
   }
 }
 
