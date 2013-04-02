@@ -14,7 +14,7 @@ pub type Tag = uint;
 pub type CFG = ssa::CFG<Instruction>;
 
 pub struct Program {
-  funs: ~[Function]
+  funs: ~[@mut Function]
 }
 
 pub struct Function {

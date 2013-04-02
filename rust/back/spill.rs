@@ -36,8 +36,8 @@ static loop_out_weight: uint = 100000;
 /* If a temp isn't in a set, then its next_use distance is infinity */
 type NextUse = HashMap<Temp, uint>;
 
-struct Spiller<'self> {
-  f: &'self mut Function,
+struct Spiller {
+  f: @mut Function,
   /* next_use information for each node in the graph */
   next_use: HashMap<NodeId, NextUse>,
   /* Delta information for next_use as a block is traversed top down */
@@ -66,7 +66,7 @@ pub fn spill(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
     opt::cfg::eliminate_critical(&mut f.cfg);
 
-    let mut s = Spiller{ f: f,
+    let mut s = Spiller{ f: *f,
                          next_use: HashMap::new(),
                          deltas: HashMap::new(),
                          regs_end: HashMap::new(),
@@ -99,7 +99,7 @@ fn sort(set: &TempSet, s: &NextUse) -> ~[Temp] {
   return v;
 }
 
-impl<'self> Spiller<'self> {
+impl Spiller {
   fn run(&mut self) {
     /* TODO: why can't this all be above */
     /* Build up phi renaming maps */
@@ -132,7 +132,7 @@ impl<'self> Spiller<'self> {
       match ins {
         ~Phi(my_name, ref renamings) => {
           for renamings.each |&(&pred, &their_name)| {
-            match self.renamings.find(&(pred, n)) {
+            match self.renamings.find_mut(&(pred, n)) {
               Some(m) => {
                 match m.find_mut(&their_name) {
                   Some(l) => { l.push(my_name); }
@@ -438,7 +438,8 @@ impl<'self> Spiller<'self> {
       }
     }
     debug!("frequencies: %s", freq.pp());
-    let preds = self.f.cfg.num_pred(n);
+    let f = self.f;
+    let preds = f.cfg.num_pred(n);
     for freq.each |&(&tmp, &n)| {
       if n == preds {
         take.insert(tmp);

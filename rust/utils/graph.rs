@@ -20,7 +20,7 @@ pub fn Graph<N, E>() -> Graph<N, E>{
 }
 
 pub impl<N, E> Graph<N, E> {
-  fn num_nodes(&self, ) -> uint {
+  fn num_nodes(&self) -> uint {
     self.nodes.len()
   }
   fn num_pred(&self, n: NodeId) -> uint {
@@ -51,6 +51,7 @@ pub impl<N, E> Graph<N, E> {
   }
 
   fn edge(&self, a: NodeId, b: NodeId) -> &'self E {
+    /* TODO(borrowck): fix */
     let a_succ = self.succ.get(&a);
     return a_succ.get(&b);
   }
@@ -78,22 +79,32 @@ pub impl<N, E> Graph<N, E> {
     let succ = self.succ.pop(&n).unwrap();
     let pred = self.pred.pop(&n).unwrap();
     for succ.each_key |k| {
-      self.pred.find_mut(k).unwrap().remove(&n);
+      /* TODO(borrowck): fix */
+      let pred = self.pred.find_mut(k).unwrap();
+      pred.remove(&n);
     }
     for pred.each |k| {
-      self.succ.find_mut(k).unwrap().remove(&n);
+      /* TODO(borrowck): fix */
+      let succ = self.succ.find_mut(k).unwrap();
+      succ.remove(&n);
     }
     return ret;
   }
 
   fn remove_edge(&mut self, n1: NodeId, n2: NodeId) -> E {
-    self.pred.find_mut(&n2).unwrap().remove(&n1);
-    return self.succ.find_mut(&n1).unwrap().pop(&n2).unwrap();
+    /* TODO(borrowck): fix */
+    let pred = self.pred.find_mut(&n2).unwrap();
+    pred.remove(&n1);
+    let succ = self.succ.find_mut(&n1).unwrap();
+    return succ.pop(&n2).unwrap();
   }
 
   fn add_edge(&mut self, n1: NodeId, n2: NodeId, e: E) {
-    self.succ.find_mut(&n1).unwrap().insert(n2, e);
-    self.pred.find_mut(&n2).unwrap().insert(n1);
+    /* TODO(borrowck): fix */
+    let pred = self.pred.find_mut(&n2).unwrap();
+    let succ = self.succ.find_mut(&n1).unwrap();
+    succ.insert(n2, e);
+    pred.insert(n1);
   }
 
   fn each_edge(&self, f: &fn(NodeId, NodeId) -> bool) {
@@ -112,31 +123,37 @@ pub impl<N, E> Graph<N, E> {
   }
 
   fn each_pred(&self, n: NodeId, f: &fn(NodeId) -> bool) {
+    /* TODO(borrowck): fix */
     let preds = self.pred.get(&n);
     preds.each(|&k| f(k));
   }
 
   fn each_pred_edge(&self, n: NodeId, f: &fn(NodeId, &E) -> bool) {
+    /* TODO(borrowck): fix */
     let preds = self.pred.get(&n);
     preds.each(|&k| f(k, self.edge(k, n)));
   }
 
   fn each_succ(&self, n: NodeId, f: &fn(NodeId) -> bool) {
+    /* TODO(borrowck): fix */
     let succ = self.succ.get(&n);
     succ.each_key(|&k| f(k));
   }
 
   fn each_succ_edge(&self, n: NodeId, f: &fn(NodeId, E) -> bool) {
+    /* TODO(borrowck): fix */
     let succ = self.succ.get(&n);
     succ.each(|&(&n, &e)| f(n, e));
   }
 
   fn each_postorder(&self, root: NodeId, f: &fn(&NodeId) -> bool) {
+    /* TODO(borrowck): fix */
     let (order, _) = self.postorder(root);
     order.each(f);
   }
 
   fn each_rev_postorder(&self, root: NodeId, f: &fn(&NodeId) -> bool) {
+    /* TODO(borrowck): fix */
     let (order, _) = self.postorder(root);
     order.each_reverse(f);
   }

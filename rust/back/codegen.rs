@@ -17,14 +17,14 @@ pub fn codegen(mut p: ir::Program) -> assem::Program {
   assem::Program{ funs: vec::map_consume(funs, translate) }
 }
 
-fn translate(f: ir::Function) -> assem::Function {
+fn translate(f: ir::Function) -> @mut assem::Function {
   info!("codegen of %s", f.name);
   let mut cg = CodeGenerator { f: f,
                                stms: ~[],
                                temps: temp::new(),
                                tmap: HashMap::new(),
                                sizes: HashMap::new() };
-  cg.run()
+  @mut cg.run()
 }
 
 impl CodeGenerator {

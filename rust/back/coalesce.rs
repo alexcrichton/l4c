@@ -103,7 +103,7 @@ pub fn optimize(f: &mut assem::Function,
                 precolored: &TempSet,
                 constraints: &alloc::ConstraintMap) {
   let liveness_map = liveness_map(&f.cfg, &f.liveness, f.temps);
-  let pre = bitv::Bitv::new(f.temps, false);
+  let mut pre = bitv::Bitv::new(f.temps, false);
   for precolored.each |&t| {
     pre.set(t, true);
   }
