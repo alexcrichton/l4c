@@ -43,7 +43,7 @@
  * When coalescing a chunk, the entire chunk may not be recolored, so some of
  * the chunk may go back into the priority queue for re-evaluation later.
  */
-use core::hashmap::linear::{LinearMap, LinearSet};
+use core::hashmap::{HashMap, HashSet};
 
 use std::bitv;
 use std::priority_queue::PriorityQueue;
@@ -56,7 +56,7 @@ use utils::{profile, set};
 use utils::graph::{NodeSet, NodeId};
 
 type Location = (NodeId, int);
-type Affinities = LinearMap<Temp, ~LinearMap<Temp, uint>>;
+type Affinities = HashMap<Temp, ~HashMap<Temp, uint>>;
 struct Affinity(Temp, Temp, uint);
 struct Chunk(TempSet, uint);
 
@@ -72,9 +72,9 @@ struct Coalescer<'self> {
   colors: &'self mut alloc::ColorMap,
 
   /* Mapping of a temp to where it's defined */
-  defs: LinearMap<Temp, Location>,
+  defs: HashMap<Temp, Location>,
   /* Mapping of a temp to the set of locations in which it is used */
-  uses: LinearMap<Temp, ~LinearSet<Location>>,
+  uses: HashMap<Temp, ~HashSet<Location>>,
   /* Set of fixed temps (cannot be changed) */
   fixed: bitv::Bitv,
   /* Map of affine temps, and their weights. The map works both ways, as in
@@ -87,15 +87,15 @@ struct Coalescer<'self> {
    * and associated components, and because interference information is very
    * costly to generate, there are a number of caches which store the results of
    * this computation to facilitate usage later on */
-  interference_cache: LinearMap<Temp, ~TempSet>,
-  interferences_cache: LinearMap<(Temp, Temp), bool>,
-  admissible_cache: LinearMap<(Temp, uint), bool>,
-  dominates_cache: LinearMap<(NodeId, NodeId), bool>,
+  interference_cache: HashMap<Temp, ~TempSet>,
+  interferences_cache: HashMap<(Temp, Temp), bool>,
+  admissible_cache: HashMap<(Temp, uint), bool>,
+  dominates_cache: HashMap<(NodeId, NodeId), bool>,
 
   /* Finally, find_interferences is an incredibly slow method, and this is a
    * precomputation of the input to a more efficient format to be used in that
    * method (more information on the method itself) */
-  liveness_map: LinearMap<NodeId, ~[bitv::Bitv]>,
+  liveness_map: HashMap<NodeId, ~[bitv::Bitv]>,
 }
 
 pub fn optimize(f: &mut assem::Function,
@@ -107,20 +107,20 @@ pub fn optimize(f: &mut assem::Function,
   for precolored.each |&t| {
     pre.set(t, true);
   }
-  let mut c = Coalescer { defs: LinearMap::new(),
-                          uses: LinearMap::new(),
+  let mut c = Coalescer { defs: HashMap::new(),
+                          uses: HashMap::new(),
                           fixed: bitv::Bitv::new(f.temps, false),
                           f: f,
                           liveness_map: liveness_map,
-                          affinities: LinearMap::new(),
+                          affinities: HashMap::new(),
                           colors: colors,
                           old_color: SmallIntMap::new(),
                           precolored: pre,
                           constraints: constraints,
-                          interference_cache: LinearMap::new(),
-                          interferences_cache: LinearMap::new(),
-                          admissible_cache: LinearMap::new(),
-                          dominates_cache: LinearMap::new() };
+                          interference_cache: HashMap::new(),
+                          interferences_cache: HashMap::new(),
+                          admissible_cache: HashMap::new(),
+                          dominates_cache: HashMap::new() };
   c.run();
 }
 
@@ -129,11 +129,11 @@ pub fn optimize(f: &mut assem::Function,
  * at each instruction in the program.
  */
 fn liveness_map(cfg: &assem::CFG, live: &liveness::Analysis, max: uint)
-      -> LinearMap<NodeId, ~[bitv::Bitv]> {
-  let mut ret = LinearMap::new();
+      -> HashMap<NodeId, ~[bitv::Bitv]> {
+  let mut ret = HashMap::new();
   for cfg.each_node |id, stms| {
     let mut vec = ~[];
-    let mut set = LinearSet::new();
+    let mut set = HashSet::new();
     for live.in.get(&id).each |&t| { set.insert(t); }
 
     for stms.eachi |i, &stm| {
@@ -225,7 +225,7 @@ impl<'self> Coalescer<'self> {
     info!("coloring chunk %s %?", tmps.pp(), cost);
     let mut best_cost = 0;
     let mut best_color = -1;
-    let mut best_set = LinearSet::new();
+    let mut best_set = HashSet::new();
     macro_rules! docolor(
       ($set:expr, $color:expr) =>
       ({
@@ -296,7 +296,7 @@ impl<'self> Coalescer<'self> {
 
     /* Left is a set of temps that haven't yet been processed, and it's
        initially the subset of 's' of all temps with color 'c' */
-    let mut left = LinearSet::new();
+    let mut left = HashSet::new();
     for s.each |&tmp| {
       /* TODO(purity): why is this unsafe */
       unsafe {
@@ -310,7 +310,7 @@ impl<'self> Coalescer<'self> {
     /* Iterate over the set of temps and partition as we go */
     loop {
       if left.len() == 0 { break; }
-      let mut subset = LinearSet::new();
+      let mut subset = HashSet::new();
       let mut qweight = 1;
 
       /* Start with the first temp in 'left', and then iteratively build up
@@ -492,10 +492,10 @@ impl<'self> Coalescer<'self> {
   fn build_chunks(&mut self) -> PriorityQueue<Chunk> {
     /* Algorithm 4.5 */
     let mut pq = self.find_affinities();
-    let mut chunks = LinearMap::new();
-    let mut temp_chunks = LinearMap::new();
+    let mut chunks = HashMap::new();
+    let mut temp_chunks = HashMap::new();
     let mut next_chunk = 1;
-    chunks.insert(0, Chunk(LinearSet::new(), 0));
+    chunks.insert(0, Chunk(HashSet::new(), 0));
 
     /* Process the highest cost affine temps first. For the affinity edge (x, y)
        there are two chunks. We attempt to merge x's chunk with y's chunk which
@@ -531,7 +531,7 @@ impl<'self> Coalescer<'self> {
         if interferes { loop }
 
         /* no element of the two chunks interfere, merge the chunks */
-        merge = LinearSet::new();
+        merge = HashSet::new();
         merge.insert(x);
         merge.insert(y);
         for xs.each |&x| { merge.insert(x); }
@@ -575,7 +575,7 @@ impl<'self> Coalescer<'self> {
         match self.affinities.find_mut(&$a1) {
           Some(m) => { m.insert($b1, $weight1); }
           None => {
-            let mut m = ~LinearMap::new();
+            let mut m = ~HashMap::new();
             m.insert($b1, $weight1);
             self.affinities.insert($a1, m);
           }
@@ -592,7 +592,7 @@ impl<'self> Coalescer<'self> {
 
     let mut pq = PriorityQueue::new();
     let mut to_visit = ~[(self.f.root, 1)];
-    let mut visited = LinearSet::new();
+    let mut visited = HashSet::new();
 
     while to_visit.len() > 0 {
       let (n, weight) = to_visit.pop();
@@ -710,7 +710,7 @@ impl<'self> Coalescer<'self> {
     }
 
     /* Prelude to Algorithm 4.7 (find_interferences) */
-    let mut visited = LinearSet::new();
+    let mut visited = HashSet::new();
     let mut bitv = bitv::Bitv::new(self.f.temps, false);
     match self.uses.find(&t) {
       Some(uses) => {
@@ -726,7 +726,7 @@ impl<'self> Coalescer<'self> {
         self.find_interferences(t, block, &mut bitv, &mut visited);
       }
     }
-    let mut set = ~LinearSet::new();
+    let mut set = ~HashSet::new();
     for bitv.ones |x| {
       if x != t {
         set.insert(x);
@@ -744,7 +744,7 @@ impl<'self> Coalescer<'self> {
    * TempSet structures and things like that aren't used here because they're
    * just too costly. These are the optimizations so far:
    *
-   *    1. Use bit vectors instead of LinearSet TempSet structures
+   *    1. Use bit vectors instead of HashSet TempSet structures
    *
    *          This ended up being a huge win because the operations needed,
    *          get/set/union are all far faster on a bit vector than on a hash

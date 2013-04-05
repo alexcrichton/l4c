@@ -9,22 +9,22 @@
  * so the move can be considered dead code.
  */
 
-use core::hashmap::linear::LinearMap;
+use core::hashmap::HashMap;
 
 use middle::ir::*;
 use middle::temp::Temp;
 
 struct ConstantFolder<'self> {
   f: &'self mut Function,
-  constants: LinearMap<Temp, i32>,
-  temps: LinearMap<Temp, Temp>,
+  constants: HashMap<Temp, i32>,
+  temps: HashMap<Temp, Temp>,
 }
 
 pub fn optimize(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
     let mut opt = ConstantFolder { f: f,
-                                   constants: LinearMap::new(),
-                                   temps: LinearMap::new() };
+                                   constants: HashMap::new(),
+                                   temps: HashMap::new() };
     opt.run();
   }
 }

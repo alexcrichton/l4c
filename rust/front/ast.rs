@@ -1,4 +1,4 @@
-use core::hashmap::linear::{LinearSet, LinearMap};
+use core::hashmap::{HashSet, HashMap};
 use front::{mark, error};
 use utils::PrettyPrint;
 
@@ -8,13 +8,13 @@ pub struct Program {
   mainid: Ident,
 }
 
-struct Elaborator<'self> {
-  efuns:   LinearSet<Ident>,
-  funs:    LinearSet<Ident>,
-  structs: LinearSet<Ident>,
-  types:   LinearMap<Ident, @Type>,
+struct Elaborator {
+  efuns:   HashSet<Ident>,
+  funs:    HashSet<Ident>,
+  structs: HashSet<Ident>,
+  types:   HashMap<Ident, @Type>,
   err:     error::List,
-  symbols: &'self [~str]
+  symbols: ~[~str]
 }
 
 pub type Ident = uint;
@@ -110,12 +110,12 @@ pub impl Program {
     let Program{decls, symbols, _} = self;
     let mut decls = decls;
     {
-      let mut e = Elaborator{ efuns:   LinearSet::new(),
-                              funs:    LinearSet::new(),
-                              structs: LinearSet::new(),
-                              types:   LinearMap::new(),
+      let mut e = Elaborator{ efuns:   HashSet::new(),
+                              funs:    HashSet::new(),
+                              structs: HashSet::new(),
+                              types:   HashMap::new(),
                               err:     error::new(),
-                              symbols: symbols };
+                              symbols: copy symbols };
       decls = e.run(decls);
     }
     Program::new(decls, symbols)
@@ -149,7 +149,7 @@ pub fn unmarkg(g: ~GDecl) -> ~GDecl {
   }
 }
 
-impl<'self> Elaborator<'self> {
+impl Elaborator {
   fn run(&mut self, decls: ~[~GDecl]) -> ~[~GDecl] {
     let decls = vec::map_consume(decls, |x| self.elaborate(x));
     self.err.check();

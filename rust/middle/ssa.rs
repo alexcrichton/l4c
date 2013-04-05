@@ -1,4 +1,4 @@
-use core::hashmap::linear::{LinearMap, LinearSet};
+use core::hashmap::{HashMap, HashSet};
 
 use middle::{temp, liveness, ir, opt};
 use middle::temp::Temp;
@@ -21,14 +21,14 @@ pub trait Statement: PrettyPrint {
   fn phi_unwrap(me: ~Self) -> Either<~Self, (Temp, PhiMap)>;
 }
 
-type TempMap = LinearMap<Temp, Temp>;
-type DomFrontiers = LinearMap<graph::NodeId, ~graph::NodeSet>;
-type Definitions = LinearMap<Temp, ~graph::NodeSet>;
-type PhiLocations = LinearMap<graph::NodeId, ~LinearSet<Temp>>;
-type PhiMappings = LinearMap<graph::NodeId, ~TempMap>;
-pub type Idominators = LinearMap<graph::NodeId, graph::NodeId>;
-pub type Idominated = LinearMap<graph::NodeId, ~LinearSet<graph::NodeId>>;
-pub type PhiMap = LinearMap<graph::NodeId, Temp>;
+type TempMap = HashMap<Temp, Temp>;
+type DomFrontiers = HashMap<graph::NodeId, ~graph::NodeSet>;
+type Definitions = HashMap<Temp, ~graph::NodeSet>;
+type PhiLocations = HashMap<graph::NodeId, ~HashSet<Temp>>;
+type PhiMappings = HashMap<graph::NodeId, ~TempMap>;
+pub type Idominators = HashMap<graph::NodeId, graph::NodeId>;
+pub type Idominated = HashMap<graph::NodeId, ~HashSet<graph::NodeId>>;
+pub type PhiMap = HashMap<graph::NodeId, Temp>;
 pub type CFG<T> = graph::Graph<~[~T], ir::Edge>;
 
 struct Converter<'self, T> {
@@ -36,14 +36,14 @@ struct Converter<'self, T> {
   root: graph::NodeId,
 
   /* Mapping of a node to what temp mappings exist at the end of a node */
-  versions: LinearMap<graph::NodeId, TempMap>,
+  versions: HashMap<graph::NodeId, TempMap>,
   /* (re-)Allocator for temps */
   temps: temp::Allocator,
 
   frontiers: &'self DomFrontiers,
 
   /* Keeps track of new => old temp mappings to be returned from conversion */
-  remapping: &'self mut LinearMap<Temp, Temp>,
+  remapping: &'self mut HashMap<Temp, Temp>,
 
   /* This analysis is filled in prior to conversion and is used throughout */
   analysis: &'self Analysis,
@@ -51,12 +51,12 @@ struct Converter<'self, T> {
 }
 
 pub fn Analysis() -> Analysis {
-  Analysis { idominated: LinearMap::new(), idominator: LinearMap::new() }
+  Analysis { idominated: HashMap::new(), idominator: HashMap::new() }
 }
 
 pub fn convert<T: Statement>(cfg: &mut CFG<T>,
                               root: graph::NodeId,
-                              results: &mut Analysis) -> LinearMap<Temp, Temp> {
+                              results: &mut Analysis) -> HashMap<Temp, Temp> {
   let mut live = liveness::Analysis();
 
   do profile::dbg("pruning") { opt::cfg::prune(cfg, root); }
@@ -66,11 +66,11 @@ pub fn convert<T: Statement>(cfg: &mut CFG<T>,
     dom_frontiers(cfg, root, results)
   };
 
-  let mut ret = LinearMap::new();
+  let mut ret = HashMap::new();
   {
     let mut converter = Converter { cfg: cfg,
                                     root: root,
-                                    versions: LinearMap::new(),
+                                    versions: HashMap::new(),
                                     temps: temp::new(),
                                     frontiers: &frontiers,
                                     analysis: results,
@@ -88,9 +88,9 @@ impl<'self, T: Statement> Converter<'self, T> {
     let phis = self.find_phis(defs);
 
     /* Re-number the entire graph */
-    let mut phi_temps = LinearMap::new();
+    let mut phi_temps = HashMap::new();
     do profile::dbg("renumbering temps") {
-      let map = LinearMap::new();
+      let map = HashMap::new();
       self.versions.insert(self.root, map);
       for self.cfg.each_rev_postorder(self.root) |&id| {
         do profile::dbg(fmt!("node %?", id)) {
@@ -117,7 +117,7 @@ impl<'self, T: Statement> Converter<'self, T> {
 
   /* Build up the 'defs' map */
   fn find_defs(&mut self) -> Definitions {
-    let mut defs = LinearMap::new();
+    let mut defs = HashMap::new();
     for self.cfg.each_node |id, stms| {
       for stms.each |s| {
         for s.each_def |tmp| {
@@ -138,7 +138,7 @@ impl<'self, T: Statement> Converter<'self, T> {
           http://symbolaris.com/course/Compilers12/11-ssa.pdf
        to determine the optimal placement of phi functions */
 
-    let mut phis = LinearMap::new();
+    let mut phis = HashMap::new();
 
     do defs.consume |tmp, defs| {
       /* with one definition we can't possibly need a phi node */
@@ -160,13 +160,13 @@ impl<'self, T: Statement> Converter<'self, T> {
 
   /* Calculate the iterated dominance frontier on a set of nodes */
   fn idf(&mut self, set: ~graph::NodeSet) -> graph::NodeSet {
-    let mut ret = LinearSet::new();
+    let mut ret = HashSet::new();
     for set.each |&v| {
       ret.insert(v);
     }
     /* loop until we find a fixed point */
     loop {
-      let mut tmp = LinearSet::new();
+      let mut tmp = HashSet::new();
       for set.each |id| {
         for self.frontiers.find(id).each |&x| {
           for x.each |&t| { tmp.insert(t); }
@@ -194,7 +194,7 @@ impl<'self, T: Statement> Converter<'self, T> {
    */
   fn map_temps(&mut self, n: graph::NodeId, phis: &PhiLocations,
                phi_temps: &mut PhiMappings) {
-    let mut map = LinearMap::new();
+    let mut map = HashMap::new();
     let idom = self.analysis.idominator.get(&n);
     for self.versions.get(idom).each |&(&k, &v)| {
       map.insert(k, v);
@@ -207,7 +207,7 @@ impl<'self, T: Statement> Converter<'self, T> {
       Some(ref temps) => {
         /* Keep track of what we changed our temps to so the phi functions can
            be placed correctly in the next step */
-        let mut mapping = ~LinearMap::new();
+        let mut mapping = ~HashMap::new();
         for temps.each |&tmp| {
           mapping.insert(tmp, self.bump(&mut map, tmp));
         }
@@ -246,7 +246,7 @@ impl<'self, T: Statement> Converter<'self, T> {
         Left(stm) => stm,
         Right((def, map)) => {
           let mut map = map;
-          let mut new = LinearMap::new();
+          let mut new = HashMap::new();
           do map.consume |pred, tmp| {
             new.insert(pred, *self.versions.get(&pred).get(&tmp));
           }
@@ -261,12 +261,12 @@ impl<'self, T: Statement> Converter<'self, T> {
    * been renumbered/renamed and the last thing to do is to actually put the phi
    * functions in place
    */
-  fn place_phis(&mut self, n: graph::NodeId, temps: &LinearMap<Temp, Temp>) {
+  fn place_phis(&mut self, n: graph::NodeId, temps: &HashMap<Temp, Temp>) {
     debug!("generating %? phis at %?", temps.len(), n);
     let mut block = ~[];
     for temps.each |&(tmp_before, &tmp_after)| {
       debug!("placing phi for %? at %?", tmp_before, n);
-      let mut preds = LinearMap::new();
+      let mut preds = HashMap::new();
       /* Our phi function operates on the last known ssa-temp for this node's
          non-ssa temp at each of our predecessors */
       for self.cfg.each_pred(n) |p| {
@@ -335,7 +335,7 @@ fn analyze<T>(cfg: &CFG<T>, root: graph::NodeId, analysis: &mut Analysis) {
   /* Afterwards, calculate the set of nodes that each node immediately dominates
    * up front so it doesn't have to be done again */
   for idoms.each |&(&a, _)| {
-    analysis.idominated.insert(a, ~LinearSet::new());
+    analysis.idominated.insert(a, ~HashSet::new());
   }
   for idoms.each |&(&a, &b)| {
     if a != b {
@@ -354,9 +354,9 @@ fn dom_frontiers<T>(cfg: &CFG<T>, root: graph::NodeId,
   /* Calculate the dominance frontiers according to the algorithm shown in
      these slides: http://symbolaris.com/course/Compilers12/11-ssa.pdf
      for calculating the dominance frontier of a node */
-  let mut frontiers: DomFrontiers = LinearMap::new(); /* TODO: remove type? */
+  let mut frontiers: DomFrontiers = HashMap::new(); /* TODO: remove type? */
   for cfg.each_postorder(root) |&a| {
-    let mut frontier = ~LinearSet::new();
+    let mut frontier = ~HashSet::new();
 
     /* df_local[a] */
     debug!("df_local[%d]...", a as int);

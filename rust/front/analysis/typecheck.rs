@@ -1,4 +1,4 @@
-use core::hashmap::linear::{LinearMap, LinearSet};
+use core::hashmap::{HashMap, HashSet};
 use core::util::with;
 
 use front::error;
@@ -7,9 +7,9 @@ use front::ast::*;
 struct Typechecker<'self> {
   program: &'self Program,
   err:     error::List,
-  funs:    LinearMap<Ident, (@Type, @~[@Type])>,
-  structs: LinearMap<Ident, Option<LinearMap<Ident, @Type>>>,
-  vars:    LinearMap<Ident, @Type>,
+  funs:    HashMap<Ident, (@Type, @~[@Type])>,
+  structs: HashMap<Ident, Option<HashMap<Ident, @Type>>>,
+  vars:    HashMap<Ident, @Type>,
   loops:   int,
   ret:     @Type
 }
@@ -17,9 +17,9 @@ struct Typechecker<'self> {
 pub fn check(a: &Program) {
   let mut tc = Typechecker{ program: a,
                             err: error::new(),
-                            funs: LinearMap::new(),
-                            structs: LinearMap::new(),
-                            vars: LinearMap::new(),
+                            funs: HashMap::new(),
+                            structs: HashMap::new(),
+                            vars: HashMap::new(),
                             loops: 0,
                             ret: @Nullp};
   debug!("typechecking");
@@ -220,7 +220,7 @@ impl<'self> Typechecker<'self> {
     }
 
     /* Build up the table of field => type information */
-    let mut table = LinearMap::new();
+    let mut table = HashMap::new();
     for fields.each |&(field, typ)| {
       if table.contains_key(&field) {
         self.err.add(fmt!("Duplicate field: '%s'", self.program.str(field)));
@@ -243,7 +243,7 @@ impl<'self> Typechecker<'self> {
 
   fn bind_fun(&mut self, id: Ident, ret: @Type, args: &~[(Ident, @Type)]) -> bool {
     let prev = self.err.size();
-    let mut names = LinearSet::new();
+    let mut names = HashSet::new();
     for args.each |&(name, typ)| {
       if !names.insert(name) {
         self.err.add(fmt!("Duplicate argument: %s", self.program.str(name)));

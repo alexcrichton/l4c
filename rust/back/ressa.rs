@@ -1,4 +1,4 @@
-use core::hashmap::linear::LinearMap;
+use core::hashmap::HashMap;
 
 use middle::ssa;
 use back::assem;
@@ -11,7 +11,7 @@ pub fn convert(p: &mut assem::Program) {
 
 fn ressa(f: &mut assem::Function) {
   /* tables/metadata altered through temp remapping */
-  let mut newsizes = LinearMap::new();
+  let mut newsizes = HashMap::new();
 
   /* And, convert! */
   let mut remapping = ssa::convert(&mut f.cfg, f.root, &mut f.ssa);

@@ -1,22 +1,22 @@
 use core::util::replace;
-use core::hashmap::linear::LinearMap;
+use core::hashmap::HashMap;
 
 use front::{ast, mark};
 use middle::{temp, ir, label};
 use utils::graph;
 
-type StructInfo = LinearMap<ast::Ident, (ir::Type, uint)>;
-type AllStructInfo = LinearMap<ast::Ident, (StructInfo, uint)>;
+type StructInfo = HashMap<ast::Ident, (ir::Type, uint)>;
+type AllStructInfo = HashMap<ast::Ident, (StructInfo, uint)>;
 
 struct ProgramInfo {
-  funs: LinearMap<ast::Ident, ~ir::Expression>,
+  funs: HashMap<ast::Ident, ~ir::Expression>,
   structs: AllStructInfo,
 }
 
 struct Translator<'self> {
   t: &'self ProgramInfo,
   f: &'self mut ir::Function,
-  vars: LinearMap<ast::Ident, temp::Temp>,
+  vars: HashMap<ast::Ident, temp::Temp>,
   temps: temp::Allocator,
 
   /* cfg creation */
@@ -35,7 +35,7 @@ struct Translator<'self> {
 pub fn translate(mut p: ast::Program, safe: bool) -> ir::Program {
   debug!("building translation info");
   /* TODO: rename to 'info' once it's not a global log level */
-  let mut pi = ProgramInfo { funs: LinearMap::new(), structs: LinearMap::new() };
+  let mut pi = ProgramInfo { funs: HashMap::new(), structs: HashMap::new() };
   pi.build(&p);
   let mut decls = ~[];
   p.decls <-> decls;
@@ -53,7 +53,7 @@ pub fn translate(mut p: ast::Program, safe: bool) -> ir::Program {
           let mut trans = Translator {
             t: &pi,
             f: &mut f,
-            vars: LinearMap::new(),
+            vars: HashMap::new(),
             temps: temp::new(),
             cur_id: f.root,
             stms: ~[],
@@ -103,7 +103,7 @@ impl ProgramInfo {
     match *g {
       ast::Markedg(ref m) => self.build_gdecl(p, m.data),
       ast::StructDef(id, ref fields) => {
-        let mut table = LinearMap::new();
+        let mut table = HashMap::new();
         let mut size = 0;
         for fields.each |&(id, t)| {
           let typsize = typ_size(t, &self.structs);

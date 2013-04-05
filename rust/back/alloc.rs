@@ -1,4 +1,4 @@
-use core::hashmap::linear::{LinearMap, LinearSet};
+use core::hashmap::{HashMap, HashSet};
 
 use std::bitv;
 use std::smallintmap::SmallIntMap;
@@ -19,13 +19,13 @@ type Resolution = Either<(uint, uint), (uint, uint)>;
 struct Allocator<'self> {
   f: &'self mut Function,
   colors: ColorMap,
-  slots: LinearMap<Tag, uint>,
+  slots: HashMap<Tag, uint>,
   max_slot: uint,
   max_call_stack: uint,
   callee_saved: ~[uint],
 
   /* data needed for coalescing */
-  precolored: LinearSet<Temp>,
+  precolored: HashSet<Temp>,
   constraints: ConstraintMap,
 }
 
@@ -34,9 +34,9 @@ pub fn color(p: &mut Program) {
     liveness::calculate(&f.cfg, f.root, &mut f.liveness);
 
     let mut a = Allocator{ colors: SmallIntMap::new(),
-                           precolored: LinearSet::new(),
+                           precolored: HashSet::new(),
                            constraints: SmallIntMap::new(),
-                           slots: LinearMap::new(),
+                           slots: HashMap::new(),
                            f: f,
                            max_slot: 0,
                            max_call_stack: 0,
@@ -88,7 +88,7 @@ impl<'self> Allocator<'self> {
    */
   fn color(&mut self, n: graph::NodeId) {
     debug!("coloring %?", n);
-    let mut tmplive = LinearSet::new();
+    let mut tmplive = HashSet::new();
     let tmpdelta = self.f.liveness.deltas.get(&n);
     let mut registers = RegisterSet();
     for self.f.liveness.in.get(&n).each |&t| {
@@ -305,9 +305,9 @@ impl<'self> Allocator<'self> {
     let cfg = &mut self.f.cfg;
     for cfg.each_node |id, ins| {
       let mut phi_vars = ~[];
-      let mut phi_maps = LinearMap::new();
+      let mut phi_maps = HashMap::new();
       let mut mem_vars = ~[];
-      let mut mem_maps = LinearMap::new();
+      let mut mem_maps = HashMap::new();
       for cfg.each_pred(id) |pred| {
         phi_maps.insert(pred, ~[]);
         mem_maps.insert(pred, ~[]);
@@ -552,7 +552,7 @@ fn resolve_perm(result: &[uint], incoming: &[uint]) -> ~[Resolution] {
 
   /* maps describing src -> dst and dst -> src */
   /* TODO: can sim become better */
-  let mut src_dst = LinearMap::new();
+  let mut src_dst = HashMap::new();
   let mut dst_src = SmallIntMap::new();
   for vec::each2(result, incoming) |&dst, &src| {
     if dst == src { loop }

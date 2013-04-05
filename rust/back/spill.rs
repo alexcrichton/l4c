@@ -22,7 +22,7 @@
  * throughout the code in this file.
  */
 
-use core::hashmap::linear::{LinearMap, LinearSet};
+use core::hashmap::{HashMap, HashSet};
 
 use std::sort;
 use middle::{ir, ssa, opt};
@@ -34,32 +34,32 @@ use back::arch;
 static loop_out_weight: uint = 100000;
 
 /* If a temp isn't in a set, then its next_use distance is infinity */
-type NextUse = LinearMap<Temp, uint>;
+type NextUse = HashMap<Temp, uint>;
 
 struct Spiller<'self> {
   f: &'self mut Function,
   /* next_use information for each node in the graph */
-  next_use: LinearMap<NodeId, NextUse>,
+  next_use: HashMap<NodeId, NextUse>,
   /* Delta information for next_use as a block is traversed top down */
-  deltas: LinearMap<NodeId, ~[~[(Temp, Option<uint>)]]>,
+  deltas: HashMap<NodeId, ~[~[(Temp, Option<uint>)]]>,
 
   /* Information required by the spilling algorithm */
-  regs_entry: LinearMap<NodeId, TempSet>,
-  regs_end: LinearMap<NodeId, TempSet>,
-  spill_entry: LinearMap<NodeId, TempSet>,
-  spill_exit: LinearMap<NodeId, TempSet>,
+  regs_entry: HashMap<NodeId, TempSet>,
+  regs_end: HashMap<NodeId, TempSet>,
+  spill_entry: HashMap<NodeId, TempSet>,
+  spill_exit: HashMap<NodeId, TempSet>,
 
   /* m[(a, b)] => (t1 -> t2) means that any temp known by the name t1 in a
      becomes the temp named t2 in b */
-  renamings: LinearMap<(NodeId, NodeId), ~LinearMap<Temp, ~[Temp]>>,
+  renamings: HashMap<(NodeId, NodeId), ~HashMap<Temp, ~[Temp]>>,
   /* m[a] = t1 -> (n -> t2) means that in block a, the temp t1 is known under the
      name t2 in node n */
-  phis: LinearMap<NodeId, LinearMap<Temp, ssa::PhiMap>>,
+  phis: HashMap<NodeId, HashMap<Temp, ssa::PhiMap>>,
 
   /* Maximum register pressure at each basic block */
-  max_pressures: LinearMap<NodeId, uint>,
+  max_pressures: HashMap<NodeId, uint>,
   /* Set of edges which have been connected (spills/reloads placed) so far */
-  connected: LinearSet<(NodeId, NodeId)>,
+  connected: HashSet<(NodeId, NodeId)>,
 }
 
 pub fn spill(p: &mut Program) {
@@ -67,16 +67,16 @@ pub fn spill(p: &mut Program) {
     opt::cfg::eliminate_critical(&mut f.cfg);
 
     let mut s = Spiller{ f: f,
-                         next_use: LinearMap::new(),
-                         deltas: LinearMap::new(),
-                         regs_end: LinearMap::new(),
-                         regs_entry: LinearMap::new(),
-                         spill_entry: LinearMap::new(),
-                         spill_exit: LinearMap::new(),
-                         renamings: LinearMap::new(),
-                         phis: LinearMap::new(),
-                         max_pressures: LinearMap::new(),
-                         connected: LinearSet::new() };
+                         next_use: HashMap::new(),
+                         deltas: HashMap::new(),
+                         regs_end: HashMap::new(),
+                         regs_entry: HashMap::new(),
+                         spill_entry: HashMap::new(),
+                         spill_exit: HashMap::new(),
+                         renamings: HashMap::new(),
+                         phis: HashMap::new(),
+                         max_pressures: HashMap::new(),
+                         connected: HashSet::new() };
 
     s.run();
   }
@@ -127,7 +127,7 @@ impl<'self> Spiller<'self> {
    * node. This just needs to iterate and look at every phi node in a block.
    */
   fn build_renamings(&mut self, n: NodeId) {
-    let mut phis = LinearMap::new();
+    let mut phis = HashMap::new();
     for self.f.cfg[n].each |&ins| {
       match ins {
         ~Phi(my_name, ref renamings) => {
@@ -140,14 +140,14 @@ impl<'self> Spiller<'self> {
                 }
               }
               None => {
-                let mut m = ~LinearMap::new();
+                let mut m = ~HashMap::new();
                 m.insert(their_name, ~[my_name]);
                 self.renamings.insert((pred, n), m);
               }
             }
           }
           /* TODO: is the dup necessary? */
-          let mut dup = LinearMap::new();
+          let mut dup = HashMap::new();
           for renamings.each |&(&k, &v)| {
             dup.insert(k, v);
           }
@@ -170,7 +170,7 @@ impl<'self> Spiller<'self> {
    */
   fn build_next_use(&mut self, n: NodeId) -> bool {
     debug!("processing: %?", n);
-    let mut bottom = LinearMap::new();
+    let mut bottom = HashMap::new();
     let block = self.f.cfg[n];
 
     /* Union each of our predecessors into the 'bottom' map */
@@ -276,8 +276,8 @@ impl<'self> Spiller<'self> {
     let spill_entry = self.connect_pred(n, &regs_entry);
 
     /* Set up the sets which will become {regs,spill}_exit */
-    let mut regs = LinearSet::new();
-    let mut spill = LinearSet::new();
+    let mut regs = HashSet::new();
+    let mut spill = HashSet::new();
     for regs_entry.each |&t| { regs.insert(t); }
     for spill_entry.each |&t| { spill.insert(t); }
 
@@ -294,7 +294,7 @@ impl<'self> Spiller<'self> {
     let mut block = ~[];
 
     /* next_use is always relative to the top of the block */
-    let mut next_use = LinearMap::new();
+    let mut next_use = HashMap::new();
     for self.next_use.get(&n).each |&(&k, &v)| {
       next_use.insert(k, v);
     }
@@ -421,9 +421,9 @@ impl<'self> Spiller<'self> {
 
   fn init_usual(&self, n: NodeId) -> TempSet {
     debug!("init_usual: %?", n);
-    let mut freq = LinearMap::new();
-    let mut take = LinearSet::new();
-    let mut cand = LinearSet::new();
+    let mut freq = HashMap::new();
+    let mut take = HashSet::new();
+    let mut cand = HashSet::new();
     /* TODO(purity): this shouldn't be unsafe */
     unsafe {
       for self.f.cfg.each_pred(n) |pred| {
@@ -461,7 +461,7 @@ impl<'self> Spiller<'self> {
   fn init_loop(&self, n: NodeId, body: NodeId, end: NodeId) -> TempSet {
     debug!("init_loop %? %? %?", n, body, end);
     /* cand = (phis | live_in) & used_in_loop */
-    let mut cand = LinearSet::new();
+    let mut cand = HashSet::new();
     /* If a variable is used in the loop, then its next_use as viewed from the
        body of the loop would be less than loop_out_weight */
     for self.next_use.get(&n).each |&(&tmp, &n)| {
@@ -472,7 +472,7 @@ impl<'self> Spiller<'self> {
     debug!("loop candidates: %s", cand.pp());
     if cand.len() < arch::num_regs {
       /* live_through = (phis | live_in) - cand */
-      let mut live_through = LinearSet::new();
+      let mut live_through = HashSet::new();
       for self.next_use.get(&n).each_key |&tmp| {
         if !cand.contains(&tmp) { live_through.insert(tmp); }
       }
@@ -480,7 +480,7 @@ impl<'self> Spiller<'self> {
         if !cand.contains(&tmp) { live_through.insert(tmp); }
       }
 
-      let mut visited = LinearSet::new();
+      let mut visited = HashSet::new();
       visited.insert(n);   /* don't loop back to the start */
       visited.insert(end); /* don't go outside the loop */
       let free = (arch::num_regs - self.max_pressure(body, &mut visited)) as int;
@@ -518,7 +518,7 @@ impl<'self> Spiller<'self> {
   fn connect_pred(&self, n: NodeId, entry: &TempSet) -> TempSet {
     debug!("connecting preds: %?", n);
     /* Build up our list of required spilled registers */
-    let mut spill = LinearSet::new();
+    let mut spill = HashSet::new();
     /* TODO(purity): this shouldn't be unsafe */
     unsafe {
       for self.f.cfg.each_pred(n) |pred| {
@@ -620,7 +620,7 @@ impl<'self> Spiller<'self> {
 
 #[cfg(test)]
 fn set(v: ~[int]) -> TempSet {
-  let mut set = LinearSet::new();
+  let mut set = HashSet::new();
   for v.each |&i| {
     set.insert(i as Temp);
   }
@@ -629,7 +629,7 @@ fn set(v: ~[int]) -> TempSet {
 
 #[test]
 fn test_sort_works1() {
-  let mut map: NextUse = LinearMap::new();
+  let mut map: NextUse = HashMap::new();
   map.insert(4, 5);
   map.insert(5, 6);
   let sorted = sort(&set(~[4, 5, 6]), &map);
@@ -640,7 +640,7 @@ fn test_sort_works1() {
 
 #[test]
 fn test_sort_works2() {
-  let mut map: NextUse = LinearMap::new();
+  let mut map: NextUse = HashMap::new();
   map.insert(4, 5);
   map.insert(5, 6);
   let sorted = sort(&set(~[4, 5]), &map);

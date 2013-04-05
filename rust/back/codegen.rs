@@ -1,4 +1,4 @@
-use core::hashmap::linear::{LinearMap, LinearSet};
+use core::hashmap::{HashMap, HashSet};
 
 use middle::{ir, temp, ssa, liveness, label};
 use back::{assem, arch};
@@ -6,9 +6,9 @@ use back::{assem, arch};
 pub struct CodeGenerator {
   priv f: ir::Function,
   priv temps: temp::Allocator,
-  priv sizes: LinearMap<temp::Temp, assem::Size>,
+  priv sizes: HashMap<temp::Temp, assem::Size>,
   priv stms: ~[~assem::Instruction],
-  priv tmap: LinearMap<temp::Temp, temp::Temp>,
+  priv tmap: HashMap<temp::Temp, temp::Temp>,
 }
 
 pub fn codegen(mut p: ir::Program) -> assem::Program {
@@ -22,8 +22,8 @@ fn translate(f: ir::Function) -> assem::Function {
   let mut cg = CodeGenerator { f: f,
                                stms: ~[],
                                temps: temp::new(),
-                               tmap: LinearMap::new(),
-                               sizes: LinearMap::new() };
+                               tmap: HashMap::new(),
+                               sizes: HashMap::new() };
   cg.run()
 }
 
@@ -46,8 +46,8 @@ impl CodeGenerator {
     for self.f.types.each |&(k, v)| {
       debug!("%? sized %?", k, v);
     }
-    let mut loops = LinearMap::new();
-    let mut sizes = LinearMap::new();
+    let mut loops = HashMap::new();
+    let mut sizes = HashMap::new();
     self.f.loops <-> loops;
     self.sizes <-> sizes;
     assem::Function { name: copy self.f.name,
@@ -157,7 +157,7 @@ impl CodeGenerator {
         }
       }
       ~ir::Phi(tmp, ref map) => {
-        let mut map2 = LinearMap::new();
+        let mut map2 = HashMap::new();
         for map.each |&(&k, &v)| {
           map2.insert(k, self.tmp(v));
         }
@@ -245,7 +245,7 @@ impl CodeGenerator {
          registers, not immediates. Also the same register can't be an argument
          twice because it has to be in two different places */
       ~assem::Call(dst, fun, args) => {
-        let mut temps = LinearSet::new();
+        let mut temps = HashSet::new();
         let mut args2 = ~[];
         do vec::consume(args) |i, arg| {
           let arg = match arg {

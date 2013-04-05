@@ -1,4 +1,4 @@
-use core::hashmap::linear::LinearSet;
+use core::hashmap::HashSet;
 
 use back::assem::*;
 use middle::{liveness, temp};
@@ -27,8 +27,8 @@ fn constrain_block(live: &temp::TempSet, delta: &[liveness::Delta],
                    ins: ~[~Instruction]) -> ~[~Instruction] {
   let mut new = ~[];
   let mut synthetic = ~[];
-  let mut live_in = LinearSet::new();
-  let mut live_out = LinearSet::new();
+  let mut live_in = HashSet::new();
+  let mut live_out = HashSet::new();
   for live.each |&t| {
     live_in.insert(t);
     live_out.insert(t);
@@ -108,7 +108,7 @@ fn constrain_block(live: &temp::TempSet, delta: &[liveness::Delta],
          arguments to the stack that need to be on the stack  */
       ~Call(dst, fun, args) => {
         let mut newargs = ~[];
-        let mut tempregs = LinearSet::new();
+        let mut tempregs = HashSet::new();
         for args.slice(0, uint::min(arch::arg_regs, args.len())).each |t| {
           match *t {
             ~Temp(t) => { tempregs.insert(t); }

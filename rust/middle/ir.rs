@@ -1,4 +1,4 @@
-use core::hashmap::linear::LinearMap;
+use core::hashmap::HashMap;
 
 use core::io::WriterUtil;
 use middle::{ssa, label};
@@ -15,9 +15,9 @@ pub struct Function {
   name: ~str,
   cfg: CFG,
   root: graph::NodeId,
-  types: LinearMap<Temp, Type>,
+  types: HashMap<Temp, Type>,
 
-  loops: LinearMap<graph::NodeId, (graph::NodeId, graph::NodeId)>,
+  loops: HashMap<graph::NodeId, (graph::NodeId, graph::NodeId)>,
   analysis: ssa::Analysis,
 }
 
@@ -63,8 +63,8 @@ pub fn Function(name: ~str) -> Function {
   Function{ cfg: graph::Graph(),
             name: name,
             root: 0,
-            types: LinearMap::new(),
-            loops: LinearMap::new(),
+            types: HashMap::new(),
+            loops: HashMap::new(),
             analysis: ssa::Analysis() }
 }
 
@@ -141,7 +141,7 @@ pub impl Statement {
       ~Arguments(tmps) => ~Arguments(vec::map_consume(tmps, |t| defs(t))),
       ~Phi(def, map) => {
         let mut map = map;
-        let mut newmap = LinearMap::new();
+        let mut newmap = HashMap::new();
         do map.consume |k, v| {
           newmap.insert(k, uses(v));
         }
@@ -294,7 +294,7 @@ pub fn ssa(p: &mut Program) {
 
 priv fn ssa_fun(f: &mut Function) {
   /* tables/metadata altered through temp remapping */
-  let mut newtypes = LinearMap::new();
+  let mut newtypes = HashMap::new();
 
   /* And, convert! */
   let mapping = ssa::convert(&mut f.cfg, f.root, &mut f.analysis);

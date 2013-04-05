@@ -1,5 +1,5 @@
 use core::io::WriterUtil;
-use core::hashmap::linear::{LinearMap, LinearSet};
+use core::hashmap::{HashMap, HashSet};
 
 use middle::{label, ir, liveness};
 pub use middle::ssa;
@@ -21,12 +21,12 @@ pub struct Function {
   name: ~str,
   root: graph::NodeId,
   cfg: CFG,
-  sizes: LinearMap<Temp, Size>,
+  sizes: HashMap<Temp, Size>,
   temps: uint,
   ssa: ssa::Analysis,
   liveness: liveness::Analysis,
 
-  loops: LinearMap<graph::NodeId, (graph::NodeId, graph::NodeId)>,
+  loops: HashMap<graph::NodeId, (graph::NodeId, graph::NodeId)>,
 }
 
 pub enum Instruction {
@@ -595,7 +595,7 @@ impl Function {
 
     /* skipped is a stack of nodes that we have yet to visit */
     let mut skipped = ~[self.root];
-    let mut visited = LinearSet::new();
+    let mut visited = HashSet::new();
 
     while skipped.len() > 0 {
       let block = skipped.pop();

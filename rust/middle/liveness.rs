@@ -1,11 +1,11 @@
-use core::hashmap::linear::{LinearMap, LinearSet};
+use core::hashmap::{HashMap, HashSet};
 
 use middle::temp::{Temp, TempSet};
 use middle::ssa::{CFG, Statement};
 use utils::graph::*;
 
-pub type LiveMap = LinearMap<NodeId, TempSet>;
-pub type DeltaMap = LinearMap<NodeId, ~[Delta]>;
+pub type LiveMap = HashMap<NodeId, TempSet>;
+pub type DeltaMap = HashMap<NodeId, ~[Delta]>;
 pub type Delta = ~[Either<Temp, Temp>];
 
 pub struct Analysis {
@@ -17,18 +17,18 @@ pub struct Analysis {
 struct Liveness<'self, T> {
   a: &'self mut Analysis,
   cfg: &'self CFG<T>,
-  phi_out: LinearMap<NodeId, ~TempSet>,
+  phi_out: HashMap<NodeId, ~TempSet>,
 }
 
 pub fn Analysis() -> Analysis {
-  Analysis { in: LinearMap::new(), out: LinearMap::new(),
-             deltas: LinearMap::new() }
+  Analysis { in: HashMap::new(), out: HashMap::new(),
+             deltas: HashMap::new() }
 }
 
 pub fn calculate<S: Statement>(cfg: &CFG<S>, root: NodeId,
                                 result: &mut Analysis) {
   debug!("calculating liveness");
-  let mut l = Liveness { a: result, phi_out: LinearMap::new(), cfg: cfg };
+  let mut l = Liveness { a: result, phi_out: HashMap::new(), cfg: cfg };
   l.run(root);
 }
 
@@ -36,7 +36,7 @@ impl<'self, T: Statement> Liveness<'self, T> {
   fn run(&mut self, root: NodeId) {
     /* TODO: why can't this be in the calculate() function above */
     for self.cfg.each_node |id, _| {
-      self.phi_out.insert(id, ~LinearSet::new());
+      self.phi_out.insert(id, ~HashSet::new());
     }
     for self.cfg.each_node |id, _| {
       self.lookup_phis(id);
@@ -68,7 +68,7 @@ impl<'self, T: Statement> Liveness<'self, T> {
   }
 
   fn liveness(&mut self, n: NodeId) -> bool {
-    let mut live = LinearSet::new();
+    let mut live = HashSet::new();
     for self.phi_out.get(&n).each |&t| {
       live.insert(t);
     }
@@ -80,7 +80,7 @@ impl<'self, T: Statement> Liveness<'self, T> {
         None => ()
       }
     }
-    let mut live_out = LinearSet::new();
+    let mut live_out = HashSet::new();
     for live.each |&t| { live_out.insert(t); }
     self.a.out.insert(n, live_out);
     let mut my_deltas = ~[];

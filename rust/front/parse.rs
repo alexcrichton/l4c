@@ -1,4 +1,4 @@
-use core::hashmap::linear::LinearMap;
+use core::hashmap::HashMap;
 use std::json::*;
 
 use front::{ast, mark};
@@ -6,12 +6,12 @@ use front::{ast, mark};
 struct Parser {
   file:  @~str,
   main: ~str,
-  symtab: LinearMap<~str, uint>,
+  symtab: HashMap<~str, uint>,
   symbols: ~[~str],
 }
 
 pub fn from_json(j: &Json, main: ~str) -> ast::Program {
-  let mut parser = Parser{symtab: LinearMap::new(), file: @~"", main: main,
+  let mut parser = Parser{symtab: HashMap::new(), file: @~"", main: main,
                           symbols: ~[]};
   return parser.parse(j);
 }

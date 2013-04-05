@@ -1,8 +1,8 @@
-use core::hashmap::linear::LinearSet;
+use core::hashmap::HashSet;
 use utils::PrettyPrint;
 
 pub type Temp = uint;
-pub type TempSet = LinearSet<Temp>;
+pub type TempSet = HashSet<Temp>;
 
 pub struct Allocator {
   priv next: uint

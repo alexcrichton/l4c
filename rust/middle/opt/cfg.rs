@@ -2,14 +2,14 @@
  * TODO: dox;
  */
 
-use core::hashmap::linear::{LinearSet, LinearMap};
+use core::hashmap::{HashSet, HashMap};
 
 use middle::ssa::{CFG, Statement};
 use middle::ir;
 use utils::graph::{NodeId, NodeSet};
 
 pub fn simplify(p: &mut ir::Program) {
-  fn resolve(map: &LinearMap<NodeId, NodeId>, mut id: NodeId) -> NodeId {
+  fn resolve(map: &HashMap<NodeId, NodeId>, mut id: NodeId) -> NodeId {
     let orig = id;
     while map.contains_key(&id) {
       id = *map.get(&id);
@@ -34,7 +34,7 @@ pub fn simplify(p: &mut ir::Program) {
        maintains information about what's a loop header and where its loop body
        and ending node both start. */
     let mut changes = changes;
-    let mut loops = LinearMap::new();
+    let mut loops = HashMap::new();
     loops <-> f.loops;
     do loops.consume |cond, (body, end)| {
       let cond = resolve(&changes, cond);
@@ -62,7 +62,7 @@ pub fn prune<T>(cfg: &mut CFG<T>, root: NodeId) {
       }
     }
   }
-  let mut visited = LinearSet::new();
+  let mut visited = HashSet::new();
   visit(cfg, root, &mut visited);
   let mut to_delete = ~[];
   for cfg.each_node |id, _| {
@@ -121,9 +121,9 @@ pub fn eliminate_critical<T: Statement>(cfg: &mut CFG<T>) {
  * predecessor
  */
 pub fn merge<T>(cfg: &mut CFG<T>,
-                root: NodeId) -> (NodeId, LinearMap<NodeId, NodeId>) {
+                root: NodeId) -> (NodeId, HashMap<NodeId, NodeId>) {
   fn domerge<T>(cfg: &mut CFG<T>, visited: &mut NodeSet,
-                changes: &mut LinearMap<NodeId, NodeId>,
+                changes: &mut HashMap<NodeId, NodeId>,
                 mut root: NodeId,
                 mut n: NodeId) -> NodeId {
     visited.insert(n);
@@ -160,8 +160,8 @@ pub fn merge<T>(cfg: &mut CFG<T>,
     return root;
   }
 
-  let mut visited = LinearSet::new();
-  let mut changes = LinearMap::new();
+  let mut visited = HashSet::new();
+  let mut changes = HashMap::new();
   return (domerge(cfg, &mut visited, &mut changes, root, root), changes);
 }
 
@@ -214,7 +214,7 @@ fn fix_phis(cfg: &mut ir::CFG) {
       match s {
         ~ir::Phi(def, ref map) => {
           /* TODO: shouldn't have to make a dup */
-          let mut dup = LinearMap::new();
+          let mut dup = HashMap::new();
           let mut predtmp = def;
           for map.each |&(&pred, &tmp)| {
             if cfg.contains_edge(pred, n) {

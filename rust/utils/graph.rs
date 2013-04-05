@@ -1,21 +1,21 @@
-use core::hashmap::linear::{LinearMap, LinearSet};
+use core::hashmap::{HashMap, HashSet};
 
 use core::io::WriterUtil;
 
 pub type NodeId = uint;
-pub type NodeSet = LinearSet<NodeId>;
+pub type NodeSet = HashSet<NodeId>;
 
 pub struct Graph<N, E> {
-  priv nodes: LinearMap<NodeId, N>,
-  priv succ:  LinearMap<NodeId, ~LinearMap<NodeId, E>>,
-  priv pred:  LinearMap<NodeId, ~NodeSet>,
+  priv nodes: HashMap<NodeId, N>,
+  priv succ:  HashMap<NodeId, ~HashMap<NodeId, E>>,
+  priv pred:  HashMap<NodeId, ~NodeSet>,
   priv next:  NodeId
 }
 
 pub fn Graph<N, E>() -> Graph<N, E>{
-  Graph{ nodes: LinearMap::new(),
-         succ:  LinearMap::new(),
-         pred:  LinearMap::new(),
+  Graph{ nodes: HashMap::new(),
+         succ:  HashMap::new(),
+         pred:  HashMap::new(),
          next:  0 }
 }
 
@@ -33,8 +33,8 @@ pub impl<N, E> Graph<N, E> {
   fn new_id(&mut self) -> NodeId {
     let ret = self.next;
     self.next += 1;
-    self.succ.insert(ret, ~LinearMap::new());
-    self.pred.insert(ret, ~LinearSet::new());
+    self.succ.insert(ret, ~HashMap::new());
+    self.pred.insert(ret, ~HashSet::new());
     ret
   }
 
@@ -162,14 +162,14 @@ pub impl<N, E> Graph<N, E> {
       g2.nodes.insert(k, n(k, v));
     }
     for self.pred.each |&(&k, v)| {
-      let mut set = ~LinearSet::new();
+      let mut set = ~HashSet::new();
       for v.each |&value| {
         set.insert(value);
       }
       g2.pred.insert(k, set);
     }
     for self.succ.each |&(&k, v)| {
-      let mut map = ~LinearMap::new();
+      let mut map = ~HashMap::new();
       for v.each |&(&k, v)| {
         map.insert(k, e(v));
       }
@@ -200,8 +200,8 @@ pub impl<N, E> Graph<N, E> {
     }
   }
 
-  fn postorder(&self, root: NodeId) -> (~[NodeId], LinearMap<NodeId, int>) {
-    let mut ordering = LinearMap::new();
+  fn postorder(&self, root: NodeId) -> (~[NodeId], HashMap<NodeId, int>) {
+    let mut ordering = HashMap::new();
     self.traverse(&mut ordering, root, 0);
     let mut v = ~[];
     vec::grow(&mut v, ordering.len(), &root);
@@ -211,7 +211,7 @@ pub impl<N, E> Graph<N, E> {
     return (v, ordering);
   }
 
-  fn traverse(&self, o: &mut LinearMap<NodeId, int>, n: NodeId, i: int) -> int {
+  fn traverse(&self, o: &mut HashMap<NodeId, int>, n: NodeId, i: int) -> int {
     match o.find(&n) {
       Some(_) => return i,
       None => ()
