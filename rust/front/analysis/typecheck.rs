@@ -166,15 +166,15 @@ impl Typechecker {
         self.tc_ensure(*e1, @Bool);
         let t = self.tc_exp(*e2);
         self.tc_ensure(*e3, t);
-        r.set(t);
+        r.put_back(t);
         t
       },
       Deref(ref e, ref r) => match self.tc_exp(*e) {
-        @Pointer(t) => { r.set(t); t },
+        @Pointer(t) => { r.put_back(t); t },
         _ => self.err.die(~"must be a pointer type")
       },
       ArrSub(ref e1, ref e2, ref r) => match self.tc_exp(*e1) {
-        @Array(t) => { self.tc_ensure(*e2, @Int); r.set(t); t },
+        @Array(t) => { self.tc_ensure(*e2, @Int); r.put_back(t); t },
         _ => self.err.die(~"must be an array type")
       },
       Call(ref e, ref args, ref r) => match self.tc_exp(*e) {
@@ -186,7 +186,7 @@ impl Typechecker {
               self.tc_ensure(*e, t2);
             }
           }
-          r.set(ret);
+          r.put_back(ret);
           ret
         },
         _ => self.err.die(~"expected a pointer to a function type")
@@ -194,7 +194,7 @@ impl Typechecker {
       Field(ref e, id, ref r) => {
         let err = match self.tc_exp(*e) {
           @Struct(s) => {
-            r.set(s);
+            r.put_back(s);
             match self.structs.find(&s) {
               Some(&Some(ref t)) => match t.find(&id) {
                 Some(&t) => { return t; }

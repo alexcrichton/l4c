@@ -228,13 +228,16 @@ impl Translator {
         let (ismem, leftsize) = match e1 {
           ~ast::Var(_) => (false, ir::Int), /* size doesn't matter */
           ~ast::Deref(_, ref t) | ~ast::ArrSub(_, _, ref t) =>
-            (true, typ(t.get())),
+            (true, do t.with_ref |&t| { typ(t) }),
           ~ast::Field(_, ref f, ref s) => {
             /* TODO(#4653): make this actually sane */
             /*let &(ref fields, _) = self.t.structs.get(&s.get());*/
-            let sinfo = self.t.structs.get(&s.get());
-            let fields = match *sinfo { (ref fields, _) => fields };
-            (true, fields.get(f).first())
+            let typ = do s.with_ref |s| {
+              match *self.t.structs.get(s) {
+                (ref fields, _) => fields.get(f).first()
+              }
+            };
+            (true, typ)
           }
           _ => fail!(~"invalid assign")
         };
@@ -350,10 +353,10 @@ impl Translator {
       }
 
       ~ast::Ternary(e1, e2, e3, t) =>
-        self.tern(e1, e2, e3, typ(t.get()), addr),
+        self.tern(e1, e2, e3, typ(t.take()), addr),
 
       ~ast::Call(e, args, t) => {
-        let ret = t.get();
+        let ret = t.take();
         let fun = self.exp(e, false);
         let args = vec::map_consume(args, |e| self.exp(e, false));
         let typ = typ(ret);
@@ -382,13 +385,14 @@ impl Translator {
         self.check_null(base);
         self.check_bounds(base, ~ir::Temp(idxt));
 
-        let elsize = self.constp(typ_size(t.get(), &self.t.structs) as i32);
+        let t = t.take();
+        let elsize = self.constp(typ_size(t, &self.t.structs) as i32);
         let offset = ~ir::BinaryOp(ir::Mul, ~ir::Temp(idxp), elsize);
         let address = ~ir::BinaryOp(ir::Add, base, offset);
         if addr {
           return address;
         }
-        let dest = self.tmp(typ(t.get()));
+        let dest = self.tmp(typ(t));
         self.stms.push(~ir::Load(dest, address));
         ~ir::Temp(dest)
       }
@@ -397,7 +401,7 @@ impl Translator {
         let base = self.exp(e, true);
         /* TODO(#4653): make this actually sane */
         /*let &(ref fields, _) = self.t.structs.get(&s.get());*/
-        let sinfo = self.t.structs.get(&s.get());
+        let sinfo = self.t.structs.get(&s.take());
         let fields = match *sinfo { (ref fields, _) => fields };
         let &(typ, size) = fields.get(&id);
         let address = ~ir::BinaryOp(ir::Add, base, self.constp(size as i32));
@@ -416,7 +420,7 @@ impl Translator {
         if addr {
           return address;
         }
-        let dest = self.tmp(typ(t.get()));
+        let dest = self.tmp(typ(t.take()));
         self.stms.push(~ir::Load(dest, address));
         ~ir::Temp(dest)
       }

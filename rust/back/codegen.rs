@@ -99,12 +99,12 @@ impl CodeGenerator {
   }
 
   fn half(&mut self, e: ~ir::Expression) -> ~assem::Operand {
+    let size = e.size(&self.oldtypes);
     match e {
       ~ir::Temp(t) => ~assem::Temp(self.tmp(t)),
       ~ir::Const(c, size) => ~assem::Immediate(c, size),
       ~ir::LabelExp(l) => ~assem::LabelOp(l),
       ~ir::BinaryOp(op, e1, e2) => {
-        let size = e1.size(&self.oldtypes);
         let out = self.tmpnew(size);
         let op = self.op(op);
         let e1 = self.half(e1);

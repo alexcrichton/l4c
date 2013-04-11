@@ -1,4 +1,6 @@
 use core::hashmap::HashMap;
+use core::cell;
+
 use std::json::*;
 
 use front::{ast, mark};
@@ -194,13 +196,13 @@ impl<'self> Parser<'self> {
                      },
       ~"null"     => ~ast::Null,
       ~"deref"    => ~ast::Deref(self.to_exp(fields.get(&~"e")),
-                                 ast::Ref()),
+                                 cell::empty_cell()),
       ~"field"    => ~ast::Field(self.to_exp(fields.get(&~"e")),
                                  self.to_id(fields.get(&~"field")),
-                                 ast::Ref()),
+                                 cell::empty_cell()),
       ~"arrsub"   => ~ast::ArrSub(self.to_exp(fields.get(&~"e1")),
                                   self.to_exp(fields.get(&~"e2")),
-                                  ast::Ref()),
+                                  cell::empty_cell()),
       ~"alloc"    => ~ast::Alloc(self.to_typ(fields.get(&~"type"))),
       ~"allocarr" => ~ast::AllocArray(self.to_typ(fields.get(&~"type")),
                                       self.to_exp(fields.get(&~"e"))),
@@ -212,13 +214,13 @@ impl<'self> Parser<'self> {
       ~"ternary"  => ~ast::Ternary(self.to_exp(fields.get(&~"e1")),
                                    self.to_exp(fields.get(&~"e2")),
                                    self.to_exp(fields.get(&~"e3")),
-                                   ast::Ref()),
+                                   cell::empty_cell()),
       ~"mark"     => ~ast::Marked(self.to_mark(fields, |a| self.to_exp(a))),
       ~"call"     => {
         match *fields.get(&~"args") {
           List(ref L) => ~ast::Call(self.to_exp(fields.get(&~"fun")),
                                     L.map(|x| self.to_exp(x)),
-                                    ast::Ref()),
+                                    cell::empty_cell()),
           _ => fail!(~"expected list")
         }
       },

@@ -1,4 +1,6 @@
 use core::hashmap::{HashSet, HashMap};
+use core::cell;
+
 use front::{mark, error};
 use utils::PrettyPrint;
 
@@ -50,11 +52,11 @@ pub enum Expression {
   Const(i32),
   BinaryOp(Binop, ~Expression, ~Expression),
   UnaryOp(Unop, ~Expression),
-  Ternary(~Expression, ~Expression, ~Expression, Ref<@Type>),
-  Call(~Expression, ~[~Expression], Ref<(@Type)>),
-  Deref(~Expression, Ref<@Type>),
-  Field(~Expression, Ident, Ref<Ident>),
-  ArrSub(~Expression, ~Expression, Ref<@Type>),
+  Ternary(~Expression, ~Expression, ~Expression, cell::Cell<@Type>),
+  Call(~Expression, ~[~Expression], cell::Cell<(@Type)>),
+  Deref(~Expression, cell::Cell<@Type>),
+  Field(~Expression, Ident, cell::Cell<Ident>),
+  ArrSub(~Expression, ~Expression, cell::Cell<@Type>),
   Alloc(@Type),
   AllocArray(@Type, ~Expression),
   Null,
@@ -73,24 +75,6 @@ pub enum Binop {
 
 pub enum Unop {
   Negative, Invert, Bang
-}
-
-pub struct Ref<T> {
-  mut val: Option<T>
-}
-
-pub fn Ref<T>() -> Ref<T> {
-  Ref{ val: None }
-}
-
-pub impl<T: Copy> Ref<T> {
-  pub fn set(&self, t: T) {
-    self.val = Some(t);
-  }
-
-  fn get(&self) -> T {
-    self.val.get()
-  }
 }
 
 pub impl Program {
@@ -278,13 +262,16 @@ impl Elaborator {
         ~BinaryOp(o, self.elaborate_exp(e1), self.elaborate_exp(e2)),
       ~Ternary(e1, e2, e3, _) =>
         ~Ternary(self.elaborate_exp(e1), self.elaborate_exp(e2),
-                 self.elaborate_exp(e3), Ref()),
+                 self.elaborate_exp(e3), cell::empty_cell()),
       ~Call(id, L, _) =>
-        ~Call(id, vec::map_consume(L, |x| self.elaborate_exp(x)), Ref()),
-      ~Deref(e, _) => ~Deref(self.elaborate_exp(e), Ref()),
-      ~Field(e, id, _) => ~Field(self.elaborate_exp(e), id, Ref()),
+        ~Call(id, vec::map_consume(L, |x| self.elaborate_exp(x)),
+              cell::empty_cell()),
+      ~Deref(e, _) => ~Deref(self.elaborate_exp(e),
+                             cell::empty_cell()),
+      ~Field(e, id, _) => ~Field(self.elaborate_exp(e), id, cell::empty_cell()),
       ~ArrSub(e1, e2, _) =>
-        ~ArrSub(self.elaborate_exp(e1), self.elaborate_exp(e2), Ref()),
+        ~ArrSub(self.elaborate_exp(e1), self.elaborate_exp(e2),
+                cell::empty_cell()),
       ~Alloc(t) => ~Alloc(self.resolve(t)),
       ~AllocArray(t, e) => ~AllocArray(self.resolve(t), self.elaborate_exp(e))
     }
