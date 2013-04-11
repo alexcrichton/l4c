@@ -13,7 +13,7 @@ struct Elaborator {
   funs:    HashSet<Ident>,
   structs: HashSet<Ident>,
   types:   HashMap<Ident, @Type>,
-  err:     error::List,
+  err:     @mut error::List,
   symbols: ~[~str]
 }
 
@@ -114,7 +114,7 @@ pub impl Program {
                               funs:    HashSet::new(),
                               structs: HashSet::new(),
                               types:   HashMap::new(),
-                              err:     error::new(),
+                              err:     @mut error::new(),
                               symbols: copy symbols };
       decls = e.run(decls);
     }

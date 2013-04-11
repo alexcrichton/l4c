@@ -64,7 +64,7 @@ struct Spiller {
 
 pub fn spill(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
-    opt::cfg::eliminate_critical(&mut f.cfg);
+    opt::cfg::eliminate_critical(f.cfg);
 
     let mut s = Spiller{ f: *f,
                          next_use: HashMap::new(),
@@ -103,22 +103,24 @@ impl Spiller {
   fn run(&mut self) {
     /* TODO: why can't this all be above */
     /* Build up phi renaming maps */
-    for self.f.cfg.each_node |n, _| {
-      self.build_renamings(n);
-    }
-
-    /* Prepare the graph and build all next_use information */
-    let mut changed = true;
-    while changed {
-      changed = false;
-      for self.f.cfg.each_postorder(self.f.root) |&id| {
-        changed = self.build_next_use(id) || changed;
+    unsafe {
+      for self.f.cfg.each_node |n, _| {
+        self.build_renamings(n);
       }
-    }
 
-    /* In reverse postorder, spill everything! */
-    for self.f.cfg.each_rev_postorder(self.f.root) |&id| {
-      self.spill(id);
+      /* Prepare the graph and build all next_use information */
+      let mut changed = true;
+      while changed {
+        changed = false;
+        for self.f.cfg.each_postorder(self.f.root) |&id| {
+          changed = self.build_next_use(id) || changed;
+        }
+      }
+
+      /* In reverse postorder, spill everything! */
+      for self.f.cfg.each_rev_postorder(self.f.root) |&id| {
+        self.spill(id);
+      }
     }
   }
 
@@ -130,29 +132,30 @@ impl Spiller {
     let mut phis = HashMap::new();
     for self.f.cfg[n].each |&ins| {
       match ins {
-        ~Phi(my_name, ref renamings) => {
-          for renamings.each |&(&pred, &their_name)| {
+        ~Phi(my_name, ref renamings) => unsafe {
+          for renamings.each |&pred, &their_name| {
             match self.renamings.find_mut(&(pred, n)) {
               Some(m) => {
                 match m.find_mut(&their_name) {
-                  Some(l) => { l.push(my_name); }
-                  None => { m.insert(their_name, ~[my_name] ); }
+                  Some(l) => { l.push(my_name); loop }
+                  None => ()
                 }
-              }
-              None => {
-                let mut m = ~HashMap::new();
                 m.insert(their_name, ~[my_name]);
-                self.renamings.insert((pred, n), m);
+                loop
               }
+              None => ()
             }
+            let mut m = ~HashMap::new();
+            m.insert(their_name, ~[my_name]);
+            self.renamings.insert((pred, n), m);
           }
           /* TODO: is the dup necessary? */
           let mut dup = HashMap::new();
-          for renamings.each |&(&k, &v)| {
+          for renamings.each |&k, &v| {
             dup.insert(k, v);
           }
           assert!(phis.insert(my_name, dup));
-        }
+        },
         _ => ()
       }
     }
@@ -174,35 +177,37 @@ impl Spiller {
     let block = self.f.cfg[n];
 
     /* Union each of our predecessors into the 'bottom' map */
-    for self.f.cfg.each_succ(n) |succ| {
-      /* at the end the next use of each of the temps we transfer to the next
-         node via phis is the length of the block that we're at */
-      match self.phis.find(&succ) {
-        None => (),
-        Some(map) => {
-          for map.each |&(_, phis)| {
-            bottom.insert(*phis.get(&n), block.len());
+    unsafe {
+      for self.f.cfg.each_succ(n) |succ| {
+        /* at the end the next use of each of the temps we transfer to the next
+           node via phis is the length of the block that we're at */
+        match self.phis.find(&succ) {
+          None => (),
+          Some(map) => {
+            for map.each |_, phis| {
+              bottom.insert(*phis.get(&n), block.len());
+            }
           }
         }
-      }
-      if !self.next_use.contains_key(&succ) { loop }
-      let edge_cost = match *self.f.cfg.edge(n, succ) {
-        ir::LoopOut | ir::FLoopOut => loop_out_weight, _ => 0
-      };
+        if !self.next_use.contains_key(&succ) { loop }
+        let edge_cost = match *self.f.cfg.edge(n, succ) {
+          ir::LoopOut | ir::FLoopOut => loop_out_weight, _ => 0
+        };
 
-      /* Assume that all variables aren't used in this block and add block.len()
-         to the value being merged. This will be updated if the value is
-         actually used in the block */
-      let edge_cost = block.len() + edge_cost;
+        /* Assume that all variables aren't used in this block and add block.len()
+           to the value being merged. This will be updated if the value is
+           actually used in the block */
+        let edge_cost = block.len() + edge_cost;
 
-      /* Temps may change names along edges because of phi nodes, so be sure to
-         account for that here */
-      for self.next_use.get(&succ).each |&(&tmp, &next)| {
-        let cost = next + edge_cost;
-        let mytmp = self.their_name(tmp, n, succ);
-        match bottom.pop(&mytmp) {
-          Some(amt) => { bottom.insert(mytmp, uint::min(cost, amt)); }
-          None      => { bottom.insert(mytmp, cost); }
+        /* Temps may change names along edges because of phi nodes, so be sure to
+           account for that here */
+        for self.next_use.get(&succ).each |&tmp, &next| {
+          let cost = next + edge_cost;
+          let mytmp = self.their_name(tmp, n, succ);
+          match bottom.pop(&mytmp) {
+            Some(amt) => { bottom.insert(mytmp, uint::min(cost, amt)); }
+            None      => { bottom.insert(mytmp, cost); }
+          }
         }
       }
     }
@@ -268,11 +273,13 @@ impl Spiller {
    */
   fn spill(&mut self, n: NodeId) {
     debug!("spilling: %?", n);
-    /* TODO: remove these unsafe blocks */
-    let regs_entry = match self.f.loops.find(&n) {
-      Some(&(body, end)) => unsafe { self.init_loop(n, body, end) },
-      None               => unsafe { self.init_usual(n) }
-    };
+    let regs_entry;
+    unsafe {
+      regs_entry = match self.f.loops.find(&n) {
+        Some(&(body, end)) => self.init_loop(n, body, end),
+        None               => self.init_usual(n)
+      };
+    }
     let spill_entry = self.connect_pred(n, &regs_entry);
 
     /* Set up the sets which will become {regs,spill}_exit */
@@ -286,8 +293,10 @@ impl Spiller {
     self.spill_entry.insert(n, spill_entry);
 
     /* connect what we can, may not succeed */
-    for self.f.cfg.each_pred(n) |pred| {
-      self.connect_edge(pred, n);
+    unsafe {
+      for self.f.cfg.each_pred(n) |pred| {
+        self.connect_edge(pred, n);
+      }
     }
 
     let mut reloaded = ~[];
@@ -295,7 +304,7 @@ impl Spiller {
 
     /* next_use is always relative to the top of the block */
     let mut next_use = HashMap::new();
-    for self.next_use.get(&n).each |&(&k, &v)| {
+    for self.next_use.get(&n).each |&k, &v| {
       next_use.insert(k, v);
     }
 
@@ -412,9 +421,11 @@ impl Spiller {
     self.spill_exit.insert(n, spill);
 
     /* connect any lingering edges which weren't covered beforehand */
-    for self.f.cfg.each_succ(n) |succ| {
-      if self.spill_entry.contains_key(&succ) {
-        self.connect_edge(n, succ);
+    unsafe {
+      for self.f.cfg.each_succ(n) |succ| {
+        if self.spill_entry.contains_key(&succ) {
+          self.connect_edge(n, succ);
+        }
       }
     }
   }
@@ -424,7 +435,6 @@ impl Spiller {
     let mut freq = HashMap::new();
     let mut take = HashSet::new();
     let mut cand = HashSet::new();
-    /* TODO(purity): this shouldn't be unsafe */
     unsafe {
       for self.f.cfg.each_pred(n) |pred| {
         debug!("pred %?", pred);
@@ -436,23 +446,22 @@ impl Spiller {
           }
         }
       }
-    }
-    debug!("frequencies: %s", freq.pp());
-    let f = self.f;
-    let preds = f.cfg.num_pred(n);
-    for freq.each |&(&tmp, &n)| {
-      if n == preds {
-        take.insert(tmp);
-      } else {
-        cand.insert(tmp);
-      }
-    }
-    if arch::num_regs - take.len() > 0 {
-      let sorted = sort(&cand, self.next_use.get(&n));
-      let max = arch::num_regs - take.len();
-      for sorted.slice(0, uint::min(max, sorted.len())).each |&tmp| {
-        if self.next_use.get(&n).contains_key(&tmp) {
+      debug!("frequencies: %s", freq.pp());
+      let preds = self.f.cfg.num_pred(n);
+      for freq.each |&tmp, &n| {
+        if n == preds {
           take.insert(tmp);
+        } else {
+          cand.insert(tmp);
+        }
+      }
+      if arch::num_regs - take.len() > 0 {
+        let sorted = sort(&cand, self.next_use.get(&n));
+        let max = arch::num_regs - take.len();
+        for sorted.slice(0, uint::min(max, sorted.len())).each |&tmp| {
+          if self.next_use.get(&n).contains_key(&tmp) {
+            take.insert(tmp);
+          }
         }
       }
     }
@@ -465,7 +474,7 @@ impl Spiller {
     let mut cand = HashSet::new();
     /* If a variable is used in the loop, then its next_use as viewed from the
        body of the loop would be less than loop_out_weight */
-    for self.next_use.get(&n).each |&(&tmp, &n)| {
+    for self.next_use.get(&n).each |&tmp, &n| {
       if n < loop_out_weight {
         cand.insert(tmp);
       }
@@ -537,7 +546,7 @@ impl Spiller {
       }
     }
     /* TODO: this needs a better solution... */
-    for self.phis.get(&n).each |&(k, _)| {
+    for self.phis.get(&n).each |k, _| {
       spill.remove(k);
     }
     debug!("node %? entry regs:%s spill:%s", n, entry.pp(), spill.pp());

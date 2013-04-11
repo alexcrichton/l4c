@@ -30,7 +30,7 @@ impl<K: Eq + IterBytes + Hash + ToStr, V: ToStr> PrettyPrint for HashMap<K, V> {
   fn pp(&self) -> ~str {
     let mut s = ~"{";
     let mut first = true;
-    for self.each |&(k, v)| {
+    for self.each |k, v| {
       if first {
         first = false;
       } else {

@@ -14,9 +14,9 @@ pub struct Analysis {
   deltas: DeltaMap,
 }
 
-struct Liveness<'self, T> {
-  a: &'self mut Analysis,
-  cfg: &'self CFG<T>,
+struct Liveness<T> {
+  a: Analysis,
+  cfg: @mut CFG<T>,
   phi_out: HashMap<NodeId, ~TempSet>,
 }
 
@@ -25,14 +25,17 @@ pub fn Analysis() -> Analysis {
              deltas: HashMap::new() }
 }
 
-pub fn calculate<S: Statement>(cfg: &CFG<S>, root: NodeId,
+pub fn calculate<S: Statement>(cfg: @mut CFG<S>, root: NodeId,
                                 result: &mut Analysis) {
   debug!("calculating liveness");
-  let mut l = Liveness { a: result, phi_out: HashMap::new(), cfg: cfg };
+  let mut l = Liveness { a: Analysis(), phi_out: HashMap::new(), cfg: cfg };
   l.run(root);
+  /* TODO: this should be passed in directly */
+  let Liveness{ a, _ } = l;
+  *result = a;
 }
 
-impl<'self, T: Statement> Liveness<'self, T> {
+impl<T: Statement> Liveness<T> {
   fn run(&mut self, root: NodeId) {
     /* TODO: why can't this be in the calculate() function above */
     for self.cfg.each_node |id, _| {
@@ -57,8 +60,8 @@ impl<'self, T: Statement> Liveness<'self, T> {
       debug!("phi map");
       match Statement::phi_info(stm) {
         Some((_, map)) => {
-          for map.each |&(&pred, &tmp)| {
-            self.phi_out.find_mut(&pred).unwrap().insert(tmp);
+          for map.each |&pred, &tmp| {
+            unsafe { self.phi_out.find_mut(&pred).unwrap().insert(tmp); }
           }
         }
         None => ()

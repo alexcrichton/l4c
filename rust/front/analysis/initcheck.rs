@@ -1,21 +1,21 @@
-use core::util::with;
+use core::util::replace;
 use front::error;
 use front::ast::*;
 use front::mark;
 
-struct Initchecker<'self> {
-  program: &'self Program,
-  err: error::List,
+struct Initchecker {
+  program: @Program,
+  err: @mut error::List,
   step: ~Statement,
 }
 
-pub fn check(a: &Program) {
-  let mut ic = Initchecker{ program: a, err: error::new(), step: ~Nop };
+pub fn check(a: @Program) {
+  let mut ic = Initchecker{ program: a, err: @mut error::new(), step: ~Nop };
   debug!("initchecking");
   ic.run();
 }
 
-impl<'self> Initchecker<'self> {
+impl Initchecker {
   fn run(&mut self) {
     for self.program.decls.each |x| {
       self.check_gdecl(*x);
@@ -67,21 +67,26 @@ impl<'self> Initchecker<'self> {
       If(ref e, ref s1, ref s2) =>
         self.uses(sym, *e) || self.live(sym, *s1) || self.live(sym, *s2),
       While(ref e, ref s) => {
-        do with(&mut self.step, ~Nop) {
-          self.uses(sym, *e) || self.live(sym, *s)
-        }
+        /* TODO: use 'with' */
+        let prev = replace(&mut self.step, ~Nop);
+        let ret = self.uses(sym, *e) || self.live(sym, *s);
+        self.step = prev;
+        ret
       }
       Break | Nop => false,
-      Continue => self.live(sym, self.step),
+      /* TODO: remove copy */
+      Continue => self.live(sym, copy self.step),
       Express(ref e) | Return(ref e) => self.uses(sym, *e),
       Seq(ref s1, ref s2) => seq_live!(s1, s2),
       Markeds(ref m) => self.live(sym, m.data),
       For(ref s1, ref e, ref s2, ref s3) => {
-        do with(&mut self.step, copy *s2) { /* TODO: copy necessary? */
-          self.live(sym, *s1) ||
+        /* TODO: remove copy and use 'with' */
+        let prev = replace(&mut self.step, copy *s2);
+        let ret = self.live(sym, *s1) ||
             ((self.uses(sym, *e) || seq_live!(s3, s2)) &&
-             !self.defines(sym, *s1))
-        }
+             !self.defines(sym, *s1));
+        self.step = prev;
+        ret
       }
     }
   }
@@ -108,7 +113,7 @@ impl<'self> Initchecker<'self> {
     }
   }
 
-  fn defines(&self, sym: Ident, s: &Statement) -> bool {
+  fn defines(&mut self, sym: Ident, s: &Statement) -> bool {
     match *s {
       Declare(id, _, Some(_), ref s) => sym == id || self.defines(sym, *s),
       Declare(_, _, _, ref s) => self.defines(sym, *s),

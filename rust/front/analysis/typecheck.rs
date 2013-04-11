@@ -1,12 +1,11 @@
 use core::hashmap::{HashMap, HashSet};
-use core::util::with;
 
 use front::error;
 use front::ast::*;
 
-struct Typechecker<'self> {
-  program: &'self Program,
-  err:     error::List,
+struct Typechecker {
+  program: @Program,
+  err:     @mut error::List,
   funs:    HashMap<Ident, (@Type, @~[@Type])>,
   structs: HashMap<Ident, Option<HashMap<Ident, @Type>>>,
   vars:    HashMap<Ident, @Type>,
@@ -14,9 +13,9 @@ struct Typechecker<'self> {
   ret:     @Type
 }
 
-pub fn check(a: &Program) {
+pub fn check(a: @Program) {
   let mut tc = Typechecker{ program: a,
-                            err: error::new(),
+                            err: @mut error::new(),
                             funs: HashMap::new(),
                             structs: HashMap::new(),
                             vars: HashMap::new(),
@@ -26,7 +25,7 @@ pub fn check(a: &Program) {
   tc.run()
 }
 
-impl<'self> Typechecker<'self> {
+impl Typechecker {
   fn run(&mut self) {
     for self.program.decls.each |x| {
       self.tc_gdecl(*x)
@@ -74,9 +73,9 @@ impl<'self> Typechecker<'self> {
       Return(ref e) => self.tc_ensure(*e, self.ret),
       While(ref e, ref s) => {
         self.tc_ensure(*e, @Bool);
-        do with(&mut self.loops, self.loops + 1) {
-          self.tc_stm(*s);
-        }
+        self.loops += 1;
+        self.tc_stm(*s);
+        self.loops -= 1;
       },
       If(ref e, ref s1, ref s2) => {
         self.tc_ensure(*e, @Bool);
@@ -86,10 +85,11 @@ impl<'self> Typechecker<'self> {
       For(ref s1, ref e, ref s2, ref s3) => {
         self.tc_ensure(*e, @Bool);
         self.tc_stm(*s1);
-        do with(&mut self.loops, self.loops + 1) {
-          self.tc_stm(*s2);
-          self.tc_stm(*s3);
-        }
+
+        self.loops += 1;
+        self.tc_stm(*s2);
+        self.tc_stm(*s3);
+        self.loops -= 1;
       },
       Assign(ref e1, _, ref e2) => {
         let t1 = self.tc_exp(*e1);
@@ -252,8 +252,9 @@ impl<'self> Typechecker<'self> {
     }
     self.tc_small(ret);
 
-    match self.funs.find(&id) {
-      Some(&(retp, argsp)) => {
+    let fun = self.funs.find(&id).map_consume(|x| *x);
+    match fun {
+      Some((retp, argsp)) => {
         self.tc_equal(retp, ret);
         if argsp.len() != args.len() {
           self.err.add(~"Different number of arguments than before");
@@ -273,19 +274,20 @@ impl<'self> Typechecker<'self> {
   }
 
   fn tc_ensure(&mut self, e: &Expression, t: @Type) {
-    self.tc_equal(t, self.tc_exp(e));
+    let t2 = self.tc_exp(e);
+    self.tc_equal(t, t2);
   }
 
   fn tc_defined(&mut self, t: @Type) -> bool {
     match t {
       @Struct(id) => {
-        let defined = match self.structs.find(&id) {
-          Some(&Some(_)) => true, _ => false
-        };
-        if !defined {
-          self.err.add(fmt!("Struct not defined '%s'", self.program.str(id)));
+        match self.structs.find(&id) {
+          Some(&Some(_)) => true,
+          _ => {
+            self.err.add(fmt!("Struct not defined '%s'", self.program.str(id)));
+            false
+          }
         }
-        return defined;
       },
       _ => true
     }
@@ -295,14 +297,16 @@ impl<'self> Typechecker<'self> {
     if t1 != t2 {
       self.err.add(fmt!("Type mismatch: expected %s, got %s",
                         t1.pp(self.program), t2.pp(self.program)));
+      return false;
     }
-    t1 == t2
+    return true;
   }
 
   fn tc_small(&mut self, t: @Type) -> bool {
     if !t.small() {
       self.err.add(fmt!("Type must be small: '%s'", t.pp(self.program)));
+      return false;
     }
-    t.small()
+    return true;
   }
 }

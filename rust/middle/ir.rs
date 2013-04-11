@@ -6,14 +6,14 @@ use middle::temp::Temp;
 use utils::{graph, PrettyPrint, Graphable};
 
 pub struct Program {
-  funs: ~[Function]
+  funs: ~[@mut Function]
 }
 
 pub type CFG = ssa::CFG<Statement>;
 
 pub struct Function {
   name: ~str,
-  cfg: CFG,
+  cfg: @mut CFG,
   root: graph::NodeId,
   types: HashMap<Temp, Type>,
 
@@ -56,11 +56,11 @@ pub enum Edge {
 }
 
 pub fn Program(f: ~[Function]) -> Program {
-  Program{ funs: f }
+  Program{ funs: vec::map_consume(f, |f| @mut f) }
 }
 
 pub fn Function(name: ~str) -> Function {
-  Function{ cfg: graph::Graph(),
+  Function{ cfg: @mut graph::Graph(),
             name: name,
             root: 0,
             types: HashMap::new(),
@@ -72,32 +72,17 @@ impl Graphable for Program {
   fn dot(&self, out: @io::Writer) {
     out.write_str(~"digraph {\n");
     for self.funs.each |f| {
-      f.cfg.dot(out,
-        |id| fmt!("%s_n%d", f.name, id as int),
-        |id, &stms|
-          ~"label=\"" + str::connect(stms.map(|s| s.pp()), "\\n") +
-          fmt!("\\n[node=%d]\" shape=box", id as int),
-        |&edge| fmt!("label=%?", edge)
-      )
+      unsafe {
+        f.cfg.dot(out,
+          |id| fmt!("%s_n%d", f.name, id as int),
+          |id, &stms|
+            ~"label=\"" + str::connect(stms.map(|s| s.pp()), "\\n") +
+            fmt!("\\n[node=%d]\" shape=box", id as int),
+          |&edge| fmt!("label=%?", edge)
+        )
+      }
     }
     out.write_str(~"\n}");
-  }
-}
-
-pub impl Function {
-  fn size(&self, e: &Expression) -> Type {
-    match *e {
-      Const(_, size) => size,
-      LabelExp(_) => Pointer,
-      BinaryOp(Eq, _, _) | BinaryOp(Neq, _, _) => Int,
-      BinaryOp(_, ref e1, ref e2) => {
-        match self.size(*e1) {
-          Int => self.size(*e2),
-          Pointer => Pointer
-        }
-      },
-      Temp(ref t) => *self.types.get(t)
-    }
   }
 }
 
@@ -219,7 +204,7 @@ impl PrettyPrint for Statement {
              str::connect(E.map(|e| e.pp()), ~", ")),
       Phi(tmp, ref map) => {
         let mut s = tmp.pp() + ~" <- phi(";
-        for map.each |&(&id, &tmp)| {
+        for map.each |&id, &tmp| {
           s += fmt!("[ %s - n%d ] ", tmp.pp(), id as int);
         }
         s + ~")"
@@ -247,6 +232,20 @@ pub impl Expression {
       Const(*) | LabelExp(*) => (),
       BinaryOp(_, ref e1, ref e2) => { e1.each_temp(f); e2.each_temp(f); }
       Temp(tmp) => { f(tmp); }
+    }
+  }
+
+  fn size(&self, tmps: &HashMap<Temp, Type>) -> Type {
+    match *self {
+      Const(_, size) => size,
+      LabelExp(_) => Pointer,
+      BinaryOp(Eq, _, _) | BinaryOp(Neq, _, _) => Int,
+      BinaryOp(_, ref e1, ref e2) => {
+        let left = e1.size(tmps);
+        assert!(left == e2.size(tmps));
+        return left;
+      },
+      Temp(ref t) => *tmps.get(t)
     }
   }
 }
@@ -288,7 +287,7 @@ impl PrettyPrint for Binop {
 
 pub fn ssa(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
-    ssa_fun(f);
+    ssa_fun(*f);
   }
 }
 
@@ -297,8 +296,8 @@ priv fn ssa_fun(f: &mut Function) {
   let mut newtypes = HashMap::new();
 
   /* And, convert! */
-  let mapping = ssa::convert(&mut f.cfg, f.root, &mut f.analysis);
-  for mapping.each |&(&new, old)| {
+  let mapping = ssa::convert(f.cfg, f.root, &mut f.analysis);
+  for mapping.each |&new, old| {
     newtypes.insert(new, *f.types.get(old));
   }
   /* update all type information for the new temps */

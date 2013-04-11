@@ -31,8 +31,8 @@ pub type Idominated = HashMap<graph::NodeId, ~HashSet<graph::NodeId>>;
 pub type PhiMap = HashMap<graph::NodeId, Temp>;
 pub type CFG<T> = graph::Graph<~[~T], ir::Edge>;
 
-struct Converter<'self, T> {
-  cfg: &'self mut CFG<T>,
+struct Converter<T> {
+  cfg: @mut CFG<T>,
   root: graph::NodeId,
 
   /* Mapping of a node to what temp mappings exist at the end of a node */
@@ -40,21 +40,21 @@ struct Converter<'self, T> {
   /* (re-)Allocator for temps */
   temps: temp::Allocator,
 
-  frontiers: &'self DomFrontiers,
+  frontiers: DomFrontiers,
 
   /* Keeps track of new => old temp mappings to be returned from conversion */
-  remapping: &'self mut HashMap<Temp, Temp>,
+  remapping: HashMap<Temp, Temp>,
 
   /* This analysis is filled in prior to conversion and is used throughout */
-  analysis: &'self Analysis,
-  liveness: &'self liveness::Analysis,
+  analysis: Analysis,
+  liveness: liveness::Analysis,
 }
 
 pub fn Analysis() -> Analysis {
   Analysis { idominated: HashMap::new(), idominator: HashMap::new() }
 }
 
-pub fn convert<T: Statement>(cfg: &mut CFG<T>,
+pub fn convert<T: Statement>(cfg: @mut CFG<T>,
                               root: graph::NodeId,
                               results: &mut Analysis) -> HashMap<Temp, Temp> {
   let mut live = liveness::Analysis();
@@ -66,22 +66,20 @@ pub fn convert<T: Statement>(cfg: &mut CFG<T>,
     dom_frontiers(cfg, root, results)
   };
 
-  let mut ret = HashMap::new();
-  {
-    let mut converter = Converter { cfg: cfg,
-                                    root: root,
-                                    versions: HashMap::new(),
-                                    temps: temp::new(),
-                                    frontiers: &frontiers,
-                                    analysis: results,
-                                    liveness: &live,
-                                    remapping: &mut ret };
-    converter.convert();
-  }
-  return ret;
+  let mut converter = Converter { cfg: cfg,
+                                  root: root,
+                                  versions: HashMap::new(),
+                                  temps: temp::new(),
+                                  frontiers: frontiers,
+                                  analysis: copy *results, /* TODO: bad copy */
+                                  liveness: live,
+                                  remapping: HashMap::new() };
+  converter.convert();
+  let Converter { remapping, _ } = converter;
+  return remapping;
 }
 
-impl<'self, T: Statement> Converter<'self, T> {
+impl<T: Statement> Converter<T> {
   fn convert(&mut self) -> uint {
     /* First, find where all the phi functions need to be */
     let defs = self.find_defs();
@@ -107,7 +105,7 @@ impl<'self, T: Statement> Converter<'self, T> {
 
     /* Finally place our new phi nodes */
     do profile::dbg("placing phis") {
-      for phi_temps.each |&(&k, v)| {
+      for phi_temps.each |&k, v| {
         self.place_phis(k, *v);
       }
     }
@@ -117,14 +115,15 @@ impl<'self, T: Statement> Converter<'self, T> {
 
   /* Build up the 'defs' map */
   fn find_defs(&mut self) -> Definitions {
-    let mut defs = HashMap::new();
+    let mut defs: HashMap<Temp, ~HashSet<graph::NodeId>> = HashMap::new();
     for self.cfg.each_node |id, stms| {
       for stms.each |s| {
         for s.each_def |tmp| {
           match defs.find_mut(&tmp) {
-            None => { defs.insert(tmp, ~set::singleton(id)); }
-            Some(s) => { s.insert(id); }
+            Some(s) => { s.insert(id); loop; }
+            None => {}
           }
+          defs.insert(tmp, ~set::singleton(id));
         }
       }
     }
@@ -138,7 +137,7 @@ impl<'self, T: Statement> Converter<'self, T> {
           http://symbolaris.com/course/Compilers12/11-ssa.pdf
        to determine the optimal placement of phi functions */
 
-    let mut phis = HashMap::new();
+    let mut phis: HashMap<Temp, ~HashSet<Temp>> = HashMap::new();
 
     do defs.consume |tmp, defs| {
       /* with one definition we can't possibly need a phi node */
@@ -148,9 +147,10 @@ impl<'self, T: Statement> Converter<'self, T> {
         for locs.each |n| {
           if !self.liveness.in.get(n).contains(&tmp) { loop }
           match phis.find_mut(n) {
-            None => { phis.insert(*n, ~set::singleton(tmp)); }
-            Some(s) => { s.insert(tmp); }
+            Some(s) => { s.insert(tmp); loop; }
+            None => {}
           }
+          phis.insert(*n, ~set::singleton(tmp));
         }
       }
     }
@@ -195,9 +195,12 @@ impl<'self, T: Statement> Converter<'self, T> {
   fn map_temps(&mut self, n: graph::NodeId, phis: &PhiLocations,
                phi_temps: &mut PhiMappings) {
     let mut map = HashMap::new();
-    let idom = self.analysis.idominator.get(&n);
-    for self.versions.get(idom).each |&(&k, &v)| {
-      map.insert(k, v);
+    /* TODO: necessary scope? */
+    {
+      let idom = self.analysis.idominator.get(&n);
+      for self.versions.get(idom).each |&k, &v| {
+        map.insert(k, v);
+      }
     }
 
     /* Bump all temp numbers which have phi functions at this location */
@@ -264,7 +267,7 @@ impl<'self, T: Statement> Converter<'self, T> {
   fn place_phis(&mut self, n: graph::NodeId, temps: &HashMap<Temp, Temp>) {
     debug!("generating %? phis at %?", temps.len(), n);
     let mut block = ~[];
-    for temps.each |&(tmp_before, &tmp_after)| {
+    for temps.each |tmp_before, &tmp_after| {
       debug!("placing phi for %? at %?", tmp_before, n);
       let mut preds = HashMap::new();
       /* Our phi function operates on the last known ssa-temp for this node's
@@ -334,12 +337,13 @@ fn analyze<T>(cfg: &CFG<T>, root: graph::NodeId, analysis: &mut Analysis) {
 
   /* Afterwards, calculate the set of nodes that each node immediately dominates
    * up front so it doesn't have to be done again */
-  for idoms.each |&(&a, _)| {
+  for idoms.each |&a, _| {
     analysis.idominated.insert(a, ~HashSet::new());
   }
-  for idoms.each |&(&a, &b)| {
+  for idoms.each |&a, &b| {
     if a != b {
-      analysis.idominated.find_mut(&b).unwrap().insert(a);
+      let map = analysis.idominated.find_mut(&b).unwrap();
+      map.insert(a);
     }
   }
 }

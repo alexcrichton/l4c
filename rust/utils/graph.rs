@@ -51,9 +51,7 @@ pub impl<N, E> Graph<N, E> {
   }
 
   fn edge(&self, a: NodeId, b: NodeId) -> &'self E {
-    /* TODO(borrowck): fix */
-    let a_succ = self.succ.get(&a);
-    return a_succ.get(&b);
+    self.succ.get(&a).get(&b)
   }
 
   fn add_node(&mut self, id: NodeId, n: N) {
@@ -79,42 +77,32 @@ pub impl<N, E> Graph<N, E> {
     let succ = self.succ.pop(&n).unwrap();
     let pred = self.pred.pop(&n).unwrap();
     for succ.each_key |k| {
-      /* TODO(borrowck): fix */
-      let pred = self.pred.find_mut(k).unwrap();
-      pred.remove(&n);
+      unsafe { self.pred.find_mut(k).unwrap().remove(&n); }
     }
     for pred.each |k| {
-      /* TODO(borrowck): fix */
-      let succ = self.succ.find_mut(k).unwrap();
-      succ.remove(&n);
+      unsafe { self.succ.find_mut(k).unwrap().remove(&n); }
     }
     return ret;
   }
 
   fn remove_edge(&mut self, n1: NodeId, n2: NodeId) -> E {
-    /* TODO(borrowck): fix */
-    let pred = self.pred.find_mut(&n2).unwrap();
-    pred.remove(&n1);
-    let succ = self.succ.find_mut(&n1).unwrap();
-    return succ.pop(&n2).unwrap();
+    unsafe { self.pred.find_mut(&n2).unwrap().remove(&n1); }
+    return unsafe { self.succ.find_mut(&n1).unwrap().pop(&n2).unwrap() };
   }
 
   fn add_edge(&mut self, n1: NodeId, n2: NodeId, e: E) {
-    /* TODO(borrowck): fix */
-    let pred = self.pred.find_mut(&n2).unwrap();
-    let succ = self.succ.find_mut(&n1).unwrap();
-    succ.insert(n2, e);
-    pred.insert(n1);
+    unsafe { self.succ.find_mut(&n1).unwrap().insert(n2, e); }
+    unsafe { self.pred.find_mut(&n2).unwrap().insert(n1); }
   }
 
   fn each_edge(&self, f: &fn(NodeId, NodeId) -> bool) {
-    for self.succ.each |&(&a, map)| {
+    for self.succ.each |&a, map| {
       map.each_key(|&b| f(a, b));
     }
   }
 
   fn each_node(&self, f: &fn(NodeId, &N) -> bool) {
-    self.succ.each(|&(&a, _)| {
+    self.succ.each(|&a, _| {
       match self.nodes.find(&a) {
         Some(b) => f(a, b),
         None => true
@@ -123,39 +111,27 @@ pub impl<N, E> Graph<N, E> {
   }
 
   fn each_pred(&self, n: NodeId, f: &fn(NodeId) -> bool) {
-    /* TODO(borrowck): fix */
-    let preds = self.pred.get(&n);
-    preds.each(|&k| f(k));
+    self.pred.get(&n).each(|&k| f(k));
   }
 
   fn each_pred_edge(&self, n: NodeId, f: &fn(NodeId, &E) -> bool) {
-    /* TODO(borrowck): fix */
-    let preds = self.pred.get(&n);
-    preds.each(|&k| f(k, self.edge(k, n)));
+    self.pred.get(&n).each(|&k| f(k, self.edge(k, n)));
   }
 
   fn each_succ(&self, n: NodeId, f: &fn(NodeId) -> bool) {
-    /* TODO(borrowck): fix */
-    let succ = self.succ.get(&n);
-    succ.each_key(|&k| f(k));
+    self.succ.get(&n).each_key(|&k| f(k));
   }
 
   fn each_succ_edge(&self, n: NodeId, f: &fn(NodeId, E) -> bool) {
-    /* TODO(borrowck): fix */
-    let succ = self.succ.get(&n);
-    succ.each(|&(&n, &e)| f(n, e));
+    self.succ.get(&n).each(|&n, &e| f(n, e));
   }
 
   fn each_postorder(&self, root: NodeId, f: &fn(&NodeId) -> bool) {
-    /* TODO(borrowck): fix */
-    let (order, _) = self.postorder(root);
-    order.each(f);
+    self.postorder(root).first().each(f)
   }
 
   fn each_rev_postorder(&self, root: NodeId, f: &fn(&NodeId) -> bool) {
-    /* TODO(borrowck): fix */
-    let (order, _) = self.postorder(root);
-    order.each_reverse(f);
+    self.postorder(root).first().each_reverse(f);
   }
 
   fn map_nodes(&mut self, f: &fn(NodeId, N) -> N) {
@@ -175,19 +151,19 @@ pub impl<N, E> Graph<N, E> {
                  e: &fn(&E) -> E2) -> Graph<N2, E2> {
     let mut g2 = Graph();
     g2.next = self.next;
-    for self.nodes.each |&(&k, v)| {
+    for self.nodes.each |&k, v| {
       g2.nodes.insert(k, n(k, v));
     }
-    for self.pred.each |&(&k, v)| {
+    for self.pred.each |&k, v| {
       let mut set = ~HashSet::new();
       for v.each |&value| {
         set.insert(value);
       }
       g2.pred.insert(k, set);
     }
-    for self.succ.each |&(&k, v)| {
+    for self.succ.each |&k, v| {
       let mut map = ~HashMap::new();
-      for v.each |&(&k, v)| {
+      for v.each |&k, v| {
         map.insert(k, e(v));
       }
       g2.succ.insert(k, map);
@@ -199,14 +175,14 @@ pub impl<N, E> Graph<N, E> {
          nid: &fn(NodeId) -> ~str,
          node: &fn(NodeId, &N) -> ~str,
          edge: &fn(&E) -> ~str) {
-    for self.nodes.each |&(&id, n)| {
+    for self.nodes.each |&id, n| {
       out.write_str(nid(id));
       out.write_str(~" [");
       out.write_str(node(id, n));
       out.write_str(~"];\n");
     }
-    for self.succ.each |&(&id1, neighbors)| {
-      for neighbors.each |&(&id2, e)| {
+    for self.succ.each |&id1, neighbors| {
+      for neighbors.each |&id2, e| {
         out.write_str(nid(id1));
         out.write_str(~" -> ");
         out.write_str(nid(id2));
@@ -222,7 +198,7 @@ pub impl<N, E> Graph<N, E> {
     self.traverse(&mut ordering, root, 0);
     let mut v = ~[];
     vec::grow(&mut v, ordering.len(), &root);
-    for ordering.each |&(&id, &pos)| {
+    for ordering.each |&id, &pos| {
       v[pos] = id;
     }
     return (v, ordering);
@@ -235,7 +211,7 @@ pub impl<N, E> Graph<N, E> {
     }
     o.insert(n, -1);
     let mut next = i;
-    for self.succ.get(&n).each |&(&id, _)| {
+    for self.succ.get(&n).each |&id, _| {
       next = self.traverse(o, id, next);
     }
     o.insert(n, next);

@@ -123,20 +123,21 @@ fn main() {
       }
     }
   };
-  let mut ast = do prof(m, "generating ast") {
+  let ast = do prof(m, "generating ast") {
     parse::from_json(&json, copy m.free[0])
   };
-  ast = ast.elaborate();
+  let ast = @ast.elaborate();
   if opt_present(m, "dump-ast") {
     io::println(ast.pp());
   }
-  do prof(m, "typecheck")   { analysis::typecheck::check(&ast)   }
-  do prof(m, "returncheck") { analysis::returncheck::check(&ast) }
-  do prof(m, "maincheck")   { analysis::maincheck::check(&ast)   }
-  do prof(m, "initcheck")   { analysis::initcheck::check(&ast)   }
+  do prof(m, "typecheck")   { analysis::typecheck::check(ast)   }
+  do prof(m, "returncheck") { analysis::returncheck::check(ast) }
+  do prof(m, "maincheck")   { analysis::maincheck::check(ast)   }
+  do prof(m, "initcheck")   { analysis::initcheck::check(ast)   }
 
   /* middle */
   let safe = opt_present(m, "safe") && !opt_present(m, "unsafe");
+  let @ast = ast;
   let mut ir = trans::translate(ast, safe);
   if opt_present(m, "dot-ir")  { ir.dot(io::stdout()); }
   pass(ir::ssa, &mut ir, m, "dot-ssa");

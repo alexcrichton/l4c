@@ -3,69 +3,82 @@ use std::json::*;
 
 use front::{ast, mark};
 
-struct Parser {
-  file:  @~str,
-  main: ~str,
-  symtab: HashMap<~str, uint>,
+struct SymbolGenerator {
   symbols: ~[~str],
+  table: HashMap<~str, uint>,
+}
+
+struct Parser<'self> {
+  file:  @~str,
+  ismain: bool,
+  symgen: &'self mut SymbolGenerator,
 }
 
 pub fn from_json(j: &Json, main: ~str) -> ast::Program {
-  let mut parser = Parser{symtab: HashMap::new(), file: @~"", main: main,
-                          symbols: ~[]};
-  return parser.parse(j);
-}
+  let mut symgen = SymbolGenerator { table: HashMap::new(), symbols: ~[] };
+  let mut decls = ~[];
 
-impl Parser {
-  fn parse(&mut self, j: &Json) -> ast::Program {
-    match *j {
-      List(ref data) => {
-        let mut decls = ~[];
-        for data.each |&j| {
-          match j {
-            List([String(copy s), List(ref data)]) => {
-              self.file = @s;
-              for data.each |j| {
-                decls.push(self.to_gdecl(j));
-              }
+  match *j {
+    List(ref data) => {
+      for data.each |&j| {
+        match j {
+          List([String(copy s), List(ref data)]) => {
+            let parser = Parser{
+              ismain: s == main,
+              file: @s,
+              symgen: &mut symgen,
+            };
+            for data.each |j| {
+              decls.push(parser.to_gdecl(j));
             }
-            _ => fail!(~"malformed json")
           }
+          _ => fail!(~"malformed json")
         }
-        let mut syms = ~[];
-        syms <-> self.symbols;
-        return ast::Program::new(decls, syms);
       }
-      _ => fail!(~"expected object")
     }
+    _ => fail!(~"expected object")
   }
 
-  fn gettyp<'r>(&self, j: &'r Json) -> (~str, &'r ~Object) {
+  let SymbolGenerator{ symbols, _ } = symgen;
+  return ast::Program::new(decls, symbols);
+}
+
+impl SymbolGenerator {
+  fn intern(&mut self, s: &~str) -> ast::Ident {
+    let s = match self.table.find(s) {
+      Some(&i) => { return i }
+      None => copy *s
+    };
+    let ret = self.symbols.len();
+    self.table.insert(copy s, ret);
+    self.symbols.push(s);
+    return ret;
+  }
+}
+
+impl<'self> Parser<'self> {
+  fn gettyp<'r>(&self, j: &'r Json) -> (~str, &'r Object) {
     match *j {
       Object(ref obj) =>
         match *(obj.get(&~"typ")) {
-          String(copy s) => (s, obj),
+          String(copy s) => {
+            let o: &'r Object = *obj;
+            (s, o)
+          }
           _ => fail!(~"expected string key")
         },
       _ => fail!(~"gdecl expects an object")
     }
   }
 
-  fn to_id(&mut self, j: &Json) -> ast::Ident {
-    let s = match *j {
-      String(ref s) => match self.symtab.find(s) {
-        Some(&i) => { return i }
-        None => copy *s
-      },
+  fn to_id(&self, j: &Json) -> ast::Ident {
+    match *j {
+      String(ref s) => self.symgen.intern(s),
       _ => fail!(~"not a string")
-    };
-    let ret = self.symbols.len();
-    self.symtab.insert(copy s, ret);
-    self.symbols.push(s);
-    return ret;
+    }
   }
 
-  fn to_mark<T>(&mut self, o: &~Object, f: &fn(&Json) -> ~T) -> mark::Mark<T> {
+  fn to_mark<T>(&self, o: &Object, f: &fn(&Json) -> ~T) -> mark::Mark<T> {
     let left  = self.to_coord(o.get(&~"l"));
     let right = self.to_coord(o.get(&~"r"));
     let data  = f(o.get(&~"d"));
@@ -79,7 +92,7 @@ impl Parser {
     }
   }
 
-  fn to_gdecl(&mut self, j: &Json) -> ~ast::GDecl {
+  fn to_gdecl(&self, j: &Json) -> ~ast::GDecl {
     let (typ, fields) = self.gettyp(j);
     match typ {
       ~"typedef" => ~ast::Typedef(self.to_id(fields.get(&~"id")),
@@ -93,7 +106,7 @@ impl Parser {
         let ret = self.to_typ(fields.get(&~"ret"));
         let name = self.to_id(fields.get(&~"name"));
         let args = self.to_pairs(fields.get(&~"args"));
-        if self.main == *self.file {
+        if self.ismain {
           ~ast::FunIDecl(ret, name, args)
         } else {
           ~ast::FunEDecl(ret, name, args)
@@ -106,7 +119,7 @@ impl Parser {
     }
   }
 
-  fn to_pairs(&mut self, j: &Json) -> ~[(ast::Ident, @ast::Type)] {
+  fn to_pairs(&self, j: &Json) -> ~[(ast::Ident, @ast::Type)] {
     match *j {
       List(ref L) =>
         L.map(|x|
@@ -120,7 +133,7 @@ impl Parser {
     }
   }
 
-  fn to_typ(&mut self, j: &Json) -> @ast::Type {
+  fn to_typ(&self, j: &Json) -> @ast::Type {
     let (typ, fields) = self.gettyp(j);
     match typ {
       ~"int"      => @ast::Int,
@@ -134,7 +147,7 @@ impl Parser {
     }
   }
 
-  fn to_stm(&mut self, j: &Json) -> ~ast::Statement {
+  fn to_stm(&self, j: &Json) -> ~ast::Statement {
     let (typ, fields) = self.gettyp(j);
     match typ {
       ~"if"       => ~ast::If(self.to_exp(fields.get(&~"cond")),
@@ -167,7 +180,7 @@ impl Parser {
     }
   }
 
-  fn to_exp(&mut self, j: &Json) -> ~ast::Expression {
+  fn to_exp(&self, j: &Json) -> ~ast::Expression {
     let (typ, fields) = self.gettyp(j);
     match typ {
       ~"var"      => ~ast::Var(self.to_id(fields.get(&~"var"))),
@@ -213,7 +226,7 @@ impl Parser {
     }
   }
 
-  fn to_binop(&mut self, j: &Json) -> ast::Binop {
+  fn to_binop(&self, j: &Json) -> ast::Binop {
     match *j {
       String(~"+")  => ast::Plus,
       String(~"-")  => ast::Minus,
@@ -246,7 +259,7 @@ impl Parser {
     }
   }
 
-  fn to_opt<T>(&mut self, j: &Json, f: &fn(&Json) -> T) -> Option<T> {
+  fn to_opt<T>(&self, j: &Json, f: &fn(&Json) -> T) -> Option<T> {
     let (typ, fields) = self.gettyp(j);
     match typ {
       ~"none" => None,

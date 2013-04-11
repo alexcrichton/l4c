@@ -18,7 +18,7 @@ type Resolution = Either<(uint, uint), (uint, uint)>;
 
 struct Allocator {
   f: @mut Function,
-  colors: ColorMap,
+  colors: @mut ColorMap,
   slots: HashMap<Tag, uint>,
   max_slot: uint,
   max_call_stack: uint,
@@ -26,16 +26,16 @@ struct Allocator {
 
   /* data needed for coalescing */
   precolored: HashSet<Temp>,
-  constraints: ConstraintMap,
+  constraints: @mut ConstraintMap,
 }
 
 pub fn color(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
-    liveness::calculate(&f.cfg, f.root, &mut f.liveness);
+    unsafe { liveness::calculate(f.cfg, f.root, &mut f.liveness) };
 
-    let mut a = Allocator{ colors: SmallIntMap::new(),
+    let mut a = Allocator{ colors: @mut SmallIntMap::new(),
                            precolored: HashSet::new(),
-                           constraints: SmallIntMap::new(),
+                           constraints: @mut SmallIntMap::new(),
                            slots: HashMap::new(),
                            f: *f,
                            max_slot: 0,
@@ -63,16 +63,16 @@ impl Allocator {
   fn run(&mut self) {
     /* TODO: why can't this be above */
     /* Color the graph completely */
-    info!("coloring: %s", self.f.name);
+    unsafe { info!("coloring: %s", self.f.name); }
 
-    do profile::dbg("coloring") { self.color(self.f.root); }
-    for self.colors.each |&(tmp, color)| {
+    do profile::dbg("coloring") { unsafe { self.color(self.f.root); } }
+    for self.colors.each |tmp, color| {
       debug!("%s => %?", tmp.to_str(), color);
     }
 
     do profile::dbg("coalescing") {
-      coalesce::optimize(self.f, &mut self.colors,
-                         &self.precolored, &self.constraints);
+      coalesce::optimize(self.f, self.colors,
+                         &self.precolored, self.constraints);
     }
 
     /* Finally remove all phi nodes and all temps */
@@ -86,7 +86,7 @@ impl Allocator {
    * A top-down traversal of the dominator tree is done, coloring all
    * definitions as they are seen with the first available color.
    */
-  fn color(&mut self, n: graph::NodeId) {
+  unsafe fn color(&mut self, n: graph::NodeId) {
     debug!("coloring %?", n);
     let mut tmplive = HashSet::new();
     let tmpdelta = self.f.liveness.deltas.get(&n);
@@ -216,27 +216,30 @@ impl Allocator {
         };
 
         macro_rules! process(
-          ($t:expr, $regs:expr) => (
+          ($t:expr, $regs:expr) => ({
+            /* TODO: this local variable shouldn't be needed */
+            let __tmp = $regs;
             if self.colors.contains_key(&$t) {
-              assert!($regs.get(*self.colors.get(&$t)));
+              assert!(__tmp.get(*self.colors.get(&$t)));
             } else {
-              let color = min_vacant(&$regs);
+              let color = min_vacant(__tmp);
               /*debug!("assigning %s %? %s", $t.pp(), color, $regs.pp());*/
               assert!(color <= arch::num_regs);
               assert!(self.colors.insert($t, color));
-              $regs.set(color, true);
+              __tmp.set(color, true);
             }
-          )
+          })
         );
 
         /* TODO: cleanup? */
         debug!("coloring uses");
         for ins.each_use |tmp| {
-          process!(tmp, banned)
+          /* TODO: this looks stupid */
+          process!(tmp, (&mut banned))
         }
         debug!("processing live-out temporaries");
         for tmplive.each |&tmp| {
-          process!(tmp, banned);
+          process!(tmp, (&mut banned));
         }
         debug!("pruning dead uses");
         for ins.each_use |tmp| {
@@ -256,7 +259,7 @@ impl Allocator {
           }
         }
         for copies.each |&(dst, _)| {
-          process!(dst, regstmp);
+          process!(dst, (&mut regstmp));
         }
         debug!("adding in all live-out temps");
         for tmplive.each |tmp| {
@@ -268,7 +271,7 @@ impl Allocator {
         debug!("processing defs");
         for ins.each_def |tmp| {
           if !self.colors.contains_key(&tmp) {
-            process!(tmp, registers);
+            process!(tmp, (&mut registers));
             if !tmplive.contains(&tmp) {
               registers.set(*self.colors.get(&tmp), false);
             }
@@ -303,6 +306,7 @@ impl Allocator {
 
   fn remove_phis(&self) {
     let cfg = &mut self.f.cfg;
+
     for cfg.each_node |id, ins| {
       let mut phi_vars = ~[];
       let mut phi_maps = HashMap::new();
@@ -318,13 +322,13 @@ impl Allocator {
           ~Phi(tmp, ref map) => {
             debug!("phi var %? %?", tmp, *self.colors.get(&tmp));
             phi_vars.push(*self.colors.get(&tmp));
-            for map.each |&(&pred, &tmp)| {
+            for map.each |&pred, &tmp| {
               phi_maps.find_mut(&pred).unwrap().push(tmp);
             }
           }
           ~MemPhi(def, ref map) => {
             mem_vars.push(def);
-            for map.each |&(&pred, &slot)| {
+            for map.each |&pred, &slot| {
               mem_maps.find_mut(&pred).unwrap().push(slot);
             }
           }
@@ -332,6 +336,7 @@ impl Allocator {
         }
       }
 
+      let mut to_append = ~[];
       for cfg.each_pred(id) |pred| {
         let mut perm = phi_maps.pop(&pred).unwrap();
         let mut mems = mem_maps.pop(&pred).unwrap();
@@ -351,7 +356,12 @@ impl Allocator {
           ins.push(~Raw(fmt!("popq %s", Stack(dst + i * arch::ptrsize).pp())));
         }
 
-        if ins.len() == 0 { loop }
+        if ins.len() > 0 {
+          to_append.push((pred, ins));
+        }
+      }
+
+      do vec::consume(to_append) |_, (pred, ins)| {
         /* there are no critical edges in the graph, so we can just append */
         cfg.map_consume_node(pred, |stms| stms + ins);
       }
@@ -371,7 +381,7 @@ impl Allocator {
     for order.each_reverse |&id| {
       let ins = vec::build(|push| {
         if id == self.f.root {
-          for self.colors.each |&(_, &color)| {
+          for self.colors.each |_, &color| {
             let reg = arch::num_reg(color);
             if arch::callee_reg(reg) && !self.callee_saved.contains(&color) {
               self.callee_saved.push(color);
@@ -508,7 +518,9 @@ impl Allocator {
   }
 
   fn alloc_tmp(&self, tmp: Temp) -> ~Operand {
-    ~Register(arch::num_reg(*self.colors.get(&tmp)), *self.f.sizes.get(&tmp))
+    unsafe {
+      ~Register(arch::num_reg(*self.colors.get(&tmp)), *self.f.sizes.get(&tmp))
+    }
   }
 
   fn resolve_perm(&self, result: &[uint], incoming: &[uint]) -> ~[~Instruction] {
@@ -552,15 +564,16 @@ fn resolve_perm(result: &[uint], incoming: &[uint]) -> ~[Resolution] {
 
   /* maps describing src -> dst and dst -> src */
   /* TODO: can sim become better */
-  let mut src_dst = HashMap::new();
+  let mut src_dst: HashMap<uint, ~[uint]> = HashMap::new();
   let mut dst_src = SmallIntMap::new();
   for vec::each2(result, incoming) |&dst, &src| {
     if dst == src { loop }
     assert!(dst_src.insert(dst, src));
     match src_dst.find_mut(&src) {
-      None    => { src_dst.insert(src, ~[dst]); }
-      Some(l) => { l.push(dst); }
+      Some(l) => { l.push(dst); loop }
+      None => ()
     }
+    src_dst.insert(src, ~[dst]);
   }
 
   /* deal with all move chains first */

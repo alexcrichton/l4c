@@ -22,13 +22,13 @@ pub fn simplify(p: &mut ir::Program) {
            to see this, look at ../tests1/kestrel-logical01.l2 */
   for vec::each_mut(p.funs) |f| {
     /* Take out all the dead branches/edges */
-    eliminate_dead(&mut f.cfg);
+    eliminate_dead(f.cfg);
     /* Remove all unreachable nodes */
-    prune(&mut f.cfg, f.root);
+    prune(f.cfg, f.root);
     /* Fix all phis or remove them from the previous operation */
-    fix_phis(&mut f.cfg);
+    fix_phis(f.cfg);
     /* Finally merge nodes together if we can */
-    let (newroot, changes) = merge(&mut f.cfg, f.root);
+    let (newroot, changes) = merge(f.cfg, f.root);
 
     /* After merging, we need to update the 'loops' array metadata which
        maintains information about what's a loop header and where its loop body
@@ -40,8 +40,10 @@ pub fn simplify(p: &mut ir::Program) {
       let cond = resolve(&changes, cond);
       let body = resolve(&changes, body);
       let end  = resolve(&changes, end);
-      if f.cfg.contains(cond) && f.cfg.contains(body) {
-        f.loops.insert(cond, (body, end));
+      unsafe {
+        if f.cfg.contains(cond) && f.cfg.contains(body) {
+          f.loops.insert(cond, (body, end));
+        }
       }
     }
     f.root = newroot;
@@ -136,13 +138,17 @@ pub fn merge<T>(cfg: &mut CFG<T>,
     /* Try to merge n's predecessor into it */
     if preds == 1 && cfg.num_succ(pred) == 1 {
       debug!("merging %? down into %?", pred, n);
+
       /* Add all of pred's incoming edges as incoming edges to n */
-      for cfg.each_pred_edge(pred) |pred, &edge| {
-        cfg.add_edge(pred, n, edge);
-      }
+      let mut edges = ~[];
+      for cfg.each_pred_edge(pred) |pred, &edge| { edges.push((pred, edge)); }
+      for edges.each |&(pred, edge)| { cfg.add_edge(pred, n, edge); }
+
+      /* merge the two blocks of statements */
       let mut blk = cfg.remove_node(pred);
       blk.push_all_move(cfg.pop_node(n));
       cfg.update_node(n, blk);
+
       changes.insert(pred, n);
       if pred == root {
         root = n
@@ -172,14 +178,23 @@ pub fn merge<T>(cfg: &mut CFG<T>,
  * modifying the other edge to be and 'Always' or a 'Branch' as appropriate.
  */
 fn eliminate_dead(cfg: &mut ir::CFG) {
+  /* figure out which nodes are constant, modifying them if necessary */
   let mut constant = ~[];
-  for cfg.each_node |n, stms| {
-    match vec::last_opt(*stms) {
-      Some(&~ir::Condition(~ir::Const(c, _))) => { constant.push((n, c)); }
-      _ => ()
-    }
+  do cfg.map_nodes |n, mut stms| {
+    let pop = match vec::last_opt(stms) {
+      Some(&~ir::Condition(~ir::Const(c, _))) => {
+        constant.push((n, c));
+        true
+      }
+      _ => false
+    };
+    if pop { stms.pop(); }
+    stms
   }
 
+  /* figure out what to do with each constant node */
+  let mut to_remove = ~[];
+  let mut to_add = ~[];
   for constant.each |&(node, c)| {
     for cfg.each_succ_edge(node) |succ, edge| {
       let to_update = match edge {
@@ -189,17 +204,17 @@ fn eliminate_dead(cfg: &mut ir::CFG) {
         ir::TBranch if c != 0 => ir::Branch,
         _ => {
           debug!("removing edge %? %?", node, succ);
-          cfg.remove_edge(node, succ);
+          to_remove.push((node, succ));
           loop;
         }
       };
-      cfg.add_edge(node, succ, to_update);
-    }
-    do cfg.map_consume_node(node) |mut stms| {
-      stms.pop(); /* remove 'Condition' */
-      stms
+      to_add.push((node, succ, to_update));
     }
   }
+
+  /* Actually apply all the changes */
+  for to_remove.each |&(n, s)| { cfg.remove_edge(n, s); }
+  for to_add.each |&(n, s, e)| { cfg.add_edge(n, s, e); }
 }
 
 /**
@@ -209,14 +224,20 @@ fn eliminate_dead(cfg: &mut ir::CFG) {
  * there's only one argument now.
  */
 fn fix_phis(cfg: &mut ir::CFG) {
-  do cfg.map_nodes |n, stms| {
-    do vec::map_consume(stms) |s| {
+  /* need cfg to be immutable inside, so we can't use map_nodes */
+  let mut ids = ~[];
+  for cfg.each_node |n, _| { ids.push(n); }
+
+  do vec::consume(ids) |_, n| {
+    let stms = cfg.pop_node(n);
+
+    let stms = do vec::map_consume(stms) |s| {
       match s {
         ~ir::Phi(def, ref map) => {
           /* TODO: shouldn't have to make a dup */
           let mut dup = HashMap::new();
           let mut predtmp = def;
-          for map.each |&(&pred, &tmp)| {
+          for map.each |&pred, &tmp| {
             if cfg.contains_edge(pred, n) {
               dup.insert(pred, tmp);
               predtmp = tmp;
@@ -230,6 +251,8 @@ fn fix_phis(cfg: &mut ir::CFG) {
         }
         _ => s
       }
-    }
+    };
+
+    cfg.add_node(n, stms);
   }
 }

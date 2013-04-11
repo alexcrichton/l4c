@@ -2,11 +2,11 @@ use front::error;
 use front::ast::*;
 
 struct ReturnChecker {
-  err: error::List,
+  err: @mut error::List,
 }
 
 pub fn check(a: &Program) {
-  let mut rc = ReturnChecker{ err: error::new() };
+  let mut rc = ReturnChecker{ err: @mut error::new() };
   debug!("returnchecking");
   rc.check(a);
   rc.err.check();

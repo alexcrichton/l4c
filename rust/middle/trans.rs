@@ -1,4 +1,4 @@
-use core::util::replace;
+use core::util::{replace, swap};
 use core::hashmap::HashMap;
 
 use front::{ast, mark};
@@ -13,9 +13,9 @@ struct ProgramInfo {
   structs: AllStructInfo,
 }
 
-struct Translator<'self> {
-  t: &'self ProgramInfo,
-  f: &'self mut ir::Function,
+struct Translator {
+  t: @ProgramInfo,
+  f: ir::Function,
   vars: HashMap<ast::Ident, temp::Temp>,
   temps: temp::Allocator,
 
@@ -34,11 +34,11 @@ struct Translator<'self> {
 
 pub fn translate(mut p: ast::Program, safe: bool) -> ir::Program {
   debug!("building translation info");
-  /* TODO: rename to 'info' once it's not a global log level */
-  let mut pi = ProgramInfo { funs: HashMap::new(), structs: HashMap::new() };
-  pi.build(&p);
+  let mut info = ProgramInfo { funs: HashMap::new(), structs: HashMap::new() };
+  info.build(&p);
   let mut decls = ~[];
   p.decls <-> decls;
+  let info = @info;
 
   debug!("translating");
   let mut accum = ~[];
@@ -46,31 +46,29 @@ pub fn translate(mut p: ast::Program, safe: bool) -> ir::Program {
   do vec::consume(decls) |_, d| {
     match ast::unmarkg(d) {
       ~ast::Function(_, id, args, body) => {
-        let mut f = ir::Function(p.str(id));
-        f.root = f.cfg.new_id();
-        {
-          /* loan f to trans for just this block of code */
-          let mut trans = Translator {
-            t: &pi,
-            f: &mut f,
-            vars: HashMap::new(),
-            temps: temp::new(),
-            cur_id: f.root,
-            stms: ~[],
-            break_to: 0,
-            continue_to: 0,
-            for_step: ~ast::Nop,
-            safe: safe
-          };
-          trans.run(args, body);
-        }
+        let mut trans = Translator {
+          t: info,
+          f: ir::Function(p.str(id)),
+          vars: HashMap::new(),
+          temps: temp::new(),
+          cur_id: 0,
+          stms: ~[],
+          break_to: 0,
+          continue_to: 0,
+          for_step: ~ast::Nop,
+          safe: safe
+        };
+        trans.cur_id = trans.f.cfg.new_id();
+        trans.f.root = trans.cur_id;
+        trans.run(args, body);
+        let Translator{ f, _ } = trans;
         accum.push(f);
       }
       _ => ()
     };
   }
 
-  return ir::Program { funs: accum };
+  return ir::Program(accum);
 }
 
 fn typ(t: @ast::Type) -> ir::Type {
@@ -115,11 +113,18 @@ impl ProgramInfo {
         }
         self.structs.insert(id, (table, size));
       }
-      ast::FunIDecl(_, id, _) => { self.funs.insert(id, self.ilabel(p, id)); }
-      ast::FunEDecl(_, id, _) => { self.funs.insert(id, self.elabel(p, id)); }
+      ast::FunIDecl(_, id, _) => {
+        let f = self.ilabel(p, id);
+        self.funs.insert(id, f);
+      }
+      ast::FunEDecl(_, id, _) => {
+        let f = self.elabel(p, id);
+        self.funs.insert(id, f);
+      }
       ast::Function(_, id, _, _) => {
         if !self.funs.contains_key(&id) {
-          self.funs.insert(id, self.ilabel(p, id));
+          let f = self.ilabel(p, id);
+          self.funs.insert(id, f);
         }
       }
       _ => ()
@@ -135,7 +140,7 @@ impl ProgramInfo {
   }
 }
 
-impl<'self> Translator<'self> {
+impl Translator {
   fn run(&mut self, args: ~[(ast::Ident, @ast::Type)], body: ~ast::Statement) {
     /* TODO: why can't this be above */
     self.arguments(args);
@@ -162,19 +167,23 @@ impl<'self> Translator<'self> {
       ~ast::Continue => {
         /* TODO: can this copy be avoided? */
         self.stm(copy self.for_step);
-        self.f.cfg.add_edge(self.commit(), self.continue_to, ir::Branch);
+        let n = self.commit();
+        self.f.cfg.add_edge(n, self.continue_to, ir::Branch);
       }
       ~ast::Break => {
-        self.f.cfg.add_edge(self.commit(), self.break_to, ir::LoopOut);
+        let n = self.commit();
+        self.f.cfg.add_edge(n, self.break_to, ir::LoopOut);
       }
       ~ast::Return(e) => {
-        self.stms.push(~ir::Return(self.exp(e, false)));
+        let e = self.exp(e, false);
+        self.stms.push(~ir::Return(e));
         self.commit();
       }
       ~ast::Express(e) => {
         let e = self.exp(e, false);
-        let size = self.f.size(e);
-        self.stms.push(~ir::Move(self.tmp(size), e));
+        let size = e.size(&self.f.types);
+        let tmp = self.tmp(size);
+        self.stms.push(~ir::Move(tmp, e));
       }
       ~ast::For(init, cond, step, body) => {
         self.stm(init);
@@ -206,7 +215,8 @@ impl<'self> Translator<'self> {
         match exp {
           None => (),
           Some(init) => {
-            self.stms.push(~ir::Move(tmp, self.exp(init, false)));
+            let init = self.exp(init, false);
+            self.stms.push(~ir::Move(tmp, init));
           }
         }
         self.vars.insert(id, tmp);
@@ -289,7 +299,8 @@ impl<'self> Translator<'self> {
         self.condition(e2, tid, tedge, fid, fedge, into);
       }
       e => {
-        self.stms.push(~ir::Condition(self.exp(e, false)));
+        let e = self.exp(e, false);
+        self.stms.push(~ir::Condition(e));
         let id = self.commit_with(into);
         self.f.cfg.add_edge(id, tid, tedge);
         self.f.cfg.add_edge(id, fid, fedge);
@@ -351,10 +362,14 @@ impl<'self> Translator<'self> {
         ~ir::Temp(tmp)
       }
 
-      ~ast::Alloc(t) =>
-        self.alloc(t, self.consti(1), ~"salloc"),
-      ~ast::AllocArray(t, e) =>
-        self.alloc(t, self.exp(e, false), ~"salloc_array"),
+      ~ast::Alloc(t) => {
+        let amt = self.consti(1);
+        self.alloc(t, amt, ~"salloc")
+      }
+      ~ast::AllocArray(t, e) => {
+        let amt = self.exp(e, false);
+        self.alloc(t, amt, ~"salloc_array")
+      }
 
       ~ast::ArrSub(arr, idx, t) => {
         let base = self.exp(arr, false);
@@ -462,7 +477,8 @@ impl<'self> Translator<'self> {
     /* Translate the conditional, terminating the basic block */
     let true_id = self.f.cfg.new_id();
     let false_id = self.f.cfg.new_id();
-    self.stms.push(~ir::Condition(self.exp(c, false)));
+    let c = self.exp(c, false);
+    self.stms.push(~ir::Condition(c));
 
     macro_rules! process(
       ($e:expr, $typ:expr) => ({
@@ -485,7 +501,8 @@ impl<'self> Translator<'self> {
 
           /* Otherwise, we have to finish things up */
           e => {
-            self.stms.push(~ir::Move(dst, self.exp(e, addr)));
+            let e = self.exp(e, addr);
+            self.stms.push(~ir::Move(dst, e));
             self.f.cfg.add_edge(self.cur_id, end, $typ);
           }
         }
@@ -542,7 +559,8 @@ impl<'self> Translator<'self> {
   }
 
   fn commit(&mut self) -> graph::NodeId {
-    self.commit_with(self.f.cfg.new_id())
+    let id = self.f.cfg.new_id();
+    self.commit_with(id)
   }
 
   fn consti(&self, c: i32) -> ~ir::Expression { ~ir::Const(c, ir::Int) }
@@ -550,7 +568,7 @@ impl<'self> Translator<'self> {
 
   fn commit_with(&mut self, next: graph::NodeId) -> graph::NodeId {
     let mut L = ~[];
-    L <-> self.stms; /* swap a new block into place */
+    swap(&mut L, &mut self.stms); /* swap a new block into place */
     let id = replace(&mut self.cur_id, next);
     self.f.cfg.add_node(id, L);
     return id;

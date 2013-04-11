@@ -20,7 +20,7 @@ pub struct Program {
 pub struct Function {
   name: ~str,
   root: graph::NodeId,
-  cfg: CFG,
+  cfg: @mut CFG,
   sizes: HashMap<Temp, Size>,
   temps: uint,
   ssa: ssa::Analysis,
@@ -283,14 +283,14 @@ impl PrettyPrint for Instruction {
              ~"(" + str::connect(args.map(|a| a.pp()), ~", ") + ~")"),
       Phi(tmp, ref map) => {
         let mut s = ~"//" + tmp.pp() + ~" <- phi(";
-        for map.each |&(&id, &tmp)| {
+        for map.each |&id, &tmp| {
           s += fmt!("[ %s - n%? ] ", tmp.pp(), id);
         }
         s + ~")"
       }
       MemPhi(tag, ref map) => {
         let mut s = fmt!("//m%? <- mphi(", tag);
-        for map.each |&(&id, &tag)| {
+        for map.each |&id, &tag| {
           s += fmt!("[ m%? - n%? ] ", tag, id);
         }
         s + ~")"
@@ -561,13 +561,15 @@ impl Graphable for Program {
   fn dot(&self, out: @io::Writer) {
     out.write_str(~"digraph {\n");
     for self.funs.each |f| {
-      f.cfg.dot(out,
-        |id| fmt!("%s_n%d", f.name, id as int),
-        |id, &ins|
-          ~"label=\"" + str::connect(ins.map(|s| s.pp()), "\\n") +
-          fmt!("\\n[node=%d]\" shape=box", id as int),
-        |&edge| fmt!("label=%?", edge)
-      )
+      unsafe {
+        f.cfg.dot(out,
+          |id| fmt!("%s_n%d", f.name, id as int),
+          |id, &ins|
+            ~"label=\"" + str::connect(ins.map(|s| s.pp()), "\\n") +
+            fmt!("\\n[node=%d]\" shape=box", id as int),
+          |&edge| fmt!("label=%?", edge)
+        )
+      }
     }
     out.write_str(~"\n}");
   }

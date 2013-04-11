@@ -14,26 +14,26 @@ use core::hashmap::HashMap;
 use middle::ir::*;
 use middle::temp::Temp;
 
-struct ConstantFolder<'self> {
-  f: &'self mut Function,
+struct ConstantFolder {
+  f: @mut Function,
   constants: HashMap<Temp, i32>,
   temps: HashMap<Temp, Temp>,
 }
 
 pub fn optimize(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
-    let mut opt = ConstantFolder { f: f,
+    let mut opt = ConstantFolder { f: *f,
                                    constants: HashMap::new(),
                                    temps: HashMap::new() };
     opt.run();
   }
 }
 
-impl<'self> ConstantFolder<'self> {
+impl ConstantFolder {
   /* TODO: why can't this all be above */
   fn run(&mut self) {
     /* Be sure to start at the top of the graph to visit definitions first */
-    let (order, _) = self.f.cfg.postorder(self.f.root);
+    let (order, _) = unsafe { self.f.cfg.postorder(self.f.root) };
     for order.each_reverse |&n| {
       self.f.cfg.map_consume_node(n, |stms| {
         vec::map_consume(stms, |s| self.stm(s))
@@ -93,7 +93,9 @@ impl<'self> ConstantFolder<'self> {
       ~Const(c, s) => (~Const(c, s), true),
       ~Temp(t) => {
         let opt = self.constants.find(&t);
-        let e = opt.map_default(~Temp(t), |&x| ~Const(*x, *self.f.types.get(&t)));
+        let e = unsafe {
+          opt.map_default(~Temp(t), |&x| ~Const(*x, *self.f.types.get(&t)))
+        };
         (e, true)
       }
       ~BinaryOp(op, e1, e2) => {

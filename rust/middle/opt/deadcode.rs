@@ -13,15 +13,15 @@ use std::bitv;
 
 use middle::ir::*;
 
-struct Eliminator<'self> {
-  f: &'self mut Function,
+struct Eliminator {
+  f: @mut Function,
   used: bitv::Bitv,
   stms: ~[~Statement],
 }
 
 pub fn optimize(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
-    let mut opt = Eliminator { f: f,
+    let mut opt = Eliminator { f: *f,
                                stms: ~[],
                                used: bitv::Bitv::new(f.types.len(), false) };
     /* TODO: surely this is easier on SSA form? */
@@ -29,28 +29,30 @@ pub fn optimize(p: &mut Program) {
   }
 }
 
-impl<'self> Eliminator<'self> {
+impl Eliminator {
   /* TODO: why can't this all be above */
   fn run(&mut self) -> bool {
     assert!(self.stms.len() == 0);
     debug!("running");
     self.used.clear();
     /* Mark all phi function arguments as used before we go anywhere */
-    for self.f.cfg.each_node |_, stms| {
-      for stms.each |&s| {
-        match s {
-          ~Phi(_, ref m) => {
-            for m.each |&(_, &t)| {
-              self.used.set(t, true);
+    unsafe {
+      for self.f.cfg.each_node |_, stms| {
+        for stms.each |&s| {
+          match s {
+            ~Phi(_, ref m) => {
+              for m.each |_, &t| {
+                self.used.set(t, true);
+              }
             }
+            _ => ()
           }
-          _ => ()
         }
       }
     }
 
     /* Be sure to start at the top of the graph to visit definitions first */
-    let (order, _) = self.f.cfg.postorder(self.f.root);
+    let (order, _) = unsafe { self.f.cfg.postorder(self.f.root) };
     let mut changed = false;
     for order.each |&n| {
       let orig = self.f.cfg[n].len();

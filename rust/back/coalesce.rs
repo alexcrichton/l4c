@@ -60,21 +60,17 @@ type Affinities = HashMap<Temp, ~HashMap<Temp, uint>>;
 struct Affinity(Temp, Temp, uint);
 struct Chunk(TempSet, uint);
 
-struct Coalescer<'self> {
+struct Coalescer {
   /* information passed to coalescing */
-  f: &'self mut assem::Function,
+  f: @mut assem::Function,
   /* set of temps that are precolored */
   precolored: bitv::Bitv,
   /* For all temps with constraints, contains mapping of the constraints. This
      is used when determining the admissible registers for a temp */
-  constraints: &'self alloc::ConstraintMap,
+  constraints: @mut alloc::ConstraintMap,
   /* Actual coloring information that's modified */
-  colors: &'self mut alloc::ColorMap,
+  colors: @mut alloc::ColorMap,
 
-  /* Mapping of a temp to where it's defined */
-  defs: HashMap<Temp, Location>,
-  /* Mapping of a temp to the set of locations in which it is used */
-  uses: HashMap<Temp, ~HashSet<Location>>,
   /* Set of fixed temps (cannot be changed) */
   fixed: bitv::Bitv,
   /* Map of affine temps, and their weights. The map works both ways, as in
@@ -83,44 +79,63 @@ struct Coalescer<'self> {
   /* Temporary mapping remembering the old colors of temps for rollbacks */
   old_color: SmallIntMap<uint>,
 
-  /* This algorithm requires a lot of information about the interference graph
-   * and associated components, and because interference information is very
-   * costly to generate, there are a number of caches which store the results of
-   * this computation to facilitate usage later on */
-  interference_cache: HashMap<Temp, ~TempSet>,
-  interferences_cache: HashMap<(Temp, Temp), bool>,
-  admissible_cache: HashMap<(Temp, uint), bool>,
-  dominates_cache: HashMap<(NodeId, NodeId), bool>,
-
-  /* Finally, find_interferences is an incredibly slow method, and this is a
-   * precomputation of the input to a more efficient format to be used in that
-   * method (more information on the method itself) */
-  liveness_map: HashMap<NodeId, ~[bitv::Bitv]>,
+  info: @mut CFGInfo,
 }
 
-pub fn optimize(f: &mut assem::Function,
-                colors: &mut alloc::ColorMap,
+struct CFGInfo {
+  /* Mapping of a temp to where it's defined */
+  defs: HashMap<Temp, Location>,
+  /* Mapping of a temp to the set of locations in which it is used */
+  uses: HashMap<Temp, ~HashSet<Location>>,
+
+  /* find_interferences is an incredibly slow method, and this is a
+     precomputation of the input to a more efficient format to be used in that
+     method (more information on the method itself) */
+  liveness_map: HashMap<NodeId, ~[bitv::Bitv]>,
+
+  /* This algorithm requires a lot of information about the interference graph
+     and associated components, and because interference information is very
+     costly to generate, there are a number of caches which store the results of
+     this computation to facilitate usage later on */
+  cache: @mut Cache,
+
+  f: @mut assem::Function,
+}
+
+struct Cache {
+  interference: HashMap<Temp, ~TempSet>,
+  interferences: HashMap<(Temp, Temp), bool>,
+  admissible: HashMap<(Temp, uint), bool>,
+  dominates: HashMap<(NodeId, NodeId), bool>,
+}
+
+pub fn optimize(f: @mut assem::Function,
+                colors: @mut alloc::ColorMap,
                 precolored: &TempSet,
-                constraints: &alloc::ConstraintMap) {
-  let liveness_map = liveness_map(&f.cfg, &f.liveness, f.temps);
+                constraints: @mut alloc::ConstraintMap) {
+  let liveness_map = unsafe { liveness_map(f.cfg, &f.liveness, f.temps) };
   let mut pre = bitv::Bitv::new(f.temps, false);
   for precolored.each |&t| {
     pre.set(t, true);
   }
-  let mut c = Coalescer { defs: HashMap::new(),
-                          uses: HashMap::new(),
-                          fixed: bitv::Bitv::new(f.temps, false),
+  let mut c = Coalescer { fixed: bitv::Bitv::new(f.temps, false),
                           f: f,
-                          liveness_map: liveness_map,
                           affinities: HashMap::new(),
                           colors: colors,
                           old_color: SmallIntMap::new(),
                           precolored: pre,
                           constraints: constraints,
-                          interference_cache: HashMap::new(),
-                          interferences_cache: HashMap::new(),
-                          admissible_cache: HashMap::new(),
-                          dominates_cache: HashMap::new() };
+                          info: @mut CFGInfo {
+                            liveness_map: liveness_map,
+                            cache: @mut Cache {
+                              interference: HashMap::new(),
+                              interferences: HashMap::new(),
+                              admissible: HashMap::new(),
+                              dominates: HashMap::new() },
+                            defs: HashMap::new(),
+                            uses: HashMap::new(),
+                            f: f, },
+                          };
   c.run();
 }
 
@@ -153,47 +168,15 @@ fn liveness_map(cfg: &assem::CFG, live: &liveness::Analysis, max: uint)
   return ret;
 }
 
-impl<'self> Coalescer<'self> {
+impl Coalescer {
   fn run(&mut self) {
     /* TODO: why can't this be above */
     do profile::dbg("building use/def") {
       for self.f.cfg.each_node |id, ins| {
-        self.build_use_def(id, ins);
+        self.info.build_use_def(id, ins);
       }
     }
     self.coalesce();
-  }
-
-  /**
-   * Build up the internal maps about use/def information. This precomputes the
-   * information about where each temp is defined and the set of uses for each
-   * temp.
-   */
-  fn build_use_def(&mut self, n: NodeId, ins: &~[~assem::Instruction]) {
-    macro_rules! add_use(
-      ($tmp:expr, $loc:expr) => ({
-        match self.uses.find_mut(&$tmp) {
-          Some(s) => { s.insert($loc); }
-          None => { self.uses.insert($tmp, ~set::singleton($loc)); }
-        }
-      })
-    );
-    for ins.eachi |i, &ins| {
-      for ins.each_def |tmp| {
-        assert!(self.defs.insert(tmp, (n, i as int)));
-      }
-      for ins.each_use |tmp| {
-        add_use!(tmp, (n, i as int));
-      }
-      match ins.phi_info() {
-        None => (),
-        Some((_, m)) => {
-          for m.each |&(&pred, &tmp)| {
-            add_use!(tmp, (pred, int::max_value));
-          }
-        }
-      }
-    }
   }
 
   /**
@@ -323,7 +306,7 @@ impl<'self> Coalescer<'self> {
         subset.insert(tmp);
         left.remove(&tmp);
         assert!(self.affinities.contains_key(&tmp));
-        for self.affinities.get(&tmp).each |&(&next, &weight)| {
+        for self.affinities.get(&tmp).each |&next, &weight| {
           debug!("%? affine with %? cost %?", tmp, next, weight);
           if left.contains(&next) && !subset.contains(&next) {
             debug!("adding %?", next);
@@ -369,7 +352,7 @@ impl<'self> Coalescer<'self> {
     self.set_color(t, c, &mut changed);
     debug!("recoloring %? to %?", t, c);
 
-    for self.interferences(t) |tmp| {
+    for self.info.interferences(t) |tmp| {
       debug!("recoloring %? interfering with %?", tmp, t);
       if !self.avoid_color(tmp, c, &mut changed) {
         /* rollback */
@@ -413,7 +396,7 @@ impl<'self> Coalescer<'self> {
       self.min_color(t, c)
     };
     self.set_color(t, color, changed);
-    for self.interferences(t) |tmp| {
+    for self.info.interferences(t) |tmp| {
       if !self.avoid_color(tmp, color, changed) {
         debug!("failed to avoid on interference %?", tmp);
         return false;
@@ -437,7 +420,7 @@ impl<'self> Coalescer<'self> {
     }
 
     /* Iterate over our interferences and bump counts for their colors */
-    for self.interferences(t) |tmp| {
+    for self.info.interferences(t) |tmp| {
       let idx = *self.colors.get(&tmp) - 1;
       if cnts[idx] != uint::max_value {
         cnts[idx] += 1;
@@ -463,14 +446,14 @@ impl<'self> Coalescer<'self> {
    * This doesn't look at neighbors to or anything like that, it's purely
    * whether the temp 't' could ever have the color 'color'.
    */
-  fn admissible(&mut self, t: Temp, color: uint) -> bool {
-    /* TODO: remove this cache */
-    match self.admissible_cache.find(&(t, color)) {
-      Some(&a) => return a,
-      None => ()
-    }
+  fn admissible(&self, t: Temp, color: uint) -> bool {
+    /* TODO: remove this cache? */
+    /*match unsafe { self.cache.admissible.find(&(t, color)) } {*/
+    /*  Some(&a) => { return a; }*/
+    /*  None => ()*/
+    /*}*/
     let b = self.admissible_impl(t, color);
-    self.admissible_cache.insert((t, color), b);
+    /*self.cache.admissible.insert((t, color), b);*/
     return b;
   }
 
@@ -523,7 +506,7 @@ impl<'self> Coalescer<'self> {
          * edge in the graph */
         for xs.each |&v| { /* v.chunk = x.chunk */
           for ys.each |&w| { /* w.chunk = y.chunk */
-            interferes = interferes || self.interferes(v, w);
+            interferes = interferes || self.info.interferes(v, w);
             if interferes { break }
           }
           if interferes { break }
@@ -572,13 +555,15 @@ impl<'self> Coalescer<'self> {
   fn find_affinities(&mut self) -> PriorityQueue<Affinity> {
     macro_rules! add_affine(
       ($a1:expr, $b1:expr, $weight1:expr) => ({
-        match self.affinities.find_mut(&$a1) {
-          Some(m) => { m.insert($b1, $weight1); }
-          None => {
-            let mut m = ~HashMap::new();
-            m.insert($b1, $weight1);
-            self.affinities.insert($a1, m);
+        /* TODO: should be a match */
+        if self.affinities.contains_key(&$a1) {
+          unsafe {
+            self.affinities.find_mut(&$a1).unwrap().insert($b1, $weight1);
           }
+        } else {
+          let mut m = ~HashMap::new();
+          m.insert($b1, $weight1);
+          self.affinities.insert($a1, m);
         }
       })
     );
@@ -598,11 +583,13 @@ impl<'self> Coalescer<'self> {
       let (n, weight) = to_visit.pop();
       assert!(visited.insert(n));
       /* We have a more costly weight if we're moving into a loop */
-      let weight = weight + if self.f.loops.contains_key(&n) { 1 } else { 0 };
+      let weight = weight + unsafe {
+        if self.f.loops.contains_key(&n) { 1 } else { 0 }
+      };
       for self.f.cfg[n].each |&ins| {
         match ins {
           ~assem::Phi(def, ref map) => {
-            for map.each |&(_, &tmp)| {
+            for map.each |_, &tmp| {
               /* TODO(#4650): when this ICE is fixed, uncomment */
               /*affine!(def, tmp, weight);*/
               add_affine!(tmp, def, weight);
@@ -635,28 +622,63 @@ impl<'self> Coalescer<'self> {
 
     return pq;
   }
+}
+
+impl CFGInfo {
+  /**
+   * Build up the internal maps about use/def information. This precomputes the
+   * information about where each temp is defined and the set of uses for each
+   * temp.
+   */
+  fn build_use_def(&mut self, n: NodeId, ins: &~[~assem::Instruction]) {
+    macro_rules! add_use(
+      ($tmp:expr, $loc:expr) => ({
+        match self.uses.find_mut(&$tmp) {
+          Some(s) => { s.insert($loc); loop; }
+          None => {}
+        }
+        self.uses.insert($tmp, ~set::singleton($loc));
+      })
+    );
+    for ins.eachi |i, &ins| {
+      for ins.each_def |tmp| {
+        assert!(self.defs.insert(tmp, (n, i as int)));
+      }
+      for ins.each_use |tmp| {
+        add_use!(tmp, (n, i as int));
+      }
+      match ins.phi_info() {
+        None => (),
+        Some((_, m)) => {
+          for m.each |&pred, &tmp| {
+            add_use!(tmp, (pred, int::max_value));
+          }
+        }
+      }
+    }
+  }
 
   /**
    * Tests whether two temps interfere within the interference graph
    *
    * This is done without actually creating the interference graph
    */
-  fn interferes(&mut self, x: Temp, y: Temp) -> bool {
+  fn interferes(&self, x: Temp, y: Temp) -> bool {
     /* TODO: remove this cache */
-    match self.interferences_cache.find(&(x, y)) {
+    match unsafe { self.cache.interferences.find(&(x, y)) } {
       Some(&b) => return b,
       None => (),
     }
     let b = self.interferes_impl(x, y);
-    self.interferences_cache.insert((x, y), b);
-    self.interferences_cache.insert((y, x), b);
+    self.cache.interferences.insert((x, y), b);
+    self.cache.interferences.insert((y, x), b);
     return b;
   }
 
   /**
    * Actual implementation without a cache of the interference of two temps
    */
-  fn interferes_impl(&mut self, x: Temp, y: Temp) -> bool {
+  fn interferes_impl(&self, x: Temp, y: Temp) -> bool {
     /* Algorithm 4.6 */
     let &xdef = self.defs.get(&x);
     let &ydef = self.defs.get(&y);
@@ -672,7 +694,7 @@ impl<'self> Coalescer<'self> {
 
     /* If 't' is live out in b's definition, then they definitely interfere */
     let &(bdef, bline) = self.defs.get(&b);
-    if self.f.liveness.out.get(&bdef).contains(&t) {
+    if unsafe { self.f.liveness.out.get(&bdef).contains(&t) } {
       return true;
     }
 
@@ -702,11 +724,13 @@ impl<'self> Coalescer<'self> {
    *
    * To see problems in optimization, see find_interferences
    */
-  fn interferences(&mut self, t: Temp, f: &fn(Temp) -> bool) {
+  fn interferences(&self, t: Temp, f: &fn(Temp) -> bool) {
     /* definitely cache information once we've calculated it */
-    match self.interference_cache.find(&t) {
-      Some(s) => { s.each(|&t| f(t)); return }
-      None => ()
+    unsafe {
+      match self.cache.interference.find(&t) {
+        Some(s) => { s.each(|&t| f(t)); return }
+        None => ()
+      }
     }
 
     /* Prelude to Algorithm 4.7 (find_interferences) */
@@ -733,8 +757,8 @@ impl<'self> Coalescer<'self> {
       }
     }
     debug!("%? interferencs: %s", t, set.pp());
-    self.interference_cache.insert(t, set);
-    self.interference_cache.get(&t).each(|&t| f(t));
+    self.cache.interference.insert(t, set);
+    unsafe { self.cache.interference.get(&t).each(|&t| f(t)); }
   }
 
   /**
@@ -763,7 +787,7 @@ impl<'self> Coalescer<'self> {
    * but really useful. This also explains the precomputation done far above
    * this function.
    */
-  fn find_interferences(&mut self, x: Temp, n: NodeId, set: &mut bitv::Bitv,
+  fn find_interferences(&self, x: Temp, n: NodeId, set: &mut bitv::Bitv,
                         visited: &mut NodeSet) {
     /* Algorithm 4.7 */
     if visited.contains(&n) { return }
@@ -791,28 +815,31 @@ impl<'self> Coalescer<'self> {
   /**
    * Tests wehther a location dominates another location in the graph
    */
-  fn dominates(&mut self, (a, aline): Location, (b, bline):Location) -> bool {
+  fn dominates(&self, (a, aline): Location, (b, bline):Location) -> bool {
     /* Same block? well that's easy */
     if a == b {
       return aline < bline;
     }
-    match self.dominates_cache.find(&(a, b)) {
-      Some(&s) => return s, None => ()
+    match unsafe { self.cache.dominates.find(&(a, b)) } {
+      Some(&s) => { return s; }
+      None => {}
     }
     /* Otherwise we just walk up b's idominator tree to see if we ever find a,
        if we find the root first, then a doesn't dominate b */
-    let mut cur = &b;
-    let mut dominates = false;
-    let idominator = &self.f.ssa.idominator;
-    loop {
-      let nxt = idominator.get(cur);
-      if nxt == cur { break }
-      if *nxt == a { dominates = true; break; }
-      cur = nxt;
+    unsafe {
+      let mut cur = &b;
+      let mut dominates = false;
+      let idominator = &self.f.ssa.idominator;
+      loop {
+        let nxt = idominator.get(cur);
+        if nxt == cur { break }
+        if *nxt == a { dominates = true; break; }
+        cur = nxt;
+      }
+      self.cache.dominates.insert((a, b), dominates);
+      self.cache.dominates.insert((b, a), !dominates);
+      return dominates;
     }
-    self.dominates_cache.insert((a, b), dominates);
-    self.dominates_cache.insert((b, a), !dominates);
-    return dominates;
   }
 }
 

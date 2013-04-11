@@ -8,14 +8,18 @@ use back::arch;
 pub fn constrain(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
     let mut live = liveness::Analysis();
-    liveness::calculate(&f.cfg, f.root, &mut live);
+    unsafe {
+      liveness::calculate(f.cfg, f.root, &mut live);
+    }
     let mut temps = temp::new_init(f.temps);
     do f.cfg.map_nodes |id, stms| {
       constrain_block(live.in.get(&id), *live.deltas.get(&id), |t| {
         let tmp = temps.new();
         /* TODO: why can't this be one statement */
-        let size; size = *f.sizes.get(&t);
-        f.sizes.insert(tmp, size);
+        unsafe {
+          let size; size = *f.sizes.get(&t);
+          f.sizes.insert(tmp, size);
+        }
         tmp
       }, stms)
     }

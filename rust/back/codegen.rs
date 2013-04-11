@@ -1,63 +1,72 @@
 use core::hashmap::{HashMap, HashSet};
+use core::util::swap;
 
 use middle::{ir, temp, ssa, liveness, label};
 use back::{assem, arch};
 
 pub struct CodeGenerator {
-  priv f: ir::Function,
   priv temps: temp::Allocator,
   priv sizes: HashMap<temp::Temp, assem::Size>,
   priv stms: ~[~assem::Instruction],
   priv tmap: HashMap<temp::Temp, temp::Temp>,
+  priv oldtypes: HashMap<temp::Temp, ir::Type>,
 }
 
-pub fn codegen(mut p: ir::Program) -> assem::Program {
-  let mut funs = ~[];
-  p.funs <-> funs;
-  assem::Program{ funs: vec::map_consume(funs, translate) }
-}
+pub fn codegen(ir::Program{funs}: ir::Program) -> assem::Program {
+  let mut cg = CodeGenerator{ stms: ~[],
+                              temps: temp::new(),
+                              tmap: HashMap::new(),
+                              sizes: HashMap::new(),
+                              oldtypes: HashMap::new() };
 
-fn translate(f: ir::Function) -> @mut assem::Function {
-  info!("codegen of %s", f.name);
-  let mut cg = CodeGenerator { f: f,
-                               stms: ~[],
-                               temps: temp::new(),
-                               tmap: HashMap::new(),
-                               sizes: HashMap::new() };
-  @mut cg.run()
+  let funs = do vec::map_consume(funs) |f| {
+    let f = cg.run(f);
+    cg.reset();
+    @mut f
+  };
+  assem::Program{ funs: funs }
 }
 
 impl CodeGenerator {
-  fn run(&mut self) -> assem::Function {
-    /* TODO: why can't this be above */
-    let cfg = self.f.cfg.map(
+  fn run(&mut self, f: @mut ir::Function) -> assem::Function {
+    /* extract relevant information from the function */
+    let @ir::Function {root, name, cfg, loops, types, _} = f;
+    let mut types = types;
+    swap(&mut types, &mut self.oldtypes);
+
+    /* Map over the cfg into a new one */
+    let cfg = cfg.map(
       |id, stms| {
         debug!("block %?", id);
         for stms.each |&s| {
           self.stm(s);
         }
         let mut stms = ~[];
-        stms <-> self.stms;
+        swap(&mut stms, &mut self.stms);
         stms
       },
       |&edge| edge
     );
-    info!("codegen of %s done", self.f.name);
-    for self.f.types.each |&(k, v)| {
-      debug!("%? sized %?", k, v);
-    }
-    let mut loops = HashMap::new();
+
+    /* Move our calculated sizes into the assem::Function instance */
     let mut sizes = HashMap::new();
-    self.f.loops <-> loops;
-    self.sizes <-> sizes;
-    assem::Function { name: copy self.f.name,
-                      cfg: cfg,
-                      root: self.f.root,
+    swap(&mut sizes, &mut self.sizes);
+
+    info!("codegen of %s done", name);
+    assem::Function { name: name,
+                      cfg: @mut cfg,
+                      root: root,
                       temps: self.temps.cnt(),
                       sizes: sizes,
                       loops: loops,
                       ssa: ssa::Analysis(),
                       liveness: liveness::Analysis() }
+  }
+
+  fn reset(&mut self) {
+    self.temps.reset();
+    self.stms.clear();
+    self.tmap.clear()
   }
 
   fn cond(&self, c: ir::Binop) -> assem::Cond {
@@ -90,15 +99,17 @@ impl CodeGenerator {
   }
 
   fn half(&mut self, e: ~ir::Expression) -> ~assem::Operand {
-    let size = self.f.size(e);
     match e {
       ~ir::Temp(t) => ~assem::Temp(self.tmp(t)),
       ~ir::Const(c, size) => ~assem::Immediate(c, size),
-      ~ir::LabelExp(copy l) => ~assem::LabelOp(l),
+      ~ir::LabelExp(l) => ~assem::LabelOp(l),
       ~ir::BinaryOp(op, e1, e2) => {
+        let size = e1.size(&self.oldtypes);
         let out = self.tmpnew(size);
-        self.push(~assem::BinaryOp(self.op(op), copy out, self.half(e1),
-                                   self.half(e2)));
+        let op = self.op(op);
+        let e1 = self.half(e1);
+        let e2 = self.half(e2);
+        self.push(~assem::BinaryOp(op, copy out, e1, e2));
         return out;
       }
     }
@@ -158,46 +169,70 @@ impl CodeGenerator {
       }
       ~ir::Phi(tmp, ref map) => {
         let mut map2 = HashMap::new();
-        for map.each |&(&k, &v)| {
+        for map.each |&k, &v| {
           map2.insert(k, self.tmp(v));
         }
-        self.push(~assem::Phi(self.tmp(tmp), map2));
+        let tmp = self.tmp(tmp);
+        self.push(~assem::Phi(tmp, map2));
       }
-      ~ir::Move(tmp, ~ir::BinaryOp(op, e1, e2)) =>
-        self.push(~assem::BinaryOp(self.op(op),
-                                   ~assem::Temp(self.tmp(tmp)),
-                                   self.half(e1),
-                                   self.half(e2))),
-      ~ir::Move(tmp, e) =>
-        self.push(~assem::Move(~assem::Temp(self.tmp(tmp)),
-                               self.half(e))),
-      ~ir::Cast(t1, t2) =>
-        self.push(~assem::Move(~assem::Temp(self.tmp(t1)),
-                               ~assem::Temp(self.tmp(t2)))),
+      ~ir::Move(tmp, ~ir::BinaryOp(op, e1, e2)) => {
+        let tmp = self.tmp(tmp);
+        let op = self.op(op);
+        let e1 = self.half(e1);
+        let e2 = self.half(e2);
+        self.push(~assem::BinaryOp(op, ~assem::Temp(tmp), e1, e2));
+      }
+      ~ir::Move(tmp, e) => {
+        let tmp = self.tmp(tmp);
+        let e = self.half(e);
+        self.push(~assem::Move(~assem::Temp(tmp), e));
+      }
+      ~ir::Cast(t1, t2) => {
+        let t1 = self.tmp(t1);
+        let t2 = self.tmp(t2);
+        self.push(~assem::Move(~assem::Temp(t1), ~assem::Temp(t2)));
+      }
       ~ir::Load(tmp, e) => {
-        self.push(~assem::Load(~assem::Temp(self.tmp(tmp)), self.addr(e)));
+        let tmp = self.tmp(tmp);
+        let e = self.addr(e);
+        self.push(~assem::Load(~assem::Temp(tmp), e));
       }
       ~ir::Store(e1, e2) => {
-        self.push(~assem::Store(self.addr(e1), self.half(e2)));
+        let e1 = self.addr(e1);
+        let e2 = self.half(e2);
+        self.push(~assem::Store(e1, e2));
       }
-      ~ir::Condition(~ir::BinaryOp(cond, e1, e2)) =>
-        self.push(~assem::Condition(self.cond(cond), self.half(e1),
-                                    self.half(e2))),
-      ~ir::Condition(e) =>
+      ~ir::Condition(~ir::BinaryOp(cond, e1, e2)) => {
+        let cond = self.cond(cond);
+        let e1 = self.half(e1);
+        let e2 = self.half(e2);
+        self.push(~assem::Condition(cond, e1, e2));
+      }
+      ~ir::Condition(e) => {
+        let e = self.half(e);
         self.push(~assem::Condition(assem::Neq,
                                     ~assem::Immediate(0, ir::Int),
-                                    self.half(e))),
-      ~ir::Die(~ir::BinaryOp(cond, e1, e2)) =>
-        self.push(~assem::Die(self.cond(cond), self.half(e1), self.half(e2))),
+                                    e));
+      }
+      ~ir::Die(~ir::BinaryOp(cond, e1, e2)) => {
+        let cond = self.cond(cond);
+        let e1 = self.half(e1);
+        let e2 = self.half(e2);
+        self.push(~assem::Die(cond, e1, e2));
+      }
       ~ir::Die(~ir::Const(0, _)) => (),
       ~ir::Die(~ir::Const(*)) =>
         self.push(~assem::Raw(fmt!("jmp %sraise_segv", label::prefix()))),
       ~ir::Die(_) => fail!(~"invalid die"),
-      ~ir::Return(e) => self.push(~assem::Return(self.half(e))),
+      ~ir::Return(e) => {
+        let e = self.half(e);
+        self.push(~assem::Return(e));
+      }
       ~ir::Call(tmp, fun, args) => {
         let fun = self.half(fun);
         let args = vec::map_consume(args, |arg| self.half(arg));
-        self.push(~assem::Call(self.tmp(tmp), fun, args));
+        let tmp = self.tmp(tmp);
+        self.push(~assem::Call(tmp, fun, args));
       }
     }
   }
@@ -214,31 +249,27 @@ impl CodeGenerator {
         let (c, o1, o2) = self.constrain_cmp(c, o1, o2);
         self.stms.push(~assem::Die(c, o1, o2));
       }
-      ~assem::BinaryOp(op, d, s1, s2) => {
-        match op {
-          /* the cmp instruction can only have immediates in a few places */
-          assem::Cmp(c) => {
-            let (c, s1, s2) = self.constrain_cmp(c, s1, s2);
-            self.stms.push(~assem::BinaryOp(assem::Cmp(c), d, s1, s2));
-          }
 
-          /* div/mod can't operate on immediates, only registers */
-          assem::Div | assem::Mod => {
-            let s1 = if s1.imm() {
-              let tmp = self.tmpnew(ir::Int);
-              self.stms.push(~assem::Move(copy tmp, s1));
-              tmp
-            } else { s1 };
-            let s2 = if s2.imm() {
-              let tmp = self.tmpnew(ir::Int);
-              self.stms.push(~assem::Move(copy tmp, s2));
-              tmp
-            } else { s2 };
-            self.stms.push(~assem::BinaryOp(op, d, s1, s2));
-          }
+      /* the cmp instruction can only have immediates in a few places */
+      ~assem::BinaryOp(assem::Cmp(c), d, s1, s2) => {
+        let (c, s1, s2) = self.constrain_cmp(c, s1, s2);
+        self.stms.push(~assem::BinaryOp(assem::Cmp(c), d, s1, s2));
+      }
 
-          _ => self.stms.push(~assem::BinaryOp(op, d, s1, s2))
-        }
+      /* div/mod can't operate on immediates, only registers */
+      ~assem::BinaryOp(op @ assem::Div, d, s1, s2) |
+      ~assem::BinaryOp(op @ assem::Mod, d, s1, s2) => {
+        let s1 = if s1.imm() {
+          let tmp = self.tmpnew(ir::Int);
+          self.stms.push(~assem::Move(copy tmp, s1));
+          tmp
+        } else { s1 };
+        let s2 = if s2.imm() {
+          let tmp = self.tmpnew(ir::Int);
+          self.stms.push(~assem::Move(copy tmp, s2));
+          tmp
+        } else { s2 };
+        self.stms.push(~assem::BinaryOp(op, d, s1, s2));
       }
 
       /* When invoking functions, all argument registers must be actual
@@ -271,7 +302,7 @@ impl CodeGenerator {
         self.stms.push(~assem::Call(dst, fun, args2));
       }
 
-      /* The return value must be placed in the %eax register */
+      /* The return value must be a register, so ensure that it's in a temp */
       ~assem::Return(op) => match op {
         ~assem::Temp(t) => self.stms.push(~assem::Return(~assem::Temp(t))),
         op => {
@@ -282,10 +313,14 @@ impl CodeGenerator {
       },
 
       /* x86 can't load/store to immediate addresses */
-      ~assem::Store(a, e) =>
-        self.stms.push(~assem::Store(self.constrain_addr(a), e)),
-      ~assem::Load(e, a) =>
-        self.stms.push(~assem::Load(e, self.constrain_addr(a))),
+      ~assem::Store(a, e) => {
+        let a = self.constrain_addr(a);
+        self.stms.push(~assem::Store(a, e));
+      }
+      ~assem::Load(e, a) => {
+        let a = self.constrain_addr(a);
+        self.stms.push(~assem::Load(e, a));
+      }
 
       ins => self.stms.push(ins)
     }
@@ -337,7 +372,7 @@ impl CodeGenerator {
     }
     let ret = self.temps.new();
     self.tmap.insert(t, ret);
-    self.sizes.insert(ret, *self.f.types.get(&t));
+    self.sizes.insert(ret, *self.oldtypes.get(&t));
     return ret;
   }
 
