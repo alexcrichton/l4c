@@ -55,8 +55,8 @@ impl Eliminator {
     let (order, _) = unsafe { self.f.cfg.postorder(self.f.root) };
     let mut changed = false;
     for order.each |&n| {
-      let orig = self.f.cfg[n].len();
-      self.f.cfg[n].each_reverse(|&stm| self.stm(stm));
+      let orig = self.f.cfg.node(n).len();
+      self.f.cfg.node(n).each_reverse(|&stm| self.stm(stm));
       let mut block = ~[];
       block <-> self.stms;
       vec::reverse(block);

@@ -130,7 +130,7 @@ impl Spiller {
    */
   fn build_renamings(&mut self, n: NodeId) {
     let mut phis = HashMap::new();
-    for self.f.cfg[n].each |&ins| {
+    for self.f.cfg.node(n).each |&ins| {
       match ins {
         ~Phi(my_name, ref renamings) => unsafe {
           for renamings.each |&pred, &their_name| {
@@ -174,7 +174,7 @@ impl Spiller {
   fn build_next_use(&mut self, n: NodeId) -> bool {
     debug!("processing: %?", n);
     let mut bottom = HashMap::new();
-    let block = self.f.cfg[n];
+    let block = self.f.cfg.node(n);
 
     /* Union each of our predecessors into the 'bottom' map */
     unsafe {
@@ -345,7 +345,7 @@ impl Spiller {
 
     debug!("%s", next_use.pp());
     let mut i = 0;
-    for vec::each2(*self.f.cfg[n], *self.deltas.get(&n)) |&ins, delta| {
+    for vec::each2(*self.f.cfg.node(n), *self.deltas.get(&n)) |&ins, delta| {
       debug!("%2? %30s  %s %s", i, ins.pp(), next_use.pp(),
              str::connect(delta.map(|a| fmt!("%?", a)), ~", "));
 
@@ -601,7 +601,7 @@ impl Spiller {
     }
     if append.len() > 0 {
       debug!("appending to %?: %?", pred, append);
-      self.f.cfg.update_node(pred, self.f.cfg[pred] + append);
+      self.f.cfg.update_node(pred, self.f.cfg.node(pred) + append);
     }
   }
 

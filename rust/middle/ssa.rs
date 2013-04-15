@@ -220,7 +220,7 @@ impl<T: Statement> Converter<T> {
 
     /* Process all statements in this block (possibly bumping versions) */
     debug!("mapping statements at %d", n as int);
-    let stms = self.cfg[n].map(|&s| {
+    let stms = self.cfg.node(n).map(|&s| {
       debug!("%s", s.pp());
       s.map_temps(|usage| *map.get(&usage),
                   |def|   self.bump(&mut map, def))

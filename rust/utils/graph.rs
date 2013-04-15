@@ -46,11 +46,11 @@ pub impl<N, E> Graph<N, E> {
     match self.succ.find(&a) { Some(m) => m.contains_key(&b), None => false }
   }
 
-  fn node(&self, id: NodeId) -> &'self N {
+  fn node<'a>(&'a self, id: NodeId) -> &'a N {
     self.nodes.get(&id)
   }
 
-  fn edge(&self, a: NodeId, b: NodeId) -> &'self E {
+  fn edge<'a>(&'a self, a: NodeId, b: NodeId) -> &'a E {
     self.succ.get(&a).get(&b)
   }
 
@@ -216,12 +216,6 @@ pub impl<N, E> Graph<N, E> {
     }
     o.insert(n, next);
     return next + 1;
-  }
-}
-
-impl<'self, N, E> Index<NodeId, &'self N> for Graph<N, E> {
-  fn index(&self, id: &NodeId) -> &'self N {
-    self.node(*id)
   }
 }
 

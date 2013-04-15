@@ -161,10 +161,10 @@ impl Instruction {
       _ => ()
     }
   }
-  fn phi_info(&self) -> Option<(Temp, &'self ssa::PhiMap)> {
+  fn phi_info<'a>(&'a self) -> Option<(Temp, &'a ssa::PhiMap)> {
     match *self {
       Phi(d, ref m) => Some((d, m)),
-      _         => None
+      _ => None
     }
   }
 
@@ -608,7 +608,7 @@ impl Function {
       out.write_str(~"L" + lbl(block) + ~":\n");
 
       /* output the actual block */
-      let instructions = self.cfg[block];
+      let instructions = self.cfg.node(block);
       for instructions.each |&ins| {
         out.write_str(~"  ");
         out.write_str(ins.pp());

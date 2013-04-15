@@ -98,7 +98,7 @@ impl Allocator {
     debug!("%s", tmplive.pp())
 
     let mut pcopy = None;
-    for self.f.cfg[n].eachi |i, ins| {
+    for self.f.cfg.node(n).eachi |i, ins| {
       /* examine data for next instruction for last use information */
       debug!("%s", ins.pp());
       debug!("deltas %?", tmpdelta[i]);
@@ -394,7 +394,7 @@ impl Allocator {
                            ~Register(ESP, ir::Pointer)));
           }
         }
-        for self.f.cfg[id].each |&ins| {
+        for self.f.cfg.node(id).each |&ins| {
           self.alloc_ins(ins, push);
         }
       });

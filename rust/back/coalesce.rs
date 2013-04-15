@@ -586,7 +586,7 @@ impl Coalescer {
       let weight = weight + unsafe {
         if self.f.loops.contains_key(&n) { 1 } else { 0 }
       };
-      for self.f.cfg[n].each |&ins| {
+      for self.f.cfg.node(n).each |&ins| {
         match ins {
           ~assem::Phi(def, ref map) => {
             for map.each |_, &tmp| {
