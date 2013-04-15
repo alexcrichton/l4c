@@ -3,8 +3,8 @@ use core::hashmap::{HashMap, HashSet};
 use front::error;
 use front::ast::*;
 
-struct Typechecker {
-  program: @Program,
+struct Typechecker<'self> {
+  program: &'self Program,
   err:     @mut error::List,
   funs:    HashMap<Ident, (@Type, @~[@Type])>,
   structs: HashMap<Ident, Option<HashMap<Ident, @Type>>>,
@@ -13,7 +13,7 @@ struct Typechecker {
   ret:     @Type
 }
 
-pub fn check(a: @Program) {
+pub fn check(a: &Program) {
   let mut tc = Typechecker{ program: a,
                             err: @mut error::new(),
                             funs: HashMap::new(),
@@ -25,7 +25,7 @@ pub fn check(a: @Program) {
   tc.run()
 }
 
-impl Typechecker {
+impl<'self> Typechecker<'self> {
   fn run(&mut self) {
     for self.program.decls.each |x| {
       self.tc_gdecl(*x)

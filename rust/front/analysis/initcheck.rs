@@ -3,19 +3,22 @@ use front::error;
 use front::ast::*;
 use front::mark;
 
-struct Initchecker {
-  program: @Program,
+struct Initchecker<'self> {
+  program: &'self Program,
   err: @mut error::List,
   step: ~Statement,
 }
 
-pub fn check(a: @Program) {
-  let mut ic = Initchecker{ program: a, err: @mut error::new(), step: ~Nop };
+pub fn check(a: &Program) {
+  // TODO(#5884) these shouldn't be up here
+  let step = ~Nop;
+  let err = @mut error::new();
+  let mut ic = Initchecker{ program: a, err: err, step: step };
   debug!("initchecking");
   ic.run();
 }
 
-impl Initchecker {
+impl<'self> Initchecker<'self> {
   fn run(&mut self) {
     for self.program.decls.each |x| {
       self.check_gdecl(*x);
