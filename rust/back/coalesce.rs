@@ -60,16 +60,16 @@ type Affinities = HashMap<Temp, ~HashMap<Temp, uint>>;
 struct Affinity(Temp, Temp, uint);
 struct Chunk(TempSet, uint);
 
-struct Coalescer {
+struct Coalescer<'self> {
   /* information passed to coalescing */
-  f: @mut assem::Function,
+  f: &'self mut assem::Function,
   /* set of temps that are precolored */
   precolored: bitv::Bitv,
   /* For all temps with constraints, contains mapping of the constraints. This
      is used when determining the admissible registers for a temp */
-  constraints: @mut alloc::ConstraintMap,
+  constraints: &'self mut alloc::ConstraintMap,
   /* Actual coloring information that's modified */
-  colors: @mut alloc::ColorMap,
+  colors: &'self mut alloc::ColorMap,
 
   /* Set of fixed temps (cannot be changed) */
   fixed: bitv::Bitv,
@@ -79,10 +79,10 @@ struct Coalescer {
   /* Temporary mapping remembering the old colors of temps for rollbacks */
   old_color: SmallIntMap<uint>,
 
-  info: @mut CFGInfo,
+  info: @mut CFGInfo<'self>,
 }
 
-struct CFGInfo {
+struct CFGInfo<'self> {
   /* Mapping of a temp to where it's defined */
   defs: HashMap<Temp, Location>,
   /* Mapping of a temp to the set of locations in which it is used */
@@ -99,7 +99,7 @@ struct CFGInfo {
      this computation to facilitate usage later on */
   cache: @mut Cache,
 
-  f: @mut assem::Function,
+  f: &'self mut assem::Function,
 }
 
 struct Cache {
@@ -110,32 +110,37 @@ struct Cache {
 }
 
 pub fn optimize(f: @mut assem::Function,
-                colors: @mut alloc::ColorMap,
+                colors: &mut alloc::ColorMap,
                 precolored: &TempSet,
-                constraints: @mut alloc::ConstraintMap) {
+                constraints: &mut alloc::ConstraintMap) {
   let liveness_map = unsafe { liveness_map(f.cfg, &f.liveness, f.temps) };
   let mut pre = bitv::Bitv::new(f.temps, false);
   for precolored.each |&t| {
     pre.set(t, true);
   }
-  let mut c = Coalescer { fixed: bitv::Bitv::new(f.temps, false),
+  /* TODO(#5884): this is silly */
+  let fixed = bitv::Bitv::new(f.temps, false);
+  let affinities = HashMap::new();
+  let old_color = SmallIntMap::new();
+  let info = @mut CFGInfo {
+    liveness_map: liveness_map,
+    cache: @mut Cache {
+      interference: HashMap::new(),
+      interferences: HashMap::new(),
+      admissible: HashMap::new(),
+      dominates: HashMap::new() },
+    defs: HashMap::new(),
+    uses: HashMap::new(),
+    f: f,
+  };
+  let mut c = Coalescer { fixed: fixed,
                           f: f,
-                          affinities: HashMap::new(),
+                          affinities: affinities,
                           colors: colors,
-                          old_color: SmallIntMap::new(),
+                          old_color: old_color,
                           precolored: pre,
                           constraints: constraints,
-                          info: @mut CFGInfo {
-                            liveness_map: liveness_map,
-                            cache: @mut Cache {
-                              interference: HashMap::new(),
-                              interferences: HashMap::new(),
-                              admissible: HashMap::new(),
-                              dominates: HashMap::new() },
-                            defs: HashMap::new(),
-                            uses: HashMap::new(),
-                            f: f, },
-                          };
+                          info: info };
   c.run();
 }
 
@@ -168,7 +173,7 @@ fn liveness_map(cfg: &assem::CFG, live: &liveness::Analysis, max: uint)
   return ret;
 }
 
-impl Coalescer {
+impl<'self> Coalescer<'self> {
   fn run(&mut self) {
     /* TODO: why can't this be above */
     do profile::dbg("building use/def") {
@@ -376,7 +381,8 @@ impl Coalescer {
   }
 
   fn avoid_color(&mut self, t: Temp, c: uint, changed: &mut ~[Temp]) -> bool {
-    let color = *self.colors.get(&t);
+    /* TODO: silly block */
+    let color; { color = *self.colors.get(&t); }
     /* Certainly avoided if it's already not this color */
     if color != c { debug!("avoided %? %?", t, c); return true }
     /* Otherwise if it's fixed, then we're out of luck */
@@ -458,10 +464,12 @@ impl Coalescer {
   }
 
   fn admissible_impl(&self, t: Temp, color: uint) -> bool {
-    if self.precolored.get(t) { return color == *self.colors.get(&t) }
-    match self.constraints.find(&t) {
-      None => true,
-      Some(c) => c.allows(arch::num_reg(color))
+    unsafe {
+      if self.precolored.get(t) { return color == *self.colors.get(&t) }
+      match self.constraints.find(&t) {
+        None => true,
+        Some(c) => c.allows(arch::num_reg(color))
+      }
     }
   }
 
@@ -624,7 +632,7 @@ impl Coalescer {
   }
 }
 
-impl CFGInfo {
+impl<'self> CFGInfo<'self> {
   /**
    * Build up the internal maps about use/def information. This precomputes the
    * information about where each temp is defined and the set of uses for each

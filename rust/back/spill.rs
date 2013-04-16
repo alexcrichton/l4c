@@ -36,8 +36,8 @@ static loop_out_weight: uint = 100000;
 /* If a temp isn't in a set, then its next_use distance is infinity */
 type NextUse = HashMap<Temp, uint>;
 
-struct Spiller {
-  f: @mut Function,
+struct Spiller<'self> {
+  f: &'self mut Function,
   /* next_use information for each node in the graph */
   next_use: HashMap<NodeId, NextUse>,
   /* Delta information for next_use as a block is traversed top down */
@@ -66,17 +66,28 @@ pub fn spill(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
     opt::cfg::eliminate_critical(f.cfg);
 
+    /* TODO(#5884): eew */
+    let next_use = HashMap::new();
+    let deltas = HashMap::new();
+    let regs_end = HashMap::new();
+    let regs_entry = HashMap::new();
+    let spill_entry = HashMap::new();
+    let spill_exit = HashMap::new();
+    let renamings = HashMap::new();
+    let phis = HashMap::new();
+    let max_pressures = HashMap::new();
+    let connected = HashSet::new();
     let mut s = Spiller{ f: *f,
-                         next_use: HashMap::new(),
-                         deltas: HashMap::new(),
-                         regs_end: HashMap::new(),
-                         regs_entry: HashMap::new(),
-                         spill_entry: HashMap::new(),
-                         spill_exit: HashMap::new(),
-                         renamings: HashMap::new(),
-                         phis: HashMap::new(),
-                         max_pressures: HashMap::new(),
-                         connected: HashSet::new() };
+                         next_use: next_use,
+                         deltas: deltas,
+                         regs_end: regs_end,
+                         regs_entry: regs_entry,
+                         spill_entry: spill_entry,
+                         spill_exit: spill_exit,
+                         renamings: renamings,
+                         phis: phis,
+                         max_pressures: max_pressures,
+                         connected: connected };
 
     s.run();
   }
@@ -99,7 +110,7 @@ fn sort(set: &TempSet, s: &NextUse) -> ~[Temp] {
   return v;
 }
 
-impl Spiller {
+impl<'self> Spiller<'self> {
   fn run(&mut self) {
     /* TODO: why can't this all be above */
     /* Build up phi renaming maps */

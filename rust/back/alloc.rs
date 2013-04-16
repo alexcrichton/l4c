@@ -18,7 +18,7 @@ type Resolution = Either<(uint, uint), (uint, uint)>;
 
 struct Allocator {
   f: @mut Function,
-  colors: @mut ColorMap,
+  colors: ColorMap,
   slots: HashMap<Tag, uint>,
   max_slot: uint,
   max_call_stack: uint,
@@ -26,16 +26,16 @@ struct Allocator {
 
   /* data needed for coalescing */
   precolored: HashSet<Temp>,
-  constraints: @mut ConstraintMap,
+  constraints: ConstraintMap,
 }
 
 pub fn color(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
     unsafe { liveness::calculate(f.cfg, f.root, &mut f.liveness) };
 
-    let mut a = Allocator{ colors: @mut SmallIntMap::new(),
+    let mut a = Allocator{ colors: SmallIntMap::new(),
                            precolored: HashSet::new(),
-                           constraints: @mut SmallIntMap::new(),
+                           constraints: SmallIntMap::new(),
                            slots: HashMap::new(),
                            f: *f,
                            max_slot: 0,
@@ -71,8 +71,8 @@ impl Allocator {
     }
 
     do profile::dbg("coalescing") {
-      coalesce::optimize(self.f, self.colors,
-                         &self.precolored, self.constraints);
+      coalesce::optimize(self.f, &mut self.colors,
+                         &self.precolored, &mut self.constraints);
     }
 
     /* Finally remove all phi nodes and all temps */
