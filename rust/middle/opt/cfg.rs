@@ -40,10 +40,8 @@ pub fn simplify(p: &mut ir::Program) {
       let cond = resolve(&changes, cond);
       let body = resolve(&changes, body);
       let end  = resolve(&changes, end);
-      unsafe {
-        if f.cfg.contains(cond) && f.cfg.contains(body) {
-          f.loops.insert(cond, (body, end));
-        }
+      if f.cfg.contains(cond) && f.cfg.contains(body) {
+        f.loops.insert(cond, (body, end));
       }
     }
     f.root = newroot;

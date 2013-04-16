@@ -31,7 +31,7 @@ struct Allocator {
 
 pub fn color(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
-    unsafe { liveness::calculate(f.cfg, f.root, &mut f.liveness) };
+    liveness::calculate(f.cfg, f.root, &mut f.liveness);
 
     let mut a = Allocator{ colors: SmallIntMap::new(),
                            precolored: HashSet::new(),
@@ -65,7 +65,7 @@ impl Allocator {
     /* Color the graph completely */
     unsafe { info!("coloring: %s", self.f.name); }
 
-    do profile::dbg("coloring") { unsafe { self.color(self.f.root); } }
+    do profile::dbg("coloring") { self.color(self.f.root); }
     for self.colors.each |tmp, color| {
       debug!("%s => %?", tmp.to_str(), color);
     }
@@ -539,16 +539,13 @@ impl PrettyPrint for bitv::Bitv {
   fn pp(&self) -> ~str {
     let mut s = ~"{";
     let mut first = true;
-    /* TODO: does this really have to be pure? */
-    unsafe {
-      for self.ones |i| {
-        if first {
-          first = false;
-        } else {
-          s += ~", ";
-        }
-        s += i.to_str();
+    for self.ones |i| {
+      if first {
+        first = false;
+      } else {
+        s += ~", ";
       }
+      s += i.to_str();
     }
     return s + ~"}";
   }

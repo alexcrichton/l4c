@@ -61,8 +61,6 @@ struct Affinity(Temp, Temp, uint);
 struct Chunk(TempSet, uint);
 
 struct Coalescer<'self> {
-  /* information passed to coalescing */
-  f: &'self mut assem::Function,
   /* set of temps that are precolored */
   precolored: bitv::Bitv,
   /* For all temps with constraints, contains mapping of the constraints. This
@@ -109,11 +107,11 @@ struct Cache {
   dominates: HashMap<(NodeId, NodeId), bool>,
 }
 
-pub fn optimize(f: @mut assem::Function,
+pub fn optimize(f: &mut assem::Function,
                 colors: &mut alloc::ColorMap,
                 precolored: &TempSet,
                 constraints: &mut alloc::ConstraintMap) {
-  let liveness_map = unsafe { liveness_map(f.cfg, &f.liveness, f.temps) };
+  let lm = liveness_map(f.cfg, &f.liveness, f.temps);
   let mut pre = bitv::Bitv::new(f.temps, false);
   for precolored.each |&t| {
     pre.set(t, true);
@@ -122,26 +120,27 @@ pub fn optimize(f: @mut assem::Function,
   let fixed = bitv::Bitv::new(f.temps, false);
   let affinities = HashMap::new();
   let old_color = SmallIntMap::new();
-  let info = @mut CFGInfo {
-    liveness_map: liveness_map,
-    cache: @mut Cache {
-      interference: HashMap::new(),
-      interferences: HashMap::new(),
-      admissible: HashMap::new(),
-      dominates: HashMap::new() },
-    defs: HashMap::new(),
-    uses: HashMap::new(),
-    f: f,
-  };
-  let mut c = Coalescer { fixed: fixed,
-                          f: f,
-                          affinities: affinities,
-                          colors: colors,
-                          old_color: old_color,
-                          precolored: pre,
-                          constraints: constraints,
-                          info: info };
-  c.run();
+  {
+    let info = CFGInfo {
+      liveness_map: lm,
+      cache: @mut Cache {
+        interference: HashMap::new(),
+        interferences: HashMap::new(),
+        admissible: HashMap::new(),
+        dominates: HashMap::new() },
+      defs: HashMap::new(),
+      uses: HashMap::new(),
+      f: f,
+    };
+    let mut c = Coalescer { fixed: fixed,
+                            affinities: affinities,
+                            colors: colors,
+                            old_color: old_color,
+                            precolored: pre,
+                            constraints: constraints,
+                            info: @mut info };
+    c.run();
+  }
 }
 
 /**
@@ -177,7 +176,7 @@ impl<'self> Coalescer<'self> {
   fn run(&mut self) {
     /* TODO: why can't this be above */
     do profile::dbg("building use/def") {
-      for self.f.cfg.each_node |id, ins| {
+      for self.info.f.cfg.each_node |id, ins| {
         self.info.build_use_def(id, ins);
       }
     }
@@ -584,7 +583,7 @@ impl<'self> Coalescer<'self> {
     );
 
     let mut pq = PriorityQueue::new();
-    let mut to_visit = ~[(self.f.root, 1)];
+    let mut to_visit = ~[(self.info.f.root, 1)];
     let mut visited = HashSet::new();
 
     while to_visit.len() > 0 {
@@ -592,9 +591,9 @@ impl<'self> Coalescer<'self> {
       assert!(visited.insert(n));
       /* We have a more costly weight if we're moving into a loop */
       let weight = weight + unsafe {
-        if self.f.loops.contains_key(&n) { 1 } else { 0 }
+        if self.info.f.loops.contains_key(&n) { 1 } else { 0 }
       };
-      for self.f.cfg.node(n).each |&ins| {
+      for self.info.f.cfg.node(n).each |&ins| {
         match ins {
           ~assem::Phi(def, ref map) => {
             for map.each |_, &tmp| {
@@ -618,7 +617,7 @@ impl<'self> Coalescer<'self> {
         }
       }
 
-      for self.f.cfg.each_succ_edge(n) |succ, edge| {
+      for self.info.f.cfg.each_succ_edge(n) |succ, edge| {
         if visited.contains(&succ) { loop }
         /* If we're moving out of a loop, decrement the weight */
         let weight = match edge {

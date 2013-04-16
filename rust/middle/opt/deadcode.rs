@@ -34,23 +34,21 @@ impl Eliminator {
     debug!("running");
     self.used.clear();
     /* Mark all phi function arguments as used before we go anywhere */
-    unsafe {
-      for f.cfg.each_node |_, stms| {
-        for stms.each |&s| {
-          match s {
-            ~Phi(_, ref m) => {
-              for m.each |_, &t| {
-                self.used.set(t, true);
-              }
+    for f.cfg.each_node |_, stms| {
+      for stms.each |&s| {
+        match s {
+          ~Phi(_, ref m) => {
+            for m.each |_, &t| {
+              self.used.set(t, true);
             }
-            _ => ()
           }
+          _ => ()
         }
       }
     }
 
     /* Be sure to start at the top of the graph to visit definitions first */
-    let (order, _) = unsafe { f.cfg.postorder(f.root) };
+    let (order, _) = f.cfg.postorder(f.root);
     let mut changed = false;
     for order.each |&n| {
       let orig = f.cfg.node(n).len();

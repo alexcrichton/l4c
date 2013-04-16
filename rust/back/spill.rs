@@ -114,24 +114,22 @@ impl<'self> Spiller<'self> {
   fn run(&mut self) {
     /* TODO: why can't this all be above */
     /* Build up phi renaming maps */
-    unsafe {
-      for self.f.cfg.each_node |n, _| {
-        self.build_renamings(n);
-      }
+    for self.f.cfg.each_node |n, _| {
+      self.build_renamings(n);
+    }
 
-      /* Prepare the graph and build all next_use information */
-      let mut changed = true;
-      while changed {
-        changed = false;
-        for self.f.cfg.each_postorder(self.f.root) |&id| {
-          changed = self.build_next_use(id) || changed;
-        }
+    /* Prepare the graph and build all next_use information */
+    let mut changed = true;
+    while changed {
+      changed = false;
+      for self.f.cfg.each_postorder(self.f.root) |&id| {
+        changed = self.build_next_use(id) || changed;
       }
+    }
 
-      /* In reverse postorder, spill everything! */
-      for self.f.cfg.each_rev_postorder(self.f.root) |&id| {
-        self.spill(id);
-      }
+    /* In reverse postorder, spill everything! */
+    for self.f.cfg.each_rev_postorder(self.f.root) |&id| {
+      self.spill(id);
     }
   }
 
@@ -143,7 +141,7 @@ impl<'self> Spiller<'self> {
     let mut phis = HashMap::new();
     for self.f.cfg.node(n).each |&ins| {
       match ins {
-        ~Phi(my_name, ref renamings) => unsafe {
+        ~Phi(my_name, ref renamings) => {
           for renamings.each |&pred, &their_name| {
             match self.renamings.find_mut(&(pred, n)) {
               Some(m) => {
@@ -188,37 +186,35 @@ impl<'self> Spiller<'self> {
     let block = self.f.cfg.node(n);
 
     /* Union each of our predecessors into the 'bottom' map */
-    unsafe {
-      for self.f.cfg.each_succ(n) |succ| {
-        /* at the end the next use of each of the temps we transfer to the next
-           node via phis is the length of the block that we're at */
-        match self.phis.find(&succ) {
-          None => (),
-          Some(map) => {
-            for map.each |_, phis| {
-              bottom.insert(*phis.get(&n), block.len());
-            }
+    for self.f.cfg.each_succ(n) |succ| {
+      /* at the end the next use of each of the temps we transfer to the next
+         node via phis is the length of the block that we're at */
+      match self.phis.find(&succ) {
+        None => (),
+        Some(map) => {
+          for map.each |_, phis| {
+            bottom.insert(*phis.get(&n), block.len());
           }
         }
-        if !self.next_use.contains_key(&succ) { loop }
-        let edge_cost = match *self.f.cfg.edge(n, succ) {
-          ir::LoopOut | ir::FLoopOut => loop_out_weight, _ => 0
-        };
+      }
+      if !self.next_use.contains_key(&succ) { loop }
+      let edge_cost = match *self.f.cfg.edge(n, succ) {
+        ir::LoopOut | ir::FLoopOut => loop_out_weight, _ => 0
+      };
 
-        /* Assume that all variables aren't used in this block and add block.len()
-           to the value being merged. This will be updated if the value is
-           actually used in the block */
-        let edge_cost = block.len() + edge_cost;
+      /* Assume that all variables aren't used in this block and add block.len()
+         to the value being merged. This will be updated if the value is
+         actually used in the block */
+      let edge_cost = block.len() + edge_cost;
 
-        /* Temps may change names along edges because of phi nodes, so be sure to
-           account for that here */
-        for self.next_use.get(&succ).each |&tmp, &next| {
-          let cost = next + edge_cost;
-          let mytmp = self.their_name(tmp, n, succ);
-          match bottom.pop(&mytmp) {
-            Some(amt) => { bottom.insert(mytmp, uint::min(cost, amt)); }
-            None      => { bottom.insert(mytmp, cost); }
-          }
+      /* Temps may change names along edges because of phi nodes, so be sure to
+         account for that here */
+      for self.next_use.get(&succ).each |&tmp, &next| {
+        let cost = next + edge_cost;
+        let mytmp = self.their_name(tmp, n, succ);
+        match bottom.pop(&mytmp) {
+          Some(amt) => { bottom.insert(mytmp, uint::min(cost, amt)); }
+          None      => { bottom.insert(mytmp, cost); }
         }
       }
     }
@@ -284,13 +280,10 @@ impl<'self> Spiller<'self> {
    */
   fn spill(&mut self, n: NodeId) {
     debug!("spilling: %?", n);
-    let regs_entry;
-    unsafe {
-      regs_entry = match self.f.loops.find(&n) {
-        Some(&(body, end)) => self.init_loop(n, body, end),
-        None               => self.init_usual(n)
-      };
-    }
+    let regs_entry = match self.f.loops.find(&n) {
+      Some(&(body, end)) => self.init_loop(n, body, end),
+      None               => self.init_usual(n)
+    };
     let spill_entry = self.connect_pred(n, &regs_entry);
 
     /* Set up the sets which will become {regs,spill}_exit */
@@ -304,10 +297,8 @@ impl<'self> Spiller<'self> {
     self.spill_entry.insert(n, spill_entry);
 
     /* connect what we can, may not succeed */
-    unsafe {
-      for self.f.cfg.each_pred(n) |pred| {
-        self.connect_edge(pred, n);
-      }
+    for self.f.cfg.each_pred(n) |pred| {
+      self.connect_edge(pred, n);
     }
 
     let mut reloaded = ~[];
@@ -432,11 +423,9 @@ impl<'self> Spiller<'self> {
     self.spill_exit.insert(n, spill);
 
     /* connect any lingering edges which weren't covered beforehand */
-    unsafe {
-      for self.f.cfg.each_succ(n) |succ| {
-        if self.spill_entry.contains_key(&succ) {
-          self.connect_edge(n, succ);
-        }
+    for self.f.cfg.each_succ(n) |succ| {
+      if self.spill_entry.contains_key(&succ) {
+        self.connect_edge(n, succ);
       }
     }
   }
@@ -446,33 +435,31 @@ impl<'self> Spiller<'self> {
     let mut freq = HashMap::new();
     let mut take = HashSet::new();
     let mut cand = HashSet::new();
-    unsafe {
-      for self.f.cfg.each_pred(n) |pred| {
-        debug!("pred %?", pred);
-        assert!(self.regs_end.contains_key(&pred));
-        for self.regs_end.get(&pred).each |&tmp| {
-          for self.my_names(tmp, pred, n) |mine| {
-            let prev : uint = freq.find(&mine).map_default(0, |&x| *x);
-            freq.insert(mine, prev + 1);
-          }
+    for self.f.cfg.each_pred(n) |pred| {
+      debug!("pred %?", pred);
+      assert!(self.regs_end.contains_key(&pred));
+      for self.regs_end.get(&pred).each |&tmp| {
+        for self.my_names(tmp, pred, n) |mine| {
+          let prev : uint = freq.find(&mine).map_default(0, |&x| *x);
+          freq.insert(mine, prev + 1);
         }
       }
-      debug!("frequencies: %s", freq.pp());
-      let preds = self.f.cfg.num_pred(n);
-      for freq.each |&tmp, &n| {
-        if n == preds {
+    }
+    debug!("frequencies: %s", freq.pp());
+    let preds = self.f.cfg.num_pred(n);
+    for freq.each |&tmp, &n| {
+      if n == preds {
+        take.insert(tmp);
+      } else {
+        cand.insert(tmp);
+      }
+    }
+    if arch::num_regs - take.len() > 0 {
+      let sorted = sort(&cand, self.next_use.get(&n));
+      let max = arch::num_regs - take.len();
+      for sorted.slice(0, uint::min(max, sorted.len())).each |&tmp| {
+        if self.next_use.get(&n).contains_key(&tmp) {
           take.insert(tmp);
-        } else {
-          cand.insert(tmp);
-        }
-      }
-      if arch::num_regs - take.len() > 0 {
-        let sorted = sort(&cand, self.next_use.get(&n));
-        let max = arch::num_regs - take.len();
-        for sorted.slice(0, uint::min(max, sorted.len())).each |&tmp| {
-          if self.next_use.get(&n).contains_key(&tmp) {
-            take.insert(tmp);
-          }
         }
       }
     }
@@ -528,10 +515,8 @@ impl<'self> Spiller<'self> {
     visited.insert(cur);
     let mut ret = *self.max_pressures.get(&cur);
     /* TODO(purity): this shouldn't be unsafe */
-    unsafe {
-      for self.f.cfg.each_succ(cur) |succ| {
-        ret = uint::max(ret, self.max_pressure(succ, visited));
-      }
+    for self.f.cfg.each_succ(cur) |succ| {
+      ret = uint::max(ret, self.max_pressure(succ, visited));
     }
     return ret;
   }
@@ -540,18 +525,15 @@ impl<'self> Spiller<'self> {
     debug!("connecting preds: %?", n);
     /* Build up our list of required spilled registers */
     let mut spill = HashSet::new();
-    /* TODO(purity): this shouldn't be unsafe */
-    unsafe {
-      for self.f.cfg.each_pred(n) |pred| {
-        if !self.spill_exit.contains_key(&pred) { loop }
-        /* Be sure we're using the right name for each temp spilled on the exit of
-           our predecessors because we may be renaming it with a phi node */
-        for self.spill_exit.get(&pred).each |&tmp| {
-          /* spill is intersected with the entry set */
-          if entry.contains(&tmp) {
-            for self.my_names(tmp, pred, n) |mine| {
-              spill.insert(mine);
-            }
+    for self.f.cfg.each_pred(n) |pred| {
+      if !self.spill_exit.contains_key(&pred) { loop }
+      /* Be sure we're using the right name for each temp spilled on the exit of
+         our predecessors because we may be renaming it with a phi node */
+      for self.spill_exit.get(&pred).each |&tmp| {
+        /* spill is intersected with the entry set */
+        if entry.contains(&tmp) {
+          for self.my_names(tmp, pred, n) |mine| {
+            spill.insert(mine);
           }
         }
       }

@@ -72,15 +72,13 @@ impl Graphable for Program {
   fn dot(&self, out: @io::Writer) {
     out.write_str(~"digraph {\n");
     for self.funs.each |f| {
-      unsafe {
-        f.cfg.dot(out,
-          |id| fmt!("%s_n%d", f.name, id as int),
-          |id, &stms|
-            ~"label=\"" + str::connect(stms.map(|s| s.pp()), "\\n") +
-            fmt!("\\n[node=%d]\" shape=box", id as int),
-          |&edge| fmt!("label=%?", edge)
-        )
-      }
+      f.cfg.dot(out,
+        |id| fmt!("%s_n%d", f.name, id as int),
+        |id, &stms|
+          ~"label=\"" + str::connect(stms.map(|s| s.pp()), "\\n") +
+          fmt!("\\n[node=%d]\" shape=box", id as int),
+        |&edge| fmt!("label=%?", edge)
+      )
     }
     out.write_str(~"\n}");
   }
