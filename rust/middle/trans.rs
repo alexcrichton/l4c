@@ -13,8 +13,8 @@ struct ProgramInfo {
   structs: AllStructInfo,
 }
 
-struct Translator {
-  t: @ProgramInfo,
+struct Translator<'self> {
+  t: &'self ProgramInfo,
   f: ir::Function,
   vars: HashMap<ast::Ident, temp::Temp>,
   temps: temp::Allocator,
@@ -38,7 +38,6 @@ pub fn translate(mut p: ast::Program, safe: bool) -> ir::Program {
   info.build(&p);
   let mut decls = ~[];
   p.decls <-> decls;
-  let info = @info;
 
   debug!("translating");
   let mut accum = ~[];
@@ -47,7 +46,7 @@ pub fn translate(mut p: ast::Program, safe: bool) -> ir::Program {
     match ast::unmarkg(d) {
       ~ast::Function(_, id, args, body) => {
         let mut trans = Translator {
-          t: info,
+          t: &info,
           f: ir::Function(p.str(id)),
           vars: HashMap::new(),
           temps: temp::new(),
@@ -140,7 +139,7 @@ impl ProgramInfo {
   }
 }
 
-impl Translator {
+impl<'self> Translator<'self> {
   fn run(&mut self, args: ~[(ast::Ident, @ast::Type)], body: ~ast::Statement) {
     /* TODO: why can't this be above */
     self.arguments(args);

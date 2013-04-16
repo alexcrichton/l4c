@@ -46,6 +46,14 @@ pub impl<N, E> Graph<N, E> {
     match self.succ.find(&a) { Some(m) => m.contains_key(&b), None => false }
   }
 
+  fn nodes(&self) -> ~[NodeId] {
+    let mut ret = ~[];
+    for self.nodes.each_key |&n| {
+      ret.push(n);
+    }
+    return ret;
+  }
+
   fn node<'a>(&'a self, id: NodeId) -> &'a N {
     self.nodes.get(&id)
   }

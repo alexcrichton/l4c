@@ -1,5 +1,5 @@
 /**
- * ~brief Dead code elimination
+ * @brief Dead code elimination
  *
  * Because the graph is in SSA form, it's far easier to do dead code elimination
  * than it would normally be. This simply walks up the dominator tree from the
@@ -14,30 +14,28 @@ use std::bitv;
 use middle::ir::*;
 
 struct Eliminator {
-  f: @mut Function,
   used: bitv::Bitv,
   stms: ~[~Statement],
 }
 
 pub fn optimize(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
-    let mut opt = Eliminator { f: *f,
-                               stms: ~[],
+    let mut opt = Eliminator { stms: ~[],
                                used: bitv::Bitv::new(f.types.len(), false) };
     /* TODO: surely this is easier on SSA form? */
-    while opt.run() {}
+    while opt.run(f) {}
   }
 }
 
 impl Eliminator {
   /* TODO: why can't this all be above */
-  fn run(&mut self) -> bool {
+  fn run(&mut self, f: &mut Function) -> bool {
     assert!(self.stms.len() == 0);
     debug!("running");
     self.used.clear();
     /* Mark all phi function arguments as used before we go anywhere */
     unsafe {
-      for self.f.cfg.each_node |_, stms| {
+      for f.cfg.each_node |_, stms| {
         for stms.each |&s| {
           match s {
             ~Phi(_, ref m) => {
@@ -52,11 +50,11 @@ impl Eliminator {
     }
 
     /* Be sure to start at the top of the graph to visit definitions first */
-    let (order, _) = unsafe { self.f.cfg.postorder(self.f.root) };
+    let (order, _) = unsafe { f.cfg.postorder(f.root) };
     let mut changed = false;
     for order.each |&n| {
-      let orig = self.f.cfg.node(n).len();
-      self.f.cfg.node(n).each_reverse(|&stm| self.stm(stm));
+      let orig = f.cfg.node(n).len();
+      f.cfg.node(n).each_reverse(|&stm| self.stm(stm));
       let mut block = ~[];
       block <-> self.stms;
       vec::reverse(block);
@@ -65,7 +63,7 @@ impl Eliminator {
       block.truncate(end);
       changed = changed || orig != block.len();
 
-      self.f.cfg.update_node(n, block);
+      f.cfg.update_node(n, block);
     }
     return changed;
   }

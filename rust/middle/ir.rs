@@ -6,14 +6,14 @@ use middle::temp::Temp;
 use utils::{graph, PrettyPrint, Graphable};
 
 pub struct Program {
-  funs: ~[@mut Function]
+  funs: ~[Function]
 }
 
 pub type CFG = ssa::CFG<Statement>;
 
 pub struct Function {
   name: ~str,
-  cfg: @mut CFG,
+  cfg: CFG,
   root: graph::NodeId,
   types: HashMap<Temp, Type>,
 
@@ -56,11 +56,11 @@ pub enum Edge {
 }
 
 pub fn Program(f: ~[Function]) -> Program {
-  Program{ funs: vec::map_consume(f, |f| @mut f) }
+  Program{ funs: vec::map_consume(f, |f| f) }
 }
 
 pub fn Function(name: ~str) -> Function {
-  Function{ cfg: @mut graph::Graph(),
+  Function{ cfg: graph::Graph(),
             name: name,
             root: 0,
             types: HashMap::new(),
@@ -287,7 +287,7 @@ impl PrettyPrint for Binop {
 
 pub fn ssa(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
-    ssa_fun(*f);
+    ssa_fun(f);
   }
 }
 
@@ -296,7 +296,7 @@ priv fn ssa_fun(f: &mut Function) {
   let mut newtypes = HashMap::new();
 
   /* And, convert! */
-  let mapping = ssa::convert(f.cfg, f.root, &mut f.analysis);
+  let mapping = ssa::convert(&mut f.cfg, f.root, &mut f.analysis);
   for mapping.each |&new, old| {
     newtypes.insert(new, *f.types.get(old));
   }

@@ -31,8 +31,8 @@ pub type Idominated = HashMap<graph::NodeId, ~HashSet<graph::NodeId>>;
 pub type PhiMap = HashMap<graph::NodeId, Temp>;
 pub type CFG<T> = graph::Graph<~[~T], ir::Edge>;
 
-struct Converter<T> {
-  cfg: @mut CFG<T>,
+struct Converter<'self, T> {
+  cfg: &'self mut CFG<T>,
   root: graph::NodeId,
 
   /* Mapping of a node to what temp mappings exist at the end of a node */
@@ -46,7 +46,7 @@ struct Converter<T> {
   remapping: HashMap<Temp, Temp>,
 
   /* This analysis is filled in prior to conversion and is used throughout */
-  analysis: Analysis,
+  analysis: &'self Analysis,
   liveness: liveness::Analysis,
 }
 
@@ -54,7 +54,7 @@ pub fn Analysis() -> Analysis {
   Analysis { idominated: HashMap::new(), idominator: HashMap::new() }
 }
 
-pub fn convert<T: Statement>(cfg: @mut CFG<T>,
+pub fn convert<T: Statement>(cfg: &mut CFG<T>,
                               root: graph::NodeId,
                               results: &mut Analysis) -> HashMap<Temp, Temp> {
   let mut live = liveness::Analysis();
@@ -66,20 +66,23 @@ pub fn convert<T: Statement>(cfg: @mut CFG<T>,
     dom_frontiers(cfg, root, results)
   };
 
-  let mut converter = Converter { cfg: cfg,
-                                  root: root,
-                                  versions: HashMap::new(),
-                                  temps: temp::new(),
-                                  frontiers: frontiers,
-                                  analysis: copy *results, /* TODO: bad copy */
-                                  liveness: live,
-                                  remapping: HashMap::new() };
-  converter.convert();
-  let Converter { remapping, _ } = converter;
-  return remapping;
+  /* TODO: remove this block */
+  {
+    let mut converter = Converter { cfg: cfg,
+                                    root: root,
+                                    versions: HashMap::new(),
+                                    temps: temp::new(),
+                                    frontiers: frontiers,
+                                    analysis: results,
+                                    liveness: live,
+                                    remapping: HashMap::new() };
+    converter.convert();
+    let Converter { remapping, _ } = converter;
+    return remapping;
+  }
 }
 
-impl<T: Statement> Converter<T> {
+impl<'self, T: Statement> Converter<'self, T> {
   fn convert(&mut self) -> uint {
     /* First, find where all the phi functions need to be */
     let defs = self.find_defs();
@@ -90,7 +93,7 @@ impl<T: Statement> Converter<T> {
     do profile::dbg("renumbering temps") {
       let map = HashMap::new();
       self.versions.insert(self.root, map);
-      for self.cfg.each_rev_postorder(self.root) |&id| {
+      for self.cfg.postorder(self.root).first().each_reverse |&id| {
         do profile::dbg(fmt!("node %?", id)) {
           self.map_temps(id, &phis, &mut phi_temps);
         }
@@ -98,7 +101,8 @@ impl<T: Statement> Converter<T> {
     }
     /* If the graph already has phi functions, those are treated specially */
     do profile::dbg("mapping phis") {
-      for self.cfg.each_node |id, _| {
+      let nodes = self.cfg.nodes();
+      for nodes.each |&id| {
         self.map_phi_temps(id);
       }
     }
@@ -194,6 +198,14 @@ impl<T: Statement> Converter<T> {
    */
   fn map_temps(&mut self, n: graph::NodeId, phis: &PhiLocations,
                phi_temps: &mut PhiMappings) {
+    macro_rules! bump(
+      ($tmp:expr) => ({
+        let new = self.temps.new();
+        self.remapping.insert(new, $tmp);
+        map.insert($tmp, new);
+        new
+      })
+    );
     let mut map = HashMap::new();
     /* TODO: necessary scope? */
     {
@@ -212,7 +224,7 @@ impl<T: Statement> Converter<T> {
            be placed correctly in the next step */
         let mut mapping = ~HashMap::new();
         for temps.each |&tmp| {
-          mapping.insert(tmp, self.bump(&mut map, tmp));
+          mapping.insert(tmp, bump!(tmp));
         }
         phi_temps.insert(n, mapping);
       }
@@ -223,7 +235,7 @@ impl<T: Statement> Converter<T> {
     let stms = self.cfg.node(n).map(|&s| {
       debug!("%s", s.pp());
       s.map_temps(|usage| *map.get(&usage),
-                  |def|   self.bump(&mut map, def))
+                  |def|   bump!(def))
     });
     self.versions.insert(n, map);
 

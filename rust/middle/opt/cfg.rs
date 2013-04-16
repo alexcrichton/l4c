@@ -22,13 +22,13 @@ pub fn simplify(p: &mut ir::Program) {
            to see this, look at ../tests1/kestrel-logical01.l2 */
   for vec::each_mut(p.funs) |f| {
     /* Take out all the dead branches/edges */
-    eliminate_dead(f.cfg);
+    eliminate_dead(&mut f.cfg);
     /* Remove all unreachable nodes */
-    prune(f.cfg, f.root);
+    prune(&mut f.cfg, f.root);
     /* Fix all phis or remove them from the previous operation */
-    fix_phis(f.cfg);
+    fix_phis(&mut f.cfg);
     /* Finally merge nodes together if we can */
-    let (newroot, changes) = merge(f.cfg, f.root);
+    let (newroot, changes) = merge(&mut f.cfg, f.root);
 
     /* After merging, we need to update the 'loops' array metadata which
        maintains information about what's a loop header and where its loop body

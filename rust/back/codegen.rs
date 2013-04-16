@@ -28,9 +28,9 @@ pub fn codegen(ir::Program{funs}: ir::Program) -> assem::Program {
 }
 
 impl CodeGenerator {
-  fn run(&mut self, f: @mut ir::Function) -> assem::Function {
+  fn run(&mut self, f: ir::Function) -> assem::Function {
     /* extract relevant information from the function */
-    let @ir::Function {root, name, cfg, loops, types, _} = f;
+    let ir::Function {root, name, cfg, loops, types, _} = f;
     let mut types = types;
     swap(&mut types, &mut self.oldtypes);
 
