@@ -16,7 +16,7 @@ pub fn optimize(p: &mut Program) {
   }
 }
 
-fn peep(mut ins: ~[~Instruction]) -> ~[~Instruction] {
+fn peep(ins: ~[~Instruction]) -> ~[~Instruction] {
   use BO  = back::assem::BinaryOp;
   use Imm = back::assem::Immediate;
 
