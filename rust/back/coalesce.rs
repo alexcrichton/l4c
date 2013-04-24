@@ -765,7 +765,7 @@ impl<'self> CFGInfo<'self> {
     }
     debug!("%? interferencs: %s", t, set.pp());
     self.cache.interference.insert(t, set);
-    unsafe { self.cache.interference.get(&t).each(|&t| f(t)); }
+    self.cache.interference.get(&t).each(|&t| f(t));
   }
 
   /**
