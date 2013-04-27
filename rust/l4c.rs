@@ -179,7 +179,7 @@ fn prof<U>(m : &std::getopts::Matches, s : &str, f: &fn() -> U) -> U {
 }
 
 #[allow(non_implicitly_copyable_typarams)]
-fn get_json(m : &std::getopts::Matches) -> @run::Program {
+fn get_json(m : &std::getopts::Matches) -> run::Program {
   use std::getopts::*;
   let header = opt_maybe_str(m, "l").or(opt_maybe_str(m, "header"));
   let files = &match header {
