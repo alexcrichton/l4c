@@ -148,25 +148,14 @@ impl Allocator {
       /* If we found a pcopy, we need to think about being constrained */
       if pcopy.is_some() {
         let mut banned = RegisterSet();
-        macro_rules! precolor(
-          ($o:expr, $r:expr) => (
-            match *$o {
-              ~Temp(t) => {
-                assert!(self.colors.insert(t, arch::reg_num($r)));
-                assert!(self.precolored.insert(t));
-              }
-              _ => fail!(fmt!("not a tmp %?", $o))
-            }
-          )
-        );
 
         match *ins {
           ~BinaryOp(op, ref dst, ref op1, ref op2) if op.constrained() => {
             match op {
               /* div/mod both clobber eax/edx, and have the result in one */
               Div | Mod => {
-                precolor!(op1, EAX);
-                precolor!(dst, match op { Div => EAX, _ => EDX });
+                self.precolor(*op1, EAX);
+                self.precolor(*dst, match op { Div => EAX, _ => EDX });
                 banned.set(arch::reg_num(EDX), true);
                 banned.set(arch::reg_num(EAX), true);
                 for tmplive.each |&tmp| {
@@ -180,7 +169,7 @@ impl Allocator {
 
               /* shifting is easy, the second op is just in ecx */
               Rsh | Lsh => {
-                precolor!(op2, ECX);
+                self.precolor(*op2, ECX);
                 banned.set(arch::reg_num(ECX), true);
               }
               _ => fail!(fmt!("implement %?", op))
@@ -193,7 +182,7 @@ impl Allocator {
             self.colors.insert(dst, arch::reg_num(EAX));
             assert!(self.precolored.insert(dst));
             for args.eachi |i, arg| {
-              precolor!(arg, arch::arg_reg(i));
+              self.precolor(*arg, arch::arg_reg(i));
             }
             for arch::each_caller |r| {
               banned.set(arch::reg_num(r), true);
@@ -205,7 +194,7 @@ impl Allocator {
 
           /* returns just have their argument precolored to EAX */
           ~Return(ref op) => {
-            precolor!(op, EAX);
+            self.precolor(*op, EAX);
             banned.set(arch::reg_num(EAX), true);
           }
 
@@ -215,31 +204,14 @@ impl Allocator {
           _ => loop
         };
 
-        macro_rules! process(
-          ($t:expr, $regs:expr) => ({
-            /* TODO: this local variable shouldn't be needed */
-            let __tmp = $regs;
-            if self.colors.contains_key(&$t) {
-              assert!(__tmp.get(*self.colors.get(&$t)));
-            } else {
-              let color = min_vacant(__tmp);
-              /*debug!("assigning %s %? %s", $t.pp(), color, $regs.pp());*/
-              assert!(color <= arch::num_regs);
-              assert!(self.colors.insert($t, color));
-              __tmp.set(color, true);
-            }
-          })
-        );
-
         /* TODO: cleanup? */
         debug!("coloring uses");
         for ins.each_use |tmp| {
-          /* TODO: this looks stupid */
-          process!(tmp, (&mut banned))
+          self.process(tmp, &mut banned);
         }
         debug!("processing live-out temporaries");
         for tmplive.each |&tmp| {
-          process!(tmp, (&mut banned));
+          self.process(tmp, &mut banned);
         }
         debug!("pruning dead uses");
         for ins.each_use |tmp| {
@@ -259,7 +231,7 @@ impl Allocator {
           }
         }
         for copies.each |&(dst, _)| {
-          process!(dst, (&mut regstmp));
+          self.process(dst, &mut regstmp);
         }
         debug!("adding in all live-out temps");
         for tmplive.each |tmp| {
@@ -271,7 +243,7 @@ impl Allocator {
         debug!("processing defs");
         for ins.each_def |tmp| {
           if !self.colors.contains_key(&tmp) {
-            process!(tmp, (&mut registers));
+            self.process(tmp, &mut registers);
             if !tmplive.contains(&tmp) {
               registers.set(*self.colors.get(&tmp), false);
             }
@@ -304,8 +276,32 @@ impl Allocator {
     }
   }
 
+  fn precolor(&mut self, o: &Operand, r: Register) {
+    match *o {
+      Temp(t) => {
+        assert!(self.colors.insert(t, arch::reg_num(r)));
+        assert!(self.precolored.insert(t));
+      }
+      _ => fail!(fmt!("not a tmp %?", o))
+    }
+  }
+
+  fn process(&mut self, t: Temp, regs: &mut RegisterSet) {
+    if self.colors.contains_key(&t) {
+      assert!(regs.get(*self.colors.get(&t)));
+    } else {
+      let color = min_vacant(regs);
+      /*debug!("assigning %s %? %s", $t.pp(), color, $regs.pp());*/
+      assert!(color <= arch::num_regs);
+      assert!(self.colors.insert(t, color));
+      regs.set(color, true);
+    }
+  }
+
   fn remove_phis(&self) {
     let cfg = &mut self.f.cfg;
+
+    let mut to_append = ~[];
 
     for cfg.each_node |id, ins| {
       let mut phi_vars = ~[];
@@ -336,7 +332,6 @@ impl Allocator {
         }
       }
 
-      let mut to_append = ~[];
       for cfg.each_pred(id) |pred| {
         let mut perm = phi_maps.pop(&pred).unwrap();
         let mut mems = mem_maps.pop(&pred).unwrap();
@@ -360,11 +355,11 @@ impl Allocator {
           to_append.push((pred, ins));
         }
       }
+    }
 
-      do vec::consume(to_append) |_, (pred, ins)| {
-        /* there are no critical edges in the graph, so we can just append */
-        cfg.map_consume_node(pred, |stms| stms + ins);
-      }
+    do vec::consume(to_append) |_, (pred, ins)| {
+      /* there are no critical edges in the graph, so we can just append */
+      cfg.map_consume_node(pred, |stms| stms + ins);
     }
   }
 
@@ -518,9 +513,8 @@ impl Allocator {
   }
 
   fn alloc_tmp(&self, tmp: Temp) -> ~Operand {
-    unsafe {
-      ~Register(arch::num_reg(*self.colors.get(&tmp)), *self.f.sizes.get(&tmp))
-    }
+    let size = self.f.sizes.get_copy(&tmp);
+    ~Register(arch::num_reg(*self.colors.get(&tmp)), size)
   }
 
   fn resolve_perm(&self, result: &[uint], incoming: &[uint]) -> ~[~Instruction] {

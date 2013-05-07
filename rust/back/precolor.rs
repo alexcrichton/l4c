@@ -15,7 +15,7 @@ pub fn constrain(p: &mut Program) {
         let tmp = temps.new();
         /* TODO: why can't this be one statement */
         unsafe {
-          let size; size = *f.sizes.get(&t);
+          let size; size = f.sizes.get_copy(&t);
           f.sizes.insert(tmp, size);
         }
         tmp

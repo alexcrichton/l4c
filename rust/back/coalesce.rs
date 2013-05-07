@@ -77,6 +77,7 @@ struct Coalescer<'self> {
   /* Temporary mapping remembering the old colors of temps for rollbacks */
   old_color: SmallIntMap<uint>,
 
+  /* TODO: it shouldn't be necessary to have this structure */
   info: @mut CFGInfo<'self>,
 }
 
@@ -97,7 +98,7 @@ struct CFGInfo<'self> {
      this computation to facilitate usage later on */
   cache: @mut Cache,
 
-  f: &'self mut assem::Function,
+  f: &'self assem::Function,
 }
 
 struct Cache {
@@ -272,7 +273,7 @@ impl<'self> Coalescer<'self> {
    * has a maximum weight of temps within, and this function calculates and
    * returns that set along with the weight of the set.
    */
-  fn best_subset(&self, s: &TempSet, c: uint) -> Option<(TempSet, uint)> {
+  fn best_subset(&mut self, s: &TempSet, c: uint) -> Option<(TempSet, uint)> {
     fn first(s: &TempSet) -> Temp {
       for s.each |&t| { return t }
       fail!()
@@ -451,7 +452,7 @@ impl<'self> Coalescer<'self> {
    * This doesn't look at neighbors to or anything like that, it's purely
    * whether the temp 't' could ever have the color 'color'.
    */
-  fn admissible(&self, t: Temp, color: uint) -> bool {
+  fn admissible(&mut self, t: Temp, color: uint) -> bool {
     /* TODO: remove this cache? */
     /*match unsafe { self.cache.admissible.find(&(t, color)) } {*/
     /*  Some(&a) => { return a; }*/
@@ -462,7 +463,7 @@ impl<'self> Coalescer<'self> {
     return b;
   }
 
-  fn admissible_impl(&self, t: Temp, color: uint) -> bool {
+  fn admissible_impl(&mut self, t: Temp, color: uint) -> bool {
     unsafe {
       if self.precolored.get(t) { return color == *self.colors.get(&t) }
       match self.constraints.find(&t) {
@@ -590,26 +591,21 @@ impl<'self> Coalescer<'self> {
       let (n, weight) = to_visit.pop();
       assert!(visited.insert(n));
       /* We have a more costly weight if we're moving into a loop */
-      let weight = weight + unsafe {
-        if self.info.f.loops.contains_key(&n) { 1 } else { 0 }
-      };
-      for self.info.f.cfg.node(n).each |&ins| {
+      let info: &mut CFGInfo<'self> = self.info;
+      let weight = weight + if info.f.loops.contains_key(&n) { 1 } else { 0 };
+      for info.f.cfg.node(n).each |&ins| {
         match ins {
           ~assem::Phi(def, ref map) => {
             for map.each |_, &tmp| {
-              /* TODO(#4650): when this ICE is fixed, uncomment */
-              /*affine!(def, tmp, weight);*/
-              add_affine!(tmp, def, weight);
-              add_affine!(def, tmp, weight);
+              self.add_affine(tmp, def, weight);
+              self.add_affine(def, tmp, weight);
               pq.push(Affinity(tmp, def, weight));
             }
           }
           ~assem::PCopy(ref copies) => {
             for copies.each |&(a, b)| {
-              /* TODO(#4650): when ICE is fixed, uncomment */
-              /*affine!(a, b, weight);*/
-              add_affine!(a, b, weight);
-              add_affine!(b, a, weight);
+              self.add_affine(a, b, weight);
+              self.add_affine(b, a, weight);
               pq.push(Affinity(a, b, weight));
             }
           }
@@ -629,6 +625,19 @@ impl<'self> Coalescer<'self> {
 
     return pq;
   }
+
+  fn add_affine(&mut self, a: Temp, b: Temp, weight: uint) {
+    /* TODO: should be a match */
+    if self.affinities.contains_key(&a) {
+      unsafe {
+        self.affinities.find_mut(&a).unwrap().insert(a, weight);
+      }
+    } else {
+      let mut m = ~HashMap::new();
+      m.insert(b, weight);
+      self.affinities.insert(a, m);
+    }
+  }
 }
 
 impl<'self> CFGInfo<'self> {
@@ -638,31 +647,31 @@ impl<'self> CFGInfo<'self> {
    * temp.
    */
   fn build_use_def(&mut self, n: NodeId, ins: &~[~assem::Instruction]) {
-    macro_rules! add_use(
-      ($tmp:expr, $loc:expr) => ({
-        match self.uses.find_mut(&$tmp) {
-          Some(s) => { s.insert($loc); loop; }
-          None => {}
-        }
-        self.uses.insert($tmp, ~set::singleton($loc));
-      })
-    );
     for ins.eachi |i, &ins| {
       for ins.each_def |tmp| {
         assert!(self.defs.insert(tmp, (n, i as int)));
       }
       for ins.each_use |tmp| {
-        add_use!(tmp, (n, i as int));
+        self.add_use(tmp, (n, i as int));
       }
       match ins.phi_info() {
         None => (),
         Some((_, m)) => {
           for m.each |&pred, &tmp| {
-            add_use!(tmp, (pred, int::max_value));
+            self.add_use(tmp, (pred, int::max_value));
           }
         }
       }
     }
+  }
+
+  fn add_use(&mut self, tmp: Temp, loc: Location) {
+    /* TODO: can this be compacted */
+    match self.uses.find_mut(&tmp) {
+      Some(s) => { s.insert(loc); return; }
+      None => {}
+    }
+    self.uses.insert(tmp, ~set::singleton(loc));
   }
 
   /**

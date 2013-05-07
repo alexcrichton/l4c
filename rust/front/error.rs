@@ -1,4 +1,4 @@
-use core::util::{with, unreachable, replace};
+use core::util::{unreachable, replace};
 use core::io::WriterUtil;
 use front::mark;
 
@@ -42,9 +42,10 @@ pub impl List {
   }
 
   fn with<T, U>(&mut self, m: &mark::Mark<T>, f: &fn(&T) -> U) -> U {
-    do with(&mut self.coords, Some(m.pos)) {
-      f(m.data)
-    }
+    let prev = replace(&mut self.coords, Some(m.pos));
+    let ret = f(m.data);
+    self.coords = prev;
+    return ret;
   }
 
   fn map_mark<T>(&mut self, mark::Mark{data, pos}: mark::Mark<T>,

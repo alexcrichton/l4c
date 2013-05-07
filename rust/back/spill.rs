@@ -312,24 +312,39 @@ impl<'self> Spiller<'self> {
 
     /* Limit the amount of variables in registers by spilling those which are
        used the farthest away */
-    macro_rules! limit (
-      ($max:expr) =>
-      ({
-        if regs.len() >= $max {
-          let sorted = sort(&regs, &next_use);
-          debug!("%? %s", sorted, next_use.pp());
-          for sorted.slice($max, sorted.len()).each |&tmp| {
-            if !spill.contains(&tmp) && next_use.contains_key(&tmp) {
-              debug!("spilling %?", tmp);
-              block.push(~Spill(tmp, tmp));
-            }
-            regs.remove(&tmp);
-            spill.remove(&tmp);
+    /*macro_rules! limit (*/
+    /*  ($max:expr) =>*/
+    /*  ({*/
+    /*    if regs.len() >= $max {*/
+    /*      let sorted = sort(&regs, &next_use);*/
+    /*      debug!("%? %s", sorted, next_use.pp());*/
+    /*      for sorted.slice($max, sorted.len()).each |&tmp| {*/
+    /*        if !spill.contains(&tmp) && next_use.contains_key(&tmp) {*/
+    /*          debug!("spilling %?", tmp);*/
+    /*          block.push(~Spill(tmp, tmp));*/
+    /*        }*/
+    /*        regs.remove(&tmp);*/
+    /*        spill.remove(&tmp);*/
+    /*      }*/
+    /*    }*/
+    /*    assert!(regs.len() <= $max);*/
+    /*  })*/
+    /*);*/
+    let limit = |max: uint| {
+      if regs.len() >= max {
+        let sorted = sort(&regs, &next_use);
+        debug!("%? %s", sorted, next_use.pp());
+        for sorted.slice(max, sorted.len()).each |&tmp| {
+          if !spill.contains(&tmp) && next_use.contains_key(&tmp) {
+            debug!("spilling %?", tmp);
+            block.push(~Spill(tmp, tmp));
           }
+          regs.remove(&tmp);
+          spill.remove(&tmp);
         }
-        assert!(regs.len() <= $max);
-      })
-    );
+      }
+      assert!(regs.len() <= max);
+    };
 
     let apply_delta = |delta: &~[(Temp, Option<uint>)]| {
       /* For each delta if the value is None, then that means the liveness has
@@ -390,14 +405,14 @@ impl<'self> Spiller<'self> {
           };
           /* This limit is relative to the next_use of this instruction */
           debug!("making room for operands");
-          limit!(arch::num_regs - extra);
+          limit(arch::num_regs - extra);
 
           /* The next limit is relative to the next instruction */
           apply_delta(delta);
           let mut defs = 0;
           for ins.each_def |_| { defs += 1; }
           debug!("making room for results");
-          limit!(arch::num_regs - defs);
+          limit(arch::num_regs - defs);
 
           /* Add all defined temps to the set of those in regs */
           for ins.each_def |tmp| {
@@ -594,7 +609,7 @@ impl<'self> Spiller<'self> {
     }
     if append.len() > 0 {
       debug!("appending to %?: %?", pred, append);
-      self.f.cfg.update_node(pred, self.f.cfg.node(pred) + append);
+      do self.f.cfg.map_consume_node(pred) |stms| { stms + append }
     }
   }
 

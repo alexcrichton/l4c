@@ -483,42 +483,40 @@ impl<'self> Translator<'self> {
     let c = self.exp(c, false);
     self.stms.push(~ir::Condition(c));
 
-    macro_rules! process(
-      ($e:expr, $typ:expr) => ({
-        /* TODO(#4541): putting this in the match causes a double-free */
-        let foo = ast::unmarke($e);
-        match foo {
-          /* Some cases don't necessarily always need a 'join' node */
-          ~ast::Ternary(e1, e2, e3, _) => {
-            self.dotern(e1, e2, e3, dst, addr,
-                        (end, ir::Branch, $typ));
-          }
-          ~ast::BinaryOp(ast::LOr, e1, e2) => {
-            self.dotern(e1, ~ast::Boolean(true), e2, dst, addr,
-                        (end, ir::Branch, $typ));
-          }
-          ~ast::BinaryOp(ast::LAnd, e1, e2) => {
-            self.dotern(e1, e2, ~ast::Boolean(false), dst, addr,
-                        (end, ir::Branch, $typ));
-          }
-
-          /* Otherwise, we have to finish things up */
-          e => {
-            let e = self.exp(e, addr);
-            self.stms.push(~ir::Move(dst, e));
-            self.f.cfg.add_edge(self.cur_id, end, $typ);
-          }
-        }
-      })
-    );
-
     /* translate each true/false branch */
     let cond_id = self.commit_with(true_id);
     self.f.cfg.add_edge(cond_id, true_id, ir::True);
-    process!(t, endt);
+    self.process_tern(t, endt, dst, addr, end);
     self.commit_with(false_id);
     self.f.cfg.add_edge(cond_id, false_id, ir::FBranch);
-    process!(f, endf);
+    self.process_tern(f, endf, dst, addr, end);
+  }
+
+  fn process_tern(&mut self, e: ~ast::Expression, typ: ir::Edge,
+                  dst: temp::Temp, addr: bool, end: graph::NodeId) {
+    /* TODO(#4541): putting this in the match causes a double-free */
+    let foo = ast::unmarke(e);
+    match foo {
+      /* Some cases don't necessarily always need a 'join' node */
+      ~ast::Ternary(e1, e2, e3, _) => {
+        self.dotern(e1, e2, e3, dst, addr, (end, ir::Branch, typ));
+      }
+      ~ast::BinaryOp(ast::LOr, e1, e2) => {
+        self.dotern(e1, ~ast::Boolean(true), e2, dst, addr,
+                    (end, ir::Branch, typ));
+      }
+      ~ast::BinaryOp(ast::LAnd, e1, e2) => {
+        self.dotern(e1, e2, ~ast::Boolean(false), dst, addr,
+                    (end, ir::Branch, typ));
+      }
+
+      /* Otherwise, we have to finish things up */
+      e => {
+        let e = self.exp(e, addr);
+        self.stms.push(~ir::Move(dst, e));
+        self.f.cfg.add_edge(self.cur_id, end, typ);
+      }
+    }
   }
 
   fn check_null(&mut self, e: &ir::Expression) {

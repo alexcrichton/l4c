@@ -198,21 +198,10 @@ impl<'self, T: Statement> Converter<'self, T> {
    */
   fn map_temps(&mut self, n: graph::NodeId, phis: &PhiLocations,
                phi_temps: &mut PhiMappings) {
-    macro_rules! bump(
-      ($tmp:expr) => ({
-        let new = self.temps.new();
-        self.remapping.insert(new, $tmp);
-        map.insert($tmp, new);
-        new
-      })
-    );
     let mut map = HashMap::new();
-    /* TODO: necessary scope? */
-    {
-      let idom = self.analysis.idominator.get(&n);
-      for self.versions.get(idom).each |&k, &v| {
-        map.insert(k, v);
-      }
+    let idom = self.analysis.idominator.get(&n);
+    for self.versions.get(idom).each |&k, &v| {
+      map.insert(k, v);
     }
 
     /* Bump all temp numbers which have phi functions at this location */
@@ -224,7 +213,7 @@ impl<'self, T: Statement> Converter<'self, T> {
            be placed correctly in the next step */
         let mut mapping = ~HashMap::new();
         for temps.each |&tmp| {
-          mapping.insert(tmp, bump!(tmp));
+          mapping.insert(tmp, self.bump(&mut map, tmp));
         }
         phi_temps.insert(n, mapping);
       }
@@ -232,15 +221,14 @@ impl<'self, T: Statement> Converter<'self, T> {
 
     /* Process all statements in this block (possibly bumping versions) */
     debug!("mapping statements at %d", n as int);
-    let stms = self.cfg.node(n).map(|&s| {
+    let stms = self.cfg.pop_node(n);
+    let stms = do vec::map_consume(stms) |s| {
       debug!("%s", s.pp());
       s.map_temps(|usage| *map.get(&usage),
-                  |def|   bump!(def))
-    });
+                  |def|   self.bump(&mut map, def))
+    };
     self.versions.insert(n, map);
-
-    /* Update our node with our altered statements */
-    self.cfg.update_node(n, stms);
+    self.cfg.add_node(n, stms);
   }
 
   /* Alter the temp mapping for a specified non-ssa temp */

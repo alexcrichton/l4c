@@ -188,13 +188,6 @@ impl Elaborator {
   }
 
   fn elaborate_stm(&mut self, s: ~Statement) -> ~Statement {
-    macro_rules! declare(
-      ($id:expr, $typ:expr, $init:expr, $rest:expr) => ({
-        self.check_id($id);
-        ~Declare($id, self.resolve($typ),
-                 $init.map_consume(|x| self.elaborate_exp(x)), $rest)
-      })
-    );
     match s {
       ~Markeds(mark) =>
         ~Markeds(self.err.map_mark(mark, |s| self.elaborate_stm(s))),
@@ -202,8 +195,10 @@ impl Elaborator {
       ~Continue => ~Continue,
       ~Break => ~Break,
       ~Nop => ~Nop,
-      ~Declare(id, typ, init, rest) =>
-        declare!(id, typ, init, self.elaborate_stm(rest)),
+      ~Declare(id, typ, init, rest) => {
+        let rest = self.elaborate_stm(rest);
+        self.declare(id, typ, init, rest)
+      }
       ~For(~Declare(id, typ, init, s1), e1, s2, s3) =>
         self.elaborate_stm(~Declare(id, typ, init, ~For(s1, e1, s2, s3))),
       ~For(~Markeds(mark::Mark{data, _}), e1, s2, s3) =>
@@ -219,12 +214,15 @@ impl Elaborator {
       ~Express(e) => ~Express(self.elaborate_exp(e)),
       ~Seq(s1, s2) => {
         match s1 {
-          ~Declare(id, typ, init, s1) =>
-            declare!(id, typ, init,
-                     ~Seq(self.elaborate_stm(s1), self.elaborate_stm(s2))),
+          ~Declare(id, typ, init, s1) => {
+            let s1 = self.elaborate_stm(s1);
+            let s2 = self.elaborate_stm(s2);
+            self.declare(id, typ, init, ~Seq(s1, s2))
+          }
           ~Markeds(mark::Mark{data: ~Declare(id, typ, init, s1), pos}) => {
-            let data = declare!(id, typ, init, ~Seq(self.elaborate_stm(s1),
-                                                    self.elaborate_stm(s2)));
+            let s1 = self.elaborate_stm(s1);
+            let s2 = self.elaborate_stm(s2);
+            let data = self.declare(id, typ, init, ~Seq(s1, s2));
             ~Markeds(mark::Mark{data: data, pos: pos})
           }
           ~Markeds(mark::Mark{data, pos}) =>
@@ -245,6 +243,13 @@ impl Elaborator {
         }
       }
     }
+  }
+
+  fn declare(&mut self, id: Ident, typ: @Type, init: Option<~Expression>,
+             rest: ~Statement) -> ~Statement {
+    self.check_id(id);
+    ~Declare(id, self.resolve(typ),
+             init.map_consume(|x| self.elaborate_exp(x)), rest)
   }
 
   fn elaborate_exp(&mut self, e: ~Expression) -> ~Expression {

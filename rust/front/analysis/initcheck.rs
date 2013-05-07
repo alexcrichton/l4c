@@ -55,12 +55,6 @@ impl<'self> Initchecker<'self> {
   }
 
   fn live(&mut self, sym: Ident, s: &Statement) -> bool {
-    macro_rules! seq_live(
-      ($s1:expr, $s2:expr) => (
-        self.live(sym, *$s1) ||
-          (self.live(sym, *$s2) && !self.defines(sym, *$s1)),
-      )
-    );
     match *s {
       Declare(id, _, ref init, ref s) =>
         id != sym && (self.live(sym, *s) || self.uses_opt(sym, init)),
@@ -80,18 +74,22 @@ impl<'self> Initchecker<'self> {
       /* TODO: remove copy */
       Continue => self.live(sym, copy self.step),
       Express(ref e) | Return(ref e) => self.uses(sym, *e),
-      Seq(ref s1, ref s2) => seq_live!(s1, s2),
+      Seq(ref s1, ref s2) => self.seq_live(sym, *s1, *s2),
       Markeds(ref m) => self.live(sym, m.data),
       For(ref s1, ref e, ref s2, ref s3) => {
         /* TODO: remove copy and use 'with' */
         let prev = replace(&mut self.step, copy *s2);
         let ret = self.live(sym, *s1) ||
-            ((self.uses(sym, *e) || seq_live!(s3, s2)) &&
+            ((self.uses(sym, *e) || self.seq_live(sym, *s3, *s2)) &&
              !self.defines(sym, *s1));
         self.step = prev;
         ret
       }
     }
+  }
+
+  fn seq_live(&mut self, sym: Ident, s1: &Statement, s2: &Statement) -> bool {
+    self.live(sym, s1) || (self.live(sym, s2) && !self.defines(sym, s1))
   }
 
   fn uses(&self, sym: Ident, e: &Expression) -> bool {

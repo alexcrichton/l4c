@@ -89,14 +89,15 @@ impl<'self> ConstantFolder<'self> {
    * The boolean returned is whether the expression is considered 'pure' and is
    * safe for removal. This is false for things like div and mod
    */
-  fn exp(&self, e: ~Expression) -> (~Expression, bool) {
+  fn exp(&mut self, e: ~Expression) -> (~Expression, bool) {
     match e {
       ~LabelExp(l) => (~LabelExp(l), true),
       ~Const(c, s) => (~Const(c, s), true),
       ~Temp(t) => {
         let opt = self.constants.find(&t);
         let e = unsafe {
-          opt.map_default(~Temp(t), |&x| ~Const(*x, *self.f.types.get(&t)))
+          let typ = *self.f.types.get(&t);
+          opt.map_default(~Temp(t), |&x| ~Const(*x, typ))
         };
         (e, true)
       }
@@ -135,7 +136,7 @@ impl<'self> ConstantFolder<'self> {
    * attempt to eliminate redundant instructions like divisions/multiplications
    * by 1, etc.
    */
-  fn binop(&self, o: Binop, e1: ~Expression, e2: ~Expression, ispure: bool)
+  fn binop(&mut self, o: Binop, e1: ~Expression, e2: ~Expression, ispure: bool)
       -> (~Expression, bool) {
     match e1 {
       ~Const(c, s) => {
