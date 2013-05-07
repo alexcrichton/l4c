@@ -63,7 +63,7 @@ impl Allocator {
   fn run(&mut self) {
     /* TODO: why can't this be above */
     /* Color the graph completely */
-    unsafe { info!("coloring: %s", self.f.name); }
+    info!("coloring: %s", self.f.name);
 
     do profile::dbg("coloring") { self.color(self.f.root); }
     for self.colors.each |tmp, color| {
@@ -86,7 +86,7 @@ impl Allocator {
    * A top-down traversal of the dominator tree is done, coloring all
    * definitions as they are seen with the first available color.
    */
-  unsafe fn color(&mut self, n: graph::NodeId) {
+  fn color(&mut self, n: graph::NodeId) {
     debug!("coloring %?", n);
     let mut tmplive = HashSet::new();
     let tmpdelta = self.f.liveness.deltas.get(&n);
@@ -334,7 +334,7 @@ impl Allocator {
 
       for cfg.each_pred(id) |pred| {
         let mut perm = phi_maps.pop(&pred).unwrap();
-        let mut mems = mem_maps.pop(&pred).unwrap();
+        let mems = mem_maps.pop(&pred).unwrap();
         perm = perm.map(|&tmp| *self.colors.get(&tmp));
 
         debug!("resolving phi for %? <= %?", id, pred);

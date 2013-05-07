@@ -85,22 +85,22 @@ pub impl<N, E> Graph<N, E> {
     let succ = self.succ.pop(&n).unwrap();
     let pred = self.pred.pop(&n).unwrap();
     for succ.each_key |k| {
-      unsafe { self.pred.find_mut(k).unwrap().remove(&n); }
+      self.pred.find_mut(k).unwrap().remove(&n);
     }
     for pred.each |k| {
-      unsafe { self.succ.find_mut(k).unwrap().remove(&n); }
+      self.succ.find_mut(k).unwrap().remove(&n);
     }
     return ret;
   }
 
   fn remove_edge(&mut self, n1: NodeId, n2: NodeId) -> E {
-    unsafe { self.pred.find_mut(&n2).unwrap().remove(&n1); }
-    return unsafe { self.succ.find_mut(&n1).unwrap().pop(&n2).unwrap() };
+    self.pred.find_mut(&n2).unwrap().remove(&n1);
+    return self.succ.find_mut(&n1).unwrap().pop(&n2).unwrap();
   }
 
   fn add_edge(&mut self, n1: NodeId, n2: NodeId, e: E) {
-    unsafe { self.succ.find_mut(&n1).unwrap().insert(n2, e); }
-    unsafe { self.pred.find_mut(&n2).unwrap().insert(n1); }
+    self.succ.find_mut(&n1).unwrap().insert(n2, e);
+    self.pred.find_mut(&n2).unwrap().insert(n1);
   }
 
   fn each_edge(&self, f: &fn(NodeId, NodeId) -> bool) {

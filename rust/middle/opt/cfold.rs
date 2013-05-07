@@ -95,10 +95,8 @@ impl<'self> ConstantFolder<'self> {
       ~Const(c, s) => (~Const(c, s), true),
       ~Temp(t) => {
         let opt = self.constants.find(&t);
-        let e = unsafe {
-          let typ = *self.f.types.get(&t);
-          opt.map_default(~Temp(t), |&x| ~Const(*x, typ))
-        };
+        let typ = *self.f.types.get(&t);
+        let e = opt.map_default(~Temp(t), |&x| ~Const(*x, typ));
         (e, true)
       }
       ~BinaryOp(op, e1, e2) => {

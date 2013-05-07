@@ -33,7 +33,7 @@ pub fn simplify(p: &mut ir::Program) {
     /* After merging, we need to update the 'loops' array metadata which
        maintains information about what's a loop header and where its loop body
        and ending node both start. */
-    let mut changes = changes;
+    let changes = changes;
     let mut loops = HashMap::new();
     loops <-> f.loops;
     do loops.consume |cond, (body, end)| {
@@ -125,7 +125,7 @@ pub fn merge<T>(cfg: &mut CFG<T>,
   fn domerge<T>(cfg: &mut CFG<T>, visited: &mut NodeSet,
                 changes: &mut HashMap<NodeId, NodeId>,
                 mut root: NodeId,
-                mut n: NodeId) -> NodeId {
+                n: NodeId) -> NodeId {
     visited.insert(n);
     let mut preds = 0;
     let mut pred = 0;

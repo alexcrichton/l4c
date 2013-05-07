@@ -13,11 +13,8 @@ pub fn constrain(p: &mut Program) {
     do f.cfg.map_nodes |id, stms| {
       constrain_block(live.in.get(&id), *live.deltas.get(&id), |t| {
         let tmp = temps.new();
-        /* TODO: why can't this be one statement */
-        unsafe {
-          let size; size = f.sizes.get_copy(&t);
-          f.sizes.insert(tmp, size);
-        }
+        let size = f.sizes.get_copy(&t);
+        f.sizes.insert(tmp, size);
         tmp
       }, stms)
     }

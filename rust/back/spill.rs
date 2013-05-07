@@ -198,7 +198,12 @@ impl<'self> Spiller<'self> {
         }
       }
       if !self.next_use.contains_key(&succ) { loop }
-      let edge_cost = match *self.f.cfg.edge(n, succ) {
+      /* TODO(#6248): ugh */
+      let edge = {
+        let cfg: &CFG = self.f.cfg;
+        *cfg.edge(n, succ)
+      };
+      let edge_cost = match edge {
         ir::LoopOut | ir::FLoopOut => loop_out_weight, _ => 0
       };
 

@@ -286,11 +286,8 @@ impl<'self> Coalescer<'self> {
        initially the subset of 's' of all temps with color 'c' */
     let mut left = HashSet::new();
     for s.each |&tmp| {
-      /* TODO(purity): why is this unsafe */
-      unsafe {
-        if *self.colors.get(&tmp) == c {
-          left.insert(tmp);
-        }
+      if *self.colors.get(&tmp) == c {
+        left.insert(tmp);
       }
     }
     debug!("best of %s in %s for %?", left.pp(), s.pp(), c);
@@ -454,7 +451,7 @@ impl<'self> Coalescer<'self> {
    */
   fn admissible(&mut self, t: Temp, color: uint) -> bool {
     /* TODO: remove this cache? */
-    /*match unsafe { self.cache.admissible.find(&(t, color)) } {*/
+    /*match self.cache.admissible.find(&(t, color)) {*/
     /*  Some(&a) => { return a; }*/
     /*  None => ()*/
     /*}*/
@@ -464,12 +461,10 @@ impl<'self> Coalescer<'self> {
   }
 
   fn admissible_impl(&mut self, t: Temp, color: uint) -> bool {
-    unsafe {
-      if self.precolored.get(t) { return color == *self.colors.get(&t) }
-      match self.constraints.find(&t) {
-        None => true,
-        Some(c) => c.allows(arch::num_reg(color))
-      }
+    if self.precolored.get(t) { return color == *self.colors.get(&t) }
+    match self.constraints.find(&t) {
+      None => true,
+      Some(c) => c.allows(arch::num_reg(color))
     }
   }
 
@@ -561,28 +556,6 @@ impl<'self> Coalescer<'self> {
    * to generate affinity relations
    */
   fn find_affinities(&mut self) -> PriorityQueue<Affinity> {
-    macro_rules! add_affine(
-      ($a1:expr, $b1:expr, $weight1:expr) => ({
-        /* TODO: should be a match */
-        if self.affinities.contains_key(&$a1) {
-          unsafe {
-            self.affinities.find_mut(&$a1).unwrap().insert($b1, $weight1);
-          }
-        } else {
-          let mut m = ~HashMap::new();
-          m.insert($b1, $weight1);
-          self.affinities.insert($a1, m);
-        }
-      })
-    );
-    macro_rules! affine(
-      ($a:expr, $b:expr, $weight:expr) => ({
-        add_affine!($a, $b, $weight);
-        add_affine!($b, $a, $weight);
-        pq.push(Affinity($a, $b, $weight));
-      })
-    );
-
     let mut pq = PriorityQueue::new();
     let mut to_visit = ~[(self.info.f.root, 1)];
     let mut visited = HashSet::new();
@@ -629,9 +602,7 @@ impl<'self> Coalescer<'self> {
   fn add_affine(&mut self, a: Temp, b: Temp, weight: uint) {
     /* TODO: should be a match */
     if self.affinities.contains_key(&a) {
-      unsafe {
-        self.affinities.find_mut(&a).unwrap().insert(a, weight);
-      }
+      self.affinities.find_mut(&a).unwrap().insert(a, weight);
     } else {
       let mut m = ~HashMap::new();
       m.insert(b, weight);
@@ -681,7 +652,7 @@ impl<'self> CFGInfo<'self> {
    */
   fn interferes(&self, x: Temp, y: Temp) -> bool {
     /* TODO: remove this cache */
-    match unsafe { self.cache.interferences.find(&(x, y)) } {
+    match self.cache.interferences.find(&(x, y)) {
       Some(&b) => return b,
       None => (),
     }
@@ -710,7 +681,7 @@ impl<'self> CFGInfo<'self> {
 
     /* If 't' is live out in b's definition, then they definitely interfere */
     let &(bdef, bline) = self.defs.get(&b);
-    if unsafe { self.f.liveness.out.get(&bdef).contains(&t) } {
+    if self.f.liveness.out.get(&bdef).contains(&t) {
       return true;
     }
 
@@ -742,11 +713,9 @@ impl<'self> CFGInfo<'self> {
    */
   fn interferences(&self, t: Temp, f: &fn(Temp) -> bool) {
     /* definitely cache information once we've calculated it */
-    unsafe {
-      match self.cache.interference.find(&t) {
-        Some(s) => { s.each(|&t| f(t)); return }
-        None => ()
-      }
+    match self.cache.interference.find(&t) {
+      Some(s) => { s.each(|&t| f(t)); return }
+      None => ()
     }
 
     /* Prelude to Algorithm 4.7 (find_interferences) */
@@ -836,26 +805,24 @@ impl<'self> CFGInfo<'self> {
     if a == b {
       return aline < bline;
     }
-    match unsafe { self.cache.dominates.find(&(a, b)) } {
+    match self.cache.dominates.find(&(a, b)) {
       Some(&s) => { return s; }
       None => {}
     }
     /* Otherwise we just walk up b's idominator tree to see if we ever find a,
        if we find the root first, then a doesn't dominate b */
-    unsafe {
-      let mut cur = &b;
-      let mut dominates = false;
-      let idominator = &self.f.ssa.idominator;
-      loop {
-        let nxt = idominator.get(cur);
-        if nxt == cur { break }
-        if *nxt == a { dominates = true; break; }
-        cur = nxt;
-      }
-      self.cache.dominates.insert((a, b), dominates);
-      self.cache.dominates.insert((b, a), !dominates);
-      return dominates;
+    let mut cur = &b;
+    let mut dominates = false;
+    let idominator = &self.f.ssa.idominator;
+    loop {
+      let nxt = idominator.get(cur);
+      if nxt == cur { break }
+      if *nxt == a { dominates = true; break; }
+      cur = nxt;
     }
+    self.cache.dominates.insert((a, b), dominates);
+    self.cache.dominates.insert((b, a), !dominates);
+    return dominates;
   }
 }
 
