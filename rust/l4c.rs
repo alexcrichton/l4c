@@ -125,7 +125,7 @@ fn main() {
   let mut ast = do prof(m, "generating ast") {
     parse::from_json(&json, copy m.free[0])
   };
-  ast.elaborate();
+  do prof(m, "elaboration") { ast.elaborate(); }
   if opt_present(m, "dump-ast") {
     io::println(ast.pp());
   }
@@ -136,7 +136,11 @@ fn main() {
 
   /* middle */
   let safe = opt_present(m, "safe") && !opt_present(m, "unsafe");
-  let mut ir = trans::translate(ast, safe);
+  let mut ir;
+  {
+    let _p = profstk(m, "translation");
+    ir = trans::translate(ast, safe);
+  }
   if opt_present(m, "dot-ir")  { ir.dot(io::stdout()); }
   pass(ir::ssa, &mut ir, m, "dot-ssa");
 
@@ -145,7 +149,11 @@ fn main() {
   pass(opt::deadcode::optimize, &mut ir, m, "dot-deadcode");
 
   /* backend */
-  let mut assem = codegen::codegen(ir);
+  let mut assem;
+  {
+    let _p = profstk(m, "codegen");
+    assem = codegen::codegen(ir);
+  }
   if opt_present(m, "dot-assem") { assem.dot(io::stdout()); }
   pass(peephole::optimize,  &mut assem, m, "dot-peephole");
   pass(precolor::constrain, &mut assem, m, "dot-precolor");
@@ -175,6 +183,10 @@ fn prof<U>(m : &std::getopts::Matches, s : &str, f: &fn() -> U) -> U {
   } else {
     f()
   }
+}
+
+fn profstk(m : &std::getopts::Matches, s : &str) -> profile::Guard {
+  profile::Guard::new(std::getopts::opt_present(m, "profile"), s)
 }
 
 #[allow(non_implicitly_copyable_typarams)]

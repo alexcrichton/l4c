@@ -1,6 +1,29 @@
+use core::ops::Drop;
 use std::time;
 
 fn levels_key(_v: @uint) {}
+
+pub struct Guard {
+  priv enabled: bool,
+  priv start: float,
+}
+
+impl Drop for Guard {
+  fn finalize(&self) {
+    if self.enabled {
+      io::println(fmt!("%.2fs", time::precise_time_s() - self.start));
+    }
+  }
+}
+
+pub impl Guard {
+  fn new(print: bool, name: &str) -> Guard {
+    if print {
+      io::print(fmt!("%20s ", name));
+    }
+    Guard { enabled: print, start: time::precise_time_s() }
+  }
+}
 
 pub fn run<U>(f: &fn() -> U, name: &str) -> U {
   let start = time::precise_time_s();
