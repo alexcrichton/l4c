@@ -1,41 +1,32 @@
-use front::error;
 use front::ast::*;
+use front::mark;
+use front::pp::PrettyPrintAST;
 
 struct MainChecker<'self> {
   program: &'self Program,
-  err: error::List,
 }
 
-pub fn check(a: &Program) {
-  let mut mc = MainChecker{ program: a, err: error::new() };
+pub fn check(p: &Program) {
   debug!("mainchecking");
-  mc.run();
+  if !vec::any(p.decls, |x| ismain(p, *x)) {
+    p.error(mark::dummy, ~"No main function was found");
+  }
+  p.check();
 }
 
-impl<'self> MainChecker<'self> {
-  fn run(&mut self) {
-    if !vec::any(self.program.decls, |x| self.ismain(*x)) {
-      self.err.add(~"No main function was found");
-    }
-    self.err.check();
-  }
-
-  fn ismain(&mut self, g: &GDecl) -> bool {
-    match *g {
-      Markedg(ref m) => self.ismain(m.data),
-      Function(ret, id, ref args, _) => {
-        if id == self.program.mainid {
-          if ret != @Int {
-            self.err.add(fmt!("main should return int, not %s",
-                              ret.pp(self.program)));
-          }
-          if args.len() != 0 {
-            self.err.add(fmt!("main should not take any arguments"));
-          }
+fn ismain(p: &Program, g: &GDecl) -> bool {
+  match g.node {
+    Function(ret, id, ref args, _) => {
+      if id == p.mainid {
+        if ret != @Int {
+          p.error(g.span, fmt!("main should return int, not %s", ret.pp(p)));
         }
-        id == self.program.mainid
-      },
-      _ => false
-    }
+        if args.len() != 0 {
+          p.error(g.span, "main should not take any arguments");
+        }
+      }
+      id == p.mainid
+    },
+    _ => false
   }
 }

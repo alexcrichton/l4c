@@ -1,17 +1,21 @@
 pub struct Coords((int, int), (int, int), @~str);
 
-pub struct Mark<T> {
-  data: ~T,
-  pos: @Coords
+pub type Mark = uint;
+
+pub static dummy: Mark = -1 as uint;
+
+pub struct Marked<T> {
+  span: Mark,
+  node: T,
 }
 
-pub fn make<T>(t: ~T, c: @Coords) -> Mark<T> {
-  Mark{data: t, pos: c}
-}
+impl<T> Marked<T> {
+  pub fn new(t: T, m: Mark) -> Marked<T> {
+    Marked{ node: t, span: m }
+  }
 
-pub impl<T> Mark<T> {
-  fn unwrap(self) -> ~T {
-    let Mark{data, _} = self;
-    return data;
+  pub fn unwrap(self) -> T {
+    let Marked{ node, _ } = self;
+    return node;
   }
 }

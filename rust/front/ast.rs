@@ -1,28 +1,32 @@
 use core::hashmap::{HashSet, HashMap};
 use core::cell;
+use core::util;
 
-use front::{mark, error};
+use front::mark;
+use front::mark::Marked;
 use utils::PrettyPrint;
 
 pub struct Program {
   decls: ~[~GDecl],
   priv symbols: ~[~str],
+  priv positions: ~[mark::Coords],
+  priv errored: @mut bool,
   mainid: Ident,
 }
 
-struct Elaborator {
+struct Elaborator<'self> {
   efuns:   HashSet<Ident>,
   funs:    HashSet<Ident>,
   structs: HashSet<Ident>,
   types:   HashMap<Ident, @Type>,
-  err:     @mut error::List,
-  symbols: ~[~str]
+  program: &'self mut Program,
 }
 
 pub type Ident = uint;
 
-pub enum GDecl {
-  Markedg(mark::Mark<GDecl>),
+pub type GDecl = Marked<gdecl>;
+
+pub enum gdecl {
   Typedef(Ident, @Type),
   StructDef(Ident, ~[(Ident, @Type)]),
   StructDecl(Ident),
@@ -31,7 +35,9 @@ pub enum GDecl {
   FunEDecl(@Type, Ident, ~[(Ident, @Type)])
 }
 
-pub enum Statement {
+pub type Statement = Marked<stmt>;
+
+pub enum stmt {
   Assign(~Expression, Option<Binop>, ~Expression),
   If(~Expression, ~Statement, ~Statement),
   While(~Expression, ~Statement),
@@ -43,10 +49,11 @@ pub enum Statement {
   Return(~Expression),
   Seq(~Statement, ~Statement),
   Declare(Ident, @Type, Option<~Expression>, ~Statement),
-  Markeds(mark::Mark<Statement>)
 }
 
-pub enum Expression {
+pub type Expression = Marked<expr>;
+
+pub enum expr {
   Var(Ident),
   Boolean(bool),
   Const(i32),
@@ -60,7 +67,6 @@ pub enum Expression {
   Alloc(@Type),
   AllocArray(@Type, ~Expression),
   Null,
-  Marked(mark::Mark<Expression>)
 }
 
 pub enum Type {
@@ -78,7 +84,7 @@ pub enum Unop {
 }
 
 pub impl Program {
-  fn new(decls: ~[~GDecl], mut syms: ~[~str]) -> Program {
+  fn new(decls: ~[~GDecl], mut syms: ~[~str], p: ~[mark::Coords]) -> Program {
     let main = &~"main";
     let mainid = match vec::position(syms, |s| s.eq(main)) {
       Some(i) => i,
@@ -87,56 +93,58 @@ pub impl Program {
         syms.len() - 1
       }
     };
-    Program{ decls: decls, symbols: syms, mainid: mainid }
+    Program{ decls: decls, symbols: syms, mainid: mainid, positions: p,
+             errored: @mut false }
   }
 
-  fn elaborate(self) -> Program {
-    let Program{decls, symbols, _} = self;
-    let mut decls = decls;
-    {
-      let mut e = Elaborator{ efuns:   HashSet::new(),
-                              funs:    HashSet::new(),
-                              structs: HashSet::new(),
-                              types:   HashMap::new(),
-                              err:     @mut error::new(),
-                              symbols: copy symbols };
-      decls = e.run(decls);
-    }
-    Program::new(decls, symbols)
+  fn elaborate(&mut self) {
+    let mut e = Elaborator{ efuns:   HashSet::new(),
+                            funs:    HashSet::new(),
+                            structs: HashSet::new(),
+                            types:   HashMap::new(),
+                            program: self };
+    self.decls = e.run(util::replace(&mut self.decls, ~[]));
   }
 
   fn str(&self, id: Ident) -> ~str {
     copy self.symbols[id]
   }
+
+  fn error(&self, m: mark::Mark, msg: &str) {
+    let out = io::stderr();
+    match m {
+      i => {
+        let ((l1, c1), (l2, c2), file) = self.positions[i];
+        out.write_str(fmt!("%s:%d.%d-%d.%d:error: %s\n", *file, l1, c1, l2,
+                           c2, msg));
+      }
+    }
+    *self.errored = true;
+  }
+
+  fn die(&self, m: mark::Mark, msg: &str) -> ! {
+    self.error(m, msg);
+    unsafe { libc::exit(1); }
+  }
+
+  fn check(&self) {
+    if *self.errored {
+      unsafe { libc::exit(1); }
+    }
+  }
 }
 
 impl PrettyPrint for Program {
   fn pp(&self) -> ~str {
+    use front::pp::PrettyPrintAST;
     str::connect(self.decls.map(|d| d.pp(self)), "\n")
   }
 }
 
-/* TODO(#4355): this used to cause a segfault */
-/*impl GDecl {*/
-/*  fn unmark(~self) -> ~GDecl {*/
-/*    match self {*/
-/*      ~Markedg(mark::Mark{data, _}) => data,*/
-/*      g => g*/
-/*    }*/
-/*  }*/
-/*}*/
-
-pub fn unmarkg(g: ~GDecl) -> ~GDecl {
-  match g {
-    ~Markedg(mark::Mark{data, _}) => data,
-    g => g
-  }
-}
-
-impl Elaborator {
+impl<'self> Elaborator<'self> {
   fn run(&mut self, decls: ~[~GDecl]) -> ~[~GDecl] {
     let decls = vec::map_consume(decls, |x| self.elaborate(x));
-    self.err.check();
+    self.program.check();
     return decls;
   }
   fn elaborate(&mut self, g: ~GDecl) -> ~GDecl {
@@ -144,198 +152,172 @@ impl Elaborator {
     macro_rules! check_set (
       ($set:expr, $id:expr, $name:expr) => {
         if $set.contains(&id) {
-          self.err.add(fmt!("'%s' already a %s", self.symbols[id], $name));
+          self.program.error(span, fmt!("'%s' already a %s",
+                                        self.program.str(id), $name));
         }
       }
     );
-    match g {
-      ~FunEDecl(typ, id, args) => {
-        self.check_id(id);
+    let span = g.span;
+    let node = match g.unwrap() {
+      FunEDecl(typ, id, args) => {
+        self.check_id(span, id);
         self.efuns.insert(id);
-        ~FunEDecl(self.resolve(typ), id, self.resolve_pairs(args))
+        FunEDecl(self.resolve(span, typ), id, self.resolve_pairs(span, args))
       }
-      ~FunIDecl(typ, id, args) => {
-        self.check_id(id);
-        ~FunIDecl(self.resolve(typ), id, self.resolve_pairs(args))
+      FunIDecl(typ, id, args) => {
+        self.check_id(span, id);
+        FunIDecl(self.resolve(span, typ), id, self.resolve_pairs(span, args))
       }
-      ~Markedg(mark) =>
-        ~Markedg(self.err.map_mark(mark, |g| self.elaborate(g))),
-      ~Typedef(id, typ) => {
-        self.check_id(id);
+      Typedef(id, typ) => {
+        self.check_id(span, id);
         check_set!(self.efuns, *id, ~"function");
         check_set!(self.efuns, *id, ~"function");
         check_set!(self.funs, *id, ~"function");
-        let typ = self.resolve(typ);
+        let typ = self.resolve(span, typ);
         self.types.insert(id, typ);
-        ~Typedef(id, typ) /* TODO: shouldn't have to re-build */
+        Typedef(id, typ) /* TODO: shouldn't have to re-build */
       }
-      ~StructDef(id, fields) => {
+      StructDef(id, fields) => {
         check_set!(self.structs, id, ~"struct");
         self.structs.insert(id);
-        ~StructDef(id, self.resolve_pairs(fields))
+        StructDef(id, self.resolve_pairs(span, fields))
       }
-      ~Function(ret, id, args, body) => {
-        self.check_id(id);
+      Function(ret, id, args, body) => {
+        self.check_id(span, id);
         check_set!(self.efuns, id, ~"function");
         check_set!(self.funs, id, ~"function");
         self.funs.insert(id);
-        ~Function(self.resolve(ret), id, self.resolve_pairs(args),
+        Function(self.resolve(span, ret), id, self.resolve_pairs(span, args),
                   self.elaborate_stm(body))
       }
-      /* TODO: shouldn't have to re-build */
-      ~StructDecl(id) => ~StructDecl(id),
-    }
+      StructDecl(id) => StructDecl(id),
+    };
+    return ~Marked::new(node, span);
   }
 
   fn elaborate_stm(&mut self, s: ~Statement) -> ~Statement {
-    match s {
-      ~Markeds(mark) =>
-        ~Markeds(self.err.map_mark(mark, |s| self.elaborate_stm(s))),
-      /* TODO: shouldn't have to rebuild these structures */
-      ~Continue => ~Continue,
-      ~Break => ~Break,
-      ~Nop => ~Nop,
-      ~Declare(id, typ, init, rest) => {
+    let span = s.span;
+    let node = match s.unwrap() {
+      Continue => Continue,
+      Break => Break,
+      Nop => Nop,
+      Declare(id, typ, init, rest) => {
         let rest = self.elaborate_stm(rest);
-        self.declare(id, typ, init, rest)
+        self.declare(id, span, typ, init, rest)
       }
-      ~For(~Declare(id, typ, init, s1), e1, s2, s3) =>
-        self.elaborate_stm(~Declare(id, typ, init, ~For(s1, e1, s2, s3))),
-      ~For(~Markeds(mark::Mark{data, _}), e1, s2, s3) =>
-        self.elaborate_stm(~For(data, e1, s2, s3)),
-      ~For(s1, e1, s2, s3) =>
-        ~For(self.elaborate_stm(s1), self.elaborate_exp(e1),
-             self.elaborate_stm(s2), self.elaborate_stm(s3)),
-      ~If(e, s1, s2) =>
-        ~If(self.elaborate_exp(e), self.elaborate_stm(s1),
-            self.elaborate_stm(s2)),
-      ~While(e, s) => ~While(self.elaborate_exp(e), self.elaborate_stm(s)),
-      ~Return(e) => ~Return(self.elaborate_exp(e)),
-      ~Express(e) => ~Express(self.elaborate_exp(e)),
-      ~Seq(s1, s2) => {
-        match s1 {
-          ~Declare(id, typ, init, s1) => {
-            let s1 = self.elaborate_stm(s1);
-            let s2 = self.elaborate_stm(s2);
-            self.declare(id, typ, init, ~Seq(s1, s2))
+      For(~Marked{ node: Declare(id, typ, init, s1), span: dspan},
+          e1, s2, s3) =>
+      {
+        let f = ~Marked::new(For(s1, e1, s2, s3), span);
+        let d = ~Marked::new(Declare(id, typ, init, f), dspan);
+        return self.elaborate_stm(d);
+      }
+      For(s1, e1, s2, s3) =>
+        For(self.elaborate_stm(s1), self.elaborate_exp(e1),
+            self.elaborate_stm(s2), self.elaborate_stm(s3)),
+      If(e, s1, s2) =>
+        If(self.elaborate_exp(e), self.elaborate_stm(s1),
+           self.elaborate_stm(s2)),
+      While(e, s) => While(self.elaborate_exp(e), self.elaborate_stm(s)),
+      Return(e) => Return(self.elaborate_exp(e)),
+      Express(e) => Express(self.elaborate_exp(e)),
+      Seq(~Marked{ node: Declare(id, typ, init, s1), span: dspan }, s2) => {
+        let s1 = self.elaborate_stm(s1);
+        let s2 = self.elaborate_stm(s2);
+        self.declare(id, span, typ, init, ~Marked::new(Seq(s1, s2), dspan))
+      }
+      Seq(s1, s2) => Seq(self.elaborate_stm(s1), self.elaborate_stm(s2)),
+      Assign(e1, o, e2) => {
+        match (e1.node, o) {
+          (Var(id), Some(o)) => {
+            let v = ~Marked::new(Var(id), e1.span);
+            let b = ~Marked::new(BinaryOp(o, copy v, e2), e2.span);
+            let e = ~Marked::new(Assign(v, None, b), span);
+            return self.elaborate_stm(e);
           }
-          ~Markeds(mark::Mark{data: ~Declare(id, typ, init, s1), pos}) => {
-            let s1 = self.elaborate_stm(s1);
-            let s2 = self.elaborate_stm(s2);
-            let data = self.declare(id, typ, init, ~Seq(s1, s2));
-            ~Markeds(mark::Mark{data: data, pos: pos})
-          }
-          ~Markeds(mark::Mark{data, pos}) =>
-            ~Markeds(mark::Mark{data: ~Seq(self.elaborate_stm(data),
-                                           self.elaborate_stm(s2)),
-                                pos: pos}),
-          s1 => ~Seq(self.elaborate_stm(s1), self.elaborate_stm(s2)),
-        }
-      },
-      ~Assign(e1, o, e2) => {
-        match (e1, o) {
-          (~Marked(mark::Mark{data, _}), _) =>
-            self.elaborate_stm(~Assign(data, o, e2)),
-          (~Var(id), Some(o)) =>
-            self.elaborate_stm(~Assign(~Var(id), None,
-                               ~BinaryOp(o, ~Var(id), e2))),
-          (e1, _) => ~Assign(self.elaborate_exp(e1), o, self.elaborate_exp(e2))
+          (_, _) => Assign(self.elaborate_exp(e1), o, self.elaborate_exp(e2))
         }
       }
-    }
+    };
+    return ~Marked::new(node, span);
   }
 
-  fn declare(&mut self, id: Ident, typ: @Type, init: Option<~Expression>,
-             rest: ~Statement) -> ~Statement {
-    self.check_id(id);
-    ~Declare(id, self.resolve(typ),
-             init.map_consume(|x| self.elaborate_exp(x)), rest)
+  fn declare(&mut self, id: Ident, m: mark::Mark, typ: @Type,
+             init: Option<~Expression>, rest: ~Statement) -> stmt {
+    self.check_id(m, id);
+    Declare(id, self.resolve(m, typ),
+            init.map_consume(|x| self.elaborate_exp(x)), rest)
   }
 
   fn elaborate_exp(&mut self, e: ~Expression) -> ~Expression {
-    match e {
-      ~Marked(mark) =>
-        ~Marked(self.err.map_mark(mark, |e| self.elaborate_exp(e))),
-      /* TODO: shouldn't have to rebuild these structures */
-      ~Var(id) => ~Var(id),
-      ~Boolean(b) => ~Boolean(b),
-      ~Const(c) => ~Const(c),
-      ~Null => ~Null,
-      ~UnaryOp(o, e) =>
-        ~UnaryOp(o, self.elaborate_exp(e)),
-      ~BinaryOp(o, e1, e2) =>
-        ~BinaryOp(o, self.elaborate_exp(e1), self.elaborate_exp(e2)),
-      ~Ternary(e1, e2, e3, _) =>
-        ~Ternary(self.elaborate_exp(e1), self.elaborate_exp(e2),
-                 self.elaborate_exp(e3), cell::empty_cell()),
-      ~Call(id, L, _) =>
-        ~Call(id, vec::map_consume(L, |x| self.elaborate_exp(x)),
-              cell::empty_cell()),
-      ~Deref(e, _) => ~Deref(self.elaborate_exp(e),
-                             cell::empty_cell()),
-      ~Field(e, id, _) => ~Field(self.elaborate_exp(e), id, cell::empty_cell()),
-      ~ArrSub(e1, e2, _) =>
-        ~ArrSub(self.elaborate_exp(e1), self.elaborate_exp(e2),
-                cell::empty_cell()),
-      ~Alloc(t) => ~Alloc(self.resolve(t)),
-      ~AllocArray(t, e) => ~AllocArray(self.resolve(t), self.elaborate_exp(e))
-    }
+    let span = e.span;
+    let node = match e.unwrap() {
+      Var(id) => Var(id),
+      Boolean(b) => Boolean(b),
+      Const(c) => Const(c),
+      Null => Null,
+      UnaryOp(o, e) =>
+        UnaryOp(o, self.elaborate_exp(e)),
+      BinaryOp(o, e1, e2) =>
+        BinaryOp(o, self.elaborate_exp(e1), self.elaborate_exp(e2)),
+      Ternary(e1, e2, e3, _) =>
+        Ternary(self.elaborate_exp(e1), self.elaborate_exp(e2),
+                self.elaborate_exp(e3), cell::empty_cell()),
+      Call(id, L, _) =>
+        Call(id, vec::map_consume(L, |x| self.elaborate_exp(x)),
+             cell::empty_cell()),
+      Deref(e, _) => Deref(self.elaborate_exp(e),
+                           cell::empty_cell()),
+      Field(e, id, _) => Field(self.elaborate_exp(e), id, cell::empty_cell()),
+      ArrSub(e1, e2, _) =>
+        ArrSub(self.elaborate_exp(e1), self.elaborate_exp(e2),
+               cell::empty_cell()),
+      Alloc(t) => Alloc(self.resolve(span, t)),
+      AllocArray(t, e) => AllocArray(self.resolve(span, t),
+                                     self.elaborate_exp(e))
+    };
+    return ~Marked::new(node, span);
   }
 
-  fn check_id(&mut self, s: Ident) {
+  fn check_id(&mut self, m: mark::Mark, s: Ident) {
     if self.types.contains_key(&s) {
-      self.err.add(fmt!("'%s' already a type", self.symbols[s]));
+      self.program.error(m, fmt!("'%s' already a type", self.program.str(s)));
     }
   }
 
-  fn resolve(&mut self, t: @Type) -> @Type {
+  fn resolve(&mut self, m: mark::Mark, t: @Type) -> @Type {
     match t {
       @Int | @Bool | @Nullp | @Struct(_) => t,
-      @Pointer(t) => @Pointer(self.resolve(t)),
-      @Array(t) => @Array(self.resolve(t)),
+      @Pointer(t) => @Pointer(self.resolve(m, t)),
+      @Array(t) => @Array(self.resolve(m, t)),
       @Alias(sym) =>
         match self.types.find(&sym) {
           Some(&t) => t,
           None    => {
-            self.err.add(fmt!("'%s' is undefined", self.symbols[sym]));
+            self.program.error(m, fmt!("'%s' is undefined",
+                                       self.program.str(sym)));
             t
           }
         },
-      @Fun(t1, L) => @Fun(self.resolve(t1),
-                          @L.map(|&t| self.resolve(t)))
+      @Fun(t1, L) => @Fun(self.resolve(m, t1), @L.map(|&t| self.resolve(m, t)))
     }
   }
 
-  fn resolve_pairs(&mut self, pairs: ~[(Ident, @Type)]) -> ~[(Ident, @Type)] {
-    vec::map_consume(pairs, |(id, typ)| (id, self.resolve(typ)))
+  fn resolve_pairs(&mut self, m: mark::Mark,
+                   pairs: ~[(Ident, @Type)]) -> ~[(Ident, @Type)] {
+    vec::map_consume(pairs, |(id, typ)| (id, self.resolve(m, typ)))
   }
 }
 
-impl Expression {
+impl expr {
   fn lvalue(&self) -> bool {
     match *self {
       Var(_)              => true,
-      Field(ref e, _, _)  => e.lvalue(),
-      Deref(ref e, _)     => e.lvalue(),
-      ArrSub(ref e, _, _) => e.lvalue(),
-      Marked(ref m)       => m.data.lvalue(),
+      Field(ref e, _, _)  => e.node.lvalue(),
+      Deref(ref e, _)     => e.node.lvalue(),
+      ArrSub(ref e, _, _) => e.node.lvalue(),
       _                   => false
     }
-  }
-
-  /* TODO(#4355): this used to cause a segfault */
-  /*fn unmark(~self) -> ~Expression {*/
-  /*  match self {*/
-  /*    ~Marked(mark::Mark{data, _}) => data,*/
-  /*    self => self*/
-  /*  }*/
-  /*}*/
-}
-
-pub fn unmarke(e: ~Expression) -> ~Expression {
-  match e {
-    ~Marked(mark::Mark{data, _}) => data,
-    e => e
   }
 }
 

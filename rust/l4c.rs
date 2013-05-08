@@ -20,10 +20,9 @@ pub mod utils {
 
 mod front {
   pub mod ast;
-  pub mod error;
   pub mod mark;
   pub mod parse;
-  mod pp;
+  pub mod pp;
 
   pub mod analysis {
     mod initcheck;
@@ -123,10 +122,10 @@ fn main() {
       }
     }
   };
-  let ast = do prof(m, "generating ast") {
+  let mut ast = do prof(m, "generating ast") {
     parse::from_json(&json, copy m.free[0])
   };
-  let ast = ast.elaborate();
+  ast.elaborate();
   if opt_present(m, "dump-ast") {
     io::println(ast.pp());
   }

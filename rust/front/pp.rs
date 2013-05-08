@@ -1,6 +1,10 @@
 use front::ast::*;
 use utils::PrettyPrint;
 
+pub trait PrettyPrintAST {
+  pub fn pp(&self, p: &Program) -> ~str;
+}
+
 fn tab(s: ~str) -> ~str {
   ~"  " + str::replace(s, ~"\n", ~"\n  ")
 }
@@ -40,7 +44,7 @@ impl PrettyPrint for Binop {
   }
 }
 
-impl Type {
+impl PrettyPrintAST for Type {
   fn pp(&self, p: &Program) -> ~str {
     match *self {
       Int           => ~"int",
@@ -55,9 +59,9 @@ impl Type {
   }
 }
 
-impl Expression {
+impl PrettyPrintAST for Expression {
   fn pp(&self, p: &Program) -> ~str {
-    match *self {
+    match self.node {
       Var(s)                    => p.str(s),
       Boolean(b)                => b.to_str(),
       Const(i)                  => i.to_str(),
@@ -67,7 +71,6 @@ impl Expression {
       ArrSub(ref e1, ref e2, _) => e1.pp(p) + ~"[" + e2.pp(p) + ~"]",
       Alloc(t)                  => ~"alloc(" + t.pp(p) + ~")",
       Null                      => ~"NULL",
-      Marked(ref m)             => m.data.pp(p),
       AllocArray(t, ref e) =>
         ~"alloc_array(" + t.pp(p) + ~", " + e.pp(p) + ~")",
       Call(ref e, ref E, _) =>
@@ -81,9 +84,9 @@ impl Expression {
   }
 }
 
-impl Statement {
+impl PrettyPrintAST for Statement {
   fn pp(&self, p: &Program) -> ~str {
-    match *self {
+    match self.node {
       Continue => ~"continue",
       Break => ~"break",
       Nop => ~"",
@@ -91,7 +94,6 @@ impl Statement {
       Express(ref e) => e.pp(p),
       Declare(v, t, ref init, ref s) =>
         t.pp(p) + ~" " + p.str(v) + pp_opt(p, init) + ~"\n" + tab(s.pp(p)),
-      Markeds(ref m) => m.data.pp(p),
       While(ref e, ref s) =>
         ~"while (" + e.pp(p) + ~") {\n" + tab(s.pp(p)) + ~"\n}",
       If(ref e, ref s1, ref s2) =>
@@ -104,7 +106,6 @@ impl Statement {
         e1.pp(p) +
         match *o { None => ~" = ", Some(o) => ~" " + o.pp() + ~"= " } +
         e2.pp(p),
-      Seq(~Nop, ref s) | Seq(ref s, ~Nop) => s.pp(p),
       Seq(ref s1, ref s2) => s1.pp(p) + ~"\n" + s2.pp(p)
     }
   }
@@ -126,10 +127,9 @@ fn pfun(prog: &Program, t: @Type, i: Ident, p: &~[(Ident, @Type)]) -> ~str {
     str::connect(p.map(|p| ppair(prog, p)), ~", ") + ~")"
 }
 
-impl GDecl {
+impl PrettyPrintAST for GDecl {
   fn pp(&self, p: &Program) -> ~str {
-    match *self {
-      Markedg(ref m) => m.data.pp(p),
+    match self.node {
       Typedef(s, t) => ~"typedef " + t.pp(p) + ~" " + p.str(s),
       StructDecl(s) => ~"struct " + p.str(s),
       StructDef(s, ref L) =>

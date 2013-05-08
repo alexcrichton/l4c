@@ -1,7 +1,7 @@
 use core::util::{replace, swap};
 use core::hashmap::HashMap;
 
-use front::{ast, mark};
+use front::ast;
 use middle::{temp, ir, label};
 use utils::graph;
 
@@ -26,7 +26,7 @@ struct Translator<'self> {
   /* loop translation */
   break_to: graph::NodeId,
   continue_to: graph::NodeId,
-  for_step: ~ast::Statement,
+  for_step: ast::stmt,
 
   /* different codegen flags */
   safe: bool,
@@ -43,8 +43,8 @@ pub fn translate(mut p: ast::Program, safe: bool) -> ir::Program {
   let mut accum = ~[];
   /* TODO(#4878): 'decls.consume' causes segfault */
   do vec::consume(decls) |_, d| {
-    match ast::unmarkg(d) {
-      ~ast::Function(_, id, args, body) => {
+    match d.unwrap() {
+      ast::Function(_, id, args, body) => {
         let mut trans = Translator {
           t: &info,
           f: ir::Function(p.str(id)),
@@ -54,7 +54,7 @@ pub fn translate(mut p: ast::Program, safe: bool) -> ir::Program {
           stms: ~[],
           break_to: 0,
           continue_to: 0,
-          for_step: ~ast::Nop,
+          for_step: ast::Nop,
           safe: safe
         };
         trans.cur_id = trans.f.cfg.new_id();
@@ -97,8 +97,7 @@ impl ProgramInfo {
   }
 
   fn build_gdecl(&mut self, p: &ast::Program, g: &ast::GDecl) {
-    match *g {
-      ast::Markedg(ref m) => self.build_gdecl(p, m.data),
+    match g.node {
       ast::StructDef(id, ref fields) => {
         let mut table = HashMap::new();
         let mut size = 0;
@@ -143,7 +142,7 @@ impl<'self> Translator<'self> {
   fn run(&mut self, args: ~[(ast::Ident, @ast::Type)], body: ~ast::Statement) {
     /* TODO: why can't this be above */
     self.arguments(args);
-    self.stm(body);
+    self.stm(body.unwrap());
   }
 
   fn arguments(&mut self, args: ~[(ast::Ident, @ast::Type)]) {
@@ -155,80 +154,79 @@ impl<'self> Translator<'self> {
     self.stms.push(~ir::Arguments(args));
   }
 
-  fn stm(&mut self, s: ~ast::Statement) {
+  fn stm(&mut self, s: ast::stmt) {
     match s {
-      ~ast::Nop => (),
-      ~ast::Markeds(m) => self.stm(m.unwrap()),
-      ~ast::Seq(s1, s2) => {
-        self.stm(s1);
-        self.stm(s2);
+      ast::Nop => (),
+      ast::Seq(s1, s2) => {
+        self.stm(s1.unwrap());
+        self.stm(s2.unwrap());
       }
-      ~ast::Continue => {
+      ast::Continue => {
         /* TODO: can this copy be avoided? */
         self.stm(copy self.for_step);
         let n = self.commit();
         self.f.cfg.add_edge(n, self.continue_to, ir::Branch);
       }
-      ~ast::Break => {
+      ast::Break => {
         let n = self.commit();
         self.f.cfg.add_edge(n, self.break_to, ir::LoopOut);
       }
-      ~ast::Return(e) => {
-        let e = self.exp(e, false);
+      ast::Return(e) => {
+        let e = self.exp(e.unwrap(), false);
         self.stms.push(~ir::Return(e));
         self.commit();
       }
-      ~ast::Express(e) => {
-        let e = self.exp(e, false);
+      ast::Express(e) => {
+        let e = self.exp(e.unwrap(), false);
         let size = e.size(&self.f.types);
         let tmp = self.tmp(size);
         self.stms.push(~ir::Move(tmp, e));
       }
-      ~ast::For(init, cond, step, body) => {
-        self.stm(init);
+      ast::For(init, cond, step, body) => {
+        self.stm(init.unwrap());
         /* TODO: can this copy be avoided? */
-        let prevstep = replace(&mut self.for_step, copy step);
-        self.trans_loop(cond, ~ast::Seq(body, step));
+        let prevstep = replace(&mut self.for_step, copy step.node);
+        self.trans_loop(cond.unwrap(), ast::Seq(body, step));
         self.for_step = prevstep;
       }
-      ~ast::While(cond, body) => {
-        let prevstep = replace(&mut self.for_step, ~ast::Nop);
-        self.trans_loop(cond, body);
+      ast::While(cond, body) => {
+        let prevstep = replace(&mut self.for_step, ast::Nop);
+        self.trans_loop(cond.unwrap(), body.unwrap());
         self.for_step = prevstep;
       }
-      ~ast::If(cond, t, f) => {
+      ast::If(cond, t, f) => {
         let true_id = self.f.cfg.new_id();
         let false_id = self.f.cfg.new_id();
-        self.condition(cond, true_id, ir::True, false_id, ir::False, true_id);
+        self.condition(cond.unwrap(),
+                       true_id, ir::True, false_id, ir::False, true_id);
 
-        self.stm(t);
+        self.stm(t.unwrap());
         let true_end = self.commit_with(false_id);
-        self.stm(f);
+        self.stm(f.unwrap());
         let false_end = self.commit();
 
         self.f.cfg.add_edge(true_end, self.cur_id, ir::Branch);
         self.f.cfg.add_edge(false_end, self.cur_id, ir::Always);
       }
-      ~ast::Declare(id, t, exp, s) => {
+      ast::Declare(id, t, exp, s) => {
         let tmp = self.tmp(typ(t));
         match exp {
           None => (),
           Some(init) => {
-            let init = self.exp(init, false);
+            let init = self.exp(init.unwrap(), false);
             self.stms.push(~ir::Move(tmp, init));
           }
         }
         self.vars.insert(id, tmp);
-        self.stm(s);
+        self.stm(s.unwrap());
         self.vars.remove(&id);
       }
-      ~ast::Assign(e1, op, e2) => {
-        let e1 = ast::unmarke(e1);
-        let (ismem, leftsize) = match e1 {
-          ~ast::Var(_) => (false, ir::Int), /* size doesn't matter */
-          ~ast::Deref(_, ref t) | ~ast::ArrSub(_, _, ref t) =>
+      ast::Assign(e1, op, e2) => {
+        let (ismem, leftsize) = match e1.node {
+          ast::Var(_) => (false, ir::Int), /* size doesn't matter */
+          ast::Deref(_, ref t) | ast::ArrSub(_, _, ref t) =>
             (true, do t.with_ref |&t| { typ(t) }),
-          ~ast::Field(_, ref f, ref s) => {
+          ast::Field(_, ref f, ref s) => {
             /* TODO(#4653): make this actually sane */
             /*let &(ref fields, _) = self.t.structs.get(&s.get());*/
             let typ = do s.with_ref |s| {
@@ -240,16 +238,18 @@ impl<'self> Translator<'self> {
           }
           _ => fail!(~"invalid assign")
         };
-        let left = self.exp(e1, true);
+        let left = self.exp(e1.unwrap(), true);
         let right = match op {
-          None => self.exp(e2, false),
+          None => self.exp(e2.unwrap(), false),
           Some(op) => {
             if ismem {
               let tmp = self.tmp(leftsize);
               self.stms.push(~ir::Load(tmp, copy left));
-              ~ir::BinaryOp(self.oper(op), ~ir::Temp(tmp), self.exp(e2, false))
+              ~ir::BinaryOp(self.oper(op), ~ir::Temp(tmp),
+                            self.exp(e2.unwrap(), false))
             } else {
-              ~ir::BinaryOp(self.oper(op), copy left, self.exp(e2, false))
+              ~ir::BinaryOp(self.oper(op), copy left,
+                            self.exp(e2.unwrap(), false))
             }
           }
         };
@@ -263,7 +263,7 @@ impl<'self> Translator<'self> {
     }
   }
 
-  fn trans_loop(&mut self, cond: ~ast::Expression, body: ~ast::Statement) {
+  fn trans_loop(&mut self, cond: ast::expr, body: ast::stmt) {
     let pred = self.commit();
     let condid = self.cur_id;
     let bodyid = self.f.cfg.new_id();
@@ -284,21 +284,19 @@ impl<'self> Translator<'self> {
     self.f.loops.insert(condid, (bodyid, afterid));
   }
 
-  fn condition(&mut self, e: ~ast::Expression, tid: graph::NodeId,
+  fn condition(&mut self, e: ast::expr, tid: graph::NodeId,
                tedge: ir::Edge, fid: graph::NodeId, fedge: ir::Edge,
                into: graph::NodeId) {
     match e {
-      ~ast::Marked(mark::Mark{data, _}) =>
-        self.condition(data, tid, tedge, fid, fedge, into),
-      ~ast::BinaryOp(ast::LOr, e1, e2) => {
+      ast::BinaryOp(ast::LOr, e1, e2) => {
         let next = self.f.cfg.new_id();
-        self.condition(e1, tid, ir::TBranch, next, ir::False, next);
-        self.condition(e2, tid, tedge, fid, fedge, into);
+        self.condition(e1.unwrap(), tid, ir::TBranch, next, ir::False, next);
+        self.condition(e2.unwrap(), tid, tedge, fid, fedge, into);
       }
-      ~ast::BinaryOp(ast::LAnd, e1, e2) => {
+      ast::BinaryOp(ast::LAnd, e1, e2) => {
         let next = self.f.cfg.new_id();
-        self.condition(e1, next, ir::True, fid, ir::FBranch, next);
-        self.condition(e2, tid, tedge, fid, fedge, into);
+        self.condition(e1.unwrap(), next, ir::True, fid, ir::FBranch, next);
+        self.condition(e2.unwrap(), tid, tedge, fid, fedge, into);
       }
       e => {
         let e = self.exp(e, false);
@@ -310,34 +308,33 @@ impl<'self> Translator<'self> {
     }
   }
 
-  fn exp(&mut self, e: ~ast::Expression, addr: bool) -> ~ir::Expression {
+  fn exp(&mut self, e: ast::expr, addr: bool) -> ~ir::Expression {
     match e {
-      ~ast::Marked(mark::Mark{data, _}) => self.exp(data, addr),
-      ~ast::Boolean(b) => self.consti(if b { 1 } else { 0 }),
-      ~ast::Const(c) => self.consti(c),
-      ~ast::Var(ref id) => match self.vars.find(id) {
+      ast::Boolean(b) => self.consti(if b { 1 } else { 0 }),
+      ast::Const(c) => self.consti(c),
+      ast::Var(ref id) => match self.vars.find(id) {
         Some(&t) => ~ir::Temp(t),
         None     => copy *self.t.funs.get(id)
       },
-      ~ast::Null => self.constp(0),
+      ast::Null => self.constp(0),
 
       /* All unary ops can be expressed as binary ops */
-      ~ast::UnaryOp(ast::Negative, e) =>
-        ~ir::BinaryOp(ir::Sub, self.consti(0), self.exp(e, addr)),
-      ~ast::UnaryOp(ast::Invert, e) =>
-        ~ir::BinaryOp(ir::Xor, self.consti(-1), self.exp(e, addr)),
-      ~ast::UnaryOp(ast::Bang, e) =>
-        ~ir::BinaryOp(ir::Xor, self.consti(1), self.exp(e, addr)),
+      ast::UnaryOp(ast::Negative, e) =>
+        ~ir::BinaryOp(ir::Sub, self.consti(0), self.exp(e.unwrap(), addr)),
+      ast::UnaryOp(ast::Invert, e) =>
+        ~ir::BinaryOp(ir::Xor, self.consti(-1), self.exp(e.unwrap(), addr)),
+      ast::UnaryOp(ast::Bang, e) =>
+        ~ir::BinaryOp(ir::Xor, self.consti(1), self.exp(e.unwrap(), addr)),
 
       /* Take care of logical binops as ternaries */
-      ~ast::BinaryOp(ast::LOr, e1, e2) =>
-        self.tern(e1, ~ast::Boolean(true), e2, ir::Int, false),
-      ~ast::BinaryOp(ast::LAnd, e1, e2) =>
-        self.tern(e1, e2, ~ast::Boolean(false), ir::Int, false),
+      ast::BinaryOp(ast::LOr, e1, e2) =>
+        self.tern(e1.unwrap(), ast::Boolean(true), e2.unwrap(), ir::Int, false),
+      ast::BinaryOp(ast::LAnd, e1, e2) =>
+        self.tern(e1.unwrap(), e2.unwrap(), ast::Boolean(false), ir::Int, false),
 
-      ~ast::BinaryOp(op, e1, e2) => {
-        let v1 = self.exp(e1, addr);
-        let v2 = self.exp(e2, addr);
+      ast::BinaryOp(op, e1, e2) => {
+        let v1 = self.exp(e1.unwrap(), addr);
+        let v2 = self.exp(e2.unwrap(), addr);
         let op = self.oper(op);
         let ret = ~ir::BinaryOp(op, v1, v2);
         match op {
@@ -351,31 +348,31 @@ impl<'self> Translator<'self> {
         }
       }
 
-      ~ast::Ternary(e1, e2, e3, t) =>
-        self.tern(e1, e2, e3, typ(t.take()), addr),
+      ast::Ternary(e1, e2, e3, t) =>
+        self.tern(e1.unwrap(), e2.unwrap(), e3.unwrap(), typ(t.take()), addr),
 
-      ~ast::Call(e, args, t) => {
+      ast::Call(e, args, t) => {
         let ret = t.take();
-        let fun = self.exp(e, false);
-        let args = vec::map_consume(args, |e| self.exp(e, false));
+        let fun = self.exp(e.unwrap(), false);
+        let args = vec::map_consume(args, |e| self.exp(e.unwrap(), false));
         let typ = typ(ret);
         let tmp = self.tmp(typ);
         self.stms.push(~ir::Call(tmp, fun, args));
         ~ir::Temp(tmp)
       }
 
-      ~ast::Alloc(t) => {
+      ast::Alloc(t) => {
         let amt = self.consti(1);
         self.alloc(t, amt, ~"salloc")
       }
-      ~ast::AllocArray(t, e) => {
-        let amt = self.exp(e, false);
+      ast::AllocArray(t, e) => {
+        let amt = self.exp(e.unwrap(), false);
         self.alloc(t, amt, ~"salloc_array")
       }
 
-      ~ast::ArrSub(arr, idx, t) => {
-        let base = self.exp(arr, false);
-        let idx = self.exp(idx, false);
+      ast::ArrSub(arr, idx, t) => {
+        let base = self.exp(arr.unwrap(), false);
+        let idx = self.exp(idx.unwrap(), false);
         let idxt = self.tmp(ir::Int);
         self.stms.push(~ir::Move(idxt, idx));
         let idxp = self.tmp(ir::Pointer);
@@ -396,8 +393,8 @@ impl<'self> Translator<'self> {
         ~ir::Temp(dest)
       }
 
-      ~ast::Field(e, id, s) => {
-        let base = self.exp(e, true);
+      ast::Field(e, id, s) => {
+        let base = self.exp(e.unwrap(), true);
         /* TODO(#4653): make this actually sane */
         /*let &(ref fields, _) = self.t.structs.get(&s.get());*/
         let sinfo = self.t.structs.get(&s.take());
@@ -413,8 +410,8 @@ impl<'self> Translator<'self> {
         ~ir::Temp(dest)
       }
 
-      ~ast::Deref(e, t) => {
-        let address = self.exp(e, false);
+      ast::Deref(e, t) => {
+        let address = self.exp(e.unwrap(), false);
         self.check_null(address);
         if addr {
           return address;
@@ -449,8 +446,8 @@ impl<'self> Translator<'self> {
    *
    * This returns the temp which holds the result of the ternary statement.
    */
-  fn tern(&mut self, cond: ~ast::Expression, t: ~ast::Expression,
-          f: ~ast::Expression, size: ir::Type, addr: bool) -> ~ir::Expression {
+  fn tern(&mut self, cond: ast::expr, t: ast::expr,
+          f: ast::expr, size: ir::Type, addr: bool) -> ~ir::Expression {
     let dst = self.tmp(size);
     let end = self.f.cfg.new_id();
     self.dotern(cond, t, f, dst, addr,
@@ -473,8 +470,8 @@ impl<'self> Translator<'self> {
    *                       types of edges that should be used to go from the
    *                       true branch and false branch to the end
    */
-  fn dotern(&mut self, c: ~ast::Expression,
-            t: ~ast::Expression, f: ~ast::Expression,
+  fn dotern(&mut self, c: ast::expr,
+            t: ast::expr, f: ast::expr,
             dst: temp::Temp, addr: bool,
             (end, endt, endf): (graph::NodeId, ir::Edge, ir::Edge)) {
     /* Translate the conditional, terminating the basic block */
@@ -492,21 +489,20 @@ impl<'self> Translator<'self> {
     self.process_tern(f, endf, dst, addr, end);
   }
 
-  fn process_tern(&mut self, e: ~ast::Expression, typ: ir::Edge,
+  fn process_tern(&mut self, e: ast::expr, typ: ir::Edge,
                   dst: temp::Temp, addr: bool, end: graph::NodeId) {
-    /* TODO(#4541): putting this in the match causes a double-free */
-    let foo = ast::unmarke(e);
-    match foo {
+    match e {
       /* Some cases don't necessarily always need a 'join' node */
-      ~ast::Ternary(e1, e2, e3, _) => {
-        self.dotern(e1, e2, e3, dst, addr, (end, ir::Branch, typ));
+      ast::Ternary(e1, e2, e3, _) => {
+        self.dotern(e1.unwrap(), e2.unwrap(), e3.unwrap(),
+                    dst, addr, (end, ir::Branch, typ));
       }
-      ~ast::BinaryOp(ast::LOr, e1, e2) => {
-        self.dotern(e1, ~ast::Boolean(true), e2, dst, addr,
+      ast::BinaryOp(ast::LOr, e1, e2) => {
+        self.dotern(e1.unwrap(), ast::Boolean(true), e2.unwrap(), dst, addr,
                     (end, ir::Branch, typ));
       }
-      ~ast::BinaryOp(ast::LAnd, e1, e2) => {
-        self.dotern(e1, e2, ~ast::Boolean(false), dst, addr,
+      ast::BinaryOp(ast::LAnd, e1, e2) => {
+        self.dotern(e1.unwrap(), e2.unwrap(), ast::Boolean(false), dst, addr,
                     (end, ir::Branch, typ));
       }
 
