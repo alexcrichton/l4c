@@ -57,6 +57,8 @@ use utils::graph::{NodeSet, NodeId};
 
 type Location = (NodeId, int);
 type Affinities = HashMap<Temp, ~HashMap<Temp, uint>>;
+type UseMap = HashMap<Temp, ~HashSet<Location>>;
+type DefMap = HashMap<Temp, Location>;
 struct Affinity(Temp, Temp, uint);
 struct Chunk(TempSet, uint);
 
@@ -83,29 +85,25 @@ struct Coalescer<'self> {
 
 struct CFGInfo<'self> {
   /* Mapping of a temp to where it's defined */
-  defs: HashMap<Temp, Location>,
+  defs: &'self DefMap,
   /* Mapping of a temp to the set of locations in which it is used */
-  uses: HashMap<Temp, ~HashSet<Location>>,
+  uses: &'self UseMap,
 
   /* find_interferences is an incredibly slow method, and this is a
      precomputation of the input to a more efficient format to be used in that
      method (more information on the method itself) */
-  liveness_map: HashMap<NodeId, ~[bitv::Bitv]>,
+  liveness_map: &'self HashMap<NodeId, ~[bitv::Bitv]>,
 
   /* This algorithm requires a lot of information about the interference graph
      and associated components, and because interference information is very
      costly to generate, there are a number of caches which store the results of
      this computation to facilitate usage later on */
-  cache: @mut Cache,
-
-  f: &'self assem::Function,
-}
-
-struct Cache {
   interference: HashMap<Temp, ~TempSet>,
   interferences: HashMap<(Temp, Temp), bool>,
   admissible: HashMap<(Temp, uint), bool>,
   dominates: HashMap<(NodeId, NodeId), bool>,
+
+  f: &'self assem::Function,
 }
 
 pub fn optimize(f: &mut assem::Function,
@@ -113,6 +111,7 @@ pub fn optimize(f: &mut assem::Function,
                 precolored: &TempSet,
                 constraints: &mut alloc::ConstraintMap) {
   let lm = liveness_map(f.cfg, &f.liveness, f.temps);
+  let (uses, defs) = use_def_maps(f.cfg);
   let mut pre = bitv::Bitv::new(f.temps, false);
   for precolored.each |&t| {
     pre.set(t, true);
@@ -123,14 +122,13 @@ pub fn optimize(f: &mut assem::Function,
   let old_color = SmallIntMap::new();
   {
     let info = CFGInfo {
-      liveness_map: lm,
-      cache: @mut Cache {
-        interference: HashMap::new(),
-        interferences: HashMap::new(),
-        admissible: HashMap::new(),
-        dominates: HashMap::new() },
-      defs: HashMap::new(),
-      uses: HashMap::new(),
+      liveness_map: &lm,
+      interference: HashMap::new(),
+      interferences: HashMap::new(),
+      admissible: HashMap::new(),
+      dominates: HashMap::new(),
+      defs: &defs,
+      uses: &uses,
       f: f,
     };
     let mut c = Coalescer { fixed: fixed,
@@ -173,14 +171,57 @@ fn liveness_map(cfg: &assem::CFG, live: &liveness::Analysis, max: uint)
   return ret;
 }
 
-impl<'self> Coalescer<'self> {
-  fn run(&mut self) {
-    /* TODO: why can't this be above */
-    do profile::dbg("building use/def") {
-      for self.info.f.cfg.each_node |id, ins| {
-        self.info.build_use_def(id, ins);
+/**
+ * Build up the internal maps about use/def information. This precomputes the
+ * information about where each temp is defined and the set of uses for each
+ * temp.
+ */
+fn use_def_maps(cfg: &assem::CFG) -> (UseMap, DefMap)
+{
+  let mut uses = HashMap::new();
+  let mut defs = HashMap::new();
+
+  do profile::dbg("building use/def") {
+    for cfg.each_node |id, ins| {
+      build_use_def(id, ins, &mut uses, &mut defs);
+    }
+  }
+
+  return (uses, defs);
+
+  fn build_use_def(n: NodeId, ins: &~[~assem::Instruction],
+                   uses: &mut UseMap, defs: &mut DefMap) {
+    for ins.eachi |i, &ins| {
+      for ins.each_def |tmp| {
+        assert!(defs.insert(tmp, (n, i as int)));
+      }
+      for ins.each_use |tmp| {
+        add_use(tmp, (n, i as int), uses);
+      }
+      match ins.phi_info() {
+        None => (),
+        Some((_, m)) => {
+          for m.each |&pred, &tmp| {
+            add_use(tmp, (pred, int::max_value), uses);
+          }
+        }
       }
     }
+  }
+
+  fn add_use(tmp: Temp, loc: Location, uses: &mut UseMap) {
+    /* TODO: can this be compacted */
+    match uses.find_mut(&tmp) {
+      Some(s) => { s.insert(loc); return; }
+      None => {}
+    }
+    uses.insert(tmp, ~set::singleton(loc));
+  }
+
+}
+
+impl<'self> Coalescer<'self> {
+  fn run(&mut self) {
     self.coalesce();
   }
 
@@ -451,12 +492,12 @@ impl<'self> Coalescer<'self> {
    */
   fn admissible(&mut self, t: Temp, color: uint) -> bool {
     /* TODO: remove this cache? */
-    /*match self.cache.admissible.find(&(t, color)) {*/
+    /*match self.admissible.find(&(t, color)) {*/
     /*  Some(&a) => { return a; }*/
     /*  None => ()*/
     /*}*/
     let b = self.admissible_impl(t, color);
-    /*self.cache.admissible.insert((t, color), b);*/
+    /*self.admissible.insert((t, color), b);*/
     return b;
   }
 
@@ -612,60 +653,28 @@ impl<'self> Coalescer<'self> {
 }
 
 impl<'self> CFGInfo<'self> {
-  /**
-   * Build up the internal maps about use/def information. This precomputes the
-   * information about where each temp is defined and the set of uses for each
-   * temp.
-   */
-  fn build_use_def(&mut self, n: NodeId, ins: &~[~assem::Instruction]) {
-    for ins.eachi |i, &ins| {
-      for ins.each_def |tmp| {
-        assert!(self.defs.insert(tmp, (n, i as int)));
-      }
-      for ins.each_use |tmp| {
-        self.add_use(tmp, (n, i as int));
-      }
-      match ins.phi_info() {
-        None => (),
-        Some((_, m)) => {
-          for m.each |&pred, &tmp| {
-            self.add_use(tmp, (pred, int::max_value));
-          }
-        }
-      }
-    }
-  }
-
-  fn add_use(&mut self, tmp: Temp, loc: Location) {
-    /* TODO: can this be compacted */
-    match self.uses.find_mut(&tmp) {
-      Some(s) => { s.insert(loc); return; }
-      None => {}
-    }
-    self.uses.insert(tmp, ~set::singleton(loc));
-  }
 
   /**
    * Tests whether two temps interfere within the interference graph
    *
    * This is done without actually creating the interference graph
    */
-  fn interferes(&self, x: Temp, y: Temp) -> bool {
+  fn interferes(&mut self, x: Temp, y: Temp) -> bool {
     /* TODO: remove this cache */
-    match self.cache.interferences.find(&(x, y)) {
+    match self.interferences.find(&(x, y)) {
       Some(&b) => return b,
       None => (),
     }
     let b = self.interferes_impl(x, y);
-    self.cache.interferences.insert((x, y), b);
-    self.cache.interferences.insert((y, x), b);
+    self.interferences.insert((x, y), b);
+    self.interferences.insert((y, x), b);
     return b;
   }
 
   /**
    * Actual implementation without a cache of the interference of two temps
    */
-  fn interferes_impl(&self, x: Temp, y: Temp) -> bool {
+  fn interferes_impl(&mut self, x: Temp, y: Temp) -> bool {
     /* Algorithm 4.6 */
     let &xdef = self.defs.get(&x);
     let &ydef = self.defs.get(&y);
@@ -711,9 +720,9 @@ impl<'self> CFGInfo<'self> {
    *
    * To see problems in optimization, see find_interferences
    */
-  fn interferences(&self, t: Temp, f: &fn(Temp) -> bool) {
+  fn interferences(&mut self, t: Temp, f: &fn(Temp) -> bool) {
     /* definitely cache information once we've calculated it */
-    match self.cache.interference.find(&t) {
+    match self.interference.find(&t) {
       Some(s) => { s.each(|&t| f(t)); return }
       None => ()
     }
@@ -742,8 +751,8 @@ impl<'self> CFGInfo<'self> {
       }
     }
     debug!("%? interferencs: %s", t, set.pp());
-    self.cache.interference.insert(t, set);
-    self.cache.interference.get(&t).each(|&t| f(t));
+    self.interference.insert(t, set);
+    self.interference.get(&t).each(|&t| f(t));
   }
 
   /**
@@ -772,7 +781,7 @@ impl<'self> CFGInfo<'self> {
    * but really useful. This also explains the precomputation done far above
    * this function.
    */
-  fn find_interferences(&self, x: Temp, n: NodeId, set: &mut bitv::Bitv,
+  fn find_interferences(&mut self, x: Temp, n: NodeId, set: &mut bitv::Bitv,
                         visited: &mut NodeSet) {
     /* Algorithm 4.7 */
     if visited.contains(&n) { return }
@@ -800,12 +809,12 @@ impl<'self> CFGInfo<'self> {
   /**
    * Tests wehther a location dominates another location in the graph
    */
-  fn dominates(&self, (a, aline): Location, (b, bline):Location) -> bool {
+  fn dominates(&mut self, (a, aline): Location, (b, bline):Location) -> bool {
     /* Same block? well that's easy */
     if a == b {
       return aline < bline;
     }
-    match self.cache.dominates.find(&(a, b)) {
+    match self.dominates.find(&(a, b)) {
       Some(&s) => { return s; }
       None => {}
     }
@@ -820,8 +829,8 @@ impl<'self> CFGInfo<'self> {
       if *nxt == a { dominates = true; break; }
       cur = nxt;
     }
-    self.cache.dominates.insert((a, b), dominates);
-    self.cache.dominates.insert((b, a), !dominates);
+    self.dominates.insert((a, b), dominates);
+    self.dominates.insert((b, a), !dominates);
     return dominates;
   }
 }
