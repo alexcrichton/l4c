@@ -8,7 +8,6 @@ struct Initchecker<'self> {
 }
 
 pub fn check(a: &Program) {
-  // TODO(#5884) these shouldn't be up here
   let mut ic = Initchecker{ program: a, step: Nop };
   debug!("initchecking");
   ic.run();
@@ -59,7 +58,6 @@ impl<'self> Initchecker<'self> {
         self.uses(sym, *e) || self.live(sym, &s1.node) ||
           self.live(sym, &s2.node),
       While(ref e, ref s) => {
-        /* TODO: use 'with' */
         let prev = replace(&mut self.step, Nop);
         let ret = self.uses(sym, *e) || self.live(sym, &s.node);
         self.step = prev;

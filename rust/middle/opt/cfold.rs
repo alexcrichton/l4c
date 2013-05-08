@@ -32,7 +32,6 @@ pub fn optimize(p: &mut Program) {
 }
 
 impl<'self> ConstantFolder<'self> {
-  /* TODO: why can't this all be above */
   fn run(&mut self) {
     /* Be sure to start at the top of the graph to visit definitions first */
     let (order, _) = self.f.cfg.postorder(self.f.root);

@@ -183,7 +183,7 @@ impl<'self> Elaborator<'self> {
         check_set!(self.funs, *id, ~"function");
         let typ = self.resolve(span, typ);
         self.types.insert(id, typ);
-        Typedef(id, typ) /* TODO: shouldn't have to re-build */
+        Typedef(id, typ)
       }
       StructDef(id, fields) => {
         check_set!(self.structs, id, ~"struct");

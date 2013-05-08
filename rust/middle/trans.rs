@@ -59,7 +59,8 @@ pub fn translate(mut p: ast::Program, safe: bool) -> ir::Program {
         };
         trans.cur_id = trans.f.cfg.new_id();
         trans.f.root = trans.cur_id;
-        trans.run(args, body);
+        trans.arguments(args);
+        trans.stm(body.unwrap());
         let Translator{ f, _ } = trans;
         accum.push(f);
       }
@@ -139,12 +140,6 @@ impl ProgramInfo {
 }
 
 impl<'self> Translator<'self> {
-  fn run(&mut self, args: ~[(ast::Ident, @ast::Type)], body: ~ast::Statement) {
-    /* TODO: why can't this be above */
-    self.arguments(args);
-    self.stm(body.unwrap());
-  }
-
   fn arguments(&mut self, args: ~[(ast::Ident, @ast::Type)]) {
     let args = vec::map_consume(args, |(id, t)| {
       let tmp = self.tmp(typ(t));

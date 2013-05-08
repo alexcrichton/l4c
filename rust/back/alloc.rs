@@ -39,7 +39,21 @@ pub fn color(p: &mut Program) {
                            max_slot: 0,
                            max_call_stack: 0,
                            callee_saved: ~[] };
-    a.run(f);
+
+    /* Color the graph completely */
+    info!("coloring: %s", f.name);
+    do profile::dbg("coloring") { a.color(f, f.root); }
+    for a.colors.each |tmp, color| {
+      debug!("%s => %?", tmp.to_str(), color);
+    }
+
+    do profile::dbg("coalescing") {
+      coalesce::optimize(f, &mut a.colors, &a.precolored, &mut a.constraints);
+    }
+
+    /* Finally remove all phi nodes and all temps */
+    do profile::dbg("removing phis") { a.remove_phis(f); }
+    do profile::dbg("removing tmps") { a.remove_temps(f); }
   }
 }
 
@@ -58,26 +72,6 @@ fn min_vacant(colors: &RegisterSet) -> uint {
 }
 
 impl Allocator {
-  fn run(&mut self, f: &mut Function) {
-    /* TODO: why can't this be above */
-    /* Color the graph completely */
-    info!("coloring: %s", f.name);
-
-    do profile::dbg("coloring") { self.color(f, f.root); }
-    for self.colors.each |tmp, color| {
-      debug!("%s => %?", tmp.to_str(), color);
-    }
-
-    do profile::dbg("coalescing") {
-      coalesce::optimize(f, &mut self.colors,
-                         &self.precolored, &mut self.constraints);
-    }
-
-    /* Finally remove all phi nodes and all temps */
-    do profile::dbg("removing phis") { self.remove_phis(f); }
-    do profile::dbg("removing tmps") { self.remove_temps(f); }
-  }
-
   /**
    * Color the functions CFG according to the algorithm outlined in the paper
    * "Towards Register Allocation for Programs in SSA-form" by Hack et al.
@@ -271,9 +265,7 @@ impl Allocator {
       debug!("after %s %s", tmplive.pp(), registers.pp());
     }
 
-    /* TODO: bad copy */
-    let next = copy *f.ssa.idominated.get(&n);
-    for next.each |&id| {
+    for f.ssa.idominated.get(&n).each |&id| {
       self.color(f, id);
     }
   }
@@ -561,8 +553,7 @@ fn resolve_perm(result: &[uint], incoming: &[uint]) -> ~[Resolution] {
   let mut ret = ~[];
 
   /* maps describing src -> dst and dst -> src */
-  /* TODO: can sim become better */
-  let mut src_dst: HashMap<uint, ~[uint]> = HashMap::new();
+  let mut src_dst: SmallIntMap<~[uint]> = SmallIntMap::new();
   let mut dst_src = SmallIntMap::new();
   for vec::each2(result, incoming) |&dst, &src| {
     if dst == src { loop }
@@ -583,7 +574,7 @@ fn resolve_perm(result: &[uint], incoming: &[uint]) -> ~[Resolution] {
        the right spot as we go along */
     let mut cur = dst;
     while dst_src.contains_key(&cur) {
-      let nxt; nxt = *dst_src.get(&cur); /* TODO(#4666): sanity */
+      let nxt = *dst_src.get(&cur);
       ret.push(Left((cur, nxt)));
       dst_src.remove(&cur);
       let L = vec::filter(src_dst.pop(&nxt).unwrap(), |&x| x != cur);

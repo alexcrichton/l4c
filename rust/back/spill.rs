@@ -88,7 +88,32 @@ pub fn spill(p: &mut Program) {
                          max_pressures: max_pressures,
                          connected: connected };
 
-    s.run(f);
+    /* Build up phi renaming maps */
+    for f.cfg.each_node |n, _| {
+      s.build_renamings(f, n);
+    }
+
+    /* Prepare the graph and build all next_use information */
+    let mut changed = true;
+    while changed {
+      changed = false;
+      for f.cfg.each_postorder(f.root) |&id| {
+        changed = s.build_next_use(f, id) || changed;
+      }
+    }
+
+    /* In reverse postorder, spill everything! */
+    let order = f.cfg.postorder(f.root).first();
+    for order.each_reverse |&id| {
+      s.spill(f, id);
+    }
+
+    /* Finally, clean things up by appending the necessary spills/reloads to the
+       relevant basic block */
+    do s.connected.consume |(pred, _), ins| {
+      let new = f.cfg.pop_node(pred) + ins;
+      f.cfg.add_node(pred, new);
+    }
   }
 }
 
@@ -110,36 +135,6 @@ fn sort(set: &TempSet, s: &NextUse) -> ~[Temp] {
 }
 
 impl Spiller {
-  fn run(&mut self, f: &mut Function) {
-    /* TODO: why can't this all be above */
-    /* Build up phi renaming maps */
-    for f.cfg.each_node |n, _| {
-      self.build_renamings(f, n);
-    }
-
-    /* Prepare the graph and build all next_use information */
-    let mut changed = true;
-    while changed {
-      changed = false;
-      for f.cfg.each_postorder(f.root) |&id| {
-        changed = self.build_next_use(f, id) || changed;
-      }
-    }
-
-    /* In reverse postorder, spill everything! */
-    let order = f.cfg.postorder(f.root).first();
-    for order.each_reverse |&id| {
-      self.spill(f, id);
-    }
-
-    /* Finally, clean things up by appending the necessary spills/reloads to the
-       relevant basic block */
-    do self.connected.consume |(pred, _), ins| {
-      let new = f.cfg.pop_node(pred) + ins;
-      f.cfg.add_node(pred, new);
-    }
-  }
-
   /**
    * Build up internal maps of the renaming of temps done by phi functions per
    * node. This just needs to iterate and look at every phi node in a block.
@@ -521,7 +516,6 @@ impl Spiller {
 
     visited.insert(cur);
     let mut ret = *self.max_pressures.get(&cur);
-    /* TODO(purity): this shouldn't be unsafe */
     for f.cfg.each_succ(cur) |succ| {
       ret = uint::max(ret, self.max_pressure(f, succ, visited));
     }

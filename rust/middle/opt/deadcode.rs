@@ -28,7 +28,6 @@ pub fn optimize(p: &mut Program) {
 }
 
 impl Eliminator {
-  /* TODO: why can't this all be above */
   fn run(&mut self, f: &mut Function) -> bool {
     assert!(self.stms.len() == 0);
     debug!("running");

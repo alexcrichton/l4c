@@ -66,20 +66,17 @@ pub fn convert<T: Statement>(cfg: &mut CFG<T>,
     dom_frontiers(cfg, root, results)
   };
 
-  /* TODO: remove this block */
-  {
-    let mut converter = Converter { cfg: cfg,
-                                    root: root,
-                                    versions: HashMap::new(),
-                                    temps: temp::new(),
-                                    frontiers: frontiers,
-                                    analysis: results,
-                                    liveness: live,
-                                    remapping: HashMap::new() };
-    converter.convert();
-    let Converter { remapping, _ } = converter;
-    return remapping;
-  }
+  let mut converter = Converter { cfg: cfg,
+                                  root: root,
+                                  versions: HashMap::new(),
+                                  temps: temp::new(),
+                                  frontiers: frontiers,
+                                  analysis: results,
+                                  liveness: live,
+                                  remapping: HashMap::new() };
+  converter.convert();
+  let Converter { remapping, _ } = converter;
+  return remapping;
 }
 
 impl<'self, T: Statement> Converter<'self, T> {

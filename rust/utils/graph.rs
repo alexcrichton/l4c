@@ -1,5 +1,4 @@
 use core::hashmap::{HashMap, HashSet};
-
 use core::io::WriterUtil;
 
 pub type NodeId = uint;

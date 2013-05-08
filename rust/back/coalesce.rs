@@ -210,7 +210,6 @@ fn use_def_maps(cfg: &assem::CFG) -> (UseMap, DefMap)
   }
 
   fn add_use(tmp: Temp, loc: Location, uses: &mut UseMap) {
-    /* TODO: can this be compacted */
     match uses.find_mut(&tmp) {
       Some(s) => { s.insert(loc); return; }
       None => {}
@@ -232,9 +231,7 @@ impl<'self> Coalescer<'self> {
     /* Algorithm 4.3 */
     let mut pq = self.build_chunks();
     while !pq.is_empty() {
-      /* TODO: why can't this be on one line? */
-      let chunk = pq.pop();
-      self.recolor_chunk(chunk, &mut pq);
+      self.recolor_chunk(pq.pop(), &mut pq);
     }
   }
 
@@ -419,8 +416,7 @@ impl<'self> Coalescer<'self> {
   }
 
   fn avoid_color(&mut self, t: Temp, c: uint, changed: &mut ~[Temp]) -> bool {
-    /* TODO: silly block */
-    let color; { color = *self.colors.get(&t); }
+    let color = *self.colors.get(&t);
     /* Certainly avoided if it's already not this color */
     if color != c { debug!("avoided %? %?", t, c); return true }
     /* Otherwise if it's fixed, then we're out of luck */
@@ -641,14 +637,13 @@ impl<'self> Coalescer<'self> {
   }
 
   fn add_affine(&mut self, a: Temp, b: Temp, weight: uint) {
-    /* TODO: should be a match */
-    if self.affinities.contains_key(&a) {
-      self.affinities.find_mut(&a).unwrap().insert(a, weight);
-    } else {
-      let mut m = ~HashMap::new();
-      m.insert(b, weight);
-      self.affinities.insert(a, m);
+    match self.affinities.find_mut(&a) {
+      Some(m) => { m.insert(a, weight); return; }
+      None => ()
     }
+    let mut m = ~HashMap::new();
+    m.insert(b, weight);
+    self.affinities.insert(a, m);
   }
 }
 
