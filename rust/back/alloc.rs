@@ -33,7 +33,6 @@ pub fn color(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
     liveness::calculate(f.cfg, f.root, &mut f.liveness);
 
-    let f: &mut Function = *f;
     let mut a = Allocator{ colors: SmallIntMap::new(),
                            precolored: HashSet::new(),
                            constraints: SmallIntMap::new(),

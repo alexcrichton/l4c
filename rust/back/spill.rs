@@ -77,7 +77,7 @@ pub fn spill(p: &mut Program) {
     let phis = HashMap::new();
     let max_pressures = HashMap::new();
     let connected = HashSet::new();
-    let mut s = Spiller{ f: *f,
+    let mut s = Spiller{ f: f,
                          next_use: next_use,
                          deltas: deltas,
                          regs_end: regs_end,

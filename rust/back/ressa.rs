@@ -5,7 +5,7 @@ use back::assem;
 
 pub fn convert(p: &mut assem::Program) {
   for vec::each_mut(p.funs) |f| {
-    ressa(*f);
+    ressa(f);
   }
 }
 

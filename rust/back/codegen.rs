@@ -22,7 +22,7 @@ pub fn codegen(ir::Program{funs}: ir::Program) -> assem::Program {
   let funs = do vec::map_consume(funs) |f| {
     let f = cg.run(f);
     cg.reset();
-    @mut f
+    f
   };
   assem::Program{ funs: funs }
 }
