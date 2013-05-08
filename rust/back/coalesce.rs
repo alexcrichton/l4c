@@ -79,11 +79,6 @@ struct Coalescer<'self> {
   /* Temporary mapping remembering the old colors of temps for rollbacks */
   old_color: SmallIntMap<uint>,
 
-  /* TODO: it shouldn't be necessary to have this structure */
-  info: @mut CFGInfo<'self>,
-}
-
-struct CFGInfo<'self> {
   /* Mapping of a temp to where it's defined */
   defs: &'self DefMap,
   /* Mapping of a temp to the set of locations in which it is used */
@@ -98,7 +93,7 @@ struct CFGInfo<'self> {
      and associated components, and because interference information is very
      costly to generate, there are a number of caches which store the results of
      this computation to facilitate usage later on */
-  interference: HashMap<Temp, ~TempSet>,
+  interference: HashMap<Temp, @TempSet>,
   interferences: HashMap<(Temp, Temp), bool>,
   admissible: HashMap<(Temp, uint), bool>,
   dominates: HashMap<(NodeId, NodeId), bool>,
@@ -110,8 +105,10 @@ pub fn optimize(f: &assem::Function,
                 colors: &mut alloc::ColorMap,
                 precolored: &TempSet,
                 constraints: &mut alloc::ConstraintMap) {
+  /* Build up some static maps which are cheap and don't change */
   let lm = liveness_map(&f.cfg, &f.liveness, f.temps);
   let (uses, defs) = use_def_maps(&f.cfg);
+
   let mut pre = bitv::Bitv::new(f.temps, false);
   for precolored.each |&t| {
     pre.set(t, true);
@@ -120,26 +117,21 @@ pub fn optimize(f: &assem::Function,
   let fixed = bitv::Bitv::new(f.temps, false);
   let affinities = HashMap::new();
   let old_color = SmallIntMap::new();
-  {
-    let info = CFGInfo {
-      liveness_map: &lm,
-      interference: HashMap::new(),
-      interferences: HashMap::new(),
-      admissible: HashMap::new(),
-      dominates: HashMap::new(),
-      defs: &defs,
-      uses: &uses,
-      f: f,
-    };
-    let mut c = Coalescer { fixed: fixed,
-                            affinities: affinities,
-                            colors: colors,
-                            old_color: old_color,
-                            precolored: pre,
-                            constraints: constraints,
-                            info: @mut info };
-    c.run();
-  }
+  let mut c = Coalescer { fixed: fixed,
+                          affinities: affinities,
+                          colors: colors,
+                          old_color: old_color,
+                          precolored: pre,
+                          constraints: constraints,
+                          liveness_map: &lm,
+                          interference: HashMap::new(),
+                          interferences: HashMap::new(),
+                          admissible: HashMap::new(),
+                          dominates: HashMap::new(),
+                          defs: &defs,
+                          uses: &uses,
+                          f: f, };
+  c.coalesce();
 }
 
 /**
@@ -220,10 +212,6 @@ fn use_def_maps(cfg: &assem::CFG) -> (UseMap, DefMap)
 }
 
 impl<'self> Coalescer<'self> {
-  fn run(&mut self) {
-    self.coalesce();
-  }
-
   /**
    * Perform the actual coalescing of the graph.
    */
@@ -392,7 +380,7 @@ impl<'self> Coalescer<'self> {
     self.set_color(t, c, &mut changed);
     debug!("recoloring %? to %?", t, c);
 
-    for self.info.interferences(t) |tmp| {
+    for self.interferences(t).each |&tmp| {
       debug!("recoloring %? interfering with %?", tmp, t);
       if !self.avoid_color(tmp, c, &mut changed) {
         /* rollback */
@@ -436,7 +424,7 @@ impl<'self> Coalescer<'self> {
       self.min_color(t, c)
     };
     self.set_color(t, color, changed);
-    for self.info.interferences(t) |tmp| {
+    for self.interferences(t).each |&tmp| {
       if !self.avoid_color(tmp, color, changed) {
         debug!("failed to avoid on interference %?", tmp);
         return false;
@@ -460,7 +448,7 @@ impl<'self> Coalescer<'self> {
     }
 
     /* Iterate over our interferences and bump counts for their colors */
-    for self.info.interferences(t) |tmp| {
+    for self.interferences(t).each |&tmp| {
       let idx = *self.colors.get(&tmp) - 1;
       if cnts[idx] != uint::max_value {
         cnts[idx] += 1;
@@ -546,7 +534,7 @@ impl<'self> Coalescer<'self> {
          * edge in the graph */
         for xs.each |&v| { /* v.chunk = x.chunk */
           for ys.each |&w| { /* w.chunk = y.chunk */
-            interferes = interferes || self.info.interferes(v, w);
+            interferes = interferes || self.interferes(v, w);
             if interferes { break }
           }
           if interferes { break }
@@ -594,16 +582,16 @@ impl<'self> Coalescer<'self> {
    */
   fn find_affinities(&mut self) -> PriorityQueue<Affinity> {
     let mut pq = PriorityQueue::new();
-    let mut to_visit = ~[(self.info.f.root, 1)];
+    let mut to_visit = ~[(self.f.root, 1)];
     let mut visited = HashSet::new();
 
     while to_visit.len() > 0 {
       let (n, weight) = to_visit.pop();
       assert!(visited.insert(n));
       /* We have a more costly weight if we're moving into a loop */
-      let info: &mut CFGInfo<'self> = self.info;
-      let weight = weight + if info.f.loops.contains_key(&n) { 1 } else { 0 };
-      for info.f.cfg.node(n).each |&ins| {
+      let weight = weight +
+        if self.f.loops.contains_key(&n) { 1 } else { 0 };
+      for self.f.cfg.node(n).each |&ins| {
         match ins {
           ~assem::Phi(def, ref map) => {
             for map.each |_, &tmp| {
@@ -623,7 +611,7 @@ impl<'self> Coalescer<'self> {
         }
       }
 
-      for self.info.f.cfg.each_succ_edge(n) |succ, edge| {
+      for self.f.cfg.each_succ_edge(n) |succ, edge| {
         if visited.contains(&succ) { loop }
         /* If we're moving out of a loop, decrement the weight */
         let weight = match edge {
@@ -645,9 +633,11 @@ impl<'self> Coalescer<'self> {
     m.insert(b, weight);
     self.affinities.insert(a, m);
   }
-}
 
-impl<'self> CFGInfo<'self> {
+  /****************************************************************************
+   * The following methods deal with finding information about the interference
+   * graph without actually building the interference graph
+   ****************************************************************************/
 
   /**
    * Tests whether two temps interfere within the interference graph
@@ -715,10 +705,10 @@ impl<'self> CFGInfo<'self> {
    *
    * To see problems in optimization, see find_interferences
    */
-  fn interferences(&mut self, t: Temp, f: &fn(Temp) -> bool) {
+  fn interferences(&mut self, t: Temp) -> @TempSet {
     /* definitely cache information once we've calculated it */
     match self.interference.find(&t) {
-      Some(s) => { s.each(|&t| f(t)); return }
+      Some(s) => { return *s; }
       None => ()
     }
 
@@ -739,15 +729,16 @@ impl<'self> CFGInfo<'self> {
         self.find_interferences(t, block, &mut bitv, &mut visited);
       }
     }
-    let mut set = ~HashSet::new();
+    let mut set = HashSet::new();
     for bitv.ones |x| {
       if x != t {
         set.insert(x);
       }
     }
     debug!("%? interferencs: %s", t, set.pp());
-    self.interference.insert(t, set);
-    self.interference.get(&t).each(|&t| f(t));
+    let ret = @set;
+    self.interference.insert(t, ret);
+    return ret;
   }
 
   /**
