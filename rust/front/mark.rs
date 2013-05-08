@@ -15,7 +15,8 @@ impl<T> Marked<T> {
   }
 
   pub fn unwrap(~self) -> T {
-    let ~Marked{ node, _ } = self;
-    return node;
+    match self {
+      ~Marked { node, _ } => return node,
+    }
   }
 }
