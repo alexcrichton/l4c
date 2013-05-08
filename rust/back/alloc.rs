@@ -16,8 +16,8 @@ pub type ConstraintMap = SmallIntMap<Constraint>;
 /* Left = move(dst, src), Right = xchg(r1, r1) */
 type Resolution = Either<(uint, uint), (uint, uint)>;
 
-struct Allocator {
-  f: @mut Function,
+struct Allocator<'self> {
+  f: &'self mut Function,
   colors: ColorMap,
   slots: HashMap<Tag, uint>,
   max_slot: uint,
@@ -33,11 +33,12 @@ pub fn color(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
     liveness::calculate(f.cfg, f.root, &mut f.liveness);
 
+    let f: &mut Function = *f;
     let mut a = Allocator{ colors: SmallIntMap::new(),
                            precolored: HashSet::new(),
                            constraints: SmallIntMap::new(),
                            slots: HashMap::new(),
-                           f: *f,
+                           f: f,
                            max_slot: 0,
                            max_call_stack: 0,
                            callee_saved: ~[] };
@@ -59,7 +60,7 @@ fn min_vacant(colors: &RegisterSet) -> uint {
   return i;
 }
 
-impl Allocator {
+impl<'self> Allocator<'self> {
   fn run(&mut self) {
     /* TODO: why can't this be above */
     /* Color the graph completely */
@@ -89,7 +90,6 @@ impl Allocator {
   fn color(&mut self, n: graph::NodeId) {
     debug!("coloring %?", n);
     let mut tmplive = HashSet::new();
-    let tmpdelta = self.f.liveness.deltas.get(&n);
     let mut registers = RegisterSet();
     for self.f.liveness.in.get(&n).each |&t| {
       tmplive.insert(t);
@@ -100,10 +100,13 @@ impl Allocator {
     let mut pcopy = None;
     for self.f.cfg.node(n).eachi |i, ins| {
       /* examine data for next instruction for last use information */
-      debug!("%s", ins.pp());
-      debug!("deltas %?", tmpdelta[i]);
-      debug!("before %s %s", tmplive.pp(), registers.pp());
-      liveness::apply(&mut tmplive, &tmpdelta[i]);
+      {
+        let delta = &self.f.liveness.deltas.get(&n)[i];
+        debug!("%s", ins.pp());
+        debug!("deltas %?", delta);
+        debug!("before %s %s", tmplive.pp(), registers.pp());
+        liveness::apply(&mut tmplive, delta);
+      }
 
       match *ins {
         /* If we found a pcopy, then we're breaking liveness */
@@ -271,7 +274,9 @@ impl Allocator {
       debug!("after %s %s", tmplive.pp(), registers.pp());
     }
 
-    for self.f.ssa.idominated.get(&n).each |&id| {
+    /* TODO: bad copy */
+    let next = copy *self.f.ssa.idominated.get(&n);
+    for next.each |&id| {
       self.color(id);
     }
   }
@@ -299,16 +304,14 @@ impl Allocator {
   }
 
   fn remove_phis(&self) {
-    let cfg = &mut self.f.cfg;
-
     let mut to_append = ~[];
 
-    for cfg.each_node |id, ins| {
+    for self.f.cfg.each_node |id, ins| {
       let mut phi_vars = ~[];
       let mut phi_maps = HashMap::new();
       let mut mem_vars = ~[];
       let mut mem_maps = HashMap::new();
-      for cfg.each_pred(id) |pred| {
+      for self.f.cfg.each_pred(id) |pred| {
         phi_maps.insert(pred, ~[]);
         mem_maps.insert(pred, ~[]);
       }
@@ -332,7 +335,7 @@ impl Allocator {
         }
       }
 
-      for cfg.each_pred(id) |pred| {
+      for self.f.cfg.each_pred(id) |pred| {
         let mut perm = phi_maps.pop(&pred).unwrap();
         let mems = mem_maps.pop(&pred).unwrap();
         perm = perm.map(|&tmp| *self.colors.get(&tmp));
@@ -359,7 +362,7 @@ impl Allocator {
 
     do vec::consume(to_append) |_, (pred, ins)| {
       /* there are no critical edges in the graph, so we can just append */
-      cfg.map_consume_node(pred, |stms| stms + ins);
+      self.f.cfg.map_consume_node(pred, |stms| stms + ins);
     }
   }
 
@@ -397,7 +400,7 @@ impl Allocator {
     }
   }
 
-  fn alloc_ins(&self, i: ~Instruction, push: &fn(~Instruction)) {
+  fn alloc_ins(&mut self, i: ~Instruction, push: &fn(~Instruction)) {
     match i {
       ~Spill(t, tag) => push(~Store(self.stack_pos(tag), self.alloc_tmp(t))),
       ~Reload(t, tag) => push(~Load(self.alloc_tmp(t), self.stack_pos(tag))),
@@ -475,7 +478,7 @@ impl Allocator {
     }
   }
 
-  fn alloc_addr(&self, addr: ~Address) -> ~Address {
+  fn alloc_addr(&mut self, addr: ~Address) -> ~Address {
     match addr {
       ~Stack(i) => ~Stack(i),
       ~StackArg(idx) =>
@@ -505,14 +508,14 @@ impl Allocator {
     return arch::align_stack(slots + calls + saves) - alter;
   }
 
-  fn alloc_op(&self, o: ~Operand) -> ~Operand {
+  fn alloc_op(&mut self, o: ~Operand) -> ~Operand {
     match o {
       ~Immediate(*) | ~LabelOp(*) | ~Register(*) => o,
       ~Temp(tmp) => self.alloc_tmp(tmp)
     }
   }
 
-  fn alloc_tmp(&self, tmp: Temp) -> ~Operand {
+  fn alloc_tmp(&mut self, tmp: Temp) -> ~Operand {
     let size = self.f.sizes.get_copy(&tmp);
     ~Register(arch::num_reg(*self.colors.get(&tmp)), size)
   }
