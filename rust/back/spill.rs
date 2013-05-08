@@ -37,7 +37,7 @@ static loop_out_weight: uint = 100000;
 type NextUse = HashMap<Temp, uint>;
 
 struct Spiller<'self> {
-  f: &'self mut Function,
+  f: &'self Function,
   /* next_use information for each node in the graph */
   next_use: HashMap<NodeId, NextUse>,
   /* Delta information for next_use as a block is traversed top down */
@@ -64,7 +64,7 @@ struct Spiller<'self> {
 
 pub fn spill(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
-    opt::cfg::eliminate_critical(f.cfg);
+    opt::cfg::eliminate_critical(&mut f.cfg);
 
     /* TODO(#5884): eew */
     let next_use = HashMap::new();
@@ -199,12 +199,7 @@ impl<'self> Spiller<'self> {
         }
       }
       if !self.next_use.contains_key(&succ) { loop }
-      /* TODO(#6248): ugh */
-      let edge = {
-        let cfg: &CFG = self.f.cfg;
-        *cfg.edge(n, succ)
-      };
-      let edge_cost = match edge {
+      let edge_cost = match *self.f.cfg.edge(n, succ) {
         ir::LoopOut | ir::FLoopOut => loop_out_weight, _ => 0
       };
 
@@ -318,24 +313,6 @@ impl<'self> Spiller<'self> {
 
     /* Limit the amount of variables in registers by spilling those which are
        used the farthest away */
-    /*macro_rules! limit (*/
-    /*  ($max:expr) =>*/
-    /*  ({*/
-    /*    if regs.len() >= $max {*/
-    /*      let sorted = sort(&regs, &next_use);*/
-    /*      debug!("%? %s", sorted, next_use.pp());*/
-    /*      for sorted.slice($max, sorted.len()).each |&tmp| {*/
-    /*        if !spill.contains(&tmp) && next_use.contains_key(&tmp) {*/
-    /*          debug!("spilling %?", tmp);*/
-    /*          block.push(~Spill(tmp, tmp));*/
-    /*        }*/
-    /*        regs.remove(&tmp);*/
-    /*        spill.remove(&tmp);*/
-    /*      }*/
-    /*    }*/
-    /*    assert!(regs.len() <= $max);*/
-    /*  })*/
-    /*);*/
     let limit = |max: uint| {
       if regs.len() >= max {
         let sorted = sort(&regs, &next_use);

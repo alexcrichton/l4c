@@ -20,7 +20,7 @@ pub struct Program {
 pub struct Function {
   name: ~str,
   root: graph::NodeId,
-  cfg: @mut CFG,
+  cfg: CFG,
   sizes: HashMap<Temp, Size>,
   temps: uint,
   ssa: ssa::Analysis,

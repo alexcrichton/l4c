@@ -54,7 +54,7 @@ impl CodeGenerator {
 
     info!("codegen of %s done", name);
     assem::Function { name: name,
-                      cfg: @mut cfg,
+                      cfg: cfg,
                       root: root,
                       temps: self.temps.cnt(),
                       sizes: sizes,

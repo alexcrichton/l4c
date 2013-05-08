@@ -106,12 +106,12 @@ struct CFGInfo<'self> {
   f: &'self assem::Function,
 }
 
-pub fn optimize(f: &mut assem::Function,
+pub fn optimize(f: &assem::Function,
                 colors: &mut alloc::ColorMap,
                 precolored: &TempSet,
                 constraints: &mut alloc::ConstraintMap) {
-  let lm = liveness_map(f.cfg, &f.liveness, f.temps);
-  let (uses, defs) = use_def_maps(f.cfg);
+  let lm = liveness_map(&f.cfg, &f.liveness, f.temps);
+  let (uses, defs) = use_def_maps(&f.cfg);
   let mut pre = bitv::Bitv::new(f.temps, false);
   for precolored.each |&t| {
     pre.set(t, true);

@@ -16,8 +16,7 @@ pub type ConstraintMap = SmallIntMap<Constraint>;
 /* Left = move(dst, src), Right = xchg(r1, r1) */
 type Resolution = Either<(uint, uint), (uint, uint)>;
 
-struct Allocator<'self> {
-  f: &'self mut Function,
+struct Allocator {
   colors: ColorMap,
   slots: HashMap<Tag, uint>,
   max_slot: uint,
@@ -31,17 +30,16 @@ struct Allocator<'self> {
 
 pub fn color(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
-    liveness::calculate(f.cfg, f.root, &mut f.liveness);
+    liveness::calculate(&f.cfg, f.root, &mut f.liveness);
 
     let mut a = Allocator{ colors: SmallIntMap::new(),
                            precolored: HashSet::new(),
                            constraints: SmallIntMap::new(),
                            slots: HashMap::new(),
-                           f: f,
                            max_slot: 0,
                            max_call_stack: 0,
                            callee_saved: ~[] };
-    a.run();
+    a.run(f);
   }
 }
 
@@ -59,25 +57,25 @@ fn min_vacant(colors: &RegisterSet) -> uint {
   return i;
 }
 
-impl<'self> Allocator<'self> {
-  fn run(&mut self) {
+impl Allocator {
+  fn run(&mut self, f: &mut Function) {
     /* TODO: why can't this be above */
     /* Color the graph completely */
-    info!("coloring: %s", self.f.name);
+    info!("coloring: %s", f.name);
 
-    do profile::dbg("coloring") { self.color(self.f.root); }
+    do profile::dbg("coloring") { self.color(f, f.root); }
     for self.colors.each |tmp, color| {
       debug!("%s => %?", tmp.to_str(), color);
     }
 
     do profile::dbg("coalescing") {
-      coalesce::optimize(self.f, &mut self.colors,
+      coalesce::optimize(f, &mut self.colors,
                          &self.precolored, &mut self.constraints);
     }
 
     /* Finally remove all phi nodes and all temps */
-    do profile::dbg("removing phis") { self.remove_phis(); }
-    do profile::dbg("removing tmps") { self.remove_temps(); }
+    do profile::dbg("removing phis") { self.remove_phis(f); }
+    do profile::dbg("removing tmps") { self.remove_temps(f); }
   }
 
   /**
@@ -86,21 +84,21 @@ impl<'self> Allocator<'self> {
    * A top-down traversal of the dominator tree is done, coloring all
    * definitions as they are seen with the first available color.
    */
-  fn color(&mut self, n: graph::NodeId) {
+  fn color(&mut self, f: &Function, n: graph::NodeId) {
     debug!("coloring %?", n);
     let mut tmplive = HashSet::new();
     let mut registers = RegisterSet();
-    for self.f.liveness.in.get(&n).each |&t| {
+    for f.liveness.in.get(&n).each |&t| {
       tmplive.insert(t);
       registers.set(*self.colors.get(&t), true);
     }
     debug!("%s", tmplive.pp())
 
     let mut pcopy = None;
-    for self.f.cfg.node(n).eachi |i, ins| {
+    for f.cfg.node(n).eachi |i, ins| {
       /* examine data for next instruction for last use information */
       {
-        let delta = &self.f.liveness.deltas.get(&n)[i];
+        let delta = &f.liveness.deltas.get(&n)[i];
         debug!("%s", ins.pp());
         debug!("deltas %?", delta);
         debug!("before %s %s", tmplive.pp(), registers.pp());
@@ -274,9 +272,9 @@ impl<'self> Allocator<'self> {
     }
 
     /* TODO: bad copy */
-    let next = copy *self.f.ssa.idominated.get(&n);
+    let next = copy *f.ssa.idominated.get(&n);
     for next.each |&id| {
-      self.color(id);
+      self.color(f, id);
     }
   }
 
@@ -302,15 +300,15 @@ impl<'self> Allocator<'self> {
     }
   }
 
-  fn remove_phis(&self) {
+  fn remove_phis(&self, f: &mut Function) {
     let mut to_append = ~[];
 
-    for self.f.cfg.each_node |id, ins| {
+    for f.cfg.each_node |id, ins| {
       let mut phi_vars = ~[];
       let mut phi_maps = HashMap::new();
       let mut mem_vars = ~[];
       let mut mem_maps = HashMap::new();
-      for self.f.cfg.each_pred(id) |pred| {
+      for f.cfg.each_pred(id) |pred| {
         phi_maps.insert(pred, ~[]);
         mem_maps.insert(pred, ~[]);
       }
@@ -334,7 +332,7 @@ impl<'self> Allocator<'self> {
         }
       }
 
-      for self.f.cfg.each_pred(id) |pred| {
+      for f.cfg.each_pred(id) |pred| {
         let mut perm = phi_maps.pop(&pred).unwrap();
         let mems = mem_maps.pop(&pred).unwrap();
         perm = perm.map(|&tmp| *self.colors.get(&tmp));
@@ -361,7 +359,7 @@ impl<'self> Allocator<'self> {
 
     do vec::consume(to_append) |_, (pred, ins)| {
       /* there are no critical edges in the graph, so we can just append */
-      self.f.cfg.map_consume_node(pred, |stms| stms + ins);
+      f.cfg.map_consume_node(pred, |stms| stms + ins);
     }
   }
 
@@ -373,46 +371,53 @@ impl<'self> Allocator<'self> {
    * This also converts all three-operand binary ops to two-operand binops
    * because x86 is so awesome.
    */
-  fn remove_temps(&mut self) {
-    let (order, _) = self.f.cfg.postorder(self.f.root);
+  fn remove_temps(&mut self, f: &mut Function) {
+    let (order, _) = f.cfg.postorder(f.root);
+
     for order.each_reverse |&id| {
-      let ins = vec::build(|push| {
-        if id == self.f.root {
-          for self.colors.each |_, &color| {
-            let reg = arch::num_reg(color);
-            if arch::callee_reg(reg) && !self.callee_saved.contains(&color) {
-              self.callee_saved.push(color);
-              push(~Raw(fmt!("push %s", reg.size(ir::Pointer))));
-            }
-          }
-          if self.stack_size(false) != 0 {
-            push(~BinaryOp(Sub, ~Register(ESP, ir::Pointer),
-                           ~Immediate(self.stack_size(false) as i32, ir::Pointer),
-                           ~Register(ESP, ir::Pointer)));
+      let prev = f.cfg.pop_node(id);
+      let mut newins = ~[];
+      /* If we're the root node, set up the stack after saving the callee
+         saved registers */
+      if id == f.root {
+        for self.colors.each |_, &color| {
+          let reg = arch::num_reg(color);
+          if arch::callee_reg(reg) && !self.callee_saved.contains(&color) {
+            self.callee_saved.push(color);
+            newins.push(~Raw(fmt!("push %s", reg.size(ir::Pointer))));
           }
         }
-        for self.f.cfg.node(id).each |&ins| {
-          self.alloc_ins(ins, push);
+        if self.stack_size(false) != 0 {
+          newins.push(~BinaryOp(Sub, ~Register(ESP, ir::Pointer),
+                                ~Immediate(self.stack_size(false) as i32,
+                                           ir::Pointer),
+                                ~Register(ESP, ir::Pointer)));
         }
-      });
-      self.f.cfg.update_node(id, ins);
+      }
+
+      do vec::consume(prev) |_, ins| {
+        self.alloc_ins(f, ins, |i| newins.push(i));
+      }
+      f.cfg.add_node(id, newins);
     }
   }
 
-  fn alloc_ins(&mut self, i: ~Instruction, push: &fn(~Instruction)) {
+  fn alloc_ins(&mut self, f: &Function, i: ~Instruction,
+               push: &fn(~Instruction))
+  {
     match i {
-      ~Spill(t, tag) => push(~Store(self.stack_pos(tag), self.alloc_tmp(t))),
-      ~Reload(t, tag) => push(~Load(self.alloc_tmp(t), self.stack_pos(tag))),
+      ~Spill(t, tag) => push(~Store(self.stack_pos(tag), self.alloc_tmp(f, t))),
+      ~Reload(t, tag) => push(~Load(self.alloc_tmp(f, t), self.stack_pos(tag))),
       ~Load(dst, addr) =>
-        push(~Load(self.alloc_op(dst), self.alloc_addr(addr))),
-      ~Store(addr, src) => push(~Store(self.alloc_addr(addr),
-                                       self.alloc_op(src))),
+        push(~Load(self.alloc_op(f, dst), self.alloc_addr(f, addr))),
+      ~Store(addr, src) => push(~Store(self.alloc_addr(f, addr),
+                                       self.alloc_op(f, src))),
       ~Raw(s) => push(~Raw(s)),
       ~Condition(c, o1, o2) =>
-        push(~Condition(c, self.alloc_op(o1), self.alloc_op(o2))),
+        push(~Condition(c, self.alloc_op(f, o1), self.alloc_op(f, o2))),
       ~Die(c, o1, o2) =>
-        push(~Die(c, self.alloc_op(o1), self.alloc_op(o2))),
-      ~Move(o1, o2) => push(~Move(self.alloc_op(o1), self.alloc_op(o2))),
+        push(~Die(c, self.alloc_op(f, o1), self.alloc_op(f, o2))),
+      ~Move(o1, o2) => push(~Move(self.alloc_op(f, o1), self.alloc_op(f, o2))),
       ~MemPhi(*) | ~Use(*) | ~Phi(*) | ~Arg(*) => (),
 
       ~Return(op) => {
@@ -431,9 +436,9 @@ impl<'self> Allocator<'self> {
             BinaryOp(op, d, s1, s2) <=> d = d op s1
          and s2 is put in the commments */
       ~BinaryOp(op, d, s1, s2) => {
-        let d = self.alloc_op(d);
-        let s1 = self.alloc_op(s1);
-        let s2 = self.alloc_op(s2);
+        let d = self.alloc_op(f, d);
+        let s1 = self.alloc_op(f, s1);
+        let s2 = self.alloc_op(f, s2);
 
         match op {
           /* these are all special cases handled elsewhere */
@@ -458,8 +463,8 @@ impl<'self> Allocator<'self> {
         }
       }
       ~Call(dst, fun, args) =>
-        push(~Call(dst, self.alloc_op(fun),
-                   vec::map_consume(args, |arg| self.alloc_op(arg)))),
+        push(~Call(dst, self.alloc_op(f, fun),
+                   vec::map_consume(args, |arg| self.alloc_op(f, arg)))),
 
       ~PCopy(ref copies) => {
         debug!("%?", copies);
@@ -477,14 +482,14 @@ impl<'self> Allocator<'self> {
     }
   }
 
-  fn alloc_addr(&mut self, addr: ~Address) -> ~Address {
+  fn alloc_addr(&mut self, f: &Function, addr: ~Address) -> ~Address {
     match addr {
       ~Stack(i) => ~Stack(i),
       ~StackArg(idx) =>
         ~Stack((idx + 1) * arch::ptrsize + self.stack_size(true)),
       ~MOp(base, disp, off) =>
-        ~MOp(self.alloc_op(base), disp,
-             off.map_consume(|(x, mult)| (self.alloc_op(x), mult)))
+        ~MOp(self.alloc_op(f, base), disp,
+             off.map_consume(|(x, mult)| (self.alloc_op(f, x), mult)))
     }
   }
 
@@ -507,15 +512,15 @@ impl<'self> Allocator<'self> {
     return arch::align_stack(slots + calls + saves) - alter;
   }
 
-  fn alloc_op(&mut self, o: ~Operand) -> ~Operand {
+  fn alloc_op(&mut self, f: &Function, o: ~Operand) -> ~Operand {
     match o {
       ~Immediate(*) | ~LabelOp(*) | ~Register(*) => o,
-      ~Temp(tmp) => self.alloc_tmp(tmp)
+      ~Temp(tmp) => self.alloc_tmp(f, tmp)
     }
   }
 
-  fn alloc_tmp(&mut self, tmp: Temp) -> ~Operand {
-    let size = self.f.sizes.get_copy(&tmp);
+  fn alloc_tmp(&mut self, f: &Function, tmp: Temp) -> ~Operand {
+    let size = f.sizes.get_copy(&tmp);
     ~Register(arch::num_reg(*self.colors.get(&tmp)), size)
   }
 
