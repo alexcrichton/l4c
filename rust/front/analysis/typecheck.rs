@@ -244,37 +244,37 @@ impl<'self> Typechecker<'self> {
   fn bind_fun(&mut self, id: Ident, span: Mark,
               ret: @Type, args: &~[(Ident, @Type)]) -> bool {
     let mut names = HashSet::new();
-    let mut err = false;
+    let mut good = true ;
     for args.each |&(name, typ)| {
       if !names.insert(name) {
         self.program.error(span, fmt!("Duplicate argument: %s",
                                       self.program.str(name)));
-        err = true;
+        good = false;
       }
-      err = self.tc_small(span, typ) || err;
+      good = self.tc_small(span, typ) && good;
     }
-    err = self.tc_small(span, ret) || err;
+    good = self.tc_small(span, ret) && good;
 
     let fun = self.funs.find(&id).map_consume(|x| *x);
     match fun {
       Some((retp, argsp)) => {
-        err = self.tc_equal(span, retp, ret) || err;
+        good = self.tc_equal(span, retp, ret) && good;
         if argsp.len() != args.len() {
           self.program.error(span, "Different number of arguments than before");
-          err = true;
+          good = false;
         } else {
           for vec::each2(*argsp, *args) |&expected, &(_, got)| {
-            err = self.tc_equal(span, expected, got) || err;
+            good = self.tc_equal(span, expected, got) && good;
           }
         }
       }
       None => ()
     }
 
-    if !err {
+    if good {
       self.funs.insert(id, (ret, @args.map(|x| x.second())));
     }
-    return !err;
+    return good;
   }
 
   fn tc_ensure(&mut self, e: &Expression, t: @Type) {

@@ -98,12 +98,17 @@ pub impl Program {
   }
 
   fn elaborate(&mut self) {
-    let mut e = Elaborator{ efuns:   HashSet::new(),
-                            funs:    HashSet::new(),
-                            structs: HashSet::new(),
-                            types:   HashMap::new(),
-                            program: self };
-    self.decls = e.run(util::replace(&mut self.decls, ~[]));
+    let prev = util::replace(&mut self.decls, ~[]);
+    let decls;
+    {
+      let mut e = Elaborator{ efuns:   HashSet::new(),
+                              funs:    HashSet::new(),
+                              structs: HashSet::new(),
+                              types:   HashMap::new(),
+                              program: self };
+      decls = e.run(prev);
+    }
+    self.decls = decls;
   }
 
   fn str(&self, id: Ident) -> ~str {
@@ -112,11 +117,14 @@ pub impl Program {
 
   fn error(&self, m: mark::Mark, msg: &str) {
     let out = io::stderr();
-    match m {
-      i => {
-        let ((l1, c1), (l2, c2), file) = self.positions[i];
-        out.write_str(fmt!("%s:%d.%d-%d.%d:error: %s\n", *file, l1, c1, l2,
-                           c2, msg));
+    if m == mark::dummy {
+      out.write_str(fmt!("error: %s\n", msg));
+    } else {
+      match self.positions[m] {
+        mark::Coords((l1, c1), (l2, c2), file) => {
+          out.write_str(fmt!("%s:%d.%d-%d.%d:error: %s\n", *file, l1, c1, l2,
+                             c2, msg));
+        }
       }
     }
     *self.errored = true;
@@ -227,17 +235,15 @@ impl<'self> Elaborator<'self> {
         self.declare(id, span, typ, init, ~Marked::new(Seq(s1, s2), dspan))
       }
       Seq(s1, s2) => Seq(self.elaborate_stm(s1), self.elaborate_stm(s2)),
-      Assign(e1, o, e2) => {
-        match (e1.node, o) {
-          (Var(id), Some(o)) => {
-            let v = ~Marked::new(Var(id), e1.span);
-            let b = ~Marked::new(BinaryOp(o, copy v, e2), e2.span);
-            let e = ~Marked::new(Assign(v, None, b), span);
-            return self.elaborate_stm(e);
-          }
-          (_, _) => Assign(self.elaborate_exp(e1), o, self.elaborate_exp(e2))
-        }
+      Assign(~Marked{ node: Var(id), span: e1span }, Some(o), e2) => {
+        let e2span = e2.span;
+        let v = ~Marked::new(Var(id), e1span);
+        let b = ~Marked::new(BinaryOp(o, copy v, e2), e2span);
+        let e = ~Marked::new(Assign(v, None, b), span);
+        return self.elaborate_stm(e);
       }
+      Assign(e1, o, e2) =>
+        Assign(self.elaborate_exp(e1), o, self.elaborate_exp(e2)),
     };
     return ~Marked::new(node, span);
   }

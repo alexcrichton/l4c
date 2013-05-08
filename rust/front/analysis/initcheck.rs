@@ -67,7 +67,7 @@ impl<'self> Initchecker<'self> {
       }
       Break | Nop => false,
       /* TODO: remove copy */
-      Continue => self.live(sym, &self.step),
+      Continue => self.live(sym, &copy self.step),
       Express(ref e) | Return(ref e) => self.uses(sym, *e),
       Seq(ref s1, ref s2) => self.seq_live(sym, &s1.node, &s2.node),
       For(ref s1, ref e, ref s2, ref s3) => {

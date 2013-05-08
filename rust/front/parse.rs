@@ -101,7 +101,8 @@ impl PositionGenerator {
   fn mark<'r>(&mut self, o: &'r Object, file: @~str) -> &'r Json {
     let left  = self.to_coord(o.get(&~"l"));
     let right = self.to_coord(o.get(&~"r"));
-    self.positions.push(self.generate(Coords(left, right, file)));
+    let mark = self.generate(Coords(left, right, file));
+    self.positions.push(mark);
     return o.get(&~"d")
   }
 

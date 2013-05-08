@@ -14,8 +14,8 @@ impl<T> Marked<T> {
     Marked{ node: t, span: m }
   }
 
-  pub fn unwrap(self) -> T {
-    let Marked{ node, _ } = self;
+  pub fn unwrap(~self) -> T {
+    let ~Marked{ node, _ } = self;
     return node;
   }
 }
