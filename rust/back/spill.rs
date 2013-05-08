@@ -128,7 +128,8 @@ impl<'self> Spiller<'self> {
     }
 
     /* In reverse postorder, spill everything! */
-    for self.f.cfg.each_rev_postorder(self.f.root) |&id| {
+    let order = self.f.cfg.postorder(self.f.root).first();
+    for order.each_reverse |&id| {
       self.spill(id);
     }
   }
