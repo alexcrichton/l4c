@@ -9,6 +9,7 @@
  * Furthermore, this eliminates all code after a 'return' or sure death.
  */
 
+use core::util::replace;
 use std::bitv;
 
 use middle::ir::*;
@@ -52,8 +53,7 @@ impl Eliminator {
     for order.each |&n| {
       let orig = f.cfg.node(n).len();
       f.cfg.node(n).each_reverse(|&stm| self.stm(stm));
-      let mut block = ~[];
-      block <-> self.stms;
+      let mut block = replace(&mut self.stms, ~[]);
       vec::reverse(block);
 
       let end = self.first_impossible(block);

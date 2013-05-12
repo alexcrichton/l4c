@@ -615,7 +615,7 @@ fn resolve_test(from: &[uint], to: &[uint]) {
   for perm.each |&foo| {
     match foo {
       Left((dst, src))  => { regs[dst] = regs[src]; }
-      Right((dst, src)) => { regs[dst] <-> regs[src]; }
+      Right((dst, src)) => { vec::swap(regs, dst, src); }
     }
   }
 

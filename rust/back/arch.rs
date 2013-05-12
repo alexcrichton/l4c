@@ -7,7 +7,7 @@ pub static ret_reg: Register = EAX;
 pub static num_regs: uint = 15;
 pub static caller_regs: uint = 9;
 
-pub fn each_reg(f: &fn(uint) -> bool) {
+pub fn each_reg(f: &fn(uint) -> bool) -> bool {
   uint::range(1, num_regs + 1, f)
 }
 
@@ -65,8 +65,9 @@ pub fn num_reg(i: uint) -> Register {
   }
 }
 
-pub fn each_caller(f: &fn(Register) -> bool) {
-  f(EAX); f(ECX); f(EDX); f(ESI); f(EDI); f(R8D); f(R9D); f(R10D); f(R11D);
+pub fn each_caller(f: &fn(Register) -> bool) -> bool {
+  f(EAX) && f(ECX) && f(EDX) && f(ESI) && f(EDI) && f(R8D) && f(R9D) && f(R10D)
+    && f(R11D)
 }
 
 pub fn callee_reg(r: Register) -> bool {

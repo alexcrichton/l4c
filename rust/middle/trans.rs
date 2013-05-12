@@ -36,8 +36,7 @@ pub fn translate(mut p: ast::Program, safe: bool) -> ir::Program {
   debug!("building translation info");
   let mut info = ProgramInfo { funs: HashMap::new(), structs: HashMap::new() };
   info.build(&p);
-  let mut decls = ~[];
-  p.decls <-> decls;
+  let decls = replace(&mut p.decls, ~[]);
 
   debug!("translating");
   let mut accum = ~[];

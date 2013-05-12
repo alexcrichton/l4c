@@ -596,18 +596,17 @@ impl Spiller {
     self.connected.insert((pred, succ), append);
   }
 
-  fn my_names(&self, tmp: Temp, from: NodeId, to: NodeId, f: &fn(Temp) -> bool) {
+  fn my_names(&self, tmp: Temp, from: NodeId, to: NodeId,
+              f: &fn(Temp) -> bool) -> bool {
     match self.renamings.find(&(from, to)) {
       Some(m) => match m.find(&tmp) {
         Some(ret) => {
-          ret.each(|&t| f(t));
-          if self.next_use.get(&to).contains_key(&tmp) {
-            f(tmp);
-          }
+          ret.each(|&t| f(t)) &&
+            (!self.next_use.get(&to).contains_key(&tmp) || f(tmp))
         }
-        None => { f(tmp); }
+        None => { f(tmp) }
       },
-      None => { f(tmp); }
+      None => { f(tmp) }
     }
   }
 

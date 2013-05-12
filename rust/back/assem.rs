@@ -103,7 +103,7 @@ impl Constraint {
 
 impl Instruction {
   #[inline(always)]
-  fn each_def(&self, f: &fn(Temp) -> bool) {
+  fn each_def(&self, f: &fn(Temp) -> bool) -> bool {
     match *self {
       BinaryOp(_, ~Temp(t), _, _) |
       Move(~Temp(t), _) |
@@ -112,21 +112,21 @@ impl Instruction {
       Call(t, _, _) |
       Reload(t, _) |
       Arg(t, _)
-        => { f(t); }
+        => { f(t) }
 
       PCopy(ref copies) => copies.each(|&(def, _)| f(def)),
 
-      _ => ()
+      _ => true
     }
   }
 
   #[inline(always)]
-  fn each_use(&self, f: &fn(Temp) -> bool) {
+  fn each_use(&self, f: &fn(Temp) -> bool) -> bool {
     match *self {
       Condition(_, ~Temp(t1), ~Temp(t2)) |
       Die(_, ~Temp(t1), ~Temp(t2)) |
       BinaryOp(_, _, ~Temp(t1), ~Temp(t2))
-        => { f(t1); f(t2); }
+        => { f(t1) && f(t2) }
 
       Condition(_, ~Temp(t), _) |
       Condition(_, _, ~Temp(t)) |
@@ -138,27 +138,27 @@ impl Instruction {
       Spill(t, _) |
       Use(t) |
       Return(~Temp(t))
-        => { f(t); }
+        => { f(t) }
 
-      Store(ref addr, ref src) => { addr.each_temp(f); src.each_temp(f); }
-      Load(_, ref addr) => { addr.each_temp(f); }
+      Store(ref addr, ref src) => { addr.each_temp(f) && src.each_temp(f) }
+      Load(_, ref addr) => { addr.each_temp(f) }
 
       Call(_, ref fun, ref args) => {
-        match *fun {
-          ~Temp(t) => { f(t); }
-          _ => ()
-        }
-        for args.each |arg| {
+        let cont = match *fun {
+          ~Temp(t) => { f(t) }
+          _ => true
+        };
+        cont && args.each(|arg| {
           match *arg {
-            ~Temp(t) => { f(t); }
-            _ => ()
+            ~Temp(t) => { f(t) }
+            _ => true
           }
-        }
+        })
       }
 
       PCopy(ref copies) => copies.each(|&(_, t)| f(t)),
 
-      _ => ()
+      _ => true
     }
   }
   fn phi_info<'a>(&'a self) -> Option<(Temp, &'a ssa::PhiMap)> {
@@ -174,8 +174,8 @@ impl Instruction {
 impl ssa::Statement for Instruction {
   fn phi(t: Temp, map: ssa::PhiMap) -> ~Instruction { ~Phi(t, map) }
 
-  fn each_def(&self, f: &fn(Temp) -> bool) { self.each_def(f) }
-  fn each_use(&self, f: &fn(Temp) -> bool) { self.each_use(f) }
+  fn each_def(&self, f: &fn(Temp) -> bool) -> bool { self.each_def(f) }
+  fn each_use(&self, f: &fn(Temp) -> bool) -> bool { self.each_use(f) }
   fn phi_info<'r>(me: &'r Instruction) -> Option<(Temp, &'r ssa::PhiMap)> {
     me.phi_info()
   }
@@ -327,10 +327,10 @@ impl Operand {
     }
   }
 
-  fn each_temp(&self, f: &fn(Temp) -> bool) {
+  fn each_temp(&self, f: &fn(Temp) -> bool) -> bool {
     match *self {
-      Temp(t) => { f(t); }
-      _ => ()
+      Temp(t) => { f(t) }
+      _ => true
     }
   }
 
@@ -374,17 +374,16 @@ impl Address {
     }
   }
 
-  fn each_temp(&self, f: &fn(Temp) -> bool) {
+  fn each_temp(&self, f: &fn(Temp) -> bool) -> bool {
     match *self {
       MOp(ref o, _, ref off) => {
-        o.each_temp(f);
-        /* TODO(#4653): make this sane again */
-        for off.each |p| {
+        o.each_temp(f) && off.each(|p| {
+          /* TODO(#4653): make this sane again */
           let x = match *p { (ref x, _) => x };
-          x.each_temp(f);
-        }
+          x.each_temp(f)
+        })
       }
-      Stack(*) | StackArg(*) => ()
+      Stack(*) | StackArg(*) => true
     }
   }
 }

@@ -102,43 +102,41 @@ pub impl<N, E> Graph<N, E> {
     self.pred.find_mut(&n2).unwrap().insert(n1);
   }
 
-  fn each_edge(&self, f: &fn(NodeId, NodeId) -> bool) {
-    for self.succ.each |&a, map| {
-      map.each_key(|&b| f(a, b));
-    }
+  fn each_edge(&self, f: &fn(NodeId, NodeId) -> bool) -> bool {
+    self.succ.each(|&a, map| map.each_key(|&b| f(a, b)))
   }
 
-  fn each_node(&self, f: &fn(NodeId, &N) -> bool) {
+  fn each_node(&self, f: &fn(NodeId, &N) -> bool) -> bool {
     self.succ.each(|&a, _| {
       match self.nodes.find(&a) {
         Some(b) => f(a, b),
         None => true
       }
-    });
+    })
   }
 
-  fn each_pred(&self, n: NodeId, f: &fn(NodeId) -> bool) {
-    self.pred.get(&n).each(|&k| f(k));
+  fn each_pred(&self, n: NodeId, f: &fn(NodeId) -> bool) -> bool {
+    self.pred.get(&n).each(|&k| f(k))
   }
 
-  fn each_pred_edge(&self, n: NodeId, f: &fn(NodeId, &E) -> bool) {
-    self.pred.get(&n).each(|&k| f(k, self.edge(k, n)));
+  fn each_pred_edge(&self, n: NodeId, f: &fn(NodeId, &E) -> bool) -> bool {
+    self.pred.get(&n).each(|&k| f(k, self.edge(k, n)))
   }
 
-  fn each_succ(&self, n: NodeId, f: &fn(NodeId) -> bool) {
-    self.succ.get(&n).each_key(|&k| f(k));
+  fn each_succ(&self, n: NodeId, f: &fn(NodeId) -> bool) -> bool {
+    self.succ.get(&n).each_key(|&k| f(k))
   }
 
-  fn each_succ_edge(&self, n: NodeId, f: &fn(NodeId, E) -> bool) {
-    self.succ.get(&n).each(|&n, &e| f(n, e));
+  fn each_succ_edge(&self, n: NodeId, f: &fn(NodeId, E) -> bool) -> bool {
+    self.succ.get(&n).each(|&n, &e| f(n, e))
   }
 
-  fn each_postorder(&self, root: NodeId, f: &fn(&NodeId) -> bool) {
+  fn each_postorder(&self, root: NodeId, f: &fn(&NodeId) -> bool) -> bool {
     self.postorder(root).first().each(f)
   }
 
-  fn each_rev_postorder(&self, root: NodeId, f: &fn(&NodeId) -> bool) {
-    self.postorder(root).first().each_reverse(f);
+  fn each_rev_postorder(&self, root: NodeId, f: &fn(&NodeId) -> bool) -> bool {
+    self.postorder(root).first().each_reverse(f)
   }
 
   fn map_nodes(&mut self, f: &fn(NodeId, N) -> N) {

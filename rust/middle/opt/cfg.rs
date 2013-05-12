@@ -3,6 +3,7 @@
  */
 
 use core::hashmap::{HashSet, HashMap};
+use core::util::replace;
 
 use middle::ssa::{CFG, Statement};
 use middle::ir;
@@ -34,8 +35,7 @@ pub fn simplify(p: &mut ir::Program) {
        maintains information about what's a loop header and where its loop body
        and ending node both start. */
     let changes = changes;
-    let mut loops = HashMap::new();
-    loops <-> f.loops;
+    let mut loops = replace(&mut f.loops, HashMap::new());
     do loops.consume |cond, (body, end)| {
       let cond = resolve(&changes, cond);
       let body = resolve(&changes, body);

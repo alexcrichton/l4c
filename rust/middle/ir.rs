@@ -137,27 +137,26 @@ pub impl Statement {
     }
   }
 
-  fn each_def(&self, f: &fn(Temp) -> bool) {
+  fn each_def(&self, f: &fn(Temp) -> bool) -> bool {
     match *self {
       Load(tmp, _) | Move(tmp, _) | Call(tmp, _, _) | Phi(tmp, _) |
-        Cast(tmp, _) => { f(tmp); }
+        Cast(tmp, _) => { f(tmp) }
       Arguments(ref tmps) => tmps.each(|&t| f(t)),
-      _ => ()
+      _ => true
     }
   }
 
-  fn each_use(&self, f: &fn(Temp) -> bool) {
+  fn each_use(&self, f: &fn(Temp) -> bool) -> bool {
     match *self {
       Move(_, ref e) | Load(_, ref e) | Condition(ref e) |
         Return(ref e) | Die(ref e) => e.each_temp(f),
-      Store(ref e1, ref e2) => { e1.each_temp(f); e2.each_temp(f); }
+      Store(ref e1, ref e2) => { e1.each_temp(f) && e2.each_temp(f) }
       Call(_, ref e, ref args) => {
-        e.each_temp(f);
-        for args.each |e| { e.each_temp(f); }
+        e.each_temp(f) && args.each(|e| e.each_temp(f))
       }
-      Phi(_, ref map) => { for map.each_value |&t| { f(t); } }
-      Cast(_, t) => { f(t); }
-      Arguments(*) => ()
+      Phi(_, ref map) => { map.each_value(|&t| f(t)) }
+      Cast(_, t) => { f(t) }
+      Arguments(*) => true
     }
   }
 }
@@ -170,8 +169,8 @@ impl ssa::Statement for Statement {
     self.map_temps(uses, defs)
   }
 
-  fn each_def(&self, f: &fn(Temp) -> bool) { self.each_def(f) }
-  fn each_use(&self, f: &fn(Temp) -> bool) { self.each_use(f) }
+  fn each_def(&self, f: &fn(Temp) -> bool) -> bool { self.each_def(f) }
+  fn each_use(&self, f: &fn(Temp) -> bool) -> bool { self.each_use(f) }
 
   fn phi_info<'r>(me: &'r Statement) -> Option<(Temp, &'r ssa::PhiMap)> {
     match *me {
@@ -225,11 +224,11 @@ pub impl Expression {
     }
   }
 
-  fn each_temp(&self, f: &fn(Temp) -> bool) {
+  fn each_temp(&self, f: &fn(Temp) -> bool) -> bool {
     match *self {
-      Const(*) | LabelExp(*) => (),
-      BinaryOp(_, ref e1, ref e2) => { e1.each_temp(f); e2.each_temp(f); }
-      Temp(tmp) => { f(tmp); }
+      Const(*) | LabelExp(*) => true,
+      BinaryOp(_, ref e1, ref e2) => { e1.each_temp(f) && e2.each_temp(f) }
+      Temp(tmp) => { f(tmp) }
     }
   }
 

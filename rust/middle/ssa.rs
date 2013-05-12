@@ -13,8 +13,8 @@ pub struct Analysis {
 
 pub trait Statement: PrettyPrint {
   fn phi(Temp, PhiMap) -> ~Self;
-  fn each_def(&self, &fn(Temp) -> bool);
-  fn each_use(&self, &fn(Temp) -> bool);
+  fn each_def(&self, &fn(Temp) -> bool) -> bool;
+  fn each_use(&self, &fn(Temp) -> bool) -> bool;
   fn map_temps(~self, u: &fn(Temp) -> Temp, d: &fn(Temp) -> Temp) -> ~Self;
   /* TODO: once fixed, this should be a member function */
   fn phi_info<'a>(me: &'a Self) -> Option<(Temp, &'a PhiMap)>;
