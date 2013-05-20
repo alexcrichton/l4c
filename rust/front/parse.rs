@@ -7,7 +7,7 @@ use front::ast;
 use front::mark;
 use front::mark::{Coords, Mark, Marked};
 
-struct SymbolGenerator {
+pub struct SymbolGenerator {
   symbols: ~[~str],
   table: HashMap<~str, uint>,
 }
@@ -25,7 +25,7 @@ struct Parser<'self> {
 }
 
 pub fn from_json(j: &Json, main: ~str) -> ast::Program {
-  let mut symgen = SymbolGenerator { table: HashMap::new(), symbols: ~[] };
+  let mut symgen = SymbolGenerator::new();
   let mut posgen = PositionGenerator { table: ~[], positions: ~[] };
   let mut decls = ~[];
 
@@ -79,7 +79,11 @@ fn to_opt<T>(j: &Json, f: &fn(&Json) -> T) -> Option<T> {
   }
 }
 
-impl SymbolGenerator {
+pub impl SymbolGenerator {
+  fn new() -> SymbolGenerator {
+    SymbolGenerator{ table: HashMap::new(), symbols: ~[] }
+  }
+
   fn intern(&mut self, s: &~str) -> ast::Ident {
     let s = match self.table.find(s) {
       Some(&i) => { return i }

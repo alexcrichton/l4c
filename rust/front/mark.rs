@@ -4,6 +4,7 @@ pub type Mark = uint;
 
 pub static dummy: Mark = -1 as uint;
 
+#[deriving(Eq)]
 pub struct Marked<T> {
   span: Mark,
   node: T,

@@ -26,6 +26,7 @@ pub type Ident = uint;
 
 pub type GDecl = Marked<gdecl>;
 
+#[deriving(Eq)]
 pub enum gdecl {
   Typedef(Ident, @Type),
   StructDef(Ident, ~[(Ident, @Type)]),
@@ -37,6 +38,7 @@ pub enum gdecl {
 
 pub type Statement = Marked<stmt>;
 
+#[deriving(Eq)]
 pub enum stmt {
   Assign(~Expression, Option<Binop>, ~Expression),
   If(~Expression, ~Statement, ~Statement),
@@ -53,6 +55,7 @@ pub enum stmt {
 
 pub type Expression = Marked<expr>;
 
+#[deriving(Eq)]
 pub enum expr {
   Var(Ident),
   Boolean(bool),
@@ -74,11 +77,13 @@ pub enum Type {
   Fun(@Type, @~[@Type])
 }
 
+#[deriving(Eq)]
 pub enum Binop {
   Plus, Minus, Times, Divide, Modulo, Less, LessEq, Greater, GreaterEq,
   Equals, NEquals, LAnd, LOr, BAnd, BOr, Xor, LShift, RShift
 }
 
+#[deriving(Eq)]
 pub enum Unop {
   Negative, Invert, Bang
 }
@@ -140,6 +145,11 @@ pub impl Program {
       unsafe { libc::exit(1); }
     }
   }
+}
+
+impl Eq for Program {
+  fn eq(&self, other: &Program) -> bool { self.decls == other.decls }
+  fn ne(&self, other: &Program) -> bool { !self.eq(other) }
 }
 
 impl PrettyPrint for Program {
