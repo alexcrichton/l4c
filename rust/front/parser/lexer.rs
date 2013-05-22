@@ -3,6 +3,7 @@ use front::mark::Span;
 use core::io::ReaderUtil;
 use core::hashmap::HashMap;
 use front::parse::SymbolGenerator;
+use front::parser::parser;
 
 #[deriving(Eq, Clone)]
 pub enum Token {
@@ -359,5 +360,26 @@ pub impl<'self> Lexer<'self> {
       None => {}
     }
     IDENT(self.symgen.intern(&self.cur))
+  }
+}
+
+pub impl Token {
+  fn precedence(&self) -> parser::Precedence {
+    match *self {
+      ASSIGN                              => parser::PAssign,
+      QUESTION | COLON                    => parser::PTernary,
+      PIPEPIPE                            => parser::PLor,
+      ANDAND                              => parser::PLand,
+      PIPE                                => parser::PBor,
+      CARET                               => parser::PXor,
+      AND                                 => parser::PBand,
+      EQUALS | NEQUALS                    => parser::PEquals,
+      LESS | GREATER | LESSEQ | GREATEREQ => parser::PCmp,
+      LSHIFT | RSHIFT                     => parser::PShift,
+      PLUS | MINUS                        => parser::PAdd,
+      STAR | PERCENT | SLASH              => parser::PTimes,
+      BANG | TILDE                        => parser::PUnary,
+      _ => parser::Default,
+    }
   }
 }

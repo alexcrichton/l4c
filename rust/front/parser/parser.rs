@@ -3,6 +3,7 @@ use core::io;
 use core::util;
 use core::cell;
 
+use front::ast;
 use front::ast::*;
 use front::mark::{Marked, Mark, Span, Coords};
 use front::parse;
@@ -12,6 +13,32 @@ struct PositionGenerator {
   spans: ~[Coords],
   map: HashMap<Span, uint>,
   file: @str,
+}
+
+// Listed in order of ascending precedence
+pub enum Precedence {
+  Default,
+  PAssign,
+  PTernary,
+  PLor,
+  PLand,
+  PBor,
+  PXor,
+  PBand,
+  PEquals,
+  PCmp,
+  PShift,
+  PAdd,
+  PTimes,
+  PUnary,
+  PHighest,
+}
+
+impl Ord for Precedence {
+  fn lt(&self, other: &Precedence) -> bool { (*self as uint) < (*other as uint) }
+  fn le(&self, other: &Precedence) -> bool { *self as uint <= *other as uint }
+  fn gt(&self, other: &Precedence) -> bool { *self as uint > *other as uint }
+  fn ge(&self, other: &Precedence) -> bool { *self as uint >= *other as uint }
 }
 
 pub fn parse_file(f: &[~str]) -> Result<Program, ~str> {
@@ -178,7 +205,7 @@ impl<'self> Parser<'self> {
 
       RETURN => {
         self.shift();
-        let e = self.parse_exp();
+        let e = self.parse_exp(Default);
         let end = self.expect(SEMI);
         return self.mark(Return(e), start, end);
       }
@@ -198,7 +225,7 @@ impl<'self> Parser<'self> {
       WHILE => {
         self.shift();
         self.expect(LPAREN);
-        let cond = self.parse_exp();
+        let cond = self.parse_exp(Default);
         let end = self.expect(RPAREN);
         let body = self.parse_stmt();
         return self.mark(While(cond, body), start, end);
@@ -210,12 +237,12 @@ impl<'self> Parser<'self> {
         let init = if self.cur == SEMI {
           self.mark(Nop, self.span, self.span)
         } else {
-          self.parse_stmt()
+          self.parse_simp()
         };
         self.expect(SEMI);
-        let cond = self.parse_exp();
+        let cond = self.parse_exp(Default);
         self.expect(SEMI);
-        let step = self.parse_stmt();
+        let step = self.parse_simp();
         let end = self.expect(RPAREN);
         let body = self.parse_stmt();
         return self.mark(For(init, cond, step, body), start, end);
@@ -224,7 +251,7 @@ impl<'self> Parser<'self> {
       IF => {
         self.shift();
         self.expect(LPAREN);
-        let cond = self.parse_exp();
+        let cond = self.parse_exp(Default);
         let end = self.expect(RPAREN);
         let t = self.parse_stmt();
         let f = if self.cur == ELSE {
@@ -237,16 +264,26 @@ impl<'self> Parser<'self> {
         return self.mark(If(cond, t, f), start, end);
       }
 
+      _ => {
+        let s = self.parse_simp();
+        self.expect(SEMI);
+        return s;
+      }
+    }
+  }
+
+  fn parse_simp(&mut self) -> ~Statement {
+    let start = self.span;
+    match self.cur {
       STRUCT | INT | BOOL | TYPE(*) => {
         let typ = self.parse_type();
         let name = self.parse_ident();
-        match self.shift() {
-          (SEMI, end) => {
-            let rest = self.mark(Nop, start, start);
-            return self.mark(Declare(name, typ, None, rest), start, end);
-          }
-          _ => fail!()
+        if self.cur == SEMI {
+          let end = self.span;
+          let rest = self.mark(Nop, start, start);
+          return self.mark(Declare(name, typ, None, rest), start, end);
         }
+        fail!();
       }
 
       IDENT(*) if self.peek(1) == PLUSPLUS || self.peek(1) == MINUSMINUS => {
@@ -254,7 +291,7 @@ impl<'self> Parser<'self> {
         let (op, end) = match self.shift() {
           (PLUSPLUS, s) => (Plus, s),
           (MINUSMINUS, s) => (Minus, s),
-          _ => fail!()
+          (_, s) => self.err(s, "expected ++ or --")
         };
         let v = self.mark(Var(id), start, start);
         let c = self.mark(Const(1), end, end);
@@ -262,33 +299,37 @@ impl<'self> Parser<'self> {
       }
 
       _ => {
-        let e = self.parse_exp();
+        let e = self.parse_exp(Default);
         if self.cur == SEMI {
-          let end = self.shift().second();
+          let end = self.span;
           return self.mark(Express(e), start, end);
         } else {
           let end = self.span;
           let op = self.parse_asnop();
-          let e2 = self.parse_exp();
-          self.expect(SEMI);
+          let e2 = self.parse_exp(Default);
           return self.mark(Assign(e, op, e2), start, end);
         }
       }
     }
   }
 
-  fn parse_exp(&mut self) -> ~Expression {
+  fn parse_exp(&mut self, precedence: Precedence) -> ~Expression {
     let start = self.span;
     let mut base = match self.shift() {
       (IDENT(id), sp) => { self.mark(Var(id), sp, sp) }
       (INTCONST(i), sp) => { self.mark(Const(i), sp, sp) }
       (LPAREN, _) => {
-        let e = self.parse_exp();
+        let e = self.parse_exp(Default);
         self.expect(RPAREN);
         e
       }
+      (MINUS, start) => {
+        let e = self.parse_exp(PUnary);
+        let end = self.posgen.to_span(e.span);
+        self.mark(UnaryOp(Negative, e), start, end)
+      }
       (STAR, start) => {
-        let e = self.parse_exp();
+        let e = self.parse_exp(PUnary);
         let end = self.posgen.to_span(e.span);
         self.mark(Deref(e, cell::empty_cell()), start, end)
       }
@@ -302,14 +343,22 @@ impl<'self> Parser<'self> {
         self.expect(LPAREN);
         let typ = self.parse_type();
         self.expect(COMMA);
-        let size = self.parse_exp();
+        let size = self.parse_exp(Default);
         let end = self.expect(RPAREN);
         self.mark(AllocArray(typ, size), start, end)
       }
+      (NULL, sp)  => { self.mark(Null, sp, sp) }
+      (TRUE, sp)  => { self.mark(Boolean(true), sp, sp) }
+      (FALSE, sp) => { self.mark(Boolean(false), sp, sp) }
       (t, sp) => self.err(sp, fmt!("unimpl %?", t))
     };
 
     loop {
+      let prec = self.cur.precedence();
+      if precedence >= prec {
+        break;
+      }
+
       debug!("expanding expression %?", base);
       match self.cur {
         ARROW => {
@@ -320,17 +369,35 @@ impl<'self> Parser<'self> {
           base = self.mark(Field(base, field, cell::empty_cell()), start, end);
         }
 
-        LESSEQ => {
-          self.shift();
-          let next = self.parse_exp();
+        LESSEQ | GREATEREQ | MINUS | EQUALS | LESS | GREATER | SLASH | PLUS |
+        STAR => {
+          let op = self.parse_binop();
+          let next = self.parse_exp(prec);
           let start = self.posgen.to_span(base.span);
           let end = self.posgen.to_span(next.span);
-          base = self.mark(BinaryOp(LessEq, base, next), start, end);
+          base = self.mark(BinaryOp(op, base, next), start, end);
         }
 
-        _ => { return base; }
+        LBRACKET => {
+          self.shift();
+          let idx = self.parse_exp(prec);
+          let end = self.expect(RBRACKET);
+          base = self.mark(ArrSub(base, idx, cell::empty_cell()), start, end);
+        }
+
+        QUESTION => {
+          self.shift();
+          let t = self.parse_exp(prec);
+          self.expect(COLON);
+          let f = self.parse_exp(prec);
+          let end = self.posgen.to_span(f.span);
+          base = self.mark(Ternary(base, t, f, cell::empty_cell()), start, end);
+        }
+
+        _ => { break }
       }
     }
+    return base;
   }
 
   // Parse a list of arguments to a function
@@ -402,6 +469,28 @@ impl<'self> Parser<'self> {
       (LSHIFTEQ, _)  => Some(LShift),
       (RSHIFTEQ, _)  => Some(RShift),
       (_, sp) => self.err(sp, "expected assignment or semicolon")
+    }
+  }
+
+  // Parse one binary operation
+  fn parse_binop(&mut self) -> Binop {
+    match self.shift() {
+      (PLUS, _)      => Plus,
+      (MINUS, _)     => Minus,
+      (STAR, _)      => Times,
+      (SLASH, _)     => Divide,
+      (PERCENT, _)   => Modulo,
+      (AND, _)       => BAnd,
+      (PIPE, _)      => BOr,
+      (CARET, _)     => Xor,
+      (LSHIFT, _)    => LShift,
+      (RSHIFT, _)    => RShift,
+      (LESSEQ, _)    => LessEq,
+      (LESS, _)      => ast::Less,
+      (GREATER, _)   => ast::Greater,
+      (GREATEREQ, _) => GreaterEq,
+      (EQUALS, _)    => Equals,
+      (_, sp)        => self.err(sp, "expected binary operation")
     }
   }
 
