@@ -134,133 +134,147 @@ impl<'self> Parser<'self> {
     let name = self.parse_ident();
     self.expect(LPAREN);
     let args = self.parse_argument_list();
-    self.expect(RPAREN);
+    let end = self.expect(RPAREN);
 
     if self.cur == SEMI {
-      let end = self.span;
       self.shift();
       return self.mark(FunIDecl(ret, name, args), start, end);
     }
 
-    let end = self.expect(LBRACE);
+    if self.cur != LBRACE {
+      self.err(self.span, "expected a '{' token");
+    }
+    let end = self.span;
     let body = self.parse_stmt();
-    self.expect(RBRACE);
     return self.mark(Function(ret, name, args, body), start, end);
   }
 
   // Parse one statement
   fn parse_stmt(&mut self) -> ~Statement {
-    let mut stmts = ~[];
-    loop {
-      let start = self.span;
-      let s = match self.cur {
-        LBRACE => {
-          self.shift();
-          let ret = self.parse_stmt();
-          self.expect(RBRACE);
-          ret
+    let start = self.span;
+    match self.cur {
+      LBRACE => {
+        self.shift();
+        let mut stmts = ~[];
+        while self.cur != RBRACE {
+          stmts.push(self.parse_stmt());
         }
-
-        RBRACE => { break }
-
-        RETURN => {
-          self.shift();
-          let e = self.parse_exp();
-          let end = self.expect(SEMI);
-          self.mark(Return(e), start, end)
-        }
-
-        CONTINUE => {
-          self.shift();
-          let end = self.expect(SEMI);
-          self.mark(Continue, start, end)
-        }
-
-        BREAK => {
-          self.shift();
-          let end = self.expect(SEMI);
-          self.mark(Break, start, end)
-        }
-
-        WHILE => {
-          self.shift();
-          self.expect(LPAREN);
-          let cond = self.parse_exp();
-          let end = self.expect(RPAREN);
-          let body = self.parse_stmt();
-          self.mark(While(cond, body), start, end)
-        }
-
-        FOR => {
-          self.shift();
-          self.expect(LPAREN);
-          let init = if self.cur == SEMI {
-            self.mark(Nop, self.span, self.span)
-          } else {
-            self.parse_stmt()
-          };
-          self.expect(SEMI);
-          let cond = self.parse_exp();
-          self.expect(SEMI);
-          let step = self.parse_stmt();
-          let end = self.expect(RPAREN);
-          let body = self.parse_stmt();
-          self.mark(For(init, cond, step, body), start, end)
-        }
-
-        IF => {
-          self.shift();
-          self.expect(LPAREN);
-          let cond = self.parse_exp();
-          let end = self.expect(RPAREN);
-          let t = self.parse_stmt();
-          let f = if self.cur == ELSE {
-            self.shift();
-            self.parse_stmt()
-          } else {
-            self.mark(Nop, self.span, self.span)
-          };
-
-          self.mark(If(cond, t, f), start, end)
-        }
-
-        STRUCT | INT | BOOL | TYPE(*) => {
-          let typ = self.parse_type();
-          let name = self.parse_ident();
-          match self.shift() {
-            (SEMI, end) => {
-              let rest = self.parse_stmt();
-              self.mark(Declare(name, typ, None, rest), start, end)
+        let end = self.expect(RBRACE);
+        let mut cur = Some(self.mark(Nop, start, end));
+        do vec::consume_reverse(stmts) |_, s| {
+          match s {
+            ~Marked{ node: Declare(id, typ, init, _), span } => {
+              let sp = self.posgen.to_span(span);
+              cur = Some(self.mark(Declare(id, typ, init, cur.swap_unwrap()),
+                                   sp, sp));
             }
-            _ => fail!()
+            s => {
+              cur = Some(self.mark(Seq(s, cur.swap_unwrap()), start, end));
+            }
           }
         }
+        return cur.unwrap();
+      }
 
-        _ => {
-          let e = self.parse_exp();
-          if self.cur == SEMI {
-            let end = self.shift().second();
-            return self.mark(Express(e), start, end);
-          } else {
-            let end = self.span;
-            let op = self.parse_asnop();
-            let e2 = self.parse_exp();
-            self.expect(SEMI);
-            self.mark(Assign(e, op, e2), start, end)
+      RETURN => {
+        self.shift();
+        let e = self.parse_exp();
+        let end = self.expect(SEMI);
+        return self.mark(Return(e), start, end);
+      }
+
+      CONTINUE => {
+        self.shift();
+        let end = self.expect(SEMI);
+        return self.mark(Continue, start, end);
+      }
+
+      BREAK => {
+        self.shift();
+        let end = self.expect(SEMI);
+        return self.mark(Break, start, end);
+      }
+
+      WHILE => {
+        self.shift();
+        self.expect(LPAREN);
+        let cond = self.parse_exp();
+        let end = self.expect(RPAREN);
+        let body = self.parse_stmt();
+        return self.mark(While(cond, body), start, end);
+      }
+
+      FOR => {
+        self.shift();
+        self.expect(LPAREN);
+        let init = if self.cur == SEMI {
+          self.mark(Nop, self.span, self.span)
+        } else {
+          self.parse_stmt()
+        };
+        self.expect(SEMI);
+        let cond = self.parse_exp();
+        self.expect(SEMI);
+        let step = self.parse_stmt();
+        let end = self.expect(RPAREN);
+        let body = self.parse_stmt();
+        return self.mark(For(init, cond, step, body), start, end);
+      }
+
+      IF => {
+        self.shift();
+        self.expect(LPAREN);
+        let cond = self.parse_exp();
+        let end = self.expect(RPAREN);
+        let t = self.parse_stmt();
+        let f = if self.cur == ELSE {
+          self.shift();
+          self.parse_stmt()
+        } else {
+          self.mark(Nop, self.span, self.span)
+        };
+
+        return self.mark(If(cond, t, f), start, end);
+      }
+
+      STRUCT | INT | BOOL | TYPE(*) => {
+        let typ = self.parse_type();
+        let name = self.parse_ident();
+        match self.shift() {
+          (SEMI, end) => {
+            let rest = self.mark(Nop, start, start);
+            return self.mark(Declare(name, typ, None, rest), start, end);
           }
+          _ => fail!()
         }
-      };
+      }
 
-      debug!("got statement %?", s);
-      stmts.push(s);
-    }
+      IDENT(*) if self.peek(1) == PLUSPLUS || self.peek(1) == MINUSMINUS => {
+        let id = self.parse_ident();
+        let (op, end) = match self.shift() {
+          (PLUSPLUS, s) => (Plus, s),
+          (MINUSMINUS, s) => (Minus, s),
+          _ => fail!()
+        };
+        let v = self.mark(Var(id), start, start);
+        let c = self.mark(Const(1), end, end);
+        return self.mark(Assign(v, Some(op), c), start, end);
+      }
 
-    let mut ret = Some(self.mark(Nop, self.span, self.span));
-    do vec::consume_reverse(stmts) |_, s| {
-      let foo = self.mark(Seq(s, ret.swap_unwrap()), self.span, self.span);
-      ret = Some(foo);
+      _ => {
+        let e = self.parse_exp();
+        if self.cur == SEMI {
+          let end = self.shift().second();
+          return self.mark(Express(e), start, end);
+        } else {
+          let end = self.span;
+          let op = self.parse_asnop();
+          let e2 = self.parse_exp();
+          self.expect(SEMI);
+          return self.mark(Assign(e, op, e2), start, end);
+        }
+      }
     }
-    return ret.unwrap();
   }
 
   fn parse_exp(&mut self) -> ~Expression {
@@ -275,7 +289,7 @@ impl<'self> Parser<'self> {
       }
       (STAR, start) => {
         let e = self.parse_exp();
-        let end = self.end_span(e);
+        let end = self.posgen.to_span(e.span);
         self.mark(Deref(e, cell::empty_cell()), start, end)
       }
       (ALLOC, start) => {
@@ -304,6 +318,14 @@ impl<'self> Parser<'self> {
           let field = self.parse_ident();
           base = self.mark(Deref(base, cell::empty_cell()), end, end);
           base = self.mark(Field(base, field, cell::empty_cell()), start, end);
+        }
+
+        LESSEQ => {
+          self.shift();
+          let next = self.parse_exp();
+          let start = self.posgen.to_span(base.span);
+          let end = self.posgen.to_span(next.span);
+          base = self.mark(BinaryOp(LessEq, base, next), start, end);
         }
 
         _ => { return base; }
@@ -432,9 +454,5 @@ impl<'self> Parser<'self> {
     let ((a, b), (c, d)) = sp;
     io::println(fmt!("%s: %u:%u-%u:%u %s", self.posgen.file, a, b, c, d, s));
     unsafe { libc::exit(1); }
-  }
-
-  fn end_span<T>(&mut self, e: &Marked<T>) -> Span {
-    return self.posgen.to_span(e.span);
   }
 }
