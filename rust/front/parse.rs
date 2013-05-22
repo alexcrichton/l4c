@@ -18,7 +18,7 @@ struct PositionGenerator {
 }
 
 struct Parser<'self> {
-  file:   @~str,
+  file:   @str,
   ismain: bool,
   symgen: &'self mut SymbolGenerator,
   posgen: &'self mut PositionGenerator,
@@ -36,7 +36,7 @@ pub fn from_json(j: &Json, main: ~str) -> ast::Program {
           List([String(copy s), List(ref data)]) => {
             let mut parser = Parser{
               ismain: s == main,
-              file:   @s,
+              file:   s.to_managed(),
               symgen: &mut symgen,
               posgen: &mut posgen,
             };
@@ -86,13 +86,17 @@ pub impl SymbolGenerator {
 
   fn intern(&mut self, s: &~str) -> ast::Ident {
     let s = match self.table.find(s) {
-      Some(&i) => { return i }
+      Some(&i) => { return ast::Ident(i) }
       None => copy *s
     };
     let ret = self.symbols.len();
     self.table.insert(copy s, ret);
     self.symbols.push(s);
-    return ret;
+    return ast::Ident(ret);
+  }
+
+  fn unwrap(self) -> ~[~str] {
+    match self { SymbolGenerator{ symbols, _ } => symbols }
   }
 }
 
@@ -102,10 +106,10 @@ impl PositionGenerator {
     return self.table.len() - 1;
   }
 
-  fn mark<'r>(&mut self, o: &'r Object, file: @~str) -> &'r Json {
+  fn mark<'r>(&mut self, o: &'r Object, file: @str) -> &'r Json {
     let left  = self.to_coord(o.get(&~"l"));
     let right = self.to_coord(o.get(&~"r"));
-    let mark = self.generate(Coords(left, right, file));
+    let mark = self.generate(Coords((left, right), file));
     self.positions.push(mark);
     return o.get(&~"d")
   }
@@ -122,9 +126,9 @@ impl PositionGenerator {
     }
   }
 
-  fn to_coord(&self, j: &Json) -> (int, int) {
+  fn to_coord(&self, j: &Json) -> (uint, uint) {
     match *j {
-      List([Number(a), Number(b)]) => (a as int, b as int),
+      List([Number(a), Number(b)]) => (a as uint, b as uint),
       _ => fail!(~"expected list with two pairs")
     }
   }

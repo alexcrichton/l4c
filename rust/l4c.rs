@@ -30,6 +30,10 @@ mod front {
     mod returncheck;
     mod typecheck;
   }
+
+  pub mod parser {
+    pub mod lexer;
+  }
 }
 
 mod middle {

@@ -22,7 +22,8 @@ struct Elaborator<'self> {
   program: &'self mut Program,
 }
 
-pub type Ident = uint;
+#[deriving(IterBytes, Clone, Eq)]
+pub struct Ident(uint);
 
 pub type GDecl = Marked<gdecl>;
 
@@ -92,10 +93,10 @@ pub impl Program {
   fn new(decls: ~[~GDecl], mut syms: ~[~str], p: ~[mark::Coords]) -> Program {
     let main = &~"main";
     let mainid = match vec::position(syms, |s| s.eq(main)) {
-      Some(i) => i,
+      Some(i) => Ident(i),
       None => {
         syms.push(~"main");
-        syms.len() - 1
+        Ident(syms.len() - 1)
       }
     };
     Program{ decls: decls, symbols: syms, mainid: mainid, positions: p,
@@ -117,7 +118,7 @@ pub impl Program {
   }
 
   fn str(&self, id: Ident) -> ~str {
-    copy self.symbols[id]
+    copy self.symbols[*id]
   }
 
   fn error(&self, m: mark::Mark, msg: &str) {
@@ -126,8 +127,8 @@ pub impl Program {
       out.write_str(fmt!("error: %s\n", msg));
     } else {
       match self.positions[m] {
-        mark::Coords((l1, c1), (l2, c2), file) => {
-          out.write_str(fmt!("%s:%d.%d-%d.%d:error: %s\n", *file, l1, c1, l2,
+        mark::Coords(((l1, c1), (l2, c2)), file) => {
+          out.write_str(fmt!("%s:%u.%u-%u.%u:error: %s\n", file, l1, c1, l2,
                              c2, msg));
         }
       }

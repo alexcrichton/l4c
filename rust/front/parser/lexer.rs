@@ -1,7 +1,25 @@
-use front::parser::grammar::*;
+use front::ast;
+use front::mark::Span;
 use core::io::ReaderUtil;
 use core::hashmap::HashMap;
 use front::parse::SymbolGenerator;
+
+#[deriving(Eq, Clone)]
+pub enum Token {
+  EOF, SEMI, TRUE, FALSE, NULL, ALLOC, ALLOCARR, INT, BOOL, STRUCT, PLUS, MINUS,
+  STAR, SLASH, PERCENT, PLUSPLUS, MINUSMINUS, AND, PIPE, BANG, CARET, LSHIFT,
+  RSHIFT, TILDE, ANDAND, PIPEPIPE, EQUALS, NEQUALS, ASSIGN, PLUSEQ, MINUSEQ,
+  STAREQ, SLASHEQ, PERCENTEQ, XOREQ, ANDEQ, OREQ, LSHIFTEQ, RSHIFTEQ, LESS,
+  LESSEQ, GREATER, GREATEREQ, LBRACE, RBRACE, LPAREN, RPAREN, COMMA, PERIOD,
+  ARROW, LBRACKET, RBRACKET, IF, ELSE, WHILE, FOR, CONTINUE, BREAK, RETURN,
+  TYPEDEF, STATIC, QUESTION, COLON, ASNOP, NEWLINE,
+
+  COMMENT,
+
+  INTCONST(i32),
+  IDENT(ast::Ident),
+  TYPE(ast::Ident),
+}
 
 enum State {
   Start,
@@ -24,8 +42,12 @@ pub struct Lexer<'self> {
   priv cur: ~str,
   priv next: Option<char>,
 
+  priv startrow: uint,
+  priv startcol: uint,
+  priv endrow: uint,
+  priv endcol: uint,
+
   priv commdepth: int,
-  priv commlines: uint,
   priv commslash: bool,
   priv commstar: bool,
 }
@@ -52,30 +74,49 @@ pub impl<'self> Lexer<'self> {
     keywords.insert(~"static", STATIC);
 
     Lexer { input: in, cur: ~"", state: Start, commdepth: 0,
-            next: None, keywords: keywords, symgen: s, commlines: 0,
-            commslash: false, commstar: false, }
+            next: None, keywords: keywords, symgen: s,
+            commslash: false, commstar: false, startrow: 1, startcol: 1,
+            endrow: 1, endcol: 1, }
   }
 
-  fn next(&mut self) -> Token {
+  fn next(&mut self) -> (Token, Span) {
     loop {
       let c = match self.next {
         Some(c) => { self.next = None; c }
         None => self.input.read_char()
       };
-      if c as int == -1 { return EOF; }
+      if c as int == -1 {
+        return (EOF, ((-1, -1), (-1, -1)));
+      }
       match self.consume(c) {
-        Some(tok) => { return tok; }
+        Some(tok) => {
+          let start = (self.startrow, self.startcol);
+          let end = (self.endrow, self.endcol);
+          self.startrow = self.endrow;
+          self.startcol = self.endcol;
+          return (tok, (start, end));
+        }
         None => {}
       }
     }
   }
 
   fn consume(&mut self, c: char) -> Option<Token> {
+    self.endcol += 1;
     match self.state {
       Start => {
         match c {
           // whitespace skips
-          '\t' | ' ' | '\x0b' | '\x0c' | '\x0d' => {}
+          '\t' | ' ' | '\x0b' | '\x0c' | '\x0d' => {
+            self.startcol = self.endcol;
+          }
+          '\n' => {
+            self.endrow += 1;
+            self.endcol = 1;
+            self.startrow = self.endrow;
+            self.startcol = 1;
+            return Some(NEWLINE);
+          }
 
           // idents
           'a' .. 'z' | 'A' .. 'Z' | '_' => {
@@ -88,33 +129,32 @@ pub impl<'self> Lexer<'self> {
           '1' .. '9' => { self.state = Number;  self.cur.push_char(c); }
 
           // Easy 1-character tokens
-          '\n' => { return Some(NEWLINE); }
-          '('  => { return Some(LPAREN); }
-          ')'  => { return Some(RPAREN); }
-          '{'  => { return Some(LBRACE); }
-          '}'  => { return Some(RBRACE); }
-          '['  => { return Some(LBRACKET); }
-          ']'  => { return Some(RBRACKET); }
-          '?'  => { return Some(QUESTION); }
-          ':'  => { return Some(COLON); }
-          ';'  => { return Some(SEMI); }
-          ','  => { return Some(COMMA); }
-          '~'  => { return Some(TILDE); }
-          '.'  => { return Some(PERIOD); }
+          '(' => { return Some(LPAREN); }
+          ')' => { return Some(RPAREN); }
+          '{' => { return Some(LBRACE); }
+          '}' => { return Some(RBRACE); }
+          '[' => { return Some(LBRACKET); }
+          ']' => { return Some(RBRACKET); }
+          '?' => { return Some(QUESTION); }
+          ':' => { return Some(COLON); }
+          ';' => { return Some(SEMI); }
+          ',' => { return Some(COMMA); }
+          '~' => { return Some(TILDE); }
+          '.' => { return Some(PERIOD); }
 
           // A little more difficult, each of these can have more characters
-          '/'  => { self.state = OneSlash; }
-          '*'  => { self.state = OneStar; }
-          '='  => { self.state = OneEqual; }
-          '<'  => { self.state = OneLT; }
-          '>'  => { self.state = OneGT; }
-          '+'  => { self.state = OnePlus; }
-          '-'  => { self.state = OneMinus; }
-          '&'  => { self.state = OneAnd; }
-          '|'  => { self.state = OnePipe; }
-          '^'  => { self.state = OneCaret; }
-          '!'  => { self.state = OneBang; }
-          '%'  => { self.state = OnePercent; }
+          '/' => { self.state = OneSlash; }
+          '*' => { self.state = OneStar; }
+          '=' => { self.state = OneEqual; }
+          '<' => { self.state = OneLT; }
+          '>' => { self.state = OneGT; }
+          '+' => { self.state = OnePlus; }
+          '-' => { self.state = OneMinus; }
+          '&' => { self.state = OneAnd; }
+          '|' => { self.state = OnePipe; }
+          '^' => { self.state = OneCaret; }
+          '!' => { self.state = OneBang; }
+          '%' => { self.state = OnePercent; }
 
           _ => fail!("unhandled %?", c)
         }
@@ -156,6 +196,7 @@ pub impl<'self> Lexer<'self> {
         match c {
           '+' => { return self.reset(MINUSMINUS); }
           '=' => { return self.reset(MINUSEQ); }
+          '>' => { return self.reset(ARROW); }
           _   => { return self.reset_back(c, MINUS); }
         }
       }
@@ -221,7 +262,9 @@ pub impl<'self> Lexer<'self> {
 
       CommentLine => {
         if c == '\n' {
-          return self.reset(COMMENT(1));
+          self.endrow += 1;
+          self.endcol = 0;
+          return self.reset(COMMENT);
         }
       }
 
@@ -231,7 +274,7 @@ pub impl<'self> Lexer<'self> {
             self.commstar = false;
             self.commdepth -= 1;
             if self.commdepth == 0 {
-              return self.reset(COMMENT(self.commlines));
+              return self.reset(COMMENT);
             }
           }
           '/' => { self.commslash = true; self.commstar = false; }
@@ -240,8 +283,7 @@ pub impl<'self> Lexer<'self> {
             self.commdepth += 1;
           }
           '*' => { self.commstar = true; self.commslash = false; }
-          c => {
-            if c == '\n' { self.commlines += 1; }
+          _ => {
             self.commslash = false;
             self.commstar = false;
           }
@@ -266,7 +308,7 @@ pub impl<'self> Lexer<'self> {
         match c {
           'x' | 'X' => { self.state = Hex; }
           '1' .. '9' => { fail!("invalid literal"); }
-          c => { self.reset_back(c, INTCONST(0)); }
+          c => { return self.reset_back(c, INTCONST(0)); }
         }
       }
 
@@ -306,6 +348,7 @@ pub impl<'self> Lexer<'self> {
   #[inline(always)]
   fn reset_back(&mut self, c: char, t: Token) -> Option<Token> {
     assert!(self.next.is_none());
+    self.endcol -= 1;
     self.next = Some(c);
     return self.reset(t);
   }

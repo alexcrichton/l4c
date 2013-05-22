@@ -1,4 +1,5 @@
 use front::ast::*;
+use front::mark::Marked;
 use utils::PrettyPrint;
 
 pub trait PrettyPrintAST {
@@ -50,9 +51,9 @@ impl PrettyPrintAST for Type {
       Int           => ~"int",
       Bool          => ~"bool",
       Alias(s)      => p.str(s),
-      Pointer(t)    => ~"*" + t.pp(p),
+      Pointer(t)    => t.pp(p) + "*",
       Array(t)      => t.pp(p) + ~"[]",
-      Struct(s)     => p.str(s),
+      Struct(s)     => ~"struct " + p.str(s),
       Nullp         => ~"(null)",
       Fun(t, ref L) => t.pp(p) + ~"(" + str::connect(L.map(|x| x.pp(p)), ~", ")
     }
@@ -106,6 +107,9 @@ impl PrettyPrintAST for Statement {
         e1.pp(p) +
         match *o { None => ~" = ", Some(o) => ~" " + o.pp() + ~"= " } +
         e2.pp(p),
+      Seq(~Marked{ node: Nop, _ }, ~Marked{ node: Nop, _ }) => ~"",
+      Seq(ref s, ~Marked{ node: Nop, _ }) => s.pp(p),
+      Seq(~Marked{ node: Nop, _ }, ref s) => s.pp(p),
       Seq(ref s1, ref s2) => s1.pp(p) + ~"\n" + s2.pp(p)
     }
   }
@@ -134,7 +138,7 @@ impl PrettyPrintAST for GDecl {
       StructDecl(s) => ~"struct " + p.str(s),
       StructDef(s, ref L) =>
         ~"struct " + p.str(s) + "{\n" +
-          str::connect(L.map(|t| ppair(p, t)), "\n") + "\n}",
+          tab(str::connect(L.map(|t| ppair(p, t)), "\n")) + "\n}",
       FunIDecl(t, s, ref args) => pfun(p, t, s, args),
       FunEDecl(t, s, ref args) => ~"extern " + pfun(p, t, s, args),
       Function(t, s, ref args, ref body) =>
