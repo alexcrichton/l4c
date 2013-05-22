@@ -193,7 +193,19 @@ impl<'self> Parser<'self> {
 
         FOR => {
           self.shift();
-          self.err(start, "what's in the init part...");
+          self.expect(LPAREN);
+          let init = if self.cur == SEMI {
+            self.mark(Nop, self.span, self.span)
+          } else {
+            self.parse_stmt()
+          };
+          self.expect(SEMI);
+          let cond = self.parse_exp();
+          self.expect(SEMI);
+          let step = self.parse_stmt();
+          let end = self.expect(RPAREN);
+          let body = self.parse_stmt();
+          self.mark(For(init, cond, step, body), start, end)
         }
 
         IF => {
