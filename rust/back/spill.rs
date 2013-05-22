@@ -348,7 +348,7 @@ impl Spiller {
     let mut i = 0;
     for vec::each2(*f.cfg.node(n), *self.deltas.get(&n)) |&ins, delta| {
       debug!("%2? %30s  %s %s", i, ins.pp(), next_use.pp(),
-             str::connect(delta.map(|a| fmt!("%?", a)), ~", "));
+             str::connect(delta.map(|a| fmt!("%?", a)), ", "));
 
       match ins {
         /* If the destination of a phi is not currently in the registers, then

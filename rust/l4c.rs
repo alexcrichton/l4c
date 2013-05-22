@@ -166,7 +166,7 @@ fn main() {
   pass(alloc::color,        &mut assem, m, "dot-colored");
 
   let output = Path(m.free[0]).with_filetype("s");
-  match io::file_writer(&output, ~[io::Truncate, io::Create]) {
+  match io::file_writer(&output, [io::Truncate, io::Create]) {
     result::Ok(f)  => assem.output(f),
     result::Err(e) => fail!(e)
   }

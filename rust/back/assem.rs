@@ -280,20 +280,20 @@ impl PrettyPrint for Instruction {
       },
       Call(dst, ref e, ref args) =>
         fmt!("call %s // %s <- %s", e.pp(), dst.pp(),
-             ~"(" + str::connect(args.map(|a| a.pp()), ~", ") + ~")"),
+             ~"(" + str::connect(args.map(|a| a.pp()), ", ") + ")"),
       Phi(tmp, ref map) => {
-        let mut s = ~"//" + tmp.pp() + ~" <- phi(";
+        let mut s = ~"//" + tmp.pp() + " <- phi(";
         for map.each |&id, &tmp| {
           s += fmt!("[ %s - n%? ] ", tmp.pp(), id);
         }
-        s + ~")"
+        s + ")"
       }
       MemPhi(tag, ref map) => {
         let mut s = fmt!("//m%? <- mphi(", tag);
         for map.each |&id, &tag| {
           s += fmt!("[ m%? - n%? ] ", tag, id);
         }
-        s + ~")"
+        s + ")"
       }
       Spill(t, tag) => fmt!("SPILL %s -> %?", t.pp(), tag),
       Reload(t, tag) => fmt!("RELOAD %s <= %?", t.pp(), tag),
@@ -302,7 +302,7 @@ impl PrettyPrint for Instruction {
         for copies.each |&(k, v)| {
           s += fmt!("(%? <= %?) ", k, v);
         }
-        s + ~"}"
+        s + "}"
       }
     }
   }
@@ -558,7 +558,7 @@ impl PrettyPrint for Multiplier {
 
 impl Graphable for Program {
   fn dot(&self, out: @io::Writer) {
-    out.write_str(~"digraph {\n");
+    out.write_str("digraph {\n");
     for self.funs.each |f| {
       f.cfg.dot(out,
         |id| fmt!("%s_n%d", f.name, id as int),
@@ -568,7 +568,7 @@ impl Graphable for Program {
         |&edge| fmt!("label=%?", edge)
       )
     }
-    out.write_str(~"\n}");
+    out.write_str("\n}");
   }
 }
 
@@ -588,8 +588,8 @@ impl Function {
   fn output(&self, out: @io::Writer) {
     let base = label::Internal(copy self.name).pp();
     /* entry label */
-    out.write_str(~".globl " + base + ~"\n");
-    out.write_str(base + ~":\n");
+    out.write_str(~".globl " + base + "\n");
+    out.write_str(base + ":\n");
     let lbl = |n: graph::NodeId| fmt!("%s_bb_%d", base, n as int);
 
     /* skipped is a stack of nodes that we have yet to visit */
@@ -602,12 +602,12 @@ impl Function {
 
       /* Each block has its own label (so it can be jumped to) */
       visited.insert(block);
-      out.write_str(~"L" + lbl(block) + ~":\n");
+      out.write_str(~"L" + lbl(block) + ":\n");
 
       /* output the actual block */
       let instructions = self.cfg.node(block);
       for instructions.each |&ins| {
-        out.write_str(~"  ");
+        out.write_str("  ");
         out.write_str(ins.pp());
         out.write_char('\n');
       }

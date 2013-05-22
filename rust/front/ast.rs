@@ -189,22 +189,22 @@ impl<'self> Elaborator<'self> {
       }
       Typedef(id, typ) => {
         self.check_id(span, id);
-        check_set!(self.efuns, *id, ~"function");
-        check_set!(self.efuns, *id, ~"function");
-        check_set!(self.funs, *id, ~"function");
+        check_set!(self.efuns, *id, "function");
+        check_set!(self.efuns, *id, "function");
+        check_set!(self.funs, *id, "function");
         let typ = self.resolve(span, typ);
         self.types.insert(id, typ);
         Typedef(id, typ)
       }
       StructDef(id, fields) => {
-        check_set!(self.structs, id, ~"struct");
+        check_set!(self.structs, id, "struct");
         self.structs.insert(id);
         StructDef(id, self.resolve_pairs(span, fields))
       }
       Function(ret, id, args, body) => {
         self.check_id(span, id);
-        check_set!(self.efuns, id, ~"function");
-        check_set!(self.funs, id, ~"function");
+        check_set!(self.efuns, id, "function");
+        check_set!(self.funs, id, "function");
         self.funs.insert(id);
         Function(self.resolve(span, ret), id, self.resolve_pairs(span, args),
                   self.elaborate_stm(body))

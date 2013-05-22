@@ -7,7 +7,7 @@ pub trait PrettyPrintAST {
 }
 
 fn tab(s: ~str) -> ~str {
-  ~"  " + str::replace(s, ~"\n", ~"\n  ")
+  ~"  " + str::replace(s, "\n", "\n  ")
 }
 
 impl PrettyPrint for Unop {
@@ -52,10 +52,10 @@ impl PrettyPrintAST for Type {
       Bool          => ~"bool",
       Alias(s)      => p.str(s),
       Pointer(t)    => t.pp(p) + "*",
-      Array(t)      => t.pp(p) + ~"[]",
+      Array(t)      => t.pp(p) + "[]",
       Struct(s)     => ~"struct " + p.str(s),
       Nullp         => ~"(null)",
-      Fun(t, ref L) => t.pp(p) + ~"(" + str::connect(L.map(|x| x.pp(p)), ~", ")
+      Fun(t, ref L) => t.pp(p) + "(" + str::connect(L.map(|x| x.pp(p)), ", ")
     }
   }
 }
@@ -66,21 +66,21 @@ impl PrettyPrintAST for Expression {
       Var(s)                    => p.str(s),
       Boolean(b)                => b.to_str(),
       Const(i)                  => i.to_str(),
-      UnaryOp(o, ref e)         => o.pp() + ~"(" + e.pp(p) + ~")",
-      Deref(ref e, _)           => ~"*(" + e.pp(p) + ~")",
-      Field(ref e, f, _)        => e.pp(p) + ~"." + p.str(f),
-      ArrSub(ref e1, ref e2, _) => e1.pp(p) + ~"[" + e2.pp(p) + ~"]",
-      Alloc(t)                  => ~"alloc(" + t.pp(p) + ~")",
+      UnaryOp(o, ref e)         => o.pp() + "(" + e.pp(p) + ")",
+      Deref(ref e, _)           => ~"*(" + e.pp(p) + ")",
+      Field(ref e, f, _)        => e.pp(p) + "." + p.str(f),
+      ArrSub(ref e1, ref e2, _) => e1.pp(p) + "[" + e2.pp(p) + "]",
+      Alloc(t)                  => ~"alloc(" + t.pp(p) + ")",
       Null                      => ~"NULL",
       AllocArray(t, ref e) =>
-        ~"alloc_array(" + t.pp(p) + ~", " + e.pp(p) + ~")",
+        ~"alloc_array(" + t.pp(p) + ", " + e.pp(p) + ")",
       Call(ref e, ref E, _) =>
-        e.pp(p) + ~"(" + str::connect(E.map(|e| e.pp(p)), ~", ") + ~")",
+        e.pp(p) + "(" + str::connect(E.map(|e| e.pp(p)), ", ") + ")",
       BinaryOp(o, ref e1, ref e2) =>
-        ~"(" + e1.pp(p) + ~" " + o.pp() + ~" " + e2.pp(p) + ~")",
+        ~"(" + e1.pp(p) + " " + o.pp() + " " + e2.pp(p) + ")",
       Ternary(ref e1, ref e2, ref e3, _) =>
-        ~"((" + e1.pp(p) + ~") ? (" + e2.pp(p) +
-        ~"): (" + e3.pp(p) + ~"))"
+        ~"((" + e1.pp(p) + ") ? (" + e2.pp(p) +
+        "): (" + e3.pp(p) + "))"
     }
   }
 }
@@ -127,8 +127,8 @@ fn ppair(prog: &Program, p: &(Ident, @Type)) -> ~str {
 }
 
 fn pfun(prog: &Program, t: @Type, i: Ident, p: &~[(Ident, @Type)]) -> ~str {
-  t.pp(prog) + ~" " + prog.str(i) + ~"(" +
-    str::connect(p.map(|p| ppair(prog, p)), ~", ") + ~")"
+  t.pp(prog) + " " + prog.str(i) + "(" +
+    str::connect(p.map(|p| ppair(prog, p)), ", ") + ")"
 }
 
 impl PrettyPrintAST for GDecl {

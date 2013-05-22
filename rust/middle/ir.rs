@@ -70,7 +70,7 @@ pub fn Function(name: ~str) -> Function {
 
 impl Graphable for Program {
   fn dot(&self, out: @io::Writer) {
-    out.write_str(~"digraph {\n");
+    out.write_str("digraph {\n");
     for self.funs.each |f| {
       f.cfg.dot(out,
         |id| fmt!("%s_n%d", f.name, id as int),
@@ -80,7 +80,7 @@ impl Graphable for Program {
         |&edge| fmt!("label=%?", edge)
       )
     }
-    out.write_str(~"\n}");
+    out.write_str("\n}");
   }
 }
 
@@ -198,7 +198,7 @@ impl PrettyPrint for Statement {
       Die(ref e) => ~"die if " + e.pp(),
       Call(t, ref e, ref E) =>
         fmt!("%s <- %s(%s)", t.pp(), e.pp(),
-             str::connect(E.map(|e| e.pp()), ~", ")),
+             str::connect(E.map(|e| e.pp()), ", ")),
       Phi(tmp, ref map) => {
         let mut s = tmp.pp() + ~" <- phi(";
         for map.each |&id, &tmp| {

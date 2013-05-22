@@ -182,18 +182,18 @@ pub impl<N, E> Graph<N, E> {
          edge: &fn(&E) -> ~str) {
     for self.nodes.each |&id, n| {
       out.write_str(nid(id));
-      out.write_str(~" [");
+      out.write_str(" [");
       out.write_str(node(id, n));
-      out.write_str(~"];\n");
+      out.write_str("];\n");
     }
     for self.succ.each |&id1, neighbors| {
       for neighbors.each |&id2, e| {
         out.write_str(nid(id1));
-        out.write_str(~" -> ");
+        out.write_str(" -> ");
         out.write_str(nid(id2));
-        out.write_str(~" [");
+        out.write_str(" [");
         out.write_str(edge(e));
-        out.write_str(~"];\n");
+        out.write_str("];\n");
       }
     }
   }

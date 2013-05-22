@@ -92,7 +92,7 @@ impl<'self> Typechecker<'self> {
       Assign(ref e1, _, ref e2) => {
         let t1 = self.tc_exp(*e1);
         if !e1.node.lvalue() {
-          self.program.error(span, ~"not an lvalue");
+          self.program.error(span, "not an lvalue");
         } else if self.tc_small(span, t1) {
           self.tc_ensure(*e2, t1);
         }
