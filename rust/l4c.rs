@@ -2,7 +2,6 @@
 
 extern mod std;
 
-use core::run;
 use utils::*;
 
 pub mod utils {
@@ -88,8 +87,6 @@ fn main() {
   use middle::*;
   use back::*;
   use std::getopts::*;
-  use std::json;
-  use core::io::ReaderUtil;
 
   let flags = ~[
     optflag("v"), optflag("verbose"),
