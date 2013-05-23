@@ -43,7 +43,7 @@ impl Precedence {
   }
 }
 
-pub fn parse_file(f: &[~str]) -> Result<Program, ~str> {
+pub fn parse_files(f: &[~str]) -> Result<Program, ~str> {
   let mut decls = ~[];
   let mut symgen = parse::SymbolGenerator::new();
   let mut posgen = PositionGenerator::new();

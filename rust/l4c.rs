@@ -116,19 +116,16 @@ fn main() {
   }
 
   /* front */
-  let mut prog = get_json(m);
-  let json = do prof(m, "reading/parsing json") {
-    match (json::from_reader(prog.output()), prog.finish()) {
-      (result::Ok(j), 0)  => j,
-      (result::Err(e), 0) => fail!(fmt!("JSON parse error: %?", e.msg)),
-      _ => {
-        io::stderr().write(prog.err().read_whole_stream());
-        unsafe { libc::exit(1); }
-      }
-    }
-  };
   let mut ast = do prof(m, "generating ast") {
-    parse::from_json(&json, copy m.free[0])
+    let header = opt_maybe_str(m, "l").or(opt_maybe_str(m, "header"));
+    let files = match header {
+      None => copy m.free,
+      Some(file) => vec::append(~[file], m.free)
+    };
+    match parser::parser::parse_files(files) {
+      Ok(ast) => ast,
+      Err(e) => fail!(e)
+    }
   };
   do prof(m, "elaboration") { ast.elaborate(); }
   if opt_present(m, "dump-ast") {
@@ -192,17 +189,4 @@ fn prof<U>(m : &std::getopts::Matches, s : &str, f: &fn() -> U) -> U {
 
 fn profstk(m : &std::getopts::Matches, s : &str) -> profile::Guard {
   profile::Guard::new(std::getopts::opt_present(m, "profile"), s)
-}
-
-#[allow(non_implicitly_copyable_typarams)]
-fn get_json(m : &std::getopts::Matches) -> run::Program {
-  use std::getopts::*;
-  let header = opt_maybe_str(m, "l").or(opt_maybe_str(m, "header"));
-  let files = &match header {
-    None => copy m.free,
-    Some(file) => vec::append(~[file], m.free)
-  };
-  let mut prog = run::start_program("parse/parser", *files);
-  prog.close_input();
-  return prog;
 }
