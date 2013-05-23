@@ -3,8 +3,7 @@ use core::hashmap::{HashMap, HashSet};
 
 use front::ast;
 use front::mark::Span;
-use front::parse::SymbolGenerator;
-use front::parser::parser;
+use front::parser;
 
 #[deriving(Eq, Clone)]
 pub enum Token {
@@ -39,7 +38,7 @@ pub struct Lexer<'self> {
   priv input: @io::Reader,
   priv keywords: HashMap<~str, Token>,
   priv bad_keywords: HashSet<~str>,
-  priv symgen: &'self mut SymbolGenerator,
+  priv symgen: &'self mut parser::SymbolGenerator,
   priv types: HashSet<ast::Ident>,
   priv file: @str,
 
@@ -59,7 +58,7 @@ pub struct Lexer<'self> {
 
 pub impl<'self> Lexer<'self> {
   fn new<'a>(file: @str, in: @io::Reader,
-             s: &'a mut SymbolGenerator) -> Lexer<'a> {
+             s: &'a mut parser::SymbolGenerator) -> Lexer<'a> {
     let mut keywords = HashMap::new();
     keywords.insert(~"return", RETURN);
     keywords.insert(~"while", WHILE);

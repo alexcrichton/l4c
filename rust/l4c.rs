@@ -20,19 +20,15 @@ pub mod utils {
 mod front {
   pub mod ast;
   pub mod mark;
-  pub mod parse;
   pub mod pp;
+  pub mod lexer;
+  pub mod parser;
 
   pub mod analysis {
     mod initcheck;
     mod maincheck;
     mod returncheck;
     mod typecheck;
-  }
-
-  pub mod parser {
-    pub mod lexer;
-    pub mod parser;
   }
 }
 
@@ -119,7 +115,7 @@ fn main() {
       None => copy m.free,
       Some(file) => vec::append(~[file], m.free)
     };
-    match parser::parser::parse_files(files, m.free[0]) {
+    match parser::parse_files(files, m.free[0]) {
       Ok(ast) => ast,
       Err(e) => fail!(e)
     }

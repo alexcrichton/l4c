@@ -6,13 +6,17 @@ use core::cell;
 use front::ast;
 use front::ast::*;
 use front::mark::{Marked, Mark, Span, Coords};
-use front::parse;
-use front::parser::lexer::*;
+use front::lexer::*;
 
 struct PositionGenerator {
   spans: ~[Coords],
   map: HashMap<Span, uint>,
   file: @str,
+}
+
+pub struct SymbolGenerator {
+  symbols: ~[~str],
+  table: HashMap<~str, uint>,
 }
 
 // Listed in order of ascending precedence
@@ -45,7 +49,7 @@ impl Precedence {
 
 pub fn parse_files(f: &[~str], main: &str) -> Result<Program, ~str> {
   let mut decls = ~[];
-  let mut symgen = parse::SymbolGenerator::new();
+  let mut symgen = SymbolGenerator::new();
   let mut posgen = PositionGenerator::new();
 
   for f.each |f| {
@@ -66,6 +70,27 @@ pub fn parse_files(f: &[~str], main: &str) -> Result<Program, ~str> {
   let syms = symgen.unwrap();
   let spans = posgen.unwrap();
   return Ok(Program::new(decls, syms, spans));
+}
+
+pub impl SymbolGenerator {
+  fn new() -> SymbolGenerator {
+    SymbolGenerator{ table: HashMap::new(), symbols: ~[] }
+  }
+
+  fn intern(&mut self, s: &~str) -> ast::Ident {
+    let s = match self.table.find(s) {
+      Some(&i) => { return ast::Ident(i) }
+      None => copy *s
+    };
+    let ret = self.symbols.len();
+    self.table.insert(copy s, ret);
+    self.symbols.push(s);
+    return ast::Ident(ret);
+  }
+
+  fn unwrap(self) -> ~[~str] {
+    match self { SymbolGenerator{ symbols, _ } => symbols }
+  }
 }
 
 impl PositionGenerator {

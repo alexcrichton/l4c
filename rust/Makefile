@@ -12,12 +12,12 @@ dbg: RUSTFLAGS += -Z debug-info
 check:
 	$(RUSTC) $(RUSTFLAGS) l4c.rs --no-trans
 
-bin/l4c: parse/parser $(SOURCES)
+bin/l4c: $(SOURCES)
 	@mkdir -p bin
 	$(RUSTC) $(RUSTFLAGS) l4c.rs -o $@
 .PHONY: l4c
 
-clean: parseclean
+clean:
 	rm -rf bin
 
 bin/driver: driver.go
@@ -27,5 +27,3 @@ bin/driver: driver.go
 test:
 	$(RUSTC) $(RUSTFLAGS) --test l4c.rs -o bin/l4c-test
 	./bin/l4c-test
-
--include parse/parse.mk
