@@ -1,4 +1,5 @@
 use core::hashmap::{HashMap, HashSet};
+use std::smallintmap::SmallIntMap;
 
 use middle::{temp, liveness, ir, opt};
 use middle::temp::Temp;
@@ -26,8 +27,8 @@ type DomFrontiers = HashMap<graph::NodeId, ~graph::NodeSet>;
 type Definitions = HashMap<Temp, ~graph::NodeSet>;
 type PhiLocations = HashMap<graph::NodeId, ~HashSet<Temp>>;
 type PhiMappings = HashMap<graph::NodeId, ~TempMap>;
-pub type Idominators = HashMap<graph::NodeId, graph::NodeId>;
-pub type Idominated = HashMap<graph::NodeId, ~HashSet<graph::NodeId>>;
+pub type Idominators = SmallIntMap<graph::NodeId>;
+pub type Idominated = SmallIntMap<~HashSet<graph::NodeId>>;
 pub type PhiMap = HashMap<graph::NodeId, Temp>;
 pub type CFG<T> = graph::Graph<~[~T], ir::Edge>;
 
@@ -51,7 +52,7 @@ struct Converter<'self, T> {
 }
 
 pub fn Analysis() -> Analysis {
-  Analysis { idominated: HashMap::new(), idominator: HashMap::new() }
+  Analysis { idominated: SmallIntMap::new(), idominator: SmallIntMap::new() }
 }
 
 pub fn convert<T: Statement>(cfg: &mut CFG<T>,
