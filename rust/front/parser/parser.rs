@@ -375,6 +375,9 @@ impl<'self> Parser<'self> {
       (STAR, start) => {
         let e = self.parse_exp(PUnary);
         let end = self.posgen.to_span(e.span);
+        if self.cur == PLUSPLUS || self.cur == MINUSMINUS {
+          self.err(self.span, "invalid expression for C0");
+        }
         self.mark(Deref(e, cell::empty_cell()), start, end)
       }
       (ALLOC, start) => {
