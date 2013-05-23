@@ -59,7 +59,7 @@ pub fn parse_file(f: &[~str]) -> Result<Program, ~str> {
     let mut parser = Parser::new(&mut lexer, &mut posgen);
 
     while parser.cur != EOF {
-      decls.push(parser.gdecl());
+      decls.push(parser.parse_gdecl());
     }
   }
 
@@ -110,38 +110,49 @@ impl<'self> Parser<'self> {
     p
   }
 
-  fn gdecl(&mut self) -> ~GDecl {
+  // Parses one global declaration
+  fn parse_gdecl(&mut self) -> ~GDecl {
     match self.cur {
-      STRUCT => {
-        match self.peek(1) {
-          IDENT(*) => {
-            match self.peek(2) {
-              LBRACE => { return self.parse_sdecl(); }
-              _ => {}
-            }
-          }
-          _ => { self.err(self.span, "expected an identifier after 'struct'"); }
-        }
+      TYPEDEF => {
+        let start = self.shift().second();
+        let typ = self.parse_type();
+        let id = self.parse_ident();
+        self.lexer.add_type(id); // must be before expectation
+        let end = self.expect(SEMI);
+        return self.mark(Typedef(id, typ), start, end);
       }
 
-      _ => {}
-    }
+      // Struct declarations
+      STRUCT if self.peek(2) == SEMI => {
+        let start = self.expect(STRUCT);
+        let end = self.span;
+        let name = self.parse_struct_name();
+        self.expect(SEMI);
+        return self.mark(StructDecl(name), start, end);
+      }
 
-    return self.parse_fdecl();
+      // Struct definitions
+      STRUCT if self.peek(2) == LBRACE => {
+        let start = self.expect(STRUCT);
+        let name = self.parse_struct_name();
+        self.expect(LBRACE);
+        let fields = self.parse_field_list();
+        let end = self.expect(RBRACE);
+        self.expect(SEMI);
+
+        return self.mark(StructDef(name, fields), start, end);
+      }
+
+      _ => { self.parse_fdecl() }
+    }
   }
 
-  // Parse a struct declaration
-  fn parse_sdecl(&mut self) -> ~GDecl {
-    let start = self.expect(STRUCT);
-    let name = match self.shift() {
-      (IDENT(id), _) => id, (_, sp) => self.err(sp, "expected identifier")
-    };
-    self.expect(LBRACE);
-    let fields = self.parse_field_list();
-    let end = self.expect(RBRACE);
-    self.expect(SEMI);
-
-    return self.mark(StructDef(name, fields), start, end);
+  // Parse a struct name (which could be an ident or a type)
+  fn parse_struct_name(&mut self) -> Ident {
+    match self.shift() {
+      (IDENT(id), _) | (TYPE(id), _) => id,
+      (_, sp) => self.err(sp, "expected struct name")
+    }
   }
 
   // Parse a struct-like list of fields
@@ -174,6 +185,8 @@ impl<'self> Parser<'self> {
       return self.mark(FunIDecl(ret, name, args), start, end);
     }
 
+    // Ensure that parse_stmt will try to parse a block of statements by
+    // ensuring that there's a '{' token
     if self.cur != LBRACE {
       self.err(self.span, "expected a '{' token");
     }
@@ -186,6 +199,7 @@ impl<'self> Parser<'self> {
   fn parse_stmt(&mut self) -> ~Statement {
     let start = self.span;
     match self.cur {
+      // Blocks can have multiple statements.
       LBRACE => {
         self.shift();
         let mut stmts = ~[];
@@ -248,6 +262,7 @@ impl<'self> Parser<'self> {
         self.expect(SEMI);
         let cond = self.parse_exp(Default);
         self.expect(SEMI);
+        debug!("%?", self.cur);
         let step = if self.cur == RPAREN {
           self.mark(Nop, start, start)
         } else {
@@ -282,37 +297,38 @@ impl<'self> Parser<'self> {
     }
   }
 
+  // Parses a simple statement (a subset of statements)
   fn parse_simp(&mut self) -> ~Statement {
     let start = self.span;
+    debug!("%?", self.peek(1));
     match self.cur {
+      // Declaration of a variable
       STRUCT | INT | BOOL | TYPE(*) => {
         let typ = self.parse_type();
         let name = self.parse_ident();
-        if self.cur == SEMI {
-          let end = self.span;
-          let rest = self.mark(Nop, start, start);
-          return self.mark(Declare(name, typ, None, rest), start, end);
-        }
-        fail!();
-      }
-
-      IDENT(*) if self.peek(1) == PLUSPLUS || self.peek(1) == MINUSMINUS => {
-        let id = self.parse_ident();
-        let (op, end) = match self.shift() {
-          (PLUSPLUS, s) => (Plus, s),
-          (MINUSMINUS, s) => (Minus, s),
-          (_, s) => self.err(s, "expected ++ or --")
+        let init = if self.cur == SEMI { None } else {
+          self.expect(ASSIGN);
+          Some(self.parse_exp(Default))
         };
-        let v = self.mark(Var(id), start, start);
-        let c = self.mark(Const(1), end, end);
-        return self.mark(Assign(v, Some(op), c), start, end);
+        let end = self.span;
+        let rest = self.mark(Nop, start, start);
+        return self.mark(Declare(name, typ, init, rest), start, end);
       }
 
+      // Generic assignments or expressions
       _ => {
         let e = self.parse_exp(Default);
         if self.cur == SEMI {
           let end = self.span;
           return self.mark(Express(e), start, end);
+        } if self.cur == PLUSPLUS || self.cur == MINUSMINUS {
+          let (op, end) = match self.shift() {
+            (PLUSPLUS, s) => (Plus, s),
+            (MINUSMINUS, s) => (Minus, s),
+            (_, s) => self.err(s, "expected ++ or --")
+          };
+          let c = self.mark(Const(1), end, end);
+          return self.mark(Assign(e, Some(op), c), start, end);
         } else {
           let end = self.span;
           let op = self.parse_asnop();
@@ -323,9 +339,14 @@ impl<'self> Parser<'self> {
     }
   }
 
+  // Parse one expression, using no precedences lower than the given
+  // precedence.
   fn parse_exp(&mut self, precedence: Precedence) -> ~Expression {
     let start = self.span;
+    // Start with the lhs of an expression. It may have a rhs (to be determined
+    // later on)
     let mut base = match self.shift() {
+      // function calls
       (IDENT(id), sp) if self.cur == LPAREN => {
         self.expect(LPAREN);
         let args = do self.parse_list |p| { p.parse_exp(Default) };
@@ -333,6 +354,7 @@ impl<'self> Parser<'self> {
         let e = self.mark(Var(id), sp, sp);
         self.mark(Call(e, args, cell::empty_cell()), start, end)
       }
+
       (IDENT(id), sp) => { self.mark(Var(id), sp, sp) }
       (INTCONST(i), sp) => { self.mark(Const(i), sp, sp) }
       (LPAREN, _) => {
@@ -340,10 +362,11 @@ impl<'self> Parser<'self> {
         self.expect(RPAREN);
         e
       }
-      (MINUS, start) => {
+      (unop, start) if unop == MINUS || unop == BANG || unop == TILDE => {
+        let unop = self.parse_unop(unop);
         let e = self.parse_exp(PUnary);
         let end = self.posgen.to_span(e.span);
-        self.mark(UnaryOp(Negative, e), start, end)
+        self.mark(UnaryOp(unop, e), start, end)
       }
       (STAR, start) => {
         let e = self.parse_exp(PUnary);
@@ -370,14 +393,24 @@ impl<'self> Parser<'self> {
       (t, sp) => self.err(sp, fmt!("unimpl %?", t))
     };
 
+    // while we can conume more tokens (as determined by precedences), do so
     loop {
+      debug!("expanding expression %?", base);
       let prec = self.cur.precedence();
       if precedence > prec || (precedence == prec && !prec.right()) {
         break;
       }
 
-      debug!("expanding expression %?", base);
       match self.cur {
+        PERIOD => {
+          self.shift();
+          let end = self.span;
+          let field = self.parse_ident();
+          base = self.mark(Field(base, field, cell::empty_cell()), start, end);
+        }
+
+        // this is purely syntactic sugar for a field of a deref, so we simply
+        // expand that to doing so here.
         ARROW => {
           self.shift();
           let end = self.span;
@@ -386,6 +419,7 @@ impl<'self> Parser<'self> {
           base = self.mark(Field(base, field, cell::empty_cell()), start, end);
         }
 
+        // Sure would be nice to not list out all the binops here.
         LESSEQ | GREATEREQ | MINUS | EQUALS | LESS | GREATER | SLASH | PLUS |
         STAR | PERCENT | AND | PIPE | PIPEPIPE | CARET | ANDAND | NEQUALS |
         LSHIFT | RSHIFT => {
@@ -398,7 +432,7 @@ impl<'self> Parser<'self> {
 
         LBRACKET => {
           self.shift();
-          let idx = self.parse_exp(prec);
+          let idx = self.parse_exp(Default);
           let end = self.expect(RBRACKET);
           base = self.mark(ArrSub(base, idx, cell::empty_cell()), start, end);
         }
@@ -448,7 +482,7 @@ impl<'self> Parser<'self> {
       (BOOL, _)     => @Bool,
       (INT, _)      => @Int,
       (TYPE(id), _) => @Alias(id),
-      (STRUCT, _)   => { @Struct(self.parse_ident()) }
+      (STRUCT, _)   => { @Struct(self.parse_struct_name()) }
       (NULL, _)     => @Nullp,
       (_, sp)       => self.err(sp, "expected a type")
     };
@@ -513,6 +547,16 @@ impl<'self> Parser<'self> {
     }
   }
 
+  // Parse one unary operation (token given)
+  fn parse_unop(&mut self, unop: Token) -> Unop {
+    match unop {
+      BANG => Bang,
+      TILDE => Invert,
+      MINUS => Negative,
+      _ => self.err(self.span, "expected unary operation")
+    }
+  }
+
   // Expect the token to be in 'cur', and then advance
   fn expect(&mut self, t: Token) -> Span {
     if self.cur != t {
@@ -548,7 +592,10 @@ impl<'self> Parser<'self> {
     assert!(amt > 0);
     let amt = amt - 1;
     while amt >= self.pending.len() {
-      self.pending.push(self.lexer.next());
+      match self.lexer.next() {
+        (NEWLINE, _) | (COMMENT(*), _) => { loop }
+        tok => { self.pending.push(tok); }
+      }
     }
     return self.pending[amt].first();
   }

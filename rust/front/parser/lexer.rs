@@ -1,7 +1,8 @@
+use core::io::ReaderUtil;
+use core::hashmap::{HashMap, HashSet};
+
 use front::ast;
 use front::mark::Span;
-use core::io::ReaderUtil;
-use core::hashmap::HashMap;
 use front::parse::SymbolGenerator;
 use front::parser::parser;
 
@@ -38,6 +39,7 @@ pub struct Lexer<'self> {
   priv input: @io::Reader,
   priv keywords: HashMap<~str, Token>,
   priv symgen: &'self mut SymbolGenerator,
+  priv types: HashSet<ast::Ident>,
 
   priv state: State,
   priv cur: ~str,
@@ -77,7 +79,7 @@ pub impl<'self> Lexer<'self> {
     Lexer { input: in, cur: ~"", state: Start, commdepth: 0,
             next: None, keywords: keywords, symgen: s,
             commslash: false, commstar: false, startrow: 1, startcol: 1,
-            endrow: 1, endcol: 1, }
+            endrow: 1, endcol: 1, types: HashSet::new(), }
   }
 
   fn next(&mut self) -> (Token, Span) {
@@ -195,7 +197,7 @@ pub impl<'self> Lexer<'self> {
       }
       OneMinus => {
         match c {
-          '+' => { return self.reset(MINUSMINUS); }
+          '-' => { return self.reset(MINUSMINUS); }
           '=' => { return self.reset(MINUSEQ); }
           '>' => { return self.reset(ARROW); }
           _   => { return self.reset_back(c, MINUS); }
@@ -359,7 +361,15 @@ pub impl<'self> Lexer<'self> {
       Some(tok) => { return *tok; }
       None => {}
     }
-    IDENT(self.symgen.intern(&self.cur))
+    let id = self.symgen.intern(&self.cur);
+    if self.types.contains(&id) {
+      return TYPE(id);
+    }
+    return IDENT(id);
+  }
+
+  fn add_type(&mut self, t: ast::Ident) {
+    self.types.insert(t);
   }
 }
 
@@ -379,6 +389,7 @@ pub impl Token {
       PLUS | MINUS                        => parser::PAdd,
       STAR | PERCENT | SLASH              => parser::PTimes,
       BANG | TILDE                        => parser::PUnary,
+      ARROW | PERIOD | LBRACKET | LPAREN  => parser::PHighest,
       _ => parser::Default,
     }
   }
