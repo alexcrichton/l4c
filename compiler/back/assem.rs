@@ -86,6 +86,12 @@ pub enum Register {
 
 pub enum Constraint { Caller, Idiv }
 
+// These two structures are used to parameterize the reconstruction of SSA form
+// after the spilling phase has happened. RegisterInfo looks as all temps which
+// need to be in registers while StackInfo looks at stack spill slots.
+pub struct RegisterInfo;
+pub struct StackInfo;
+
 impl Constraint {
   fn allows(self, r: Register) -> bool{
     match (self, r) {
@@ -171,9 +177,6 @@ impl Instruction {
   fn is_phi(&self) -> bool { match *self { Phi(*) => true, _ => false } }
 }
 
-pub struct RegisterInfo;
-pub struct StackInfo;
-
 impl ssa::Statement<Instruction> for RegisterInfo {
   fn phi(&self, t: Temp, map: ssa::PhiMap) -> ~Instruction { ~Phi(t, map) }
 
@@ -233,6 +236,46 @@ impl ssa::Statement<Instruction> for RegisterInfo {
         }))
       }
       s => s
+    }
+  }
+}
+
+impl ssa::Statement<Instruction> for StackInfo {
+  fn phi(&self, t: Temp, map: ssa::PhiMap) -> ~Instruction { ~MemPhi(t, map) }
+
+  fn each_def(&self, i: &Instruction, f: &fn(Temp) -> bool) -> bool {
+    match *i {
+      Spill(_, t) | MemPhi(t, _) => f(t),
+      _ => true
+    }
+  }
+  fn each_use(&self, i: &Instruction, f: &fn(Temp) -> bool) -> bool {
+    match *i {
+      Reload(_, t) => f(t),
+      _ => true
+    }
+  }
+  fn phi_info<'r>(&self, me: &'r Instruction) -> Option<(Temp, &'r ssa::PhiMap)>
+  {
+    match *me {
+      MemPhi(t, ref m) => Some((t, m)), _ => None
+    }
+  }
+  fn phi_unwrap(&self, me: ~Instruction)
+      -> Either<~Instruction, (Temp, ssa::PhiMap)> {
+    match me {
+      ~MemPhi(d, m) => Right((d, m)),
+      i             => Left(i)
+    }
+  }
+
+  fn map_temps(&self, i: ~Instruction, uses: &fn(Temp) -> Temp,
+               defs: &fn(Temp) -> Temp) -> ~Instruction {
+    match i {
+      ~MemPhi(t, map) => ~MemPhi(defs(t), map),
+      ~Spill(r, t) => ~Spill(r, defs(t)),
+      ~Reload(r, t) => ~Reload(r, uses(t)),
+      i => i,
     }
   }
 }
