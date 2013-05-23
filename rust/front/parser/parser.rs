@@ -126,7 +126,7 @@ impl<'self> Parser<'self> {
       STRUCT if self.peek(2) == SEMI => {
         let start = self.expect(STRUCT);
         let end = self.span;
-        let name = self.parse_struct_name();
+        let name = self.parse_ident_or_type();
         self.expect(SEMI);
         return self.mark(StructDecl(name), start, end);
       }
@@ -134,7 +134,7 @@ impl<'self> Parser<'self> {
       // Struct definitions
       STRUCT if self.peek(2) == LBRACE => {
         let start = self.expect(STRUCT);
-        let name = self.parse_struct_name();
+        let name = self.parse_ident_or_type();
         self.expect(LBRACE);
         let fields = self.parse_field_list();
         let end = self.expect(RBRACE);
@@ -148,7 +148,7 @@ impl<'self> Parser<'self> {
   }
 
   // Parse a struct name (which could be an ident or a type)
-  fn parse_struct_name(&mut self) -> Ident {
+  fn parse_ident_or_type(&mut self) -> Ident {
     match self.shift() {
       (IDENT(id), _) | (TYPE(id), _) => id,
       (_, sp) => self.err(sp, "expected struct name")
@@ -160,7 +160,7 @@ impl<'self> Parser<'self> {
     let mut fields = ~[];
     while self.cur != RBRACE {
       let typ = self.parse_type();
-      let id = self.parse_ident();
+      let id = self.parse_ident_or_type();
       self.expect(SEMI);
       fields.push((id, typ));
     }
@@ -262,7 +262,6 @@ impl<'self> Parser<'self> {
         self.expect(SEMI);
         let cond = self.parse_exp(Default);
         self.expect(SEMI);
-        debug!("%?", self.cur);
         let step = if self.cur == RPAREN {
           self.mark(Nop, start, start)
         } else {
@@ -300,7 +299,6 @@ impl<'self> Parser<'self> {
   // Parses a simple statement (a subset of statements)
   fn parse_simp(&mut self) -> ~Statement {
     let start = self.span;
-    debug!("%?", self.peek(1));
     match self.cur {
       // Declaration of a variable
       STRUCT | INT | BOOL | TYPE(*) => {
@@ -318,7 +316,7 @@ impl<'self> Parser<'self> {
       // Generic assignments or expressions
       _ => {
         let e = self.parse_exp(Default);
-        if self.cur == SEMI {
+        if self.cur == SEMI || self.cur == RPAREN {
           let end = self.span;
           return self.mark(Express(e), start, end);
         } if self.cur == PLUSPLUS || self.cur == MINUSMINUS {
@@ -342,6 +340,7 @@ impl<'self> Parser<'self> {
   // Parse one expression, using no precedences lower than the given
   // precedence.
   fn parse_exp(&mut self, precedence: Precedence) -> ~Expression {
+    debug!("exp(%?) starting on %?", precedence, self.cur);
     let start = self.span;
     // Start with the lhs of an expression. It may have a rhs (to be determined
     // later on)
@@ -405,7 +404,7 @@ impl<'self> Parser<'self> {
         PERIOD => {
           self.shift();
           let end = self.span;
-          let field = self.parse_ident();
+          let field = self.parse_ident_or_type();
           base = self.mark(Field(base, field, cell::empty_cell()), start, end);
         }
 
@@ -414,7 +413,7 @@ impl<'self> Parser<'self> {
         ARROW => {
           self.shift();
           let end = self.span;
-          let field = self.parse_ident();
+          let field = self.parse_ident_or_type();
           base = self.mark(Deref(base, cell::empty_cell()), end, end);
           base = self.mark(Field(base, field, cell::empty_cell()), start, end);
         }
@@ -482,7 +481,7 @@ impl<'self> Parser<'self> {
       (BOOL, _)     => @Bool,
       (INT, _)      => @Int,
       (TYPE(id), _) => @Alias(id),
-      (STRUCT, _)   => { @Struct(self.parse_struct_name()) }
+      (STRUCT, _)   => { @Struct(self.parse_ident_or_type()) }
       (NULL, _)     => @Nullp,
       (_, sp)       => self.err(sp, "expected a type")
     };
