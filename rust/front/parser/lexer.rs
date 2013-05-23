@@ -38,6 +38,7 @@ enum State {
 pub struct Lexer<'self> {
   priv input: @io::Reader,
   priv keywords: HashMap<~str, Token>,
+  priv bad_keywords: HashSet<~str>,
   priv symgen: &'self mut SymbolGenerator,
   priv types: HashSet<ast::Ident>,
   priv file: @str,
@@ -78,10 +79,16 @@ pub impl<'self> Lexer<'self> {
     keywords.insert(~"typedef", TYPEDEF);
     keywords.insert(~"static", STATIC);
 
+    let mut bad_keywords = HashSet::new();
+    bad_keywords.insert(~"char");
+    bad_keywords.insert(~"string");
+    bad_keywords.insert(~"void");
+
     Lexer { input: in, cur: ~"", state: Start, commdepth: 0,
             next: None, keywords: keywords, symgen: s,
             commslash: false, commstar: false, startrow: 1, startcol: 1,
-            endrow: 1, endcol: 1, types: HashSet::new(), file: file, }
+            endrow: 1, endcol: 1, types: HashSet::new(), file: file,
+            bad_keywords: bad_keywords }
   }
 
   fn next(&mut self) -> (Token, Span) {
@@ -378,6 +385,9 @@ pub impl<'self> Lexer<'self> {
     match self.keywords.find(&self.cur) {
       Some(tok) => { return *tok; }
       None => {}
+    }
+    if self.bad_keywords.contains(&self.cur) {
+      self.err("reserved keyword");
     }
     let id = self.symgen.intern(&self.cur);
     if self.types.contains(&id) {
