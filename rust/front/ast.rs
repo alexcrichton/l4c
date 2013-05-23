@@ -247,11 +247,6 @@ impl<'self> Elaborator<'self> {
       While(e, s) => While(self.elaborate_exp(e), self.elaborate_stm(s)),
       Return(e) => Return(self.elaborate_exp(e)),
       Express(e) => Express(self.elaborate_exp(e)),
-      Seq(~Marked{ node: Declare(id, typ, init, s1), span: dspan }, s2) => {
-        let s1 = self.elaborate_stm(s1);
-        let s2 = self.elaborate_stm(s2);
-        self.declare(id, span, typ, init, ~Marked::new(Seq(s1, s2), dspan))
-      }
       Seq(s1, s2) => Seq(self.elaborate_stm(s1), self.elaborate_stm(s2)),
       Assign(~Marked{ node: Var(id), span: e1span }, Some(o), e2) => {
         let e2span = e2.span;
