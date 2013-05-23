@@ -209,18 +209,18 @@ impl<'self> Parser<'self> {
         self.shift();
         let mut stmts = ~[];
         while self.cur != RBRACE {
-          stmts.push(self.parse_stmt());
+          stmts.push((self.cur == LBRACE, self.parse_stmt()));
         }
         let end = self.expect(RBRACE);
         let mut cur = Some(self.mark(Nop, start, end));
         do vec::consume_reverse(stmts) |_, s| {
           match s {
-            ~Marked{ node: Declare(id, typ, init, _), span } => {
+            (false, ~Marked{ node: Declare(id, typ, init, _), span }) => {
               let sp = self.posgen.to_span(span);
               cur = Some(self.mark(Declare(id, typ, init, cur.swap_unwrap()),
                                    sp, sp));
             }
-            s => {
+            (_, s) => {
               cur = Some(self.mark(Seq(s, cur.swap_unwrap()), start, end));
             }
           }
