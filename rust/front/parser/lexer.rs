@@ -242,7 +242,7 @@ pub impl<'self> Lexer<'self> {
       }
       OneGT => {
         match c {
-          '<' => { self.state = TwoGT; }
+          '>' => { self.state = TwoGT; }
           '=' => { return self.reset(GREATEREQ); }
           _   => { return self.reset_back(c, GREATER); }
         }

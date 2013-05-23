@@ -16,6 +16,7 @@ struct PositionGenerator {
 }
 
 // Listed in order of ascending precedence
+#[deriving(Ord, Eq)]
 pub enum Precedence {
   Default,
   PAssign,
@@ -34,11 +35,12 @@ pub enum Precedence {
   PHighest,
 }
 
-impl Ord for Precedence {
-  fn lt(&self, other: &Precedence) -> bool { (*self as uint) < (*other as uint) }
-  fn le(&self, other: &Precedence) -> bool { *self as uint <= *other as uint }
-  fn gt(&self, other: &Precedence) -> bool { *self as uint > *other as uint }
-  fn ge(&self, other: &Precedence) -> bool { *self as uint >= *other as uint }
+impl Precedence {
+  fn right(&self) -> bool {
+    match *self {
+      PTernary | PAssign | PUnary => true, _ => false
+    }
+  }
 }
 
 pub fn parse_file(f: &[~str]) -> Result<Program, ~str> {
@@ -160,7 +162,11 @@ impl<'self> Parser<'self> {
     let ret = self.parse_type();
     let name = self.parse_ident();
     self.expect(LPAREN);
-    let args = self.parse_argument_list();
+    let args = do self.parse_list |p| {
+      let t = p.parse_type();
+      let i = p.parse_ident();
+      (i, t)
+    };
     let end = self.expect(RPAREN);
 
     if self.cur == SEMI {
@@ -242,7 +248,11 @@ impl<'self> Parser<'self> {
         self.expect(SEMI);
         let cond = self.parse_exp(Default);
         self.expect(SEMI);
-        let step = self.parse_simp();
+        let step = if self.cur == RPAREN {
+          self.mark(Nop, start, start)
+        } else {
+          self.parse_simp()
+        };
         let end = self.expect(RPAREN);
         let body = self.parse_stmt();
         return self.mark(For(init, cond, step, body), start, end);
@@ -316,6 +326,13 @@ impl<'self> Parser<'self> {
   fn parse_exp(&mut self, precedence: Precedence) -> ~Expression {
     let start = self.span;
     let mut base = match self.shift() {
+      (IDENT(id), sp) if self.cur == LPAREN => {
+        self.expect(LPAREN);
+        let args = do self.parse_list |p| { p.parse_exp(Default) };
+        let end = self.expect(RPAREN);
+        let e = self.mark(Var(id), sp, sp);
+        self.mark(Call(e, args, cell::empty_cell()), start, end)
+      }
       (IDENT(id), sp) => { self.mark(Var(id), sp, sp) }
       (INTCONST(i), sp) => { self.mark(Const(i), sp, sp) }
       (LPAREN, _) => {
@@ -355,7 +372,7 @@ impl<'self> Parser<'self> {
 
     loop {
       let prec = self.cur.precedence();
-      if precedence >= prec {
+      if precedence > prec || (precedence == prec && !prec.right()) {
         break;
       }
 
@@ -370,7 +387,8 @@ impl<'self> Parser<'self> {
         }
 
         LESSEQ | GREATEREQ | MINUS | EQUALS | LESS | GREATER | SLASH | PLUS |
-        STAR => {
+        STAR | PERCENT | AND | PIPE | PIPEPIPE | CARET | ANDAND | NEQUALS |
+        LSHIFT | RSHIFT => {
           let op = self.parse_binop();
           let next = self.parse_exp(prec);
           let start = self.posgen.to_span(base.span);
@@ -401,7 +419,7 @@ impl<'self> Parser<'self> {
   }
 
   // Parse a list of arguments to a function
-  fn parse_argument_list(&mut self) -> ~[(Ident, @Type)] {
+  fn parse_list<T>(&mut self, f: &fn(&mut Parser) -> T) -> ~[T] {
     let mut fields = ~[];
     let mut first = true;
     while self.cur != RPAREN {
@@ -410,9 +428,7 @@ impl<'self> Parser<'self> {
       } else {
         self.expect(COMMA);
       }
-      let typ = self.parse_type();
-      let id = self.parse_ident();
-      fields.push((id, typ));
+      fields.push(f(self));
     }
     return fields;
   }
@@ -490,6 +506,9 @@ impl<'self> Parser<'self> {
       (GREATER, _)   => ast::Greater,
       (GREATEREQ, _) => GreaterEq,
       (EQUALS, _)    => Equals,
+      (NEQUALS, _)   => NEquals,
+      (ANDAND, _)    => LAnd,
+      (PIPEPIPE, _)  => LOr,
       (_, sp)        => self.err(sp, "expected binary operation")
     }
   }
