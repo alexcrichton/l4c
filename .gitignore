@@ -1,7 +1,4 @@
-compiler/bin/*.heap*
-compiler/parse/*.grm.*
-compiler/parse/*.lex.*
-.cm
+compiler/bin/*
 *.swp
 *.dot
 *.svg
