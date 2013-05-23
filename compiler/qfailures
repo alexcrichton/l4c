@@ -1,7 +1,0 @@
-../tests1/hawk-megastruct_alloc.q4
-../tests1/hawk-megastruct_overflow.q4
-../tests1/hawk-megastruct_top_byte.q4
-../tests1/hobby-safety-limit.q4
-../tests2/brachiosaurus-cond-large-memorial-stress.q4
-../tests2/galimimus-left-right-eval2.q4
-../tests2/utahraptor-neither.q4
