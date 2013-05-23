@@ -14,7 +14,8 @@ fn ressa(f: &mut assem::Function) {
   let mut newsizes = HashMap::new();
 
   /* And, convert! */
-  let mut remapping = ssa::convert(&mut f.cfg, f.root, &mut f.ssa);
+  let mut remapping = ssa::convert(&mut f.cfg, f.root, &mut f.ssa,
+                                   &assem::RegisterInfo);
   do remapping.consume |new, old| {
     newsizes.insert(new, *f.sizes.get(&old));
   }

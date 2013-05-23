@@ -81,7 +81,7 @@ pub fn prune<T>(cfg: &mut CFG<T>, root: NodeId) {
  * basic block on the edge. The fact that there are no critical edges in the
  * graph is leveraged when spilling registers and removing phi nodes.
  */
-pub fn eliminate_critical<T: Statement>(cfg: &mut CFG<T>) {
+pub fn eliminate_critical<T, S: Statement<T>>(cfg: &mut CFG<T>, info: &S) {
   /* can't modify the graph during traversal */
   let mut critical = ~[];
   for cfg.each_edge |n1, n2| {
@@ -101,12 +101,12 @@ pub fn eliminate_critical<T: Statement>(cfg: &mut CFG<T>) {
 
     /* Be sure to fix the predecessor of each phi node in our successor */
     cfg.map_consume_node(n2, |stms| vec::map_consume(stms, |stm| {
-      match Statement::phi_unwrap(stm) {
+      match info.phi_unwrap(stm) {
         Right((def, map)) => {
           let mut map = map;
           let prev = map.pop(&n1).unwrap();
           map.insert(new, prev);
-          Statement::phi(def, map)
+          info.phi(def, map)
         }
         Left(stm) => stm
       }

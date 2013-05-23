@@ -161,24 +161,30 @@ pub impl Statement {
   }
 }
 
-impl ssa::Statement for Statement {
-  fn phi(t: Temp, map: ssa::PhiMap) -> ~Statement { ~Phi(t, map) }
+pub struct Info;
 
-  fn map_temps(~self, uses: &fn(Temp) -> Temp,
+impl ssa::Statement<Statement> for Info {
+  fn phi(&self, t: Temp, map: ssa::PhiMap) -> ~Statement { ~Phi(t, map) }
+
+  fn map_temps(&self, s: ~Statement, uses: &fn(Temp) -> Temp,
                defs: &fn(Temp) -> Temp) -> ~Statement {
-    self.map_temps(uses, defs)
+    s.map_temps(uses, defs)
   }
 
-  fn each_def(&self, f: &fn(Temp) -> bool) -> bool { self.each_def(f) }
-  fn each_use(&self, f: &fn(Temp) -> bool) -> bool { self.each_use(f) }
+  fn each_def(&self, s: &Statement, f: &fn(Temp) -> bool) -> bool {
+    s.each_def(f)
+  }
+  fn each_use(&self, s: &Statement, f: &fn(Temp) -> bool) -> bool {
+    s.each_use(f)
+  }
 
-  fn phi_info<'r>(me: &'r Statement) -> Option<(Temp, &'r ssa::PhiMap)> {
+  fn phi_info<'r>(&self, me: &'r Statement) -> Option<(Temp, &'r ssa::PhiMap)> {
     match *me {
       Phi(d, ref m) => Some((d, m)),
       _             => None
     }
   }
-  fn phi_unwrap(me: ~Statement) -> Either<~Statement, (Temp, ssa::PhiMap)> {
+  fn phi_unwrap(&self, me: ~Statement) -> Either<~Statement, (Temp, ssa::PhiMap)> {
     match me {
       ~Phi(d, m) => Right((d, m)),
       s          => Left(s)
@@ -293,7 +299,7 @@ priv fn ssa_fun(f: &mut Function) {
   let mut newtypes = HashMap::new();
 
   /* And, convert! */
-  let mapping = ssa::convert(&mut f.cfg, f.root, &mut f.analysis);
+  let mapping = ssa::convert(&mut f.cfg, f.root, &mut f.analysis, &Info);
   for mapping.each |&new, old| {
     newtypes.insert(new, *f.types.get(old));
   }

@@ -64,7 +64,7 @@ struct Spiller {
 
 pub fn spill(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
-    opt::cfg::eliminate_critical(&mut f.cfg);
+    opt::cfg::eliminate_critical(&mut f.cfg, &RegisterInfo);
 
     /* TODO(#5884): eew */
     let next_use = HashMap::new();

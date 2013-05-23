@@ -8,7 +8,7 @@ use back::arch;
 pub fn constrain(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
     let mut live = liveness::Analysis();
-    liveness::calculate(&f.cfg, f.root, &mut live);
+    liveness::calculate(&f.cfg, f.root, &mut live, &RegisterInfo);
     let mut temps = temp::new_init(f.temps);
     do f.cfg.map_nodes |id, stms| {
       constrain_block(live.in.get(&id), *live.deltas.get(&id), |t| {

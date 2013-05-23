@@ -14,8 +14,9 @@ pub struct Analysis {
   deltas: DeltaMap,
 }
 
-struct Liveness<'self, T> {
+struct Liveness<'self, T, S> {
   a: &'self mut Analysis,
+  info: &'self S,
   cfg: &'self CFG<T>,
   phi_out: HashMap<NodeId, ~TempSet>,
 }
@@ -25,10 +26,12 @@ pub fn Analysis() -> Analysis {
              deltas: HashMap::new() }
 }
 
-pub fn calculate<S: Statement>(cfg: &CFG<S>, root: NodeId,
-                                result: &mut Analysis) {
+pub fn calculate<T, S: Statement<T>>(cfg: &CFG<T>, root: NodeId,
+                                     result: &mut Analysis,
+                                     info: &S) {
   debug!("calculating liveness");
-  let mut l = Liveness { a: result, phi_out: HashMap::new(), cfg: cfg };
+  let mut l = Liveness { a: result, phi_out: HashMap::new(), cfg: cfg,
+                         info: info };
 
   for cfg.each_node |id, _| {
     l.phi_out.insert(id, ~HashSet::new());
@@ -47,11 +50,11 @@ pub fn calculate<S: Statement>(cfg: &CFG<S>, root: NodeId,
   }
 }
 
-impl<'self, T: Statement> Liveness<'self, T> {
+impl<'self, T, S: Statement<T>> Liveness<'self, T, S> {
   fn lookup_phis(&mut self, n: NodeId) {
     for self.cfg.node(n).each |&stm| {
       debug!("phi map");
-      match Statement::phi_info(stm) {
+      match self.info.phi_info(stm) {
         Some((_, map)) => {
           for map.each |&pred, &tmp| {
             self.phi_out.find_mut(&pred).unwrap().insert(tmp);
@@ -82,12 +85,12 @@ impl<'self, T: Statement> Liveness<'self, T> {
     let mut my_deltas = ~[];
     for self.cfg.node(n).each_reverse |ins| {
       let mut delta = ~[];
-      for ins.each_def |def| {
+      for self.info.each_def(*ins) |def| {
         if live.remove(&def) {
           delta.push(Left(def));
         }
       }
-      for ins.each_use |tmp| {
+      for self.info.each_use(*ins) |tmp| {
         if live.insert(tmp) {
           delta.push(Right(tmp));
         }

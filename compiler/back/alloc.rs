@@ -30,7 +30,7 @@ struct Allocator {
 
 pub fn color(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
-    liveness::calculate(&f.cfg, f.root, &mut f.liveness);
+    liveness::calculate(&f.cfg, f.root, &mut f.liveness, &RegisterInfo);
 
     let mut a = Allocator{ colors: SmallIntMap::new(),
                            precolored: HashSet::new(),

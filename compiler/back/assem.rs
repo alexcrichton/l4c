@@ -171,24 +171,34 @@ impl Instruction {
   fn is_phi(&self) -> bool { match *self { Phi(*) => true, _ => false } }
 }
 
-impl ssa::Statement for Instruction {
-  fn phi(t: Temp, map: ssa::PhiMap) -> ~Instruction { ~Phi(t, map) }
+pub struct RegisterInfo;
+pub struct StackInfo;
 
-  fn each_def(&self, f: &fn(Temp) -> bool) -> bool { self.each_def(f) }
-  fn each_use(&self, f: &fn(Temp) -> bool) -> bool { self.each_use(f) }
-  fn phi_info<'r>(me: &'r Instruction) -> Option<(Temp, &'r ssa::PhiMap)> {
+impl ssa::Statement<Instruction> for RegisterInfo {
+  fn phi(&self, t: Temp, map: ssa::PhiMap) -> ~Instruction { ~Phi(t, map) }
+
+  fn each_def(&self, i: &Instruction, f: &fn(Temp) -> bool) -> bool {
+    i.each_def(f)
+  }
+  fn each_use(&self, i: &Instruction, f: &fn(Temp) -> bool) -> bool {
+    i.each_use(f)
+  }
+  fn phi_info<'r>(&self, me: &'r Instruction)
+      -> Option<(Temp, &'r ssa::PhiMap)>
+  {
     me.phi_info()
   }
-  fn phi_unwrap(me: ~Instruction) -> Either<~Instruction, (Temp, ssa::PhiMap)> {
+  fn phi_unwrap(&self, me: ~Instruction)
+      -> Either<~Instruction, (Temp, ssa::PhiMap)> {
     match me {
       ~Phi(d, m) => Right((d, m)),
       i          => Left(i)
     }
   }
 
-  fn map_temps(~self, uses: &fn(Temp) -> Temp,
+  fn map_temps(&self, i: ~Instruction, uses: &fn(Temp) -> Temp,
                defs: &fn(Temp) -> Temp) -> ~Instruction {
-    match self {
+    match i {
       ~BinaryOp(op, o1, o2, o3) => {
         let (o2, o3) = (o2.map_temps(uses), o3.map_temps(uses));
         ~BinaryOp(op, o1.map_temps(defs), o2, o3)

@@ -12,15 +12,16 @@ pub struct Analysis {
   idominator: Idominators,
 }
 
-pub trait Statement: PrettyPrint {
-  fn phi(Temp, PhiMap) -> ~Self;
-  fn each_def(&self, &fn(Temp) -> bool) -> bool;
-  fn each_use(&self, &fn(Temp) -> bool) -> bool;
-  fn map_temps(~self, u: &fn(Temp) -> Temp, d: &fn(Temp) -> Temp) -> ~Self;
-  /* TODO: once fixed, this should be a member function */
-  fn phi_info<'a>(me: &'a Self) -> Option<(Temp, &'a PhiMap)>;
-  fn phi_unwrap(me: ~Self) -> Either<~Self, (Temp, PhiMap)>;
+pub trait Statement<T> {
+  fn phi(&self, Temp, PhiMap) -> ~T;
+  fn each_def(&self, ins: &T, &fn(Temp) -> bool) -> bool;
+  fn each_use(&self, ins: &T, &fn(Temp) -> bool) -> bool;
+  fn map_temps(&self, ins: ~T, u: &fn(Temp) -> Temp, d: &fn(Temp) -> Temp) -> ~T;
+  fn phi_info<'a>(&self, me: &'a T) -> Option<(Temp, &'a PhiMap)>;
+  fn phi_unwrap(&self, me: ~T) -> Either<~T, (Temp, PhiMap)>;
 }
+
+struct IRStatement;
 
 type TempMap = HashMap<Temp, Temp>;
 type DomFrontiers = HashMap<graph::NodeId, ~graph::NodeSet>;
@@ -32,9 +33,10 @@ pub type Idominated = SmallIntMap<~HashSet<graph::NodeId>>;
 pub type PhiMap = HashMap<graph::NodeId, Temp>;
 pub type CFG<T> = graph::Graph<~[~T], ir::Edge>;
 
-struct Converter<'self, T> {
+struct Converter<'self, T, S> {
   cfg: &'self mut CFG<T>,
   root: graph::NodeId,
+  info: &'self S,
 
   /* Mapping of a node to what temp mappings exist at the end of a node */
   versions: HashMap<graph::NodeId, TempMap>,
@@ -55,32 +57,38 @@ pub fn Analysis() -> Analysis {
   Analysis { idominated: SmallIntMap::new(), idominator: SmallIntMap::new() }
 }
 
-pub fn convert<T: Statement>(cfg: &mut CFG<T>,
-                              root: graph::NodeId,
-                              results: &mut Analysis) -> HashMap<Temp, Temp> {
+pub fn convert<T: PrettyPrint, S: Statement<T>>(
+  cfg: &mut CFG<T>,
+  root: graph::NodeId,
+  results: &mut Analysis,
+  info: &S) -> HashMap<Temp, Temp>
+{
   let mut live = liveness::Analysis();
 
   do profile::dbg("pruning") { opt::cfg::prune(cfg, root); }
-  do profile::dbg("liveness") { liveness::calculate(cfg, root, &mut live) }
+  do profile::dbg("liveness") { liveness::calculate(cfg, root, &mut live, info) }
   do profile::dbg("dominance") { analyze(cfg, root, results); }
   let frontiers = do profile::dbg("frontiers") {
     dom_frontiers(cfg, root, results)
   };
 
-  let mut converter = Converter { cfg: cfg,
-                                  root: root,
-                                  versions: HashMap::new(),
-                                  temps: temp::new(),
-                                  frontiers: frontiers,
-                                  analysis: results,
-                                  liveness: live,
-                                  remapping: HashMap::new() };
+  let mut converter: Converter<T, S> = Converter {
+    info: info,
+    cfg: cfg,
+    root: root,
+    versions: HashMap::new(),
+    temps: temp::new(),
+    frontiers: frontiers,
+    analysis: results,
+    liveness: live,
+    remapping: HashMap::new(),
+  };
   converter.convert();
   let Converter { remapping, _ } = converter;
   return remapping;
 }
 
-impl<'self, T: Statement> Converter<'self, T> {
+impl<'self, T: PrettyPrint, S: Statement<T>> Converter<'self, T, S> {
   fn convert(&mut self) -> uint {
     /* First, find where all the phi functions need to be */
     let defs = self.find_defs();
@@ -120,7 +128,8 @@ impl<'self, T: Statement> Converter<'self, T> {
     let mut defs: HashMap<Temp, ~HashSet<graph::NodeId>> = HashMap::new();
     for self.cfg.each_node |id, stms| {
       for stms.each |s| {
-        for s.each_def |tmp| {
+        let s: &T = *s;
+        for self.info.each_def(s) |tmp| {
           match defs.find_mut(&tmp) {
             Some(s) => { s.insert(id); loop; }
             None => {}
@@ -222,8 +231,8 @@ impl<'self, T: Statement> Converter<'self, T> {
     let stms = self.cfg.pop_node(n);
     let stms = do vec::map_consume(stms) |s| {
       debug!("%s", s.pp());
-      s.map_temps(|usage| *map.get(&usage),
-                  |def|   self.bump(&mut map, def))
+      self.info.map_temps(s, |usage| *map.get(&usage),
+                             |def|   self.bump(&mut map, def))
     };
     self.versions.insert(n, map);
     self.cfg.add_node(n, stms);
@@ -243,7 +252,7 @@ impl<'self, T: Statement> Converter<'self, T> {
    */
   fn map_phi_temps(&mut self, n: graph::NodeId) {
     self.cfg.map_consume_node(n, |stms| vec::map_consume(stms, |stm|
-      match Statement::phi_unwrap(stm) {
+      match self.info.phi_unwrap(stm) {
         Left(stm) => stm,
         Right((def, map)) => {
           let mut map = map;
@@ -251,7 +260,7 @@ impl<'self, T: Statement> Converter<'self, T> {
           do map.consume |pred, tmp| {
             new.insert(pred, *self.versions.get(&pred).get(&tmp));
           }
-          Statement::phi(def, new)
+          self.info.phi(def, new)
         }
       }
     ));
@@ -277,7 +286,7 @@ impl<'self, T: Statement> Converter<'self, T> {
       }
 
       /* The result of the phi node is the ssa-temp, not the non-ssa temp */
-      block.push(Statement::phi(tmp_after, preds));
+      block.push(self.info.phi(tmp_after, preds));
     }
 
     /* Update our node with the phi nodes */
