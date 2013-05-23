@@ -352,14 +352,13 @@ pub impl<'self> Lexer<'self> {
   }
 
   fn parse_num(&mut self, base: uint) -> i32 {
-    match u32::from_str_radix(self.cur, base) {
-      Some(n) if n <= i32::max_value as u32 => {
+    match u64::from_str_radix(self.cur, base) {
+      Some(n) if (base == 10 && n <= i32::max_value as u64 + 1) ||
+                 (base == 16 && n <= u32::max_value as u64) => {
         unsafe { str::raw::set_len(&mut self.cur, 0); }
         return n as i32;
       }
-      _ => {
-        self.err("invalid numerical literal (too large)")
-      }
+      _ => self.err("invalid numerical literal (too large)")
     }
   }
 
