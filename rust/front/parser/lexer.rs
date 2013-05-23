@@ -168,8 +168,7 @@ pub impl<'self> Lexer<'self> {
           '!' => { self.state = OneBang; }
           '%' => { self.state = OnePercent; }
 
-          _ => self.err(self.endrow, self.endcol - 1,
-                        fmt!("unexpected character `%c`", c))
+          _ => self.err(fmt!("unexpected character `%c`", c))
         }
       }
 
@@ -320,8 +319,7 @@ pub impl<'self> Lexer<'self> {
       OneZero => {
         match c {
           'x' | 'X' => { self.state = Hex; }
-          '1' .. '9' => { self.err(self.endrow, self.endcol - 1,
-                                   "invalid numerical literal (leading zero)") }
+          '1' .. '9' => { self.err("invalid numerical literal (leading zero)") }
           c => { return self.reset_back(c, INTCONST(0)); }
         }
       }
@@ -331,8 +329,7 @@ pub impl<'self> Lexer<'self> {
           '0' .. '9' | 'a' .. 'f' | 'A' .. 'F' => { self.cur.push_char(c); }
           c => {
             if self.cur.len() == 0 {
-              self.err(self.endrow, self.endcol - 1,
-                       "invalid hex literal (need digits");
+              self.err("invalid hex literal (need digits");
             }
             let n = self.parse_num(16);
             return self.reset_back(c, INTCONST(n));
@@ -361,8 +358,7 @@ pub impl<'self> Lexer<'self> {
         return n as i32;
       }
       _ => {
-        self.err(self.startrow, self.startcol,
-                 "invalid numerical literal (too large)")
+        self.err("invalid numerical literal (too large)")
       }
     }
   }
@@ -401,8 +397,10 @@ pub impl<'self> Lexer<'self> {
   }
 
   // Abort lexing with the given error
-  fn err(&mut self, row: uint, col: uint, s: &str) -> ! {
-    io::println(fmt!("%s: %u:%u %s", self.file, row, col, s));
+  fn err(&mut self, s: &str) -> ! {
+    io::println(fmt!("%s: %u:%u-%u:%u %s", self.file,
+                     self.startrow, self.startcol, self.endrow, self.endcol,
+                     s));
     unsafe { libc::exit(1); }
   }
 }
