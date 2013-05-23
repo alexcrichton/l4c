@@ -43,7 +43,7 @@ impl Precedence {
   }
 }
 
-pub fn parse_files(f: &[~str]) -> Result<Program, ~str> {
+pub fn parse_files(f: &[~str], main: &str) -> Result<Program, ~str> {
   let mut decls = ~[];
   let mut symgen = parse::SymbolGenerator::new();
   let mut posgen = PositionGenerator::new();
@@ -56,7 +56,7 @@ pub fn parse_files(f: &[~str]) -> Result<Program, ~str> {
 
     posgen.file = f.to_managed();
     let mut lexer = Lexer::new(posgen.file, input, &mut symgen);
-    let mut parser = Parser::new(&mut lexer, &mut posgen);
+    let mut parser = Parser::new(&mut lexer, &mut posgen, main);
 
     while parser.cur != EOF {
       decls.push(parser.parse_gdecl());
@@ -96,6 +96,7 @@ impl PositionGenerator {
 struct Parser<'self> {
   lexer: &'self mut Lexer<'self>,
   posgen: &'self mut PositionGenerator,
+  target: &'self str,
 
   cur: Token,
   span: Span,
@@ -103,9 +104,10 @@ struct Parser<'self> {
 }
 
 impl<'self> Parser<'self> {
-  fn new<'a>(l: &'a mut Lexer<'a>, p: &'a mut PositionGenerator) -> Parser<'a> {
+  fn new<'a>(l: &'a mut Lexer<'a>, p: &'a mut PositionGenerator,
+             target: &'a str) -> Parser<'a> {
     let mut p = Parser{ lexer: l, cur: EOF, span: ((0, 0), (0, 0)),
-                        pending: ~[], posgen: p };
+                        pending: ~[], posgen: p, target: target };
     p.shift();
     p
   }
@@ -182,7 +184,10 @@ impl<'self> Parser<'self> {
 
     if self.cur == SEMI {
       self.shift();
-      return self.mark(FunIDecl(ret, name, args), start, end);
+      if self.target == self.posgen.file {
+        return self.mark(FunIDecl(ret, name, args), start, end);
+      }
+      return self.mark(FunEDecl(ret, name, args), start, end);
     }
 
     // Ensure that parse_stmt will try to parse a block of statements by

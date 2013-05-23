@@ -119,7 +119,7 @@ fn main() {
       None => copy m.free,
       Some(file) => vec::append(~[file], m.free)
     };
-    match parser::parser::parse_files(files) {
+    match parser::parser::parse_files(files, m.free[0]) {
       Ok(ast) => ast,
       Err(e) => fail!(e)
     }
