@@ -40,6 +40,7 @@ pub struct Lexer<'self> {
   priv keywords: HashMap<~str, Token>,
   priv symgen: &'self mut SymbolGenerator,
   priv types: HashSet<ast::Ident>,
+  priv file: @str,
 
   priv state: State,
   priv cur: ~str,
@@ -56,7 +57,8 @@ pub struct Lexer<'self> {
 }
 
 pub impl<'self> Lexer<'self> {
-  fn new<'a>(in: @io::Reader, s: &'a mut SymbolGenerator) -> Lexer<'a> {
+  fn new<'a>(file: @str, in: @io::Reader,
+             s: &'a mut SymbolGenerator) -> Lexer<'a> {
     let mut keywords = HashMap::new();
     keywords.insert(~"return", RETURN);
     keywords.insert(~"while", WHILE);
@@ -79,7 +81,7 @@ pub impl<'self> Lexer<'self> {
     Lexer { input: in, cur: ~"", state: Start, commdepth: 0,
             next: None, keywords: keywords, symgen: s,
             commslash: false, commstar: false, startrow: 1, startcol: 1,
-            endrow: 1, endcol: 1, types: HashSet::new(), }
+            endrow: 1, endcol: 1, types: HashSet::new(), file: file, }
   }
 
   fn next(&mut self) -> (Token, Span) {
@@ -159,7 +161,8 @@ pub impl<'self> Lexer<'self> {
           '!' => { self.state = OneBang; }
           '%' => { self.state = OnePercent; }
 
-          _ => fail!("unhandled %?", c)
+          _ => self.err(self.endrow, self.endcol - 1,
+                        fmt!("unexpected character `%c`", c))
         }
       }
 
@@ -310,7 +313,8 @@ pub impl<'self> Lexer<'self> {
       OneZero => {
         match c {
           'x' | 'X' => { self.state = Hex; }
-          '1' .. '9' => { fail!("invalid literal"); }
+          '1' .. '9' => { self.err(self.endrow, self.endcol - 1,
+                                   "invalid numerical literal (leading zero)") }
           c => { return self.reset_back(c, INTCONST(0)); }
         }
       }
@@ -319,10 +323,12 @@ pub impl<'self> Lexer<'self> {
         match c {
           '0' .. '9' | 'a' .. 'f' | 'A' .. 'F' => { self.cur.push_char(c); }
           c => {
-            if self.cur.len() == 0 { fail!("invalid literal"); }
-            let n = u32::from_str_radix(self.cur, 16).unwrap();
-            unsafe { str::raw::set_len(&mut self.cur, 0); }
-            return self.reset_back(c, INTCONST(n as i32));
+            if self.cur.len() == 0 {
+              self.err(self.endrow, self.endcol - 1,
+                       "invalid hex literal (need digits");
+            }
+            let n = self.parse_num(16);
+            return self.reset_back(c, INTCONST(n));
           }
         }
       }
@@ -331,15 +337,27 @@ pub impl<'self> Lexer<'self> {
         match c {
           '0' .. '9' => { self.cur.push_char(c); }
           c => {
-            let n = u32::from_str(self.cur).unwrap();
-            unsafe { str::raw::set_len(&mut self.cur, 0); }
-            return self.reset_back(c, INTCONST(n as i32));
+            let n = self.parse_num(10);
+            return self.reset_back(c, INTCONST(n));
           }
         }
       }
     }
 
     return None;
+  }
+
+  fn parse_num(&mut self, base: uint) -> i32 {
+    match u32::from_str_radix(self.cur, base) {
+      Some(n) if n <= i32::max_value as u32 => {
+        unsafe { str::raw::set_len(&mut self.cur, 0); }
+        return n as i32;
+      }
+      _ => {
+        self.err(self.startrow, self.startcol,
+                 "invalid numerical literal (too large)")
+      }
+    }
   }
 
   #[inline(always)]
@@ -370,6 +388,12 @@ pub impl<'self> Lexer<'self> {
 
   fn add_type(&mut self, t: ast::Ident) {
     self.types.insert(t);
+  }
+
+  // Abort lexing with the given error
+  fn err(&mut self, row: uint, col: uint, s: &str) -> ! {
+    io::println(fmt!("%s: %u:%u %s", self.file, row, col, s));
+    unsafe { libc::exit(1); }
   }
 }
 

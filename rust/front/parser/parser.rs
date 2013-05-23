@@ -55,7 +55,7 @@ pub fn parse_files(f: &[~str]) -> Result<Program, ~str> {
     };
 
     posgen.file = f.to_managed();
-    let mut lexer = Lexer::new(input, &mut symgen);
+    let mut lexer = Lexer::new(posgen.file, input, &mut symgen);
     let mut parser = Parser::new(&mut lexer, &mut posgen);
 
     while parser.cur != EOF {
