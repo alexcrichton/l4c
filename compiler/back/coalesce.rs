@@ -94,8 +94,6 @@ struct Coalescer<'self> {
      costly to generate, there are a number of caches which store the results of
      this computation to facilitate usage later on */
   interference: HashMap<Temp, @TempSet>,
-  interferences: HashMap<(Temp, Temp), bool>,
-  admissible: HashMap<(Temp, uint), bool>,
   dominates: HashMap<(NodeId, NodeId), bool>,
 
   f: &'self assem::Function,
@@ -125,8 +123,6 @@ pub fn optimize(f: &assem::Function,
                           constraints: constraints,
                           liveness_map: &lm,
                           interference: HashMap::new(),
-                          interferences: HashMap::new(),
-                          admissible: HashMap::new(),
                           dominates: HashMap::new(),
                           defs: &defs,
                           uses: &uses,
@@ -475,17 +471,6 @@ impl<'self> Coalescer<'self> {
    * whether the temp 't' could ever have the color 'color'.
    */
   fn admissible(&mut self, t: Temp, color: uint) -> bool {
-    /* TODO: remove this cache? */
-    /*match self.admissible.find(&(t, color)) {*/
-    /*  Some(&a) => { return a; }*/
-    /*  None => ()*/
-    /*}*/
-    let b = self.admissible_impl(t, color);
-    /*self.admissible.insert((t, color), b);*/
-    return b;
-  }
-
-  fn admissible_impl(&mut self, t: Temp, color: uint) -> bool {
     if self.precolored.get(t) { return color == *self.colors.get(&t) }
     match self.constraints.find(&t) {
       None => true,
@@ -645,21 +630,6 @@ impl<'self> Coalescer<'self> {
    * This is done without actually creating the interference graph
    */
   fn interferes(&mut self, x: Temp, y: Temp) -> bool {
-    /* TODO: remove this cache */
-    match self.interferences.find(&(x, y)) {
-      Some(&b) => return b,
-      None => (),
-    }
-    let b = self.interferes_impl(x, y);
-    self.interferences.insert((x, y), b);
-    self.interferences.insert((y, x), b);
-    return b;
-  }
-
-  /**
-   * Actual implementation without a cache of the interference of two temps
-   */
-  fn interferes_impl(&mut self, x: Temp, y: Temp) -> bool {
     /* Algorithm 4.6 */
     let &xdef = self.defs.get(&x);
     let &ydef = self.defs.get(&y);

@@ -1,20 +1,21 @@
 use core::hashmap::{HashMap, HashSet};
 use core::io::WriterUtil;
+use std::smallintmap::SmallIntMap;
 
 pub type NodeId = uint;
 pub type NodeSet = HashSet<NodeId>;
 
 pub struct Graph<N, E> {
-  priv nodes: HashMap<NodeId, N>,
-  priv succ:  HashMap<NodeId, ~HashMap<NodeId, E>>,
-  priv pred:  HashMap<NodeId, ~NodeSet>,
+  priv nodes: SmallIntMap<N>,
+  priv succ:  SmallIntMap<~HashMap<NodeId, E>>,
+  priv pred:  SmallIntMap<~NodeSet>,
   priv next:  NodeId
 }
 
 pub fn Graph<N, E>() -> Graph<N, E>{
-  Graph{ nodes: HashMap::new(),
-         succ:  HashMap::new(),
-         pred:  HashMap::new(),
+  Graph{ nodes: SmallIntMap::new(),
+         succ:  SmallIntMap::new(),
+         pred:  SmallIntMap::new(),
          next:  0 }
 }
 
