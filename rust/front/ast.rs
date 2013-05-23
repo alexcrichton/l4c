@@ -231,9 +231,16 @@ impl<'self> Elaborator<'self> {
         let d = ~Marked::new(Declare(id, typ, init, f), dspan);
         return self.elaborate_stm(d);
       }
-      For(s1, e1, s2, s3) =>
+      For(s1, e1, s2, s3) => {
+        match s2 {
+          ~Marked{ node: Declare(*), span } => {
+            self.program.error(span, "declarations not allowed in for-loop steps")
+          }
+          _ => {}
+        }
         For(self.elaborate_stm(s1), self.elaborate_exp(e1),
-            self.elaborate_stm(s2), self.elaborate_stm(s3)),
+            self.elaborate_stm(s2), self.elaborate_stm(s3))
+      }
       If(e, s1, s2) =>
         If(self.elaborate_exp(e), self.elaborate_stm(s1),
            self.elaborate_stm(s2)),
