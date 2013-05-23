@@ -275,6 +275,7 @@ func run_test(testfile string) {
   cmd.Stdout = &stdout
   cmd.Stderr = &stderr
   cmd.Stdin = nil
+  defer rm(executable)
   if run(cmd, GccTimeout) != nil {
     fail("gcc timed out")
     test.TimedOut = true
@@ -290,7 +291,6 @@ func run_test(testfile string) {
     fail("gcc did not succeed")
     return
   }
-  defer rm(executable)
 
   /* Next, run the test itself */
   stdin, _ := os.Open(testfile + ".in") // if it doesn't exist, stdin == nil
