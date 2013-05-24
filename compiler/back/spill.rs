@@ -22,9 +22,9 @@
  * throughout the code in this file.
  */
 
-use core::hashmap::{HashMap, HashSet};
+use std::hashmap::{HashMap, HashSet};
 
-use std::sort;
+use extra::sort;
 use middle::{ir, ssa, opt};
 use middle::temp::{Temp, TempSet};
 use back::assem::*;

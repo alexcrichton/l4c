@@ -1,5 +1,5 @@
-use core::util::{replace, swap};
-use core::hashmap::HashMap;
+use std::util::{replace, swap};
+use std::hashmap::HashMap;
 
 use front::ast;
 use middle::{temp, ir, label};

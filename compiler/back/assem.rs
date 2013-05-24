@@ -1,7 +1,7 @@
-use core::io::WriterUtil;
-use core::hashmap::{HashMap, HashSet};
+use std::io::WriterUtil;
+use std::hashmap::{HashMap, HashSet};
 
-use middle::{label, ir, liveness};
+use middle::{label, ir};
 pub use middle::ssa;
 use middle::temp::Temp;
 use back::arch;

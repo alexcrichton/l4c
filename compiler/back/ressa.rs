@@ -1,4 +1,4 @@
-use core::hashmap::HashMap;
+use std::hashmap::HashMap;
 
 use middle::ssa;
 use back::assem;

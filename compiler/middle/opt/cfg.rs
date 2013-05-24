@@ -2,8 +2,8 @@
  * TODO: dox;
  */
 
-use core::hashmap::{HashSet, HashMap};
-use core::util::replace;
+use std::hashmap::{HashSet, HashMap};
+use std::util::replace;
 
 use middle::ssa::{CFG, Statement};
 use middle::ir;

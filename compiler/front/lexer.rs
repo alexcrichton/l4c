@@ -1,5 +1,5 @@
-use core::io::ReaderUtil;
-use core::hashmap::{HashMap, HashSet};
+use std::io::ReaderUtil;
+use std::hashmap::{HashMap, HashSet};
 
 use front::ast;
 use front::mark::Span;

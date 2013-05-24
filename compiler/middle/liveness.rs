@@ -1,4 +1,4 @@
-use core::hashmap::{HashMap, HashSet};
+use std::hashmap::{HashMap, HashSet};
 
 use middle::temp::{Temp, TempSet};
 use middle::ssa::{CFG, Statement};

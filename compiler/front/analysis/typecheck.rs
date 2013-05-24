@@ -1,4 +1,4 @@
-use core::hashmap::{HashMap, HashSet};
+use std::hashmap::{HashMap, HashSet};
 
 use front::mark::Mark;
 use front::ast::*;

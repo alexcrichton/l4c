@@ -9,8 +9,8 @@
  * Furthermore, this eliminates all code after a 'return' or sure death.
  */
 
-use core::util::replace;
-use std::bitv;
+use std::util::replace;
+use extra::bitv;
 
 use middle::ir::*;
 

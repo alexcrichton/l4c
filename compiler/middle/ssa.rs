@@ -1,5 +1,5 @@
-use core::hashmap::{HashMap, HashSet};
-use std::smallintmap::SmallIntMap;
+use std::hashmap::{HashMap, HashSet};
+use extra::smallintmap::SmallIntMap;
 
 use middle::{temp, liveness, ir, opt};
 use middle::temp::Temp;

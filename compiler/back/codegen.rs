@@ -1,7 +1,7 @@
-use core::hashmap::{HashMap, HashSet};
-use core::util::swap;
+use std::hashmap::{HashMap, HashSet};
+use std::util::swap;
 
-use middle::{ir, temp, ssa, liveness, label};
+use middle::{ir, temp, ssa, label};
 use back::{assem, arch};
 
 pub struct CodeGenerator {

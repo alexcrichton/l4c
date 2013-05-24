@@ -9,7 +9,7 @@
  * so the move can be considered dead code.
  */
 
-use core::hashmap::HashMap;
+use std::hashmap::HashMap;
 
 use middle::ir::*;
 use middle::temp::Temp;

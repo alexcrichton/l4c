@@ -1,4 +1,4 @@
-use core::hashmap::HashSet;
+use std::hashmap::HashSet;
 
 use back::assem::*;
 use middle::{liveness, temp};

@@ -1,7 +1,7 @@
-use core::hashmap::{HashSet, HashMap};
-use core::cmp::Eq;
-use core::to_bytes::IterBytes;
-use core::hash::Hash;
+use std::hashmap::{HashSet, HashMap};
+use std::cmp::Eq;
+use std::to_bytes::IterBytes;
+use std::hash::Hash;
 use utils::PrettyPrint;
 
 pub fn singleton<T: Eq + IterBytes + Hash>(t: T) -> HashSet<T> {

@@ -1,6 +1,6 @@
-use core::hashmap::{HashMap, HashSet};
-use core::io::WriterUtil;
-use std::smallintmap::SmallIntMap;
+use std::hashmap::{HashMap, HashSet};
+use std::io::WriterUtil;
+use extra::smallintmap::SmallIntMap;
 
 pub type NodeId = uint;
 pub type NodeSet = HashSet<NodeId>;

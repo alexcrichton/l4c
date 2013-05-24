@@ -1,6 +1,6 @@
-use core::hashmap::HashMap;
+use std::hashmap::HashMap;
 
-use core::io::WriterUtil;
+use std::io::WriterUtil;
 use middle::{ssa, label};
 use middle::temp::Temp;
 use utils::{graph, PrettyPrint, Graphable};

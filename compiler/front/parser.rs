@@ -1,7 +1,7 @@
-use core::hashmap::HashMap;
-use core::io;
-use core::util;
-use core::cell;
+use std::hashmap::HashMap;
+use std::io;
+use std::util;
+use std::cell;
 
 use front::ast;
 use front::ast::*;

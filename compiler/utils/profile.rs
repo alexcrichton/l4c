@@ -1,6 +1,6 @@
-use core::ops::Drop;
-use std::time;
-use core::local_data;
+use std::ops::Drop;
+use extra::time;
+use std::local_data;
 
 fn levels_key(_v: @uint) {}
 

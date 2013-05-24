@@ -1,7 +1,7 @@
-use core::hashmap::{HashMap, HashSet};
+use std::hashmap::{HashMap, HashSet};
 
-use std::bitv;
-use std::smallintmap::SmallIntMap;
+use extra::bitv;
+use extra::smallintmap::SmallIntMap;
 
 use middle::{ir, liveness};
 use middle::temp::Temp;
@@ -18,7 +18,7 @@ type Resolution = Either<(uint, uint), (uint, uint)>;
 
 struct Allocator {
   colors: ColorMap,
-  slots: HashMap<Tag, uint>,
+  slots: ColorMap,
   max_slot: uint,
   max_call_stack: uint,
   callee_saved: ~[uint],
@@ -549,7 +549,7 @@ impl PrettyPrint for bitv::Bitv {
  * result specified.
  */
 fn resolve_perm(result: &[uint], incoming: &[uint]) -> ~[Resolution] {
-  use std::smallintmap::SmallIntMap;
+  use extra::smallintmap::SmallIntMap;
   let mut ret = ~[];
 
   /* maps describing src -> dst and dst -> src */
@@ -609,7 +609,7 @@ fn resolve_perm(result: &[uint], incoming: &[uint]) -> ~[Resolution] {
 }
 #[cfg(test)]
 fn resolve_test(from: &[uint], to: &[uint]) {
-  use std::smallintmap::SmallIntMap;
+  use extra::smallintmap::SmallIntMap;
   let perm = resolve_perm(to, from);
   let mut regs = vec::from_fn(10, |i| i);
   for perm.each |&foo| {

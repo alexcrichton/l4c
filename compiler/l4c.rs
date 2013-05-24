@@ -1,6 +1,6 @@
 #[link(name = "l4c")];
 
-extern mod std;
+extern mod extra;
 
 use utils::*;
 
@@ -82,7 +82,7 @@ fn main() {
   use front::*;
   use middle::*;
   use back::*;
-  use std::getopts::*;
+  use extra::getopts::*;
 
   let flags = ~[
     optflag("v"), optflag("verbose"),
@@ -164,22 +164,22 @@ fn main() {
 }
 
 fn pass<T : Graphable, U>(f: &fn(&mut T) -> U, p: &mut T,
-                          m: &std::getopts::Matches, s: &str) -> U {
+                          m: &extra::getopts::Matches, s: &str) -> U {
   let ret = do prof(m, s) { f(p) };
-  if std::getopts::opt_present(m, s) {
+  if extra::getopts::opt_present(m, s) {
     p.dot(io::stdout());
   }
   return ret;
 }
 
-fn prof<U>(m : &std::getopts::Matches, s : &str, f: &fn() -> U) -> U {
-  if std::getopts::opt_present(m, "profile") {
+fn prof<U>(m : &extra::getopts::Matches, s : &str, f: &fn() -> U) -> U {
+  if extra::getopts::opt_present(m, "profile") {
     profile::run(f, s)
   } else {
     f()
   }
 }
 
-fn profstk(m : &std::getopts::Matches, s : &str) -> profile::Guard {
-  profile::Guard::new(std::getopts::opt_present(m, "profile"), s)
+fn profstk(m : &extra::getopts::Matches, s : &str) -> profile::Guard {
+  profile::Guard::new(extra::getopts::opt_present(m, "profile"), s)
 }

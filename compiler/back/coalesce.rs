@@ -43,13 +43,13 @@
  * When coalescing a chunk, the entire chunk may not be recolored, so some of
  * the chunk may go back into the priority queue for re-evaluation later.
  */
-use core::hashmap::{HashMap, HashSet};
+use std::hashmap::{HashMap, HashSet};
 
-use std::bitv;
-use std::priority_queue::PriorityQueue;
-use std::smallintmap::SmallIntMap;
+use extra::bitv;
+use extra::priority_queue::PriorityQueue;
+use extra::smallintmap::SmallIntMap;
 
-use middle::{ir, liveness};
+use middle::{ir, liveness, ssa};
 use middle::temp::{Temp, TempSet};
 use back::{assem, arch, alloc};
 use utils::{profile, set};
