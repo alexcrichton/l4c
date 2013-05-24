@@ -30,25 +30,36 @@ struct Allocator {
 
 pub fn color(p: &mut Program) {
   for vec::each_mut(p.funs) |f| {
-    liveness::calculate(&f.cfg, f.root, &mut f.liveness, &RegisterInfo);
+    let mut live_regs = liveness::Analysis();
+    let mut live_stack = liveness::Analysis();
+    liveness::calculate(&f.cfg, f.root, &mut live_regs, &RegisterInfo);
+    liveness::calculate(&f.cfg, f.root, &mut live_stack, &StackInfo);
 
     let mut a = Allocator{ colors: SmallIntMap::new(),
                            precolored: HashSet::new(),
                            constraints: SmallIntMap::new(),
-                           slots: HashMap::new(),
-                           max_slot: 0,
+                           slots: SmallIntMap::new(),
+                           max_slot: 1,
                            max_call_stack: 0,
                            callee_saved: ~[] };
 
     /* Color the graph completely */
     info!("coloring: %s", f.name);
-    do profile::dbg("coloring") { a.color(f, f.root); }
+    do profile::dbg("coloring") { a.color(f, &live_regs, f.root); }
     for a.colors.each |tmp, color| {
       debug!("%s => %?", tmp.to_str(), color);
     }
 
-    do profile::dbg("coalescing") {
-      coalesce::optimize(f, &mut a.colors, &a.precolored, &mut a.constraints);
+    do profile::dbg("coalescing registers") {
+      coalesce::optimize(f, &live_regs, &mut a.colors, &a.precolored,
+                         &a.constraints, &RegisterInfo, true, arch::num_regs);
+    }
+    do profile::dbg("coalescing stack slots") {
+      info!("stack slots");
+      /* no precolored slots or constraints, yay! */
+      let max = a.slots.len();
+      coalesce::optimize(f, &live_stack, &mut a.slots, &HashSet::new(),
+                         &SmallIntMap::new(), &StackInfo, false, max);
     }
 
     /* Finally remove all phi nodes and all temps */
@@ -78,11 +89,12 @@ impl Allocator {
    * A top-down traversal of the dominator tree is done, coloring all
    * definitions as they are seen with the first available color.
    */
-  fn color(&mut self, f: &Function, n: graph::NodeId) {
+  fn color(&mut self, f: &Function, live: &liveness::Analysis,
+           n: graph::NodeId) {
     debug!("coloring %?", n);
     let mut tmplive = HashSet::new();
     let mut registers = RegisterSet();
-    for f.liveness.in.get(&n).each |&t| {
+    for live.in.get(&n).each |&t| {
       tmplive.insert(t);
       registers.set(*self.colors.get(&t), true);
     }
@@ -92,7 +104,7 @@ impl Allocator {
     for f.cfg.node(n).eachi |i, ins| {
       /* examine data for next instruction for last use information */
       {
-        let delta = &f.liveness.deltas.get(&n)[i];
+        let delta = &live.deltas.get(&n)[i];
         debug!("%s", ins.pp());
         debug!("deltas %?", delta);
         debug!("before %s %s", tmplive.pp(), registers.pp());
@@ -266,7 +278,7 @@ impl Allocator {
     }
 
     for f.ssa.idominated.get(&n).each |&id| {
-      self.color(f, id);
+      self.color(f, live, id);
     }
   }
 

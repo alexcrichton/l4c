@@ -24,7 +24,6 @@ pub struct Function {
   sizes: HashMap<Temp, Size>,
   temps: uint,
   ssa: ssa::Analysis,
-  liveness: liveness::Analysis,
 
   loops: HashMap<graph::NodeId, (graph::NodeId, graph::NodeId)>,
 }

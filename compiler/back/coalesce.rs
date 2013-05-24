@@ -62,12 +62,12 @@ type DefMap = HashMap<Temp, Location>;
 struct Affinity(Temp, Temp, uint);
 struct Chunk(TempSet, uint);
 
-struct Coalescer<'self> {
+struct Coalescer<'self, I> {
   /* set of temps that are precolored */
   precolored: bitv::Bitv,
   /* For all temps with constraints, contains mapping of the constraints. This
      is used when determining the admissible registers for a temp */
-  constraints: &'self mut alloc::ConstraintMap,
+  constraints: &'self alloc::ConstraintMap,
   /* Actual coloring information that's modified */
   colors: &'self mut alloc::ColorMap,
 
@@ -97,22 +97,34 @@ struct Coalescer<'self> {
   dominates: HashMap<(NodeId, NodeId), bool>,
 
   f: &'self assem::Function,
+  live: &'self liveness::Analysis,
+  info: &'self I,
+  consider_pcopy: bool,
+  max_temp: uint,
+  max_color: uint,
 }
 
-pub fn optimize(f: &assem::Function,
+pub fn optimize<I: ssa::Statement<assem::Instruction>>(
+                f: &assem::Function,
+                live: &liveness::Analysis,
                 colors: &mut alloc::ColorMap,
                 precolored: &TempSet,
-                constraints: &mut alloc::ConstraintMap) {
+                constraints: &alloc::ConstraintMap,
+                info: &I,
+                pcopy: bool,
+                max_color: uint)
+{
   /* Build up some static maps which are cheap and don't change */
-  let lm = liveness_map(&f.cfg, &f.liveness, f.temps);
-  let (uses, defs) = use_def_maps(&f.cfg);
+  let max_temp = colors.len();
+  let lm = liveness_map(&f.cfg, info, live, max_temp);
+  let (uses, defs) = use_def_maps(&f.cfg, info);
 
-  let mut pre = bitv::Bitv::new(f.temps, false);
+  let mut pre = bitv::Bitv::new(max_temp, false);
   for precolored.each |&t| {
     pre.set(t, true);
   }
   /* TODO(#5884): this is silly */
-  let fixed = bitv::Bitv::new(f.temps, false);
+  let fixed = bitv::Bitv::new(max_temp, false);
   let affinities = HashMap::new();
   let old_color = SmallIntMap::new();
   let mut c = Coalescer { fixed: fixed,
@@ -126,7 +138,12 @@ pub fn optimize(f: &assem::Function,
                           dominates: HashMap::new(),
                           defs: &defs,
                           uses: &uses,
-                          f: f, };
+                          f: f,
+                          live: live,
+                          info: info,
+                          consider_pcopy: pcopy,
+                          max_temp: max_temp,
+                          max_color: max_color, };
   c.coalesce();
 }
 
@@ -134,22 +151,24 @@ pub fn optimize(f: &assem::Function,
  * Convert the liveness analysis to a mapping of bit vectors of the live temps
  * at each instruction in the program.
  */
-fn liveness_map(cfg: &assem::CFG, live: &liveness::Analysis, max: uint)
-      -> HashMap<NodeId, ~[bitv::Bitv]> {
+fn liveness_map<I: ssa::Statement<assem::Instruction>>(
+  cfg: &assem::CFG, info: &I, live: &liveness::Analysis, max: uint
+) -> HashMap<NodeId, ~[bitv::Bitv]>
+{
   let mut ret = HashMap::new();
   for cfg.each_node |id, stms| {
     let mut vec = ~[];
     let mut set = HashSet::new();
     for live.in.get(&id).each |&t| { set.insert(t); }
 
-    for stms.eachi |i, &stm| {
+    for stms.eachi |i, stm| {
       /* we care about 'live-out' variables on an instruction */
       liveness::apply(&mut set, &live.deltas.get(&id)[i]);
       let mut bitv = bitv::Bitv::new(max, false);
       for set.each |&t| { bitv.set(t, true); }
       /* at one instruction, the defined registers interfere with all live out
        * registers, even if the defined register isn't actually used anywhere */
-      for stm.each_def |t| { bitv.set(t, true); }
+      for info.each_def(*stm) |t| { bitv.set(t, true); }
 
       vec.push(bitv);
     }
@@ -164,29 +183,32 @@ fn liveness_map(cfg: &assem::CFG, live: &liveness::Analysis, max: uint)
  * information about where each temp is defined and the set of uses for each
  * temp.
  */
-fn use_def_maps(cfg: &assem::CFG) -> (UseMap, DefMap)
+fn use_def_maps<I: ssa::Statement<assem::Instruction>>(
+  cfg: &assem::CFG, info: &I) -> (UseMap, DefMap)
 {
   let mut uses = HashMap::new();
   let mut defs = HashMap::new();
 
   do profile::dbg("building use/def") {
     for cfg.each_node |id, ins| {
-      build_use_def(id, ins, &mut uses, &mut defs);
+      build_use_def(id, info, ins, &mut uses, &mut defs);
     }
   }
 
   return (uses, defs);
 
-  fn build_use_def(n: NodeId, ins: &~[~assem::Instruction],
-                   uses: &mut UseMap, defs: &mut DefMap) {
+  fn build_use_def<I: ssa::Statement<assem::Instruction>>(
+      n: NodeId, info: &I, ins: &~[~assem::Instruction],
+      uses: &mut UseMap, defs: &mut DefMap)
+  {
     for ins.eachi |i, &ins| {
-      for ins.each_def |tmp| {
+      for info.each_def(ins) |tmp| {
         assert!(defs.insert(tmp, (n, i as int)));
       }
-      for ins.each_use |tmp| {
+      for info.each_use(ins) |tmp| {
         add_use(tmp, (n, i as int), uses);
       }
-      match ins.phi_info() {
+      match info.phi_info(ins) {
         None => (),
         Some((_, m)) => {
           for m.each |&pred, &tmp| {
@@ -207,7 +229,7 @@ fn use_def_maps(cfg: &assem::CFG) -> (UseMap, DefMap)
 
 }
 
-impl<'self> Coalescer<'self> {
+impl<'self, I: ssa::Statement<assem::Instruction>> Coalescer<'self, I> {
   /**
    * Perform the actual coalescing of the graph.
    */
@@ -254,7 +276,7 @@ impl<'self> Coalescer<'self> {
     }
 
     /* For each register, attempt to color everything to that register */
-    for arch::each_reg |r| {
+    for uint::range(1, self.max_color + 1) |r| {
       debug!("trying %?", r);
       docolor!(tmps, r);
       match self.best_subset(&tmps, r) {
@@ -436,8 +458,8 @@ impl<'self> Coalescer<'self> {
    */
   fn min_color(&mut self, t: Temp, ignore: uint) -> uint {
     /* cnts[i] = inft  =>  i can't be used for 't' */
-    let mut cnts = vec::from_elem(arch::num_regs, uint::max_value);
-    for arch::each_reg |r| {
+    let mut cnts = vec::from_elem(self.max_color, uint::max_value);
+    for uint::range(1, self.max_color + 1) |r| {
       if r != ignore && self.admissible(t, r) {
         cnts[r - 1] = 0;
       }
@@ -576,23 +598,29 @@ impl<'self> Coalescer<'self> {
       /* We have a more costly weight if we're moving into a loop */
       let weight = weight +
         if self.f.loops.contains_key(&n) { 1 } else { 0 };
-      for self.f.cfg.node(n).each |&ins| {
-        match ins {
-          ~assem::Phi(def, ref map) => {
+      for self.f.cfg.node(n).each |ins| {
+        match self.info.phi_info(*ins) {
+          Some((def, map)) => {
             for map.each |_, &tmp| {
               self.add_affine(tmp, def, weight);
               self.add_affine(def, tmp, weight);
               pq.push(Affinity(tmp, def, weight));
             }
           }
-          ~assem::PCopy(ref copies) => {
-            for copies.each |&(a, b)| {
-              self.add_affine(a, b, weight);
-              self.add_affine(b, a, weight);
-              pq.push(Affinity(a, b, weight));
+          None => {}
+        }
+
+        if self.consider_pcopy {
+          match *ins {
+            ~assem::PCopy(ref copies) => {
+              for copies.each |&(a, b)| {
+                self.add_affine(a, b, weight);
+                self.add_affine(b, a, weight);
+                pq.push(Affinity(a, b, weight));
+              }
             }
+            _ => ()
           }
-          _ => ()
         }
       }
 
@@ -645,7 +673,7 @@ impl<'self> Coalescer<'self> {
 
     /* If 't' is live out in b's definition, then they definitely interfere */
     let &(bdef, bline) = self.defs.get(&b);
-    if self.f.liveness.out.get(&bdef).contains(&t) {
+    if self.live.out.get(&bdef).contains(&t) {
       return true;
     }
 
@@ -684,7 +712,7 @@ impl<'self> Coalescer<'self> {
 
     /* Prelude to Algorithm 4.7 (find_interferences) */
     let mut visited = HashSet::new();
-    let mut bitv = bitv::Bitv::new(self.f.temps, false);
+    let mut bitv = bitv::Bitv::new(self.max_temp, false);
     match self.uses.find(&t) {
       Some(uses) => {
         for uses.each |&(block, _)| {

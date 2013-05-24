@@ -59,8 +59,7 @@ impl CodeGenerator {
                       temps: self.temps.cnt(),
                       sizes: sizes,
                       loops: loops,
-                      ssa: ssa::Analysis(),
-                      liveness: liveness::Analysis() }
+                      ssa: ssa::Analysis() }
   }
 
   fn reset(&mut self) {
