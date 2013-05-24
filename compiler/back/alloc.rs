@@ -317,42 +317,71 @@ impl Allocator {
         mem_maps.insert(pred, ~[]);
       }
 
-      for ins.each |&ins| {
-        match ins {
+      for ins.each |ins| {
+        match *ins {
           ~Phi(tmp, ref map) => {
             debug!("phi var %? %?", tmp, *self.colors.get(&tmp));
             phi_vars.push(*self.colors.get(&tmp));
-            for map.each |&pred, &tmp| {
-              phi_maps.find_mut(&pred).unwrap().push(tmp);
+            for map.each |pred, tmp| {
+              phi_maps.find_mut(pred).unwrap().push(*self.colors.get(tmp));
             }
           }
           ~MemPhi(def, ref map) => {
-            mem_vars.push(def);
-            for map.each |&pred, &slot| {
-              mem_maps.find_mut(&pred).unwrap().push(slot);
+            mem_vars.push(self.stack_loc(def));
+            for map.each |pred, &slot| {
+              mem_maps.find_mut(pred).unwrap().push(self.stack_loc(slot));
             }
           }
-          _ => break
+          _ => {}
         }
       }
 
       for f.cfg.each_pred(id) |pred| {
-        let mut perm = phi_maps.pop(&pred).unwrap();
+        let perm = phi_maps.pop(&pred).unwrap();
         let mems = mem_maps.pop(&pred).unwrap();
-        perm = perm.map(|&tmp| *self.colors.get(&tmp));
 
         debug!("resolving phi for %? <= %?", id, pred);
-        let mut ins = self.resolve_perm(phi_vars, perm);
-
-        /* for each MemPhi, we need to move stack slot 'src' to stack slot 'dst'
-           without using a register */
-        for mems.eachi |i, &src| {
-          let src = self.stack_loc(src);
-          ins.push(~Raw(fmt!("pushq %s", Stack(src + i * arch::ptrsize).pp())));
+        // First, resolve all register permutations
+        let mut ins = ~[];
+        do self.resolve_perm(phi_vars, perm) |i| {
+          ins.push(i);
         }
-        for mem_vars.eachi_reverse |i, &dst| {
-          let dst = self.stack_loc(dst);
-          ins.push(~Raw(fmt!("popq %s", Stack(dst + i * arch::ptrsize).pp())));
+
+        // Second, resolve the memory phi permutations. To do so, each
+        // move needs a scratch register, and each exchange needs two registers.
+        // We can get these by just pushing some known registers to the stack.
+        // Not exactly the best solution, but it works.
+        let mut pushed = 0;
+        let eax = Register(EAX, ir::Pointer);
+        let ebx = Register(EBX, ir::Pointer);
+        do resolve_perm(mem_vars, mems) |i| {
+          if pushed == 0 {
+            pushed = 1;
+            ins.push(~Raw(fmt!("pushq %s", eax.pp())));
+          }
+          match i {
+            Left((dst, src)) => { // move
+              ins.push(~Load(~copy eax, ~Stack(src + pushed * arch::ptrsize)));
+              ins.push(~Store(~Stack(dst + pushed * arch::ptrsize), ~copy eax));
+            }
+
+            Right((l1, l2)) => { // xchg
+              if pushed == 1 {
+                pushed = 2;
+                ins.push(~Raw(fmt!("pushq %s", ebx.pp())));
+              }
+              ins.push(~Load(~copy eax, ~Stack(l1 + 2 * arch::ptrsize)));
+              ins.push(~Load(~copy ebx, ~Stack(l2 + 2 * arch::ptrsize)));
+              ins.push(~Store(~Stack(l1 + 2 * arch::ptrsize), ~copy ebx));
+              ins.push(~Store(~Stack(l2 + 2 * arch::ptrsize), ~copy eax));
+            }
+          }
+        }
+        if pushed > 1 {
+          ins.push(~Raw(fmt!("popq %s", ebx.pp())));
+        }
+        if pushed > 0 {
+          ins.push(~Raw(fmt!("popq %s", eax.pp())));
         }
 
         if ins.len() > 0 {
@@ -479,7 +508,7 @@ impl Allocator {
           srcs.push(*self.colors.get(&src));
         }
         debug!("resolving pcopy");
-        for self.resolve_perm(dsts, srcs).each |&ins| {
+        do self.resolve_perm(dsts, srcs) |ins| {
           push(ins);
         }
       }
@@ -528,15 +557,16 @@ impl Allocator {
     ~Register(arch::num_reg(*self.colors.get(&tmp)), size)
   }
 
-  fn resolve_perm(&self, result: &[uint], incoming: &[uint]) -> ~[~Instruction] {
+  fn resolve_perm(&self, result: &[uint], incoming: &[uint],
+                  f: &fn(~Instruction) ){
     let mkreg = |i: uint| ~Register(arch::num_reg(i), ir::Pointer);
-    resolve_perm(result, incoming).map(|&r| {
+    do resolve_perm(result, incoming) |r| {
       match r {
-        Left((dst, src)) => ~Move(mkreg(dst), mkreg(src)),
-        Right((r1, r2)) => ~Raw(fmt!("xchg %s, %s", mkreg(r1).pp(),
-                                     mkreg(r2).pp()))
+        Left((dst, src)) => f(~Move(mkreg(dst), mkreg(src))),
+        Right((r1, r2)) => f(~Raw(fmt!("xchg %s, %s", mkreg(r1).pp(),
+                                       mkreg(r2).pp())))
       }
-    })
+    }
   }
 }
 
@@ -560,9 +590,8 @@ impl PrettyPrint for bitv::Bitv {
  * Perform the actual resolution of moves/exchanges to get from incoming to the
  * result specified.
  */
-fn resolve_perm(result: &[uint], incoming: &[uint]) -> ~[Resolution] {
+fn resolve_perm(result: &[uint], incoming: &[uint], f: &fn(Resolution)) {
   use extra::smallintmap::SmallIntMap;
-  let mut ret = ~[];
 
   /* maps describing src -> dst and dst -> src */
   let mut src_dst: SmallIntMap<~[uint]> = SmallIntMap::new();
@@ -587,7 +616,7 @@ fn resolve_perm(result: &[uint], incoming: &[uint]) -> ~[Resolution] {
     let mut cur = dst;
     while dst_src.contains_key(&cur) {
       let nxt = *dst_src.get(&cur);
-      ret.push(Left((cur, nxt)));
+      f(Left((cur, nxt)));
       dst_src.remove(&cur);
       let L = vec::filter(src_dst.pop(&nxt).unwrap(), |&x| x != cur);
       if L.len() > 0 {
@@ -612,19 +641,19 @@ fn resolve_perm(result: &[uint], incoming: &[uint]) -> ~[Resolution] {
       assert!(L.len() == 1);
       let nxt = L[0];
       if nxt == dst { break }
-      ret.push(Right((dst, nxt)));
+      f(Right((dst, nxt)));
       cur = nxt;
     }
   }
-
-  return ret;
 }
+
 #[cfg(test)]
 fn resolve_test(from: &[uint], to: &[uint]) {
   use extra::smallintmap::SmallIntMap;
-  let perm = resolve_perm(to, from);
   let mut regs = vec::from_fn(10, |i| i);
-  for perm.each |&foo| {
+
+  let perm = resolve_perm(to, from);
+  do resolve_perm(to, from) |foo| {
     match foo {
       Left((dst, src))  => { regs[dst] = regs[src]; }
       Right((dst, src)) => { vec::swap(regs, dst, src); }
