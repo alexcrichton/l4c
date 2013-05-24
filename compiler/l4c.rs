@@ -77,7 +77,6 @@ where OPTION is
 ");
 }
 
-#[allow(non_implicitly_copyable_typarams)]
 fn main() {
   use front::*;
   use middle::*;
