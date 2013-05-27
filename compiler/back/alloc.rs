@@ -652,7 +652,6 @@ fn resolve_test(from: &[uint], to: &[uint]) {
   use extra::smallintmap::SmallIntMap;
   let mut regs = vec::from_fn(10, |i| i);
 
-  let perm = resolve_perm(to, from);
   do resolve_perm(to, from) |foo| {
     match foo {
       Left((dst, src))  => { regs[dst] = regs[src]; }
@@ -669,7 +668,7 @@ fn resolve_test(from: &[uint], to: &[uint]) {
     }
   }
   debug!("%?", regs);
-  for map.each |&(k, _)| {
+  for map.each |&k, _| {
     if regs[k] != k {
       fail!(fmt!("clobbered %? to %?", k, regs[k]));
     }
@@ -678,15 +677,15 @@ fn resolve_test(from: &[uint], to: &[uint]) {
 
 #[test]
 fn test_resolve() {
-  resolve_test(~[], ~[]);
-  resolve_test(~[1], ~[1]);
-  resolve_test(~[1, 2], ~[1, 2]);
-  resolve_test(~[1], ~[2]);
-  resolve_test(~[1, 2], ~[2, 3]);
-  resolve_test(~[1, 2], ~[2, 1]);
-  resolve_test(~[1, 2, 3, 4], ~[2, 1, 4, 5]);
-  resolve_test(~[1, 2, 3], ~[2, 3, 1]);
-  resolve_test(~[1, 2, 3, 4, 5, 6, 7, 8], ~[2, 3, 1, 5, 6, 4, 8, 9]);
-  resolve_test(~[1, 1, 2], ~[2, 3, 1]);
-  resolve_test(~[7, 1, 7], ~[2, 7, 1]);
+  resolve_test([], []);
+  resolve_test([1], [1]);
+  resolve_test([1, 2], [1, 2]);
+  resolve_test([1], [2]);
+  resolve_test([1, 2], [2, 3]);
+  resolve_test([1, 2], [2, 1]);
+  resolve_test([1, 2, 3, 4], [2, 1, 4, 5]);
+  resolve_test([1, 2, 3], [2, 3, 1]);
+  resolve_test([1, 2, 3, 4, 5, 6, 7, 8], [2, 3, 1, 5, 6, 4, 8, 9]);
+  resolve_test([1, 1, 2], [2, 3, 1]);
+  resolve_test([7, 1, 7], [2, 7, 1]);
 }
