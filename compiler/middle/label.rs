@@ -15,7 +15,7 @@ impl PrettyPrint for Label {
   fn pp(&self) -> ~str {
     match *self {
       External(ref s) => prefix() + *s,
-      Internal(ref s) => prefix() + ~"_c0_" + *s
+      Internal(ref s) => prefix() + "_c0_" + *s
     }
   }
 }

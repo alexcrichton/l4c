@@ -578,11 +578,11 @@ impl PrettyPrint for bitv::Bitv {
       if first {
         first = false;
       } else {
-        s += ~", ";
+        s += ", ";
       }
       s += i.to_str();
     }
-    return s + ~"}";
+    return s + "}";
   }
 }
 

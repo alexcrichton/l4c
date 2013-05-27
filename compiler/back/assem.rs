@@ -300,9 +300,9 @@ impl PrettyPrint for Instruction {
       },
       Move(ref o1, ref o2) =>
         if o1.size() != o2.size() && !o2.imm() {
-          ~"movslq " + o2.pp() + ~", " + o1.pp()
+          ~"movslq " + o2.pp() + ", " + o1.pp()
         } else {
-          ~"mov " + o2.pp() + ~", " + o1.pp()
+          ~"mov " + o2.pp() + ", " + o1.pp()
         },
       BinaryOp(binop, ref dest, ref s1, ref s2) => match binop {
         /* multiplications can have third operand if it's an immediate */
@@ -446,7 +446,7 @@ impl PrettyPrint for Address {
       MOp(ref o, disp, ref off) => {
         let mut s = ~"";
         for disp.each |&d| { s += fmt!("%?", d); }
-        s += ~"(";
+        s += "(";
         s += o.pp();
         match *off {
           None => (),
@@ -454,7 +454,7 @@ impl PrettyPrint for Address {
             s += fmt!(", %s, %s", off.pp(), mult.pp());
           }
         }
-        s + ~")"
+        s + ")"
       }
       Stack(i) => fmt!("%?(%%rsp)", i),
       StackArg(i) => fmt!("arg[%?]", i),

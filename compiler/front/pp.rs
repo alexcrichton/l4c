@@ -94,23 +94,23 @@ impl PrettyPrintAST for Statement {
       Return(ref e) => ~"return " + e.pp(p),
       Express(ref e) => e.pp(p),
       Declare(v, t, ref init, ref s) =>
-        t.pp(p) + ~" " + p.str(v) + pp_opt(p, init) + ~"\n" + tab(s.pp(p)),
+        t.pp(p) + " " + p.str(v) + pp_opt(p, init) + "\n" + tab(s.pp(p)),
       While(ref e, ref s) =>
-        ~"while (" + e.pp(p) + ~") {\n" + tab(s.pp(p)) + ~"\n}",
+        ~"while (" + e.pp(p) + ") {\n" + tab(s.pp(p)) + "\n}",
       If(ref e, ref s1, ref s2) =>
-        ~"if(" + e.pp(p) + ~") {\n" + tab(s1.pp(p)) +
-        ~"\n} else {\n" + tab(s2.pp(p)) + ~"\n}",
+        ~"if(" + e.pp(p) + ") {\n" + tab(s1.pp(p)) +
+        "\n} else {\n" + tab(s2.pp(p)) + "\n}",
       For(ref s1, ref e, ref s2, ref s3) =>
-        ~"for (" + s1.pp(p) + ~"; " + e.pp(p) + ~"; " + s2.pp(p) +
-        ~") {\n" + tab(s3.pp(p)) + ~"\n}",
+        ~"for (" + s1.pp(p) + "; " + e.pp(p) + "; " + s2.pp(p) +
+        ") {\n" + tab(s3.pp(p)) + "\n}",
       Assign(ref e1, ref o, ref e2) =>
         e1.pp(p) +
-        match *o { None => ~" = ", Some(o) => ~" " + o.pp() + ~"= " } +
+        match *o { None => ~" = ", Some(o) => ~" " + o.pp() + "= " } +
         e2.pp(p),
       Seq(~Marked{ node: Nop, _ }, ~Marked{ node: Nop, _ }) => ~"",
       Seq(ref s, ~Marked{ node: Nop, _ }) => s.pp(p),
       Seq(~Marked{ node: Nop, _ }, ref s) => s.pp(p),
-      Seq(ref s1, ref s2) => s1.pp(p) + ~"\n" + s2.pp(p)
+      Seq(ref s1, ref s2) => s1.pp(p) + "\n" + s2.pp(p)
     }
   }
 }
@@ -123,7 +123,7 @@ fn pp_opt(p: &Program, o: &Option<~Expression>) -> ~str {
 }
 
 fn ppair(prog: &Program, p: &(Ident, @Type)) -> ~str {
-  match *p { (id, typ) => typ.pp(prog) + ~" " + prog.str(id) }
+  match *p { (id, typ) => typ.pp(prog) + " " + prog.str(id) }
 }
 
 fn pfun(prog: &Program, t: @Type, i: Ident, p: &~[(Ident, @Type)]) -> ~str {
@@ -134,7 +134,7 @@ fn pfun(prog: &Program, t: @Type, i: Ident, p: &~[(Ident, @Type)]) -> ~str {
 impl PrettyPrintAST for GDecl {
   fn pp(&self, p: &Program) -> ~str {
     match self.node {
-      Typedef(s, t) => ~"typedef " + t.pp(p) + ~" " + p.str(s),
+      Typedef(s, t) => ~"typedef " + t.pp(p) + " " + p.str(s),
       StructDecl(s) => ~"struct " + p.str(s),
       StructDef(s, ref L) =>
         ~"struct " + p.str(s) + "{\n" +
@@ -142,7 +142,7 @@ impl PrettyPrintAST for GDecl {
       FunIDecl(t, s, ref args) => pfun(p, t, s, args),
       FunEDecl(t, s, ref args) => ~"extern " + pfun(p, t, s, args),
       Function(t, s, ref args, ref body) =>
-        pfun(p, t, s, args) + ~" {\n" + tab(body.pp(p)) + ~"\n}"
+        pfun(p, t, s, args) + " {\n" + tab(body.pp(p)) + "\n}"
     }
   }
 }

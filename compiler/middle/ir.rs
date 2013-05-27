@@ -195,10 +195,10 @@ impl ssa::Statement<Statement> for Info {
 impl PrettyPrint for Statement {
   fn pp(&self) -> ~str {
     match *self {
-      Move(tmp, ref e) => tmp.pp() + ~" <- " + e.pp(),
-      Cast(t1, t2) => t1.pp() + ~" < cast - " + t2.pp(),
-      Load(tmp, ref e) => ~"load " + tmp.pp() + ~" <- " + e.pp(),
-      Store(ref e1, ref e2) => ~"store" + ~" " + e1.pp() + " <- " + e2.pp(),
+      Move(tmp, ref e) => tmp.pp() + " <- " + e.pp(),
+      Cast(t1, t2) => t1.pp() + " < cast - " + t2.pp(),
+      Load(tmp, ref e) => ~"load " + tmp.pp() + " <- " + e.pp(),
+      Store(ref e1, ref e2) => ~"store" + " " + e1.pp() + " <- " + e2.pp(),
       Condition(ref e) => ~"cond " + e.pp(),
       Return(ref e) => ~"return " + e.pp(),
       Die(ref e) => ~"die if " + e.pp(),
@@ -206,11 +206,11 @@ impl PrettyPrint for Statement {
         fmt!("%s <- %s(%s)", t.pp(), e.pp(),
              str::connect(E.map(|e| e.pp()), ", ")),
       Phi(tmp, ref map) => {
-        let mut s = tmp.pp() + ~" <- phi(";
+        let mut s = tmp.pp() + " <- phi(";
         for map.each |&id, &tmp| {
           s += fmt!("[ %s - n%d ] ", tmp.pp(), id as int);
         }
-        s + ~")"
+        s + ")"
       }
       Arguments(ref tmps) =>
         fmt!("args %s", str::connect(tmps.map(|&t| t.pp()), ", ")),
@@ -259,7 +259,7 @@ impl PrettyPrint for Expression {
       Temp(ref t) => t.pp(),
       Const(c, _) => fmt!("0x%x", c as uint),
       BinaryOp(op, ref e1, ref e2) =>
-        ~"(" + e1.pp() + ~" " + op.pp() + ~" " + e2.pp() + ~")",
+        ~"(" + e1.pp() + " " + op.pp() + " " + e2.pp() + ")",
       LabelExp(ref l) => l.pp()
     }
   }
