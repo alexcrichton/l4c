@@ -1,5 +1,7 @@
 use std::hashmap::{HashMap, HashSet};
 use std::io::WriterUtil;
+use std::io;
+use std::vec;
 use extra::smallintmap::SmallIntMap;
 
 pub type NodeId = uint;

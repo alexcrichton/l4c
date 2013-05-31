@@ -1,6 +1,11 @@
-use std::hashmap::{HashSet, HashMap};
 use std::cell;
+use std::cmp;
+use std::hashmap::{HashSet, HashMap};
+use std::io;
+use std::libc;
+use std::str;
 use std::util;
+use std::vec;
 
 use front::mark;
 use front::mark::Marked;

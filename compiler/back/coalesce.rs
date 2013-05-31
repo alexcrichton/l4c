@@ -43,7 +43,12 @@
  * When coalescing a chunk, the entire chunk may not be recolored, so some of
  * the chunk may go back into the priority queue for re-evaluation later.
  */
+
+use std::cmp;
 use std::hashmap::{HashMap, HashSet};
+use std::int;
+use std::uint;
+use std::vec;
 
 use extra::bitv;
 use extra::priority_queue::PriorityQueue;

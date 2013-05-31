@@ -1,5 +1,6 @@
 use std::hashmap::{HashMap, HashSet};
 use std::util::swap;
+use std::vec;
 
 use middle::{ir, temp, ssa, label};
 use back::{assem, arch};

@@ -10,6 +10,7 @@
  */
 
 use std::util::replace;
+use std::vec;
 use extra::bitv;
 
 use middle::ir::*;

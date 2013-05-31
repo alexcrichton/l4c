@@ -1,7 +1,9 @@
+use std::cell;
 use std::hashmap::HashMap;
 use std::io;
+use std::libc;
 use std::util;
-use std::cell;
+use std::vec;
 
 use front::ast;
 use front::ast::*;

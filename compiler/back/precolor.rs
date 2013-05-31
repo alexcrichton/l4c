@@ -1,4 +1,6 @@
 use std::hashmap::HashSet;
+use std::vec;
+use std::uint;
 
 use back::assem::*;
 use middle::{liveness, temp};

@@ -23,6 +23,9 @@
  */
 
 use std::hashmap::{HashMap, HashSet};
+use std::str;
+use std::uint;
+use std::vec;
 
 use extra::sort;
 use middle::{ir, ssa, opt};

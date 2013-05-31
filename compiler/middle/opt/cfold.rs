@@ -10,6 +10,8 @@
  */
 
 use std::hashmap::HashMap;
+use std::i32;
+use std::vec;
 
 use middle::ir::*;
 use middle::temp::Temp;

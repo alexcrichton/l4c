@@ -1,4 +1,5 @@
 use std::hashmap::{HashMap, HashSet};
+use std::vec;
 
 use front::mark::Mark;
 use front::ast::*;

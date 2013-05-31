@@ -4,6 +4,7 @@
 
 use std::hashmap::{HashSet, HashMap};
 use std::util::replace;
+use std::vec;
 
 use middle::ssa::{CFG, Statement};
 use middle::ir;

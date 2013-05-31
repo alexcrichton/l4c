@@ -1,10 +1,12 @@
 /**
- * ~brief Peephole optimizations on assembly
+ * @brief Peephole optimizations on assembly
  *
  * Does a peek at all the instructions in a program and optimizes them if
  * possible. This just does small things like 'a * 4' == 'a << 2' or things like
  * that.
  */
+
+use std::vec;
 
 use back::assem::*;
 

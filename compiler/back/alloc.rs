@@ -1,4 +1,6 @@
 use std::hashmap::{HashMap, HashSet};
+use std::vec;
+use std::uint;
 
 use extra::bitv;
 use extra::smallintmap::SmallIntMap;
@@ -113,9 +115,9 @@ impl Allocator {
 
       match *ins {
         /* If we found a pcopy, then we're breaking liveness */
-        ~PCopy(copy copies) => {
+        ~PCopy(ref copies) => {
           assert!(pcopy.is_none());
-          pcopy = Some(copies);
+          pcopy = Some(copy *copies);
           registers.clear();
           loop;
         }

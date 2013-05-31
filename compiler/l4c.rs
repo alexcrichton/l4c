@@ -3,6 +3,10 @@
 extern mod extra;
 
 use utils::*;
+use std::io;
+use std::result;
+use std::vec;
+use std::os;
 
 pub mod utils {
   pub mod set;
@@ -13,7 +17,7 @@ pub mod utils {
     fn pp(&self) -> ~str;
   }
   pub trait Graphable {
-    fn dot(&self, @io::Writer);
+    fn dot(&self, @::std::io::Writer);
   }
 }
 

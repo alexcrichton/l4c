@@ -1,4 +1,5 @@
 use std::hashmap::{HashMap, HashSet};
+use std::vec;
 use extra::smallintmap::SmallIntMap;
 
 use middle::{temp, liveness, ir, opt};

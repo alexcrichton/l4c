@@ -1,5 +1,11 @@
-use std::io::ReaderUtil;
 use std::hashmap::{HashMap, HashSet};
+use std::i32;
+use std::io::ReaderUtil;
+use std::io;
+use std::libc;
+use std::str;
+use std::u32;
+use std::u64;
 
 use front::ast;
 use front::mark::Span;

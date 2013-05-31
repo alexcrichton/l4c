@@ -1,5 +1,6 @@
 use std::util::{replace, swap};
 use std::hashmap::HashMap;
+use std::vec;
 
 use front::ast;
 use middle::{temp, ir, label};

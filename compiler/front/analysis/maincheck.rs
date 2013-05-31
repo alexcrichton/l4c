@@ -1,3 +1,5 @@
+use std::vec;
+
 use front::ast::*;
 use front::mark;
 use front::pp::PrettyPrintAST;

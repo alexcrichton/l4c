@@ -1,4 +1,5 @@
 use std::hashmap::{HashMap, HashSet};
+use std::vec;
 
 use middle::temp::{Temp, TempSet};
 use middle::ssa::{CFG, Statement};

@@ -1,4 +1,5 @@
 use back::assem::*;
+use std::uint;
 
 pub static arg_regs: uint = 6;
 pub static ptrsize: uint = 8;

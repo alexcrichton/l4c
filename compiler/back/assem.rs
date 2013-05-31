@@ -1,5 +1,9 @@
+use std::cmp;
+use std::io;
 use std::io::WriterUtil;
 use std::hashmap::{HashMap, HashSet};
+use std::str;
+use std::vec;
 
 use middle::{label, ir};
 pub use middle::ssa;
@@ -282,7 +286,7 @@ impl ssa::Statement<Instruction> for StackInfo {
 impl PrettyPrint for Instruction {
   fn pp(&self) -> ~str {
     match *self {
-      Raw(copy s) => s,
+      Raw(ref s) => copy *s,
       Arg(t, i) => fmt!("%s = arg[%?]", t.pp(), i),
       Return(ref t) => fmt!("ret // %s", t.pp()),
       Use(t) => fmt!("use %s", t.pp()),

@@ -1,3 +1,5 @@
+use std::str;
+
 use front::ast::*;
 use front::mark::Marked;
 use utils::PrettyPrint;

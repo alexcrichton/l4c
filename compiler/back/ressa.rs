@@ -1,4 +1,6 @@
 use std::hashmap::HashMap;
+use std::uint;
+use std::vec;
 
 use middle::ssa;
 use back::assem;
