@@ -1,5 +1,7 @@
 use std::hashmap::{HashMap, HashSet};
 use std::vec;
+use extra::smallintmap::SmallIntMap;
+use extra::treemap::TreeSet;
 
 use middle::temp::{Temp, TempSet};
 use middle::ssa::{CFG, Statement};
@@ -19,7 +21,7 @@ struct Liveness<'self, T, S> {
   a: &'self mut Analysis,
   info: &'self S,
   cfg: &'self CFG<T>,
-  phi_out: HashMap<NodeId, ~TempSet>,
+  phi_out: SmallIntMap<TreeSet<Temp>>,
 }
 
 pub fn Analysis() -> Analysis {
@@ -31,11 +33,11 @@ pub fn calculate<T, S: Statement<T>>(cfg: &CFG<T>, root: NodeId,
                                      result: &mut Analysis,
                                      info: &S) {
   debug!("calculating liveness");
-  let mut l = Liveness { a: result, phi_out: HashMap::new(), cfg: cfg,
+  let mut l = Liveness { a: result, phi_out: SmallIntMap::new(), cfg: cfg,
                          info: info };
 
   for cfg.each_node |id, _| {
-    l.phi_out.insert(id, ~HashSet::new());
+    l.phi_out.insert(id, TreeSet::new());
   }
   for cfg.each_node |id, _| {
     l.lookup_phis(id);

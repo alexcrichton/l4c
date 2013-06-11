@@ -322,12 +322,16 @@ fn analyze<T>(cfg: &CFG<T>, root: graph::NodeId, analysis: &mut Analysis) {
         } else {
           let mut b1 = p;
           let mut b2 = new_idom;
-          while postorder.get(&b1) != postorder.get(&b2) {
-            while postorder.get(&b1) < postorder.get(&b2) {
+          let mut pb1 = postorder.get(&b1);
+          let mut pb2 = postorder.get(&b2);
+          while pb1 != pb2 {
+            while pb1 < pb2 {
               b1 = *idoms.get(&b1);
+              pb1 = postorder.get(&b1);
             }
-            while postorder.get(&b2) < postorder.get(&b1) {
+            while pb2 < pb1 {
               b2 = *idoms.get(&b2);
+              pb2 = postorder.get(&b1);
             }
           }
           new_idom = b1;

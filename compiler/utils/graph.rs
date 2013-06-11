@@ -201,8 +201,8 @@ pub impl<N, E> Graph<N, E> {
     }
   }
 
-  fn postorder(&self, root: NodeId) -> (~[NodeId], HashMap<NodeId, int>) {
-    let mut ordering = HashMap::new();
+  fn postorder(&self, root: NodeId) -> (~[NodeId], SmallIntMap<int>) {
+    let mut ordering = SmallIntMap::new();
     self.traverse(&mut ordering, root, 0);
     let mut v = ~[];
     vec::grow(&mut v, ordering.len(), &root);
@@ -212,7 +212,7 @@ pub impl<N, E> Graph<N, E> {
     return (v, ordering);
   }
 
-  fn traverse(&self, o: &mut HashMap<NodeId, int>, n: NodeId, i: int) -> int {
+  fn traverse(&self, o: &mut SmallIntMap<int>, n: NodeId, i: int) -> int {
     match o.find(&n) {
       Some(_) => return i,
       None => ()
