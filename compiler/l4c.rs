@@ -12,6 +12,7 @@ pub mod utils {
   pub mod set;
   pub mod graph;
   pub mod profile;
+  pub mod splay;
 
   pub trait PrettyPrint {
     fn pp(&self) -> ~str;
