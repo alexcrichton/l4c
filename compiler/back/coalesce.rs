@@ -535,23 +535,14 @@ impl<'self, I: ssa::Statement<assem::Instruction>> Coalescer<'self, I> {
         /* TODO(#4653): make this sane again */
         /*let &Chunk(ref xs, _) = chunks.get(&xc);*/
         /*let &Chunk(ref ys, _) = chunks.get(&yc);*/
-        let a = chunks.get(&xc);
-        let b = chunks.get(&yc);
-        let (xs, xw) = match *a { Chunk(ref xs, xw) => (xs, xw) };
-        let (ys, yw) = match *b { Chunk(ref ys, yw) => (ys, yw) };
-        let mut interferes = false;
+        let (xs, xw) = match *chunks.get(&xc) { Chunk(ref xs, xw) => (xs, xw) };
+        let (ys, yw) = match *chunks.get(&yc) { Chunk(ref ys, yw) => (ys, yw) };
 
         /* Here try to find if anything pairwise interfers between the chunks,
          * and if it does we have to break out and just go to the next affinity
          * edge in the graph */
-        for xs.each |&v| { /* v.chunk = x.chunk */
-          for ys.each |&w| { /* w.chunk = y.chunk */
-            interferes = interferes || self.interferes(v, w);
-            if interferes { break }
-          }
-          if interferes { break }
-        }
-        if interferes { loop }
+        let continue = xs.each(|&v| ys.each(|&w| !self.interferes(v, w)));
+        if !continue { loop }
 
         /* no element of the two chunks interfere, merge the chunks */
         merge = HashSet::new();
