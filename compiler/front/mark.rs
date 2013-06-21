@@ -14,12 +14,12 @@ impl<T:Eq> Eq for Marked<T> {
   fn ne(&self, other: &Marked<T>) -> bool { !self.eq(other) }
 }
 
-pub impl<T> Marked<T> {
-  fn new(t: T, m: Mark) -> Marked<T> {
+impl<T> Marked<T> {
+  pub fn new(t: T, m: Mark) -> Marked<T> {
     Marked{ node: t, span: m }
   }
 
-  fn unwrap(~self) -> T {
+  pub fn unwrap(~self) -> T {
     match self {
       ~Marked { node, _ } => return node,
     }

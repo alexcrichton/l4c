@@ -21,7 +21,7 @@ struct Eliminator {
 }
 
 pub fn optimize(p: &mut Program) {
-  for vec::each_mut(p.funs) |f| {
+  for p.funs.mut_iter().advance |f| {
     let mut opt = Eliminator { stms: ~[],
                                used: bitv::Bitv::new(f.types.len(), false) };
     /* TODO: surely this is easier on SSA form? */
@@ -53,7 +53,7 @@ impl Eliminator {
     let mut changed = false;
     for order.each |&n| {
       let orig = f.cfg.node(n).len();
-      f.cfg.node(n).each_reverse(|&stm| self.stm(stm));
+      f.cfg.node(n).rev_iter().advance(|&stm| self.stm(stm));
       let mut block = replace(&mut self.stms, ~[]);
       vec::reverse(block);
 

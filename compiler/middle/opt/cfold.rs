@@ -23,7 +23,7 @@ struct ConstantFolder<'self> {
 }
 
 pub fn optimize(p: &mut Program) {
-  for vec::each_mut(p.funs) |f| {
+  for p.funs.mut_iter().advance |f| {
     /* TODO(#5884): should initialize directly */
     let (constants, temps) = (HashMap::new(), HashMap::new());
     let mut opt = ConstantFolder { f: f,
@@ -37,7 +37,7 @@ impl<'self> ConstantFolder<'self> {
   fn run(&mut self) {
     /* Be sure to start at the top of the graph to visit definitions first */
     let (order, _) = self.f.cfg.postorder(self.f.root);
-    for order.each_reverse |&n| {
+    for order.rev_iter().advance |&n| {
       let node = self.f.cfg.pop_node(n);
       let node = vec::map_consume(node, |s| self.stm(s));
       self.f.cfg.add_node(n, node);

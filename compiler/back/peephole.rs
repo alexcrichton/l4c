@@ -11,7 +11,7 @@ use std::vec;
 use back::assem::*;
 
 pub fn optimize(p: &mut Program) {
-  for vec::each_mut(p.funs) |f| {
+  for p.funs.mut_iter().advance |f| {
     do f.cfg.map_nodes |_, ins| {
       peep(ins)
     }

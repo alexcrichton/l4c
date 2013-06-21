@@ -1,5 +1,3 @@
-use std::str;
-
 use front::ast::*;
 use front::mark::Marked;
 use utils::PrettyPrint;
@@ -9,7 +7,7 @@ pub trait PrettyPrintAST {
 }
 
 fn tab(s: ~str) -> ~str {
-  ~"  " + str::replace(s, "\n", "\n  ")
+  ~"  " + s.replace("\n", "\n  ")
 }
 
 impl PrettyPrint for Unop {
@@ -57,7 +55,7 @@ impl PrettyPrintAST for Type {
       Array(t)      => t.pp(p) + "[]",
       Struct(s)     => ~"struct " + p.str(s),
       Nullp         => ~"(null)",
-      Fun(t, ref L) => t.pp(p) + "(" + str::connect(L.map(|x| x.pp(p)), ", ")
+      Fun(t, ref L) => t.pp(p) + "(" + L.map(|x| x.pp(p)).connect(", ")
     }
   }
 }
@@ -77,7 +75,7 @@ impl PrettyPrintAST for Expression {
       AllocArray(t, ref e) =>
         ~"alloc_array(" + t.pp(p) + ", " + e.pp(p) + ")",
       Call(ref e, ref E, _) =>
-        e.pp(p) + "(" + str::connect(E.map(|e| e.pp(p)), ", ") + ")",
+        e.pp(p) + "(" + E.map(|e| e.pp(p)).connect(", ") + ")",
       BinaryOp(o, ref e1, ref e2) =>
         ~"(" + e1.pp(p) + " " + o.pp() + " " + e2.pp(p) + ")",
       Ternary(ref e1, ref e2, ref e3, _) =>
@@ -130,7 +128,7 @@ fn ppair(prog: &Program, p: &(Ident, @Type)) -> ~str {
 
 fn pfun(prog: &Program, t: @Type, i: Ident, p: &~[(Ident, @Type)]) -> ~str {
   t.pp(prog) + " " + prog.str(i) + "(" +
-    str::connect(p.map(|p| ppair(prog, p)), ", ") + ")"
+    p.map(|p| ppair(prog, p)).connect(", ") + ")"
 }
 
 impl PrettyPrintAST for GDecl {
@@ -140,7 +138,7 @@ impl PrettyPrintAST for GDecl {
       StructDecl(s) => ~"struct " + p.str(s),
       StructDef(s, ref L) =>
         ~"struct " + p.str(s) + "{\n" +
-          tab(str::connect(L.map(|t| ppair(p, t)), "\n")) + "\n}",
+          tab(L.map(|t| ppair(p, t)).connect("\n")) + "\n}",
       FunIDecl(t, s, ref args) => pfun(p, t, s, args),
       FunEDecl(t, s, ref args) => ~"extern " + pfun(p, t, s, args),
       Function(t, s, ref args, ref body) =>

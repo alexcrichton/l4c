@@ -1,4 +1,4 @@
-use std::cell;
+use std::cell::Cell;
 use std::hashmap::HashMap;
 use std::io;
 use std::libc;
@@ -74,12 +74,12 @@ pub fn parse_files(f: &[~str], main: &str) -> Result<Program, ~str> {
   return Ok(Program::new(decls, syms, spans));
 }
 
-pub impl SymbolGenerator {
-  fn new() -> SymbolGenerator {
+impl SymbolGenerator {
+  pub fn new() -> SymbolGenerator {
     SymbolGenerator{ table: HashMap::new(), symbols: ~[] }
   }
 
-  fn intern(&mut self, s: &~str) -> ast::Ident {
+  pub fn intern(&mut self, s: &~str) -> ast::Ident {
     let s = match self.table.find(s) {
       Some(&i) => { return ast::Ident(i) }
       None => copy *s
@@ -90,7 +90,7 @@ pub impl SymbolGenerator {
     return ast::Ident(ret);
   }
 
-  fn unwrap(self) -> ~[~str] {
+  pub fn unwrap(self) -> ~[~str] {
     match self { SymbolGenerator{ symbols, _ } => symbols }
   }
 }
@@ -383,7 +383,7 @@ impl<'self> Parser<'self> {
         let args = do self.parse_list |p| { p.parse_exp(Default) };
         let end = self.expect(RPAREN);
         let e = self.mark(Var(id), sp, sp);
-        self.mark(Call(e, args, cell::empty_cell()), start, end)
+        self.mark(Call(e, args, Cell::new_empty()), start, end)
       }
 
       (IDENT(id), sp) => { self.mark(Var(id), sp, sp) }
@@ -405,7 +405,7 @@ impl<'self> Parser<'self> {
         if self.cur == PLUSPLUS || self.cur == MINUSMINUS {
           self.err(self.span, "invalid expression for C0");
         }
-        self.mark(Deref(e, cell::empty_cell()), start, end)
+        self.mark(Deref(e, Cell::new_empty()), start, end)
       }
       (ALLOC, start) => {
         self.expect(LPAREN);
@@ -440,7 +440,7 @@ impl<'self> Parser<'self> {
           self.shift();
           let end = self.span;
           let field = self.parse_ident_or_type();
-          base = self.mark(Field(base, field, cell::empty_cell()), start, end);
+          base = self.mark(Field(base, field, Cell::new_empty()), start, end);
         }
 
         // this is purely syntactic sugar for a field of a deref, so we simply
@@ -449,8 +449,8 @@ impl<'self> Parser<'self> {
           self.shift();
           let end = self.span;
           let field = self.parse_ident_or_type();
-          base = self.mark(Deref(base, cell::empty_cell()), end, end);
-          base = self.mark(Field(base, field, cell::empty_cell()), start, end);
+          base = self.mark(Deref(base, Cell::new_empty()), end, end);
+          base = self.mark(Field(base, field, Cell::new_empty()), start, end);
         }
 
         // Sure would be nice to not list out all the binops here.
@@ -468,7 +468,7 @@ impl<'self> Parser<'self> {
           self.shift();
           let idx = self.parse_exp(Default);
           let end = self.expect(RBRACKET);
-          base = self.mark(ArrSub(base, idx, cell::empty_cell()), start, end);
+          base = self.mark(ArrSub(base, idx, Cell::new_empty()), start, end);
         }
 
         QUESTION => {
@@ -477,7 +477,7 @@ impl<'self> Parser<'self> {
           self.expect(COLON);
           let f = self.parse_exp(prec);
           let end = self.posgen.to_span(f.span);
-          base = self.mark(Ternary(base, t, f, cell::empty_cell()), start, end);
+          base = self.mark(Ternary(base, t, f, Cell::new_empty()), start, end);
         }
 
         _ => { break }

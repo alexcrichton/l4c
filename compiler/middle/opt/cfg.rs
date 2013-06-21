@@ -22,7 +22,7 @@ pub fn simplify(p: &mut ir::Program) {
 
   /* TODO: this may need to be integrated with constant folding as part of it?
            to see this, look at ../tests1/kestrel-logical01.l2 */
-  for vec::each_mut(p.funs) |f| {
+  for p.funs.mut_iter().advance |f| {
     /* Take out all the dead branches/edges */
     eliminate_dead(&mut f.cfg);
     /* Remove all unreachable nodes */

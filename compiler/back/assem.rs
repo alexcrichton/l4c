@@ -2,7 +2,6 @@ use std::cmp;
 use std::io;
 use std::io::WriterUtil;
 use std::hashmap::{HashMap, HashSet};
-use std::str;
 use std::vec;
 
 use middle::{label, ir};
@@ -336,7 +335,7 @@ impl PrettyPrint for Instruction {
       },
       Call(dst, ref e, ref args) =>
         fmt!("call %s // %s <- %s", e.pp(), dst.pp(),
-             ~"(" + str::connect(args.map(|a| a.pp()), ", ") + ")"),
+             ~"(" + args.map(|a| a.pp()).connect(", ") + ")"),
       Phi(tmp, ref map) => {
         let mut s = ~"//" + tmp.pp() + " <- phi(";
         for map.each |&id, &tmp| {
@@ -433,7 +432,7 @@ impl Address {
   fn each_temp(&self, f: &fn(Temp) -> bool) -> bool {
     match *self {
       MOp(ref o, _, ref off) => {
-        o.each_temp(f) && off.each(|p| {
+        o.each_temp(f) && off.iter().advance(|p| {
           /* TODO(#4653): make this sane again */
           let x = match *p { (ref x, _) => x };
           x.each_temp(f)
@@ -449,7 +448,7 @@ impl PrettyPrint for Address {
     match *self {
       MOp(ref o, disp, ref off) => {
         let mut s = ~"";
-        for disp.each |&d| { s += fmt!("%?", d); }
+        for disp.iter().advance |&d| { s += fmt!("%?", d); }
         s += "(";
         s += o.pp();
         match *off {
@@ -619,7 +618,7 @@ impl Graphable for Program {
       f.cfg.dot(out,
         |id| fmt!("%s_n%d", f.name, id as int),
         |id, &ins|
-          ~"label=\"" + str::connect(ins.map(|s| s.pp()), "\\n") +
+          ~"label=\"" + ins.map(|s| s.pp()).connect("\\n") +
           fmt!("\\n[node=%d]\" shape=box", id as int),
         |&edge| fmt!("label=%?", edge)
       )
@@ -628,8 +627,8 @@ impl Graphable for Program {
   }
 }
 
-pub impl Program {
-  fn output(&self, out: @io::Writer) {
+impl Program {
+  pub fn output(&self, out: @io::Writer) {
     for self.funs.each |f| {
       f.output(out);
     }

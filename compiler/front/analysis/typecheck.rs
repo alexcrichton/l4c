@@ -1,5 +1,4 @@
 use std::hashmap::{HashMap, HashSet};
-use std::vec;
 
 use front::mark::Mark;
 use front::ast::*;
@@ -100,7 +99,7 @@ impl<'self> Typechecker<'self> {
       },
       Declare(id, typ, ref init, ref stm) => {
         self.tc_small(span, typ);
-        for init.each |x| {
+        for init.iter().advance |x| {
           self.tc_ensure(*x, typ);
         }
         if self.vars.contains_key(&id) {
@@ -182,7 +181,7 @@ impl<'self> Typechecker<'self> {
           if argtyps.len() != args.len() {
             self.program.error(span, "mismatched number of arguments");
           } else {
-            for vec::each2(*args, *argtyps) |e, &t2| {
+            for args.iter().zip(argtyps.iter()).advance |(e, &t2)| {
               self.tc_ensure(*e, t2);
             }
           }
@@ -264,7 +263,7 @@ impl<'self> Typechecker<'self> {
           self.program.error(span, "Different number of arguments than before");
           good = false;
         } else {
-          for vec::each2(*argsp, *args) |&expected, &(_, got)| {
+          for argsp.iter().zip(args.iter()).advance |(&expected, &(_, got))| {
             good = self.tc_equal(span, expected, got) && good;
           }
         }

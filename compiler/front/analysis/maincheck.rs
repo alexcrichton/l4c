@@ -1,5 +1,3 @@
-use std::vec;
-
 use front::ast::*;
 use front::mark;
 use front::pp::PrettyPrintAST;
@@ -10,7 +8,7 @@ struct MainChecker<'self> {
 
 pub fn check(p: &Program) {
   debug!("mainchecking");
-  if !vec::any(p.decls, |x| ismain(p, *x)) {
+  if !p.decls.iter().any_(|x| ismain(p, *x)) {
     p.error(mark::dummy, "No main function was found");
   }
   p.check();

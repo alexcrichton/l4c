@@ -86,7 +86,7 @@ impl<'self, T, S: Statement<T>> Liveness<'self, T, S> {
     for live.each |&t| { live_out.insert(t); }
     self.a.out.insert(n, live_out);
     let mut my_deltas = ~[];
-    for self.cfg.node(n).each_reverse |ins| {
+    for self.cfg.node(n).rev_iter().advance |ins| {
       let mut delta = ~[];
       for self.info.each_def(*ins) |def| {
         if live.remove(&def) {

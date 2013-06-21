@@ -8,7 +8,7 @@ use middle::temp::Temp;
 use back::arch;
 
 pub fn constrain(p: &mut Program) {
-  for vec::each_mut(p.funs) |f| {
+  for p.funs.mut_iter().advance |f| {
     let mut live = liveness::Analysis();
     liveness::calculate(&f.cfg, f.root, &mut live, &RegisterInfo);
     let mut temps = temp::new_init(f.temps);

@@ -1,9 +1,8 @@
-use std::cell;
+use std::cell::Cell;
 use std::cmp;
 use std::hashmap::{HashSet, HashMap};
 use std::io;
 use std::libc;
-use std::str;
 use std::util;
 use std::vec;
 
@@ -68,11 +67,11 @@ pub enum expr {
   Const(i32),
   BinaryOp(Binop, ~Expression, ~Expression),
   UnaryOp(Unop, ~Expression),
-  Ternary(~Expression, ~Expression, ~Expression, cell::Cell<@Type>),
-  Call(~Expression, ~[~Expression], cell::Cell<(@Type)>),
-  Deref(~Expression, cell::Cell<@Type>),
-  Field(~Expression, Ident, cell::Cell<Ident>),
-  ArrSub(~Expression, ~Expression, cell::Cell<@Type>),
+  Ternary(~Expression, ~Expression, ~Expression, Cell<@Type>),
+  Call(~Expression, ~[~Expression], Cell<(@Type)>),
+  Deref(~Expression, Cell<@Type>),
+  Field(~Expression, Ident, Cell<Ident>),
+  ArrSub(~Expression, ~Expression, Cell<@Type>),
   Alloc(@Type),
   AllocArray(@Type, ~Expression),
   Null,
@@ -94,8 +93,8 @@ pub enum Unop {
   Negative, Invert, Bang
 }
 
-pub impl Program {
-  fn new(decls: ~[~GDecl], mut syms: ~[~str], p: ~[mark::Coords]) -> Program {
+impl Program {
+  pub fn new(decls: ~[~GDecl], mut syms: ~[~str], p: ~[mark::Coords]) -> Program {
     let main = &~"main";
     let mainid = match vec::position(syms, |s| s.eq(main)) {
       Some(i) => Ident(i),
@@ -108,7 +107,7 @@ pub impl Program {
              errored: @mut false }
   }
 
-  fn elaborate(&mut self) {
+  pub fn elaborate(&mut self) {
     let prev = util::replace(&mut self.decls, ~[]);
     let decls;
     {
@@ -122,11 +121,11 @@ pub impl Program {
     self.decls = decls;
   }
 
-  fn str(&self, id: Ident) -> ~str {
+  pub fn str(&self, id: Ident) -> ~str {
     copy self.symbols[*id]
   }
 
-  fn error(&self, m: mark::Mark, msg: &str) {
+  pub fn error(&self, m: mark::Mark, msg: &str) {
     let out = io::stderr();
     if m == mark::dummy {
       out.write_str(fmt!("error: %s\n", msg));
@@ -141,12 +140,12 @@ pub impl Program {
     *self.errored = true;
   }
 
-  fn die(&self, m: mark::Mark, msg: &str) -> ! {
+  pub fn die(&self, m: mark::Mark, msg: &str) -> ! {
     self.error(m, msg);
     unsafe { libc::exit(1); }
   }
 
-  fn check(&self) {
+  pub fn check(&self) {
     if *self.errored {
       unsafe { libc::exit(1); }
     }
@@ -161,7 +160,7 @@ impl Eq for Program {
 impl PrettyPrint for Program {
   fn pp(&self) -> ~str {
     use front::pp::PrettyPrintAST;
-    str::connect(self.decls.map(|d| d.pp(self)), "\n")
+    self.decls.map(|d| d.pp(self)).connect("\n")
   }
 }
 
@@ -286,16 +285,16 @@ impl<'self> Elaborator<'self> {
         BinaryOp(o, self.elaborate_exp(e1), self.elaborate_exp(e2)),
       Ternary(e1, e2, e3, _) =>
         Ternary(self.elaborate_exp(e1), self.elaborate_exp(e2),
-                self.elaborate_exp(e3), cell::empty_cell()),
+                self.elaborate_exp(e3), Cell::new_empty()),
       Call(id, L, _) =>
         Call(id, vec::map_consume(L, |x| self.elaborate_exp(x)),
-             cell::empty_cell()),
+             Cell::new_empty()),
       Deref(e, _) => Deref(self.elaborate_exp(e),
-                           cell::empty_cell()),
-      Field(e, id, _) => Field(self.elaborate_exp(e), id, cell::empty_cell()),
+                           Cell::new_empty()),
+      Field(e, id, _) => Field(self.elaborate_exp(e), id, Cell::new_empty()),
       ArrSub(e1, e2, _) =>
         ArrSub(self.elaborate_exp(e1), self.elaborate_exp(e2),
-               cell::empty_cell()),
+               Cell::new_empty()),
       Alloc(t) => Alloc(self.resolve(span, t)),
       AllocArray(t, e) => AllocArray(self.resolve(span, t),
                                      self.elaborate_exp(e))
@@ -363,7 +362,8 @@ impl cmp::Eq for Type {
       (&Array(ref t1), &Array(ref t2)) => t1.eq(t2),
       (&Struct(ref s1), &Struct(ref s2)) => s1.eq(s2),
       (&Fun(t1, L1), &Fun(t2, L2)) =>
-        t1 == t2 && L1.len() == L2.len() && vec::all2(*L1, *L2, |a, b| a == b),
+        t1 == t2 && L1.len() == L2.len() &&
+          L1.iter().zip(L2.iter()).all(|(a, b)| a == b),
       _ => false
     }
   }

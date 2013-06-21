@@ -1,12 +1,11 @@
 use std::hashmap::HashMap;
 use std::uint;
-use std::vec;
 
 use middle::ssa;
 use back::assem;
 
 pub fn convert(p: &mut assem::Program) {
-  for vec::each_mut(p.funs) |f| {
+  for p.funs.mut_iter().advance |f| {
     ressa(f);
   }
 }

@@ -100,7 +100,8 @@ impl<'self, T: PrettyPrint, S: Statement<T>> Converter<'self, T, S> {
     do profile::dbg("renumbering temps") {
       let map = HashMap::new();
       self.versions.insert(self.root, map);
-      for self.cfg.postorder(self.root).first().each_reverse |&id| {
+      let (ord, _) = self.cfg.postorder(self.root);
+      for ord.rev_iter().advance |&id| {
         do profile::dbg(fmt!("node %?", id)) {
           self.map_temps(id, &phis, &mut phi_temps);
         }
@@ -180,13 +181,15 @@ impl<'self, T: PrettyPrint, S: Statement<T>> Converter<'self, T, S> {
     loop {
       let mut tmp = HashSet::new();
       for set.each |id| {
-        for self.frontiers.find(id).each |&x| {
-          for x.each |&t| { tmp.insert(t); }
+        match self.frontiers.find(id) {
+          Some(x) => for x.each |&t| { tmp.insert(t); },
+          None => {}
         }
       }
       for ret.each |id| {
-        for self.frontiers.find(id).each |&x| {
-          for x.each |&t| { tmp.insert(t); }
+        match self.frontiers.find(id) {
+          Some(x) => for x.each |&t| { tmp.insert(t); },
+          None => {}
         }
       }
       if tmp == ret {
@@ -311,7 +314,7 @@ fn analyze<T>(cfg: &CFG<T>, root: graph::NodeId, analysis: &mut Analysis) {
   let mut changed = true;
   while changed {
     changed = false;
-    for order.each_reverse |&b| {
+    for order.rev_iter().advance |&b| {
       if b == root { loop }
       let mut new_idom = -1;
 

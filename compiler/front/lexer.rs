@@ -62,9 +62,9 @@ pub struct Lexer<'self> {
   priv commstar: bool,
 }
 
-pub impl<'self> Lexer<'self> {
-  fn new<'a>(file: @str, in: @io::Reader,
-             s: &'a mut parser::SymbolGenerator) -> Lexer<'a> {
+impl<'self> Lexer<'self> {
+  pub fn new<'a>(file: @str, in: @io::Reader,
+                 s: &'a mut parser::SymbolGenerator) -> Lexer<'a> {
     let mut keywords = HashMap::new();
     keywords.insert(~"return", RETURN);
     keywords.insert(~"while", WHILE);
@@ -96,7 +96,7 @@ pub impl<'self> Lexer<'self> {
             bad_keywords: bad_keywords }
   }
 
-  fn next(&mut self) -> (Token, Span) {
+  pub fn next(&mut self) -> (Token, Span) {
     loop {
       let c = match self.next {
         Some(c) => { self.next = None; c }
@@ -396,7 +396,7 @@ pub impl<'self> Lexer<'self> {
     return IDENT(id);
   }
 
-  fn add_type(&mut self, t: ast::Ident) {
+  pub fn add_type(&mut self, t: ast::Ident) {
     self.types.insert(t);
   }
 
@@ -409,8 +409,8 @@ pub impl<'self> Lexer<'self> {
   }
 }
 
-pub impl Token {
-  fn precedence(&self) -> parser::Precedence {
+impl Token {
+  pub fn precedence(&self) -> parser::Precedence {
     match *self {
       ASSIGN                              => parser::PAssign,
       QUESTION | COLON                    => parser::PTernary,

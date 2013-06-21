@@ -31,7 +31,7 @@ struct Allocator {
 }
 
 pub fn color(p: &mut Program) {
-  for vec::each_mut(p.funs) |f| {
+  for p.funs.mut_iter().advance |f| {
     let mut live_regs = liveness::Analysis();
     let mut live_stack = liveness::Analysis();
     liveness::calculate(&f.cfg, f.root, &mut live_regs, &RegisterInfo);
@@ -409,7 +409,7 @@ impl Allocator {
   fn remove_temps(&mut self, f: &mut Function) {
     let (order, _) = f.cfg.postorder(f.root);
 
-    for order.each_reverse |&id| {
+    for order.rev_iter().advance |&id| {
       let prev = f.cfg.pop_node(id);
       let mut newins = ~[];
       /* If we're the root node, set up the stack after saving the callee
@@ -461,7 +461,7 @@ impl Allocator {
                          ~Immediate(self.stack_size(false) as i32, ir::Pointer),
                          ~Register(ESP, ir::Pointer)));
         }
-        for self.callee_saved.each_reverse |&color| {
+        for self.callee_saved.rev_iter().advance |&color| {
           push(~Raw(fmt!("pop %s", arch::num_reg(color).size(ir::Pointer))));
         }
         push(~Return(op));
@@ -598,7 +598,7 @@ fn resolve_perm(result: &[uint], incoming: &[uint], f: &fn(Resolution)) {
   /* maps describing src -> dst and dst -> src */
   let mut src_dst: SmallIntMap<~[uint]> = SmallIntMap::new();
   let mut dst_src = SmallIntMap::new();
-  for vec::each2(result, incoming) |&dst, &src| {
+  for result.iter().zip(incoming.iter()).advance |(&dst, &src)| {
     if dst == src { loop }
     assert!(dst_src.insert(dst, src));
     match src_dst.find_mut(&src) {
@@ -663,7 +663,7 @@ fn resolve_test(from: &[uint], to: &[uint]) {
 
   let mut map = SmallIntMap::new();
   for uint::range(0, 10) |i| { map.insert(i, ()); }
-  for vec::each2(from, to) |&f, &t| {
+  for from.iter().zip(to.iter()).advance |(&f, &t)| {
     map.remove(&t);
     if regs[t] != f {
       fail!(fmt!("expected %? to be %? but it was %?", t, f, regs[t]));

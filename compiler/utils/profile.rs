@@ -1,7 +1,6 @@
 use std::io;
 use std::local_data;
 use std::ops::Drop;
-use std::str;
 
 use extra::time;
 
@@ -20,8 +19,8 @@ impl Drop for Guard {
   }
 }
 
-pub impl Guard {
-  fn new(print: bool, name: &str) -> Guard {
+impl Guard {
+  pub fn new(print: bool, name: &str) -> Guard {
     if print {
       io::print(fmt!("%20s ", name));
     }
@@ -46,7 +45,7 @@ pub fn dbg<U>(name: &str, f: &fn() -> U) -> U {
     let ret = f();
     let val = time::precise_time_s() - start;
     if val > 0.001f {
-      debug!("%s%s %.8fs", str::repeat("  ", *lvls), name,
+      debug!("%s%s %.8fs", "  ".repeat(*lvls), name,
              time::precise_time_s() - start);
     }
     local_data::local_data_set(levels_key, lvls);

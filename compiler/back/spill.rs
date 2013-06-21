@@ -23,7 +23,6 @@
  */
 
 use std::hashmap::{HashMap, HashSet};
-use std::str;
 use std::uint;
 use std::vec;
 
@@ -66,7 +65,7 @@ struct Spiller {
 }
 
 pub fn spill(p: &mut Program) {
-  for vec::each_mut(p.funs) |f| {
+  for p.funs.mut_iter().advance |f| {
     opt::cfg::eliminate_critical(&mut f.cfg, &RegisterInfo);
 
     /* TODO(#5884): eew */
@@ -107,7 +106,7 @@ pub fn spill(p: &mut Program) {
 
     /* In reverse postorder, spill everything! */
     let order = f.cfg.postorder(f.root).first();
-    for order.each_reverse |&id| {
+    for order.rev_iter().advance |&id| {
       s.spill(f, id);
     }
 
@@ -227,7 +226,7 @@ impl Spiller {
     /* Process all of our block's statements backwards */
     let mut deltas = ~[];
     let mut max = bottom.len();
-    for block.eachi_reverse |i, &ins| {
+    for block.rev_iter().enumerate().advance |(i, &ins)| {
       let mut delta = ~[];
       match ins {
         ~PCopy(*) => { deltas.push(delta); loop; }
@@ -339,7 +338,7 @@ impl Spiller {
          for down the road. We iterate in reverse order in case one instruction
          uses the same operand more than once. In this case the first listed
          delta is the one which is the relevant value */
-      for delta.each_reverse |&(tmp, amt)| {
+      for delta.rev_iter().advance |&(tmp, amt)| {
         match amt {
           None    => { assert!(next_use.remove(&tmp)); }
           Some(d) => { next_use.insert(tmp, d); }
@@ -349,9 +348,9 @@ impl Spiller {
 
     debug!("%s", next_use.pp());
     let mut i = 0;
-    for vec::each2(*f.cfg.node(n), *self.deltas.get(&n)) |&ins, delta| {
+    for f.cfg.node(n).iter().zip(self.deltas.get(&n).iter()).advance |(&ins, delta)| {
       debug!("%2? %30s  %s %s", i, ins.pp(), next_use.pp(),
-             str::connect(delta.map(|a| fmt!("%?", a)), ", "));
+             delta.map(|a| fmt!("%?", a)).connect(", "));
 
       match ins {
         /* If the destination of a phi is not currently in the registers, then

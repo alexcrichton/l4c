@@ -28,27 +28,90 @@ struct Node<K, V> {
   right: Option<~Node<K, V>>,
 }
 
+/// Performs a top-down splay operation on a tree rooted at `node`. This will
+/// modify the pointer to contain the new root of the tree once the splay
+/// operation is done. When finished, if `key` is in the tree, it will be at the
+/// root. Otherwise the closest key to the specified key will be at the root.
+fn splay<K: TotalOrd, V>(key: &K, node: &mut ~Node<K, V>) {
+    let mut newleft = None;
+    let mut newright = None;
+
+    // Eplicitly grab a new scope so the loans on newleft/newright are
+    // terminated before we move out of them.
+    {
+        // Yes, these are backwards, that's intentional.
+        let mut l = &mut newright;
+        let mut r = &mut newleft;
+
+        loop {
+            match key.cmp(&node.key) {
+                // Found it, yay!
+                Equal => { break }
+
+                Less => {
+                    match node.pop_left() {
+                        None => { break }
+                        Some(left) => {
+                            let mut left = left;
+                            // rotate this node right if necessary
+                            if key.cmp(&left.key) == Less {
+                                // A bit odd, but avoids drop glue
+                                util::swap(&mut node.left, &mut left.right);
+                                util::swap(&mut left, node);
+                                let none = util::replace(&mut node.right,
+                                                         Some(left));
+                                match util::replace(&mut node.left, none) {
+                                    Some(l) => { left = l; }
+                                    None    => { break }
+                                }
+                            }
+
+                            let prev = util::replace(node, left);
+                            forget(r, Some(prev));
+                            let tmp = r;
+                            r = &mut tmp.get_mut_ref().left;
+                        }
+                    }
+                }
+
+                // If you look closely, you may have seen some similar code
+                // before
+                Greater => {
+                    match node.pop_right() {
+                        None => { break }
+                        // rotate left if necessary
+                        Some(right) => {
+                            let mut right = right;
+                            if key.cmp(&right.key) == Greater {
+                                util::swap(&mut node.right, &mut right.left);
+                                util::swap(&mut right, node);
+                                let none = util::replace(&mut node.left,
+                                                         Some(right));
+                                match util::replace(&mut node.right, none) {
+                                    Some(r) => { right = r; }
+                                    None    => { break }
+                                }
+                            }
+                            let prev = util::replace(node, right);
+                            forget(l, Some(prev));
+                            let tmp = l;
+                            l = &mut tmp.get_mut_ref().right;
+                        }
+                    }
+                }
+            }
+        }
+
+        util::swap(l, &mut node.left);
+        util::swap(r, &mut node.right);
+    }
+
+    forget(&mut node.left, newright);
+    forget(&mut node.right, newleft);
+}
+
 impl<K: TotalOrd, V> SplayMap<K, V> {
     pub fn new() -> SplayMap<K, V> { SplayMap{ root: None, size: 0 } }
-
-    /// Performs a splay operation on the tree, moving a key to the root, or one
-    /// of the closest values to the key to the root.
-    pub fn splay(&mut self, key: &K) {
-        let mut root = self.pop_root();
-        let mut newleft = None;
-        let mut newright = None;
-
-        // Yes, these are backwards, that's intentional.
-        root = root.splay(key, &mut newright, &mut newleft);
-
-        root.left = newright;
-        root.right = newleft;
-        self.root = Some(root);
-    }
-
-    fn pop_root(&mut self) -> ~Node<K, V> {
-        util::replace(&mut self.root, None).unwrap()
-    }
 
     /// Similar to `find`, but fails if the key is not present in the map
     pub fn get<'a>(&'a self, k: &K) -> &'a V {
@@ -83,13 +146,13 @@ impl<K: TotalOrd, V> Map<K, V> for SplayMap<K, V> {
     /// Visit all values in order
     #[inline(always)]
     fn each<'a>(&'a self, f: &fn(&K, &'a V) -> bool) -> bool {
-        self.root.each(|n| n.each(f))
+        self.root.iter().advance(|n| n.each(f))
     }
 
     /// Iterate over the map and mutate the contained values
     #[inline(always)]
     fn mutate_values(&mut self, f: &fn(&K, &mut V) -> bool) -> bool {
-        self.root.each_mut(|n| n.each_mut(f))
+        self.root.mut_iter().advance(|n| n.each_mut(f))
     }
 
     /// Visit all keys in order
@@ -113,31 +176,35 @@ impl<K: TotalOrd, V> Map<K, V> for SplayMap<K, V> {
     /// Insert a key-value pair from the map. If the key already had a value
     /// present in the map, that value is returned. Otherwise None is returned.
     fn swap(&mut self, key: K, value: V) -> Option<V> {
-        if self.root.is_none() {
-            self.root = Some(Node::new(key, value, None, None));
-            self.size += 1;
-            return None;
+        match self.root {
+            None => {
+                /* is forget necessary or is llvm smarter than that? */
+                forget(&mut self.root, Some(Node::new(key, value, None, None)));
+            }
+            Some(ref mut root) => {
+                splay(&key, root);
+
+                match key.cmp(&root.key) {
+                    Equal => {
+                        let old = util::replace(&mut root.value, value);
+                        return Some(old);
+                    }
+                    /* TODO: would unsafety help perf here? */
+                    Less => {
+                        let left = root.pop_left();
+                        let new = Node::new(key, value, left, None);
+                        let prev = util::replace(root, new);
+                        forget(&mut root.right, Some(prev));
+                    }
+                    Greater => {
+                        let right = root.pop_right();
+                        let new = Node::new(key, value, None, right);
+                        let prev = util::replace(root, new);
+                        forget(&mut root.left, Some(prev));
+                    }
+                }
+            }
         }
-
-        self.splay(&key);
-        let mut root = self.pop_root();
-
-        match key.cmp(&root.key) {
-            Equal => {
-                let ret = util::replace(&mut root.value, value);
-                self.root = Some(root);
-                return Some(ret);
-            }
-            Less => {
-                let left = root.pop_left();
-                self.root = Some(Node::new(key, value, left, Some(root)));
-            }
-            Greater => {
-                let right = root.pop_right();
-                self.root = Some(Node::new(key, value, Some(root), right));
-            }
-        }
-
         self.size += 1;
         return None;
     }
@@ -152,27 +219,27 @@ impl<K: TotalOrd, V> Map<K, V> for SplayMap<K, V> {
     /// Removes a key from the map, returning the value at the key if the key
     /// was previously in the map.
     fn pop(&mut self, key: &K) -> Option<V> {
-        if self.root.is_none() {
-            return None;
+        match self.root {
+            None => { return None; }
+            Some(ref mut root) => {
+                splay(key, root);
+                if !key.equals(&root.key) { return None; }
+            }
         }
 
-        self.splay(key);
-        let root = self.pop_root();
-        if !key.equals(&root.key) {
-            self.root = Some(root);
-            return None;
-        }
-
-        let (value, left, right) = match root {
+        // TODO: Extra storage of None isn't necessary
+        let (value, left, right) = match self.root.swap_unwrap() {
             ~Node {left, right, value, _} => (value, left, right)
         };
 
-        if left.is_none() {
-            self.root = right;
-        } else {
-            self.root = left;
-            self.splay(key);
-            self.root.get_mut_ref().right = right;
+        match left {
+            None => { forget(&mut self.root, right); }
+            Some(node) => {
+                let mut node = node;
+                splay(key, &mut node);
+                forget(&mut node.right, right);
+                forget(&mut self.root, Some(node));
+            }
         }
 
         self.size -= 1;
@@ -181,15 +248,16 @@ impl<K: TotalOrd, V> Map<K, V> for SplayMap<K, V> {
 
     /// Return a mutable reference to the value corresponding to the key
     fn find_mut<'a>(&'a mut self, key: &K) -> Option<&'a mut V> {
-        if self.root.is_none() {
-            return None;
+        match self.root {
+            None => { return None; }
+            Some(ref mut root) => {
+                splay(key, root);
+                if key.equals(&root.key) {
+                    return Some(&mut root.value);
+                }
+                return None;
+            }
         }
-        self.splay(key);
-        let root = self.root.get_mut_ref();
-        if key.equals(&root.key) {
-            return Some(&mut root.value);
-        }
-        return None;
     }
 
     /// Return a reference to the value corresponding to the key
@@ -241,10 +309,7 @@ impl<T> Mutable for SplaySet<T> {
     fn clear(&mut self) { self.map.clear() }
 }
 
-impl<T: TotalOrd> SplaySet<T> {
-    /// Creates a new empty set
-    pub fn new() -> SplaySet<T> { SplaySet { map: SplayMap::new() } }
-
+impl<T: TotalOrd> Set<T> for SplaySet<T> {
     /// Add a value to the set. Return true if the value was not already
     /// present in the set.
     #[inline(always)]
@@ -259,6 +324,28 @@ impl<T: TotalOrd> SplaySet<T> {
     #[inline(always)]
     pub fn remove(&mut self, t: &T) -> bool { self.map.remove(t) }
 
+    pub fn is_disjoint(&self, _: &SplaySet<T>) -> bool { fail!(); }
+    pub fn is_subset(&self, _: &SplaySet<T>) -> bool { fail!(); }
+    pub fn is_superset(&self, _: &SplaySet<T>) -> bool { fail!(); }
+    pub fn difference(&self, _: &SplaySet<T>, _: &fn(&T) -> bool) -> bool {
+        fail!();
+    }
+    pub fn symmetric_difference(&self, _: &SplaySet<T>, _: &fn(&T) -> bool) -> bool {
+        fail!();
+    }
+    pub fn intersection(&self, _: &SplaySet<T>, _: &fn(&T) -> bool) -> bool {
+        fail!();
+    }
+    pub fn union(&self, _: &SplaySet<T>, _: &fn(&T) -> bool) -> bool {
+        fail!();
+    }
+}
+
+impl<T: TotalOrd> SplaySet<T> {
+    /// Creates a new empty set
+    pub fn new() -> SplaySet<T> { SplaySet { map: SplayMap::new() } }
+
+    /// Iterates over all values contained in the set
     pub fn each(&self, f: &fn(&T) -> bool) -> bool {
       self.map.each_key(f)
     }
@@ -275,111 +362,34 @@ impl<K: TotalOrd, V> Node<K, V> {
         ~Node{ key: k, value: v, left: l, right: r }
     }
 
-    /// Performs the top-down splay operation at a current node. The key is the
-    /// value which is being splayed. The `l` and `r` arguments are storage
-    /// locations for the traversal down the tree. Once a node is recursed on,
-    /// one of the children is placed in either 'l' or 'r'.
-    fn splay(~self, key: &K,
-             l: &mut Option<~Node<K, V>>,
-             r: &mut Option<~Node<K, V>>) -> ~Node<K, V>
-    {
-        assert!(r.is_none());
-        assert!(l.is_none());
-
-        // When finishing the top-down splay operation, we need to ensure that
-        // `self` doesn't have any children, so move its remaining children into
-        // the `l` and `r` arguments.
-        fn fixup<K: TotalOrd, V>(mut me: ~Node<K, V>,
-                                 l: &mut Option<~Node<K, V>>,
-                                 r: &mut Option<~Node<K, V>>) -> ~Node<K, V>
-        {
-            *l = me.pop_left();
-            *r = me.pop_right();
-            return me;
-        }
-
-        let mut this = self;
-        match key.cmp(&this.key) {
-            // Found it, yay!
-            Equal => { return fixup(this, l, r); }
-
-            Less => {
-                match this.pop_left() {
-                    None => { return fixup(this, l, r); }
-                    Some(left) => {
-                        let mut left = left;
-                        // rotate this node right if necessary
-                        if key.cmp(&left.key) == Less {
-                            this.left = left.pop_right();
-                            left.right = Some(this);
-                            this = left;
-                            match this.pop_left() {
-                                Some(l) => { left = l; }
-                                None => { return fixup(this, l, r); }
-                            }
-                        }
-
-                        // Bit of an odd way to get some loans, but it works
-                        *r = Some(this);
-                        match *r {
-                            None => fail!(),
-                            Some(ref mut me) => {
-                                return left.splay(key, l, &mut me.left);
-                            }
-                        }
-                    }
-                }
-            }
-
-            // If you look closely, you may have seen some similar code before
-            Greater => {
-                match this.pop_right() {
-                    None => { return fixup(this, l, r); }
-                    // rotate left if necessary
-                    Some(right) => {
-                        let mut right = right;
-                        if key.cmp(&right.key) == Greater {
-                            this.right = right.pop_left();
-                            right.left = Some(this);
-                            this = right;
-                            match this.pop_right() {
-                                Some(r) => { right = r; }
-                                None => { return fixup(this, l, r); }
-                            }
-                        }
-
-                        *l = Some(this);
-                        match *l {
-                            None => fail!(),
-                            Some(ref mut me) => {
-                                return right.splay(key, &mut me.right, r);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     fn each<'a>(&'a self, f: &fn(&K, &'a V) -> bool) -> bool {
-        self.left.each(|l| l.each(f)) &&
+        self.left.iter().advance(|l| l.each(f)) &&
             f(&self.key, &self.value) &&
-            self.right.each(|r| r.each(f))
+            self.right.iter().advance(|r| r.each(f))
     }
 
     fn each_mut(&mut self, f: &fn(&K, &mut V) -> bool) -> bool {
-        self.left.each_mut(|l| l.each_mut(f)) &&
+        self.left.mut_iter().advance(|l| l.each_mut(f)) &&
             f(&self.key, &mut self.value) &&
-            self.right.each_mut(|r| r.each_mut(f))
+            self.right.mut_iter().advance(|r| r.each_mut(f))
     }
 
+    #[inline(always)]
     fn pop_left(&mut self) -> Option<~Node<K, V>> {
         util::replace(&mut self.left, None)
     }
 
+    #[inline(always)]
     fn pop_right(&mut self) -> Option<~Node<K, V>> {
         util::replace(&mut self.right, None)
     }
+}
+
+#[inline(always)]
+fn forget<K, V>(slot: &mut Option<~Node<K, V>>, node: Option<~Node<K, V>>) {
+    use std::cast;
+    let prev = util::replace(slot, node);
+    unsafe { cast::forget(prev) }
 }
 
 #[cfg(test)]
@@ -543,5 +553,22 @@ mod test {
         let mut m = SplayMap::new::<int, int>();
         m.insert(2, 2);
         m.get(&1);
+    }
+
+    #[test]
+    fn large() {
+        use std::rand::random;
+        let mut m = SplaySet::new();
+        let mut v = ~[];
+
+        for 400.times {
+            let i: int = random();
+            m.insert(i);
+            v.push(i);
+        }
+
+        for v.each |i| {
+            assert!(m.contains(i));
+        }
     }
 }

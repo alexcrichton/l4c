@@ -16,18 +16,18 @@ pub fn new_init(next: uint) -> Allocator {
   Allocator{ next: next }
 }
 
-pub impl Allocator {
-  fn new(&mut self) -> Temp {
+impl Allocator {
+  pub fn new(&mut self) -> Temp {
     let ret = self.next;
     self.next += 1;
     return ret;
   }
 
-  fn cnt(&self) -> uint {
+  pub fn cnt(&self) -> uint {
     self.next
   }
 
-  fn reset(&mut self) {
+  pub fn reset(&mut self) {
     self.next = 0;
   }
 }
