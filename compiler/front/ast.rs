@@ -96,7 +96,7 @@ pub enum Unop {
 impl Program {
   pub fn new(decls: ~[~GDecl], mut syms: ~[~str], p: ~[mark::Coords]) -> Program {
     let main = &~"main";
-    let mainid = match vec::position(syms, |s| s.eq(main)) {
+    let mainid = match syms.iter().position_(|s| s.eq(main)) {
       Some(i) => Ident(i),
       None => {
         syms.push(~"main");

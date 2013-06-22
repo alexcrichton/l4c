@@ -108,7 +108,7 @@ impl Eliminator {
   }
 
   fn first_impossible(&self, b: &[~Statement]) -> uint {
-    for b.eachi |i, &stm| {
+    for b.iter().enumerate().advance |(i, &stm)| {
       match stm {
         ~Die(~Const(c, _)) if c != 0 => return i + 1,
         ~Return(*) => return i + 1,

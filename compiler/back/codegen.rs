@@ -157,7 +157,7 @@ impl CodeGenerator {
   fn stm(&mut self, s: ~ir::Statement) {
     match s {
       ~ir::Arguments(ref tmps) => {
-        for tmps.eachi |i, &tmp| {
+        for tmps.iter().enumerate().advance |(i, &tmp)| {
           let tmp = self.tmp(tmp);
           if i < arch::arg_regs {
             self.push(~assem::Arg(tmp, i));

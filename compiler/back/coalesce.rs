@@ -166,7 +166,7 @@ fn liveness_map<I: ssa::Statement<assem::Instruction>>(
     let mut set = HashSet::new();
     for live.in.get(&id).each |&t| { set.insert(t); }
 
-    for stms.eachi |i, stm| {
+    for stms.iter().enumerate().advance |(i, stm)| {
       /* we care about 'live-out' variables on an instruction */
       liveness::apply(&mut set, &live.deltas.get(&id)[i]);
       let mut bitv = bitv::Bitv::new(max, false);
@@ -206,7 +206,7 @@ fn use_def_maps<I: ssa::Statement<assem::Instruction>>(
       n: NodeId, info: &I, ins: &~[~assem::Instruction],
       uses: &mut UseMap, defs: &mut DefMap)
   {
-    for ins.eachi |i, &ins| {
+    for ins.iter().enumerate().advance |(i, &ins)| {
       for info.each_def(ins) |tmp| {
         assert!(defs.insert(tmp, (n, i as int)));
       }
@@ -481,7 +481,7 @@ impl<'self, I: ssa::Statement<assem::Instruction>> Coalescer<'self, I> {
     /* And finally find the minimum index */
     let mut mini = 0;
     let mut min = uint::max_value;
-    for cnts.eachi |i, &cnt| {
+    for cnts.iter().enumerate().advance |(i, &cnt)| {
       if cnt < min {
         min = cnt;
         mini = i;

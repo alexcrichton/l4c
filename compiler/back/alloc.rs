@@ -103,7 +103,7 @@ impl Allocator {
     debug!("%s", tmplive.pp())
 
     let mut pcopy = None;
-    for f.cfg.node(n).eachi |i, ins| {
+    for f.cfg.node(n).iter().enumerate().advance |(i, ins)| {
       /* examine data for next instruction for last use information */
       {
         let delta = &live.deltas.get(&n)[i];
@@ -189,7 +189,7 @@ impl Allocator {
           ~Call(dst, _, ref args) => {
             self.colors.insert(dst, arch::reg_num(EAX));
             assert!(self.precolored.insert(dst));
-            for args.eachi |i, arg| {
+            for args.iter().enumerate().advance |(i, arg)| {
               self.precolor(*arg, arch::arg_reg(i));
             }
             for arch::each_caller |r| {
@@ -417,7 +417,9 @@ impl Allocator {
       if id == f.root {
         for self.colors.each |_, &color| {
           let reg = arch::num_reg(color);
-          if arch::callee_reg(reg) && !self.callee_saved.contains(&color) {
+          if arch::callee_reg(reg) &&
+            self.callee_saved.iter().position_(|c| *c == color).is_none()
+          {
             self.callee_saved.push(color);
             newins.push(~Raw(fmt!("push %s", reg.size(ir::Pointer))));
           }
