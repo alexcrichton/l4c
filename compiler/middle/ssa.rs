@@ -110,14 +110,14 @@ impl<'self, T: PrettyPrint, S: Statement<T>> Converter<'self, T, S> {
     /* If the graph already has phi functions, those are treated specially */
     do profile::dbg("mapping phis") {
       let nodes = self.cfg.nodes();
-      for nodes.each |&id| {
+      for nodes.iter().advance |&id| {
         self.map_phi_temps(id);
       }
     }
 
     /* Finally place our new phi nodes */
     do profile::dbg("placing phis") {
-      for phi_temps.each |&k, v| {
+      for phi_temps.iter().advance |(&k, v)| {
         self.place_phis(k, *v);
       }
     }
@@ -129,7 +129,7 @@ impl<'self, T: PrettyPrint, S: Statement<T>> Converter<'self, T, S> {
   fn find_defs(&mut self) -> Definitions {
     let mut defs: HashMap<Temp, ~HashSet<graph::NodeId>> = HashMap::new();
     for self.cfg.each_node |id, stms| {
-      for stms.each |s| {
+      for stms.iter().advance |s| {
         let s: &T = *s;
         for self.info.each_def(s) |tmp| {
           match defs.find_mut(&tmp) {
@@ -157,7 +157,7 @@ impl<'self, T: PrettyPrint, S: Statement<T>> Converter<'self, T, S> {
       if defs.len() > 1 {
         debug!("idf for tmp: %s", tmp.pp());
         let locs = self.idf(defs);
-        for locs.each |n| {
+        for locs.iter().advance |n| {
           if !self.liveness.in.get(n).contains(&tmp) { loop }
           match phis.find_mut(n) {
             Some(s) => { s.insert(tmp); loop; }
@@ -174,21 +174,21 @@ impl<'self, T: PrettyPrint, S: Statement<T>> Converter<'self, T, S> {
   /* Calculate the iterated dominance frontier on a set of nodes */
   fn idf(&mut self, set: ~graph::NodeSet) -> graph::NodeSet {
     let mut ret = HashSet::new();
-    for set.each |&v| {
+    for set.iter().advance |&v| {
       ret.insert(v);
     }
     /* loop until we find a fixed point */
     loop {
       let mut tmp = HashSet::new();
-      for set.each |id| {
+      for set.iter().advance |id| {
         match self.frontiers.find(id) {
-          Some(x) => for x.each |&t| { tmp.insert(t); },
+          Some(x) => for x.iter().advance |&t| { tmp.insert(t); },
           None => {}
         }
       }
-      for ret.each |id| {
+      for ret.iter().advance |id| {
         match self.frontiers.find(id) {
-          Some(x) => for x.each |&t| { tmp.insert(t); },
+          Some(x) => for x.iter().advance |&t| { tmp.insert(t); },
           None => {}
         }
       }
@@ -211,7 +211,7 @@ impl<'self, T: PrettyPrint, S: Statement<T>> Converter<'self, T, S> {
                phi_temps: &mut PhiMappings) {
     let mut map = HashMap::new();
     let idom = self.analysis.idominator.get(&n);
-    for self.versions.get(idom).each |&k, &v| {
+    for self.versions.get(idom).iter().advance |(&k, &v)| {
       map.insert(k, v);
     }
 
@@ -223,7 +223,7 @@ impl<'self, T: PrettyPrint, S: Statement<T>> Converter<'self, T, S> {
         /* Keep track of what we changed our temps to so the phi functions can
            be placed correctly in the next step */
         let mut mapping = ~HashMap::new();
-        for temps.each |&tmp| {
+        for temps.iter().advance |&tmp| {
           mapping.insert(tmp, self.bump(&mut map, tmp));
         }
         phi_temps.insert(n, mapping);
@@ -278,7 +278,7 @@ impl<'self, T: PrettyPrint, S: Statement<T>> Converter<'self, T, S> {
   fn place_phis(&mut self, n: graph::NodeId, temps: &HashMap<Temp, Temp>) {
     debug!("generating %? phis at %?", temps.len(), n);
     let mut block = ~[];
-    for temps.each |tmp_before, &tmp_after| {
+    for temps.iter().advance |(tmp_before, &tmp_after)| {
       debug!("placing phi for %? at %?", tmp_before, n);
       let mut preds = HashMap::new();
       /* Our phi function operates on the last known ssa-temp for this node's
@@ -386,12 +386,12 @@ fn dom_frontiers<T>(cfg: &CFG<T>, root: graph::NodeId,
     }
 
     /* for all c where idom[c] = a */
-    for idominated.get(&a).each |&c| {
+    for idominated.get(&a).iter().advance |&c| {
       if a == c { loop }
       debug!("df_up[%d, %d]...", a as int, c as int);
 
       /* df_up[a, c] */
-      for frontiers.get(&c).each |&b| {
+      for frontiers.get(&c).iter().advance |&b| {
         if *idoms.get(&b) != a {
           frontier.insert(b);
         }

@@ -12,7 +12,7 @@ pub struct Guard {
 }
 
 impl Drop for Guard {
-  fn finalize(&self) {
+  fn drop(&self) {
     if self.enabled {
       io::println(fmt!("%.2fs", time::precise_time_s() - self.start));
     }

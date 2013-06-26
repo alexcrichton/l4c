@@ -36,10 +36,10 @@ impl Eliminator {
     self.used.clear();
     /* Mark all phi function arguments as used before we go anywhere */
     for f.cfg.each_node |_, stms| {
-      for stms.each |&s| {
+      for stms.iter().advance |&s| {
         match s {
           ~Phi(_, ref m) => {
-            for m.each |_, &t| {
+            for m.iter().advance |(_, &t)| {
               self.used.set(t, true);
             }
           }
@@ -51,7 +51,7 @@ impl Eliminator {
     /* Be sure to start at the top of the graph to visit definitions first */
     let (order, _) = f.cfg.postorder(f.root);
     let mut changed = false;
-    for order.each |&n| {
+    for order.iter().advance |&n| {
       let orig = f.cfg.node(n).len();
       f.cfg.node(n).rev_iter().advance(|&stm| self.stm(stm));
       let mut block = replace(&mut self.stms, ~[]);

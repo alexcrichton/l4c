@@ -26,7 +26,7 @@ pub fn check(a: &Program) {
 
 impl<'self> Typechecker<'self> {
   fn run(&mut self) {
-    for self.program.decls.each |x| {
+    for self.program.decls.iter().advance |x| {
       self.tc_gdecl(*x)
     }
     self.program.check();
@@ -46,7 +46,7 @@ impl<'self> Typechecker<'self> {
       Function(ret, id, ref args, ref body) => {
         if self.bind_fun(id, g.span, ret, args) {
           self.vars.clear();
-          for args.each |&(id, typ)| {
+          for args.iter().advance |&(id, typ)| {
             self.vars.insert(id, typ);
           }
           self.ret = ret;
@@ -220,7 +220,7 @@ impl<'self> Typechecker<'self> {
 
     /* Build up the table of field => type information */
     let mut table = HashMap::new();
-    for fields.each |&(field, typ)| {
+    for fields.iter().advance |&(field, typ)| {
       if table.contains_key(&field) {
         self.program.error(span, fmt!("Duplicate field: '%s'",
                                       self.program.str(field)));
@@ -245,7 +245,7 @@ impl<'self> Typechecker<'self> {
               ret: @Type, args: &~[(Ident, @Type)]) -> bool {
     let mut names = HashSet::new();
     let mut good = true ;
-    for args.each |&(name, typ)| {
+    for args.iter().advance |&(name, typ)| {
       if !names.insert(name) {
         self.program.error(span, fmt!("Duplicate argument: %s",
                                       self.program.str(name)));

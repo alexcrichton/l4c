@@ -122,7 +122,7 @@ impl Instruction {
       Arg(t, _)
         => { f(t) }
 
-      PCopy(ref copies) => copies.each(|&(def, _)| f(def)),
+      PCopy(ref copies) => copies.iter().advance(|&(def, _)| f(def)),
 
       _ => true
     }
@@ -156,7 +156,7 @@ impl Instruction {
           ~Temp(t) => { f(t) }
           _ => true
         };
-        cont && args.each(|arg| {
+        cont && args.iter().advance(|arg| {
           match *arg {
             ~Temp(t) => { f(t) }
             _ => true
@@ -164,7 +164,7 @@ impl Instruction {
         })
       }
 
-      PCopy(ref copies) => copies.each(|&(_, t)| f(t)),
+      PCopy(ref copies) => copies.iter().advance(|&(_, t)| f(t)),
 
       _ => true
     }
@@ -338,14 +338,14 @@ impl PrettyPrint for Instruction {
              ~"(" + args.map(|a| a.pp()).connect(", ") + ")"),
       Phi(tmp, ref map) => {
         let mut s = ~"//" + tmp.pp() + " <- phi(";
-        for map.each |&id, &tmp| {
+        for map.iter().advance |(&id, &tmp)| {
           s += fmt!("[ %s - n%? ] ", tmp.pp(), id);
         }
         s + ")"
       }
       MemPhi(tag, ref map) => {
         let mut s = fmt!("//m%? <- mphi(", tag);
-        for map.each |&id, &tag| {
+        for map.iter().advance |(&id, &tag)| {
           s += fmt!("[ m%? - n%? ] ", tag, id);
         }
         s + ")"
@@ -354,7 +354,7 @@ impl PrettyPrint for Instruction {
       Reload(t, tag) => fmt!("RELOAD %s <= %?", t.pp(), tag),
       PCopy(ref copies) => {
         let mut s = ~"{";
-        for copies.each |&(k, v)| {
+        for copies.iter().advance |&(k, v)| {
           s += fmt!("(%? <= %?) ", k, v);
         }
         s + "}"
@@ -614,7 +614,7 @@ impl PrettyPrint for Multiplier {
 impl Graphable for Program {
   fn dot(&self, out: @io::Writer) {
     out.write_str("digraph {\n");
-    for self.funs.each |f| {
+    for self.funs.iter().advance |f| {
       f.cfg.dot(out,
         |id| fmt!("%s_n%d", f.name, id as int),
         |id, &ins|
@@ -629,7 +629,7 @@ impl Graphable for Program {
 
 impl Program {
   pub fn output(&self, out: @io::Writer) {
-    for self.funs.each |f| {
+    for self.funs.iter().advance |f| {
       f.output(out);
     }
   }
@@ -661,7 +661,7 @@ impl Function {
 
       /* output the actual block */
       let instructions = self.cfg.node(block);
-      for instructions.each |&ins| {
+      for instructions.iter().advance |&ins| {
         out.write_str("  ");
         out.write_str(ins.pp());
         out.write_char('\n');

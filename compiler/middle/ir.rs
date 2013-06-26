@@ -73,7 +73,7 @@ pub fn Function(name: ~str) -> Function {
 impl Graphable for Program {
   fn dot(&self, out: @io::Writer) {
     out.write_str("digraph {\n");
-    for self.funs.each |f| {
+    for self.funs.iter().advance |f| {
       f.cfg.dot(out,
         |id| fmt!("%s_n%d", f.name, id as int),
         |id, &stms|
@@ -143,7 +143,7 @@ impl Statement {
     match *self {
       Load(tmp, _) | Move(tmp, _) | Call(tmp, _, _) | Phi(tmp, _) |
         Cast(tmp, _) => { f(tmp) }
-      Arguments(ref tmps) => tmps.each(|&t| f(t)),
+      Arguments(ref tmps) => tmps.iter().advance(|&t| f(t)),
       _ => true
     }
   }
@@ -154,7 +154,7 @@ impl Statement {
         Return(ref e) | Die(ref e) => e.each_temp(f),
       Store(ref e1, ref e2) => { e1.each_temp(f) && e2.each_temp(f) }
       Call(_, ref e, ref args) => {
-        e.each_temp(f) && args.each(|e| e.each_temp(f))
+        e.each_temp(f) && args.iter().advance(|e| e.each_temp(f))
       }
       Phi(_, ref map) => { map.each_value(|&t| f(t)) }
       Cast(_, t) => { f(t) }
@@ -209,7 +209,7 @@ impl PrettyPrint for Statement {
              E.map(|e| e.pp()).connect(", ")),
       Phi(tmp, ref map) => {
         let mut s = tmp.pp() + " <- phi(";
-        for map.each |&id, &tmp| {
+        for map.iter().advance |(&id, &tmp)| {
           s += fmt!("[ %s - n%d ] ", tmp.pp(), id as int);
         }
         s + ")"
@@ -302,7 +302,7 @@ priv fn ssa_fun(f: &mut Function) {
 
   /* And, convert! */
   let mapping = ssa::convert(&mut f.cfg, f.root, &mut f.analysis, &Info);
-  for mapping.each |&new, old| {
+  for mapping.iter().advance |(&new, old)| {
     newtypes.insert(new, *f.types.get(old));
   }
   /* update all type information for the new temps */

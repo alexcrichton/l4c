@@ -14,7 +14,7 @@ impl<T: Eq + IterBytes + Hash + ToStr> PrettyPrint for HashSet<T> {
   fn pp(&self) -> ~str {
     let mut s = ~"{";
     let mut first = true;
-    for self.each |k| {
+    for self.iter().advance |k| {
       if first {
         first = false;
       } else {
@@ -30,7 +30,7 @@ impl<K: Eq + IterBytes + Hash + ToStr, V: ToStr> PrettyPrint for HashMap<K, V> {
   fn pp(&self) -> ~str {
     let mut s = ~"{";
     let mut first = true;
-    for self.each |k, v| {
+    for self.iter().advance |(k, v)| {
       if first {
         first = false;
       } else {

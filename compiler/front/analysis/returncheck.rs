@@ -2,7 +2,7 @@ use front::ast::*;
 
 pub fn check(p: &Program) {
   debug!("returnchecking");
-  for p.decls.each |x| {
+  for p.decls.iter().advance |x| {
     rc_gdecl(p, *x);
   }
   p.check();

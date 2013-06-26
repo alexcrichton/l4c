@@ -55,11 +55,11 @@ pub fn calculate<T, S: Statement<T>>(cfg: &CFG<T>, root: NodeId,
 
 impl<'self, T, S: Statement<T>> Liveness<'self, T, S> {
   fn lookup_phis(&mut self, n: NodeId) {
-    for self.cfg.node(n).each |&stm| {
+    for self.cfg.node(n).iter().advance |&stm| {
       debug!("phi map");
       match self.info.phi_info(stm) {
         Some((_, map)) => {
-          for map.each |&pred, &tmp| {
+          for map.iter().advance |(&pred, &tmp)| {
             self.phi_out.find_mut(&pred).unwrap().insert(tmp);
           }
         }
@@ -71,19 +71,19 @@ impl<'self, T, S: Statement<T>> Liveness<'self, T, S> {
 
   fn liveness(&mut self, n: NodeId) -> bool {
     let mut live = HashSet::new();
-    for self.phi_out.get(&n).each |&t| {
+    for self.phi_out.get(&n).iter().advance |&t| {
       live.insert(t);
     }
     for self.cfg.each_succ(n) |succ| {
       match self.a.in.find(&succ) {
         Some(ref s) => {
-          for s.each |&t| { live.insert(t); }
+          for s.iter().advance |&t| { live.insert(t); }
         }
         None => ()
       }
     }
     let mut live_out = HashSet::new();
-    for live.each |&t| { live_out.insert(t); }
+    for live.iter().advance |&t| { live_out.insert(t); }
     self.a.out.insert(n, live_out);
     let mut my_deltas = ~[];
     for self.cfg.node(n).rev_iter().advance |ins| {
@@ -117,7 +117,7 @@ impl<'self, T, S: Statement<T>> Liveness<'self, T, S> {
 }
 
 pub fn apply(set: &mut TempSet, delta: &Delta) {
-  for delta.each |&e| {
+  for delta.iter().advance |&e| {
     match e {
       Right(tmp) => { set.remove(&tmp); }
       Left(tmp)  => { set.insert(tmp); }

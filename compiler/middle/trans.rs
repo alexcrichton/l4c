@@ -92,7 +92,7 @@ fn typ_size(t: @ast::Type, structs: &AllStructInfo) -> uint {
 
 impl ProgramInfo {
   fn build(&mut self, p: &ast::Program) {
-    for p.decls.each |d| {
+    for p.decls.iter().advance |d| {
       self.build_gdecl(p, *d)
     }
   }
@@ -102,7 +102,7 @@ impl ProgramInfo {
       ast::StructDef(id, ref fields) => {
         let mut table = HashMap::new();
         let mut size = 0;
-        for fields.each |&(id, t)| {
+        for fields.iter().advance |&(id, t)| {
           let typsize = typ_size(t, &self.structs);
           if (size != 0 && size % typsize != 0) {
             size += 4; /* TODO: real math */

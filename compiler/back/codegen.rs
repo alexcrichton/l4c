@@ -39,7 +39,7 @@ impl CodeGenerator {
     let cfg = cfg.map(
       |id, stms| {
         debug!("block %?", id);
-        for stms.each |&s| {
+        for stms.iter().advance |&s| {
           self.stm(s);
         }
         let mut stms = ~[];
@@ -169,7 +169,7 @@ impl CodeGenerator {
       }
       ~ir::Phi(tmp, ref map) => {
         let mut map2 = HashMap::new();
-        for map.each |&k, &v| {
+        for map.iter().advance |(&k, &v)| {
           map2.insert(k, self.tmp(v));
         }
         let tmp = self.tmp(tmp);

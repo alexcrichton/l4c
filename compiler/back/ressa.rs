@@ -28,7 +28,7 @@ fn ressa(f: &mut assem::Function) {
   }
   f.sizes.clear();
   let mut max = 0;
-  for newsizes.each |&k, &v| {
+  for newsizes.iter().advance |(&k, &v)| {
     debug!("%? => %?", k, v);
     f.sizes.insert(k, v);
     max = uint::max(max, k as uint);

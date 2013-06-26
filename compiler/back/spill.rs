@@ -121,7 +121,7 @@ pub fn spill(p: &mut Program) {
 
 fn sort(set: &TempSet, s: &NextUse) -> ~[Temp] {
   let mut v = ~[];
-  for set.each |&tmp| {
+  for set.iter().advance |&tmp| {
     v.push(tmp);
   }
   sort::quick_sort(v, |&a: &Temp, &b: &Temp| {
@@ -143,10 +143,10 @@ impl Spiller {
    */
   fn build_renamings(&mut self, f: &Function, n: NodeId) {
     let mut phis = HashMap::new();
-    for f.cfg.node(n).each |&ins| {
+    for f.cfg.node(n).iter().advance |&ins| {
       match ins {
         ~Phi(my_name, ref renamings) => {
-          for renamings.each |&pred, &their_name| {
+          for renamings.iter().advance |(&pred, &their_name)| {
             match self.renamings.find_mut(&(pred, n)) {
               Some(m) => {
                 match m.find_mut(&their_name) {
@@ -164,7 +164,7 @@ impl Spiller {
           }
           /* TODO: is the dup necessary? */
           let mut dup = HashMap::new();
-          for renamings.each |&k, &v| {
+          for renamings.iter().advance |(&k, &v)| {
             dup.insert(k, v);
           }
           assert!(phis.insert(my_name, dup));
@@ -196,7 +196,7 @@ impl Spiller {
       match self.phis.find(&succ) {
         None => (),
         Some(map) => {
-          for map.each |_, phis| {
+          for map.iter().advance |(_, phis)| {
             bottom.insert(*phis.get(&n), block.len());
           }
         }
@@ -213,7 +213,7 @@ impl Spiller {
 
       /* Temps may change names along edges because of phi nodes, so be sure to
          account for that here */
-      for self.next_use.get(&succ).each |&tmp, &next| {
+      for self.next_use.get(&succ).iter().advance |(&tmp, &next)| {
         let cost = next + edge_cost;
         let mytmp = self.their_name(tmp, n, succ);
         match bottom.pop(&mytmp) {
@@ -293,8 +293,8 @@ impl Spiller {
     /* Set up the sets which will become {regs,spill}_exit */
     let mut regs = HashSet::new();
     let mut spill = HashSet::new();
-    for regs_entry.each |&t| { regs.insert(t); }
-    for spill_entry.each |&t| { spill.insert(t); }
+    for regs_entry.iter().advance |&t| { regs.insert(t); }
+    for spill_entry.iter().advance |&t| { spill.insert(t); }
 
     /* move out of {regs,spill}_entry because we're done with them now */
     self.regs_entry.insert(n, regs_entry);
@@ -310,7 +310,7 @@ impl Spiller {
 
     /* next_use is always relative to the top of the block */
     let mut next_use = HashMap::new();
-    for self.next_use.get(&n).each |&k, &v| {
+    for self.next_use.get(&n).iter().advance |(&k, &v)| {
       next_use.insert(k, v);
     }
 
@@ -320,7 +320,7 @@ impl Spiller {
       if regs.len() >= max {
         let sorted = sort(&regs, &next_use);
         debug!("%? %s", sorted, next_use.pp());
-        for sorted.slice(max, sorted.len()).each |&tmp| {
+        for sorted.slice(max, sorted.len()).iter().advance |&tmp| {
           if !spill.contains(&tmp) && next_use.contains_key(&tmp) {
             debug!("spilling %?", tmp);
             block.push(~Spill(tmp, tmp));
@@ -407,7 +407,7 @@ impl Spiller {
           assert!(regs.len() <= arch::num_regs);
 
           /* Finally reload all operands as necessary, and then run ins */
-          for reloaded.each |&tmp| {
+          for reloaded.iter().advance |&tmp| {
             block.push(~Reload(tmp, tmp));
           }
           reloaded.truncate(0);
@@ -439,7 +439,7 @@ impl Spiller {
     for f.cfg.each_pred(n) |pred| {
       debug!("pred %?", pred);
       assert!(self.regs_end.contains_key(&pred));
-      for self.regs_end.get(&pred).each |&tmp| {
+      for self.regs_end.get(&pred).iter().advance |&tmp| {
         for self.my_names(tmp, pred, n) |mine| {
           let prev : uint = freq.find(&mine).map_default(0, |&x| *x);
           freq.insert(mine, prev + 1);
@@ -448,7 +448,7 @@ impl Spiller {
     }
     debug!("frequencies: %s", freq.pp());
     let preds = f.cfg.num_pred(n);
-    for freq.each |&tmp, &n| {
+    for freq.iter().advance |(&tmp, &n)| {
       if n == preds {
         take.insert(tmp);
       } else {
@@ -458,7 +458,7 @@ impl Spiller {
     if arch::num_regs - take.len() > 0 {
       let sorted = sort(&cand, self.next_use.get(&n));
       let max = arch::num_regs - take.len();
-      for sorted.slice(0, uint::min(max, sorted.len())).each |&tmp| {
+      for sorted.slice(0, uint::min(max, sorted.len())).iter().advance |&tmp| {
         if self.next_use.get(&n).contains_key(&tmp) {
           take.insert(tmp);
         }
@@ -474,7 +474,7 @@ impl Spiller {
     let mut cand = HashSet::new();
     /* If a variable is used in the loop, then its next_use as viewed from the
        body of the loop would be less than loop_out_weight */
-    for self.next_use.get(&n).each |&tmp, &n| {
+    for self.next_use.get(&n).iter().advance |(&tmp, &n)| {
       if n < loop_out_weight {
         cand.insert(tmp);
       }
@@ -499,13 +499,13 @@ impl Spiller {
       if free > 0 {
         let sorted = sort(&live_through, self.next_use.get(&n));
         debug!("%?", sorted);
-        for sorted.slice(0, uint::min(free as uint, sorted.len())).each |&tmp| {
+        for sorted.slice(0, uint::min(free as uint, sorted.len())).iter().advance |&tmp| {
           cand.insert(tmp);
         }
       }
     } else if cand.len() > arch::num_regs {
       let sorted = sort(&cand, self.next_use.get(&n));
-      for sorted.slice(arch::num_regs, sorted.len()).each |tmp| {
+      for sorted.slice(arch::num_regs, sorted.len()).iter().advance |tmp| {
         cand.remove(tmp);
       }
     }
@@ -532,7 +532,7 @@ impl Spiller {
       if !self.spill_exit.contains_key(&pred) { loop }
       /* Be sure we're using the right name for each temp spilled on the exit of
          our predecessors because we may be renaming it with a phi node */
-      for self.spill_exit.get(&pred).each |&tmp| {
+      for self.spill_exit.get(&pred).iter().advance |&tmp| {
         /* spill is intersected with the entry set */
         if entry.contains(&tmp) {
           for self.my_names(tmp, pred, n) |mine| {
@@ -542,7 +542,7 @@ impl Spiller {
       }
     }
     /* TODO: this needs a better solution... */
-    for self.phis.get(&n).each |k, _| {
+    for self.phis.get(&n).iter().advance |(k, _)| {
       spill.remove(k);
     }
     debug!("node %? entry regs:%s spill:%s", n, entry.pp(), spill.pp());
@@ -563,7 +563,7 @@ impl Spiller {
     let mut append = ~[];
     /* All registers they had which we don't have which we may eventually use
        need to be spilled */
-    for pred_regs_exit.each |&tmp| {
+    for pred_regs_exit.iter().advance |&tmp| {
       /* no need to spill if it's already spilled */
       if pred_spill_exit.contains(&tmp) { loop }
 
@@ -578,7 +578,7 @@ impl Spiller {
     }
 
     /* Each register we want spilled that they haven't spilled needs a spill */
-    for succ_spill.each |&tmp| {
+    for succ_spill.iter().advance |&tmp| {
       let theirs = self.their_name(tmp, pred, succ);
       if !pred_spill_exit.contains(&theirs) &&
           pred_regs_exit.contains(&theirs) {
@@ -587,7 +587,7 @@ impl Spiller {
     }
 
     /* Each register we have which they don't have needs a reload */
-    for succ_regs.each |&tmp| {
+    for succ_regs.iter().advance |&tmp| {
       let theirs = self.their_name(tmp, pred, succ);
       debug!("ours %? theirs %?", tmp, theirs);
       if !pred_regs_exit.contains(&theirs) {
@@ -603,7 +603,7 @@ impl Spiller {
     match self.renamings.find(&(from, to)) {
       Some(m) => match m.find(&tmp) {
         Some(ret) => {
-          ret.each(|&t| f(t)) &&
+          ret.iter().advance(|&t| f(t)) &&
             (!self.next_use.get(&to).contains_key(&tmp) || f(tmp))
         }
         None => { f(tmp) }
@@ -623,7 +623,7 @@ impl Spiller {
 #[cfg(test)]
 fn set(v: ~[int]) -> TempSet {
   let mut set = HashSet::new();
-  for v.each |&i| {
+  for v.iter().advance |&i| {
     set.insert(i as Temp);
   }
   return set;

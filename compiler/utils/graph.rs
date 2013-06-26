@@ -89,7 +89,7 @@ impl<N, E> Graph<N, E> {
     for succ.each_key |k| {
       self.pred.find_mut(k).unwrap().remove(&n);
     }
-    for pred.each |k| {
+    for pred.iter().advance |k| {
       self.succ.find_mut(k).unwrap().remove(&n);
     }
     return ret;
@@ -119,11 +119,11 @@ impl<N, E> Graph<N, E> {
   }
 
   pub fn each_pred(&self, n: NodeId, f: &fn(NodeId) -> bool) -> bool {
-    self.pred.get(&n).each(|&k| f(k))
+    self.pred.get(&n).iter().advance(|&k| f(k))
   }
 
   pub fn each_pred_edge(&self, n: NodeId, f: &fn(NodeId, &E) -> bool) -> bool {
-    self.pred.get(&n).each(|&k| f(k, self.edge(k, n)))
+    self.pred.get(&n).iter().advance(|&k| f(k, self.edge(k, n)))
   }
 
   pub fn each_succ(&self, n: NodeId, f: &fn(NodeId) -> bool) -> bool {
@@ -131,11 +131,12 @@ impl<N, E> Graph<N, E> {
   }
 
   pub fn each_succ_edge(&self, n: NodeId, f: &fn(NodeId, E) -> bool) -> bool {
-    self.succ.get(&n).each(|&n, &e| f(n, e))
+    self.succ.get(&n).iter().advance(|(&n, &e)| f(n, e))
   }
 
   pub fn each_postorder(&self, root: NodeId, f: &fn(&NodeId) -> bool) -> bool {
-    self.postorder(root).first().each(f)
+    let (order, _) = self.postorder(root);
+    order.iter().advance(f)
   }
 
   pub fn each_rev_postorder(&self, root: NodeId, f: &fn(&NodeId) -> bool) -> bool {
@@ -146,7 +147,7 @@ impl<N, E> Graph<N, E> {
   pub fn map_nodes(&mut self, f: &fn(NodeId, N) -> N) {
     let mut keys = ~[];
     for self.nodes.each_key |&k| { keys.push(k); }
-    for keys.each |&k| {
+    for keys.iter().advance |&k| {
       self.map_consume_node(k, |n| f(k, n));
     }
   }
@@ -165,14 +166,14 @@ impl<N, E> Graph<N, E> {
     }
     for self.pred.each |&k, v| {
       let mut set = ~HashSet::new();
-      for v.each |&value| {
+      for v.iter().advance |&value| {
         set.insert(value);
       }
       g2.pred.insert(k, set);
     }
     for self.succ.each |&k, v| {
       let mut map = ~HashMap::new();
-      for v.each |&k, v| {
+      for v.iter().advance |(&k, v)| {
         map.insert(k, e(v));
       }
       g2.succ.insert(k, map);
@@ -191,7 +192,7 @@ impl<N, E> Graph<N, E> {
       out.write_str("];\n");
     }
     for self.succ.each |&id1, neighbors| {
-      for neighbors.each |&id2, e| {
+      for neighbors.iter().advance |(&id2, e)| {
         out.write_str(nid(id1));
         out.write_str(" -> ");
         out.write_str(nid(id2));
@@ -220,7 +221,7 @@ impl<N, E> Graph<N, E> {
     }
     o.insert(n, -1);
     let mut next = i;
-    for self.succ.get(&n).each |&id, _| {
+    for self.succ.get(&n).iter().advance |(&id, _)| {
       next = self.traverse(o, id, next);
     }
     o.insert(n, next);

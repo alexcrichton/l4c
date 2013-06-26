@@ -54,7 +54,7 @@ pub fn parse_files(f: &[~str], main: &str) -> Result<Program, ~str> {
   let mut symgen = SymbolGenerator::new();
   let mut posgen = PositionGenerator::new();
 
-  for f.each |f| {
+  for f.iter().advance |f| {
     let input = match io::file_reader(&Path(*f)) {
       Ok(in) => in,
       Err(s) => { return Err(s); }

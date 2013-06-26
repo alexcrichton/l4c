@@ -96,7 +96,7 @@ impl Allocator {
     debug!("coloring %?", n);
     let mut tmplive = HashSet::new();
     let mut registers = RegisterSet();
-    for live.in.get(&n).each |&t| {
+    for live.in.get(&n).iter().advance |&t| {
       tmplive.insert(t);
       registers.set(*self.colors.get(&t), true);
     }
@@ -166,7 +166,7 @@ impl Allocator {
                 self.precolor(*dst, match op { Div => EAX, _ => EDX });
                 banned.set(arch::reg_num(EDX), true);
                 banned.set(arch::reg_num(EAX), true);
-                for tmplive.each |&tmp| {
+                for tmplive.iter().advance |&tmp| {
                   assert!(self.constraints.insert(tmp, Idiv));
                 }
                 match *op2 {
@@ -195,7 +195,7 @@ impl Allocator {
             for arch::each_caller |r| {
               banned.set(arch::reg_num(r), true);
             }
-            for tmplive.each |&tmp| {
+            for tmplive.iter().advance |&tmp| {
               assert!(self.constraints.insert(tmp, Caller));
             }
           }
@@ -218,7 +218,7 @@ impl Allocator {
           self.process(tmp, &mut banned);
         }
         debug!("processing live-out temporaries");
-        for tmplive.each |&tmp| {
+        for tmplive.iter().advance |&tmp| {
           self.process(tmp, &mut banned);
         }
         debug!("pruning dead uses");
@@ -231,18 +231,18 @@ impl Allocator {
         debug!("processing previous pcopy");
         let copies = pcopy.swap_unwrap();
         let mut regstmp = RegisterSet();
-        for copies.each |&(dst, src)| {
+        for copies.iter().advance |&(dst, src)| {
           assert!(dst != src);
           match self.colors.find(&dst) {
             Some(&c) => { regstmp.set(c, true); }
             None    => ()
           }
         }
-        for copies.each |&(dst, _)| {
+        for copies.iter().advance |&(dst, _)| {
           self.process(dst, &mut regstmp);
         }
         debug!("adding in all live-out temps");
-        for tmplive.each |tmp| {
+        for tmplive.iter().advance |tmp| {
           match self.colors.find(tmp) {
             Some(&c) => { registers.set(c, true); }
             None => ()
@@ -279,7 +279,7 @@ impl Allocator {
       debug!("after %s %s", tmplive.pp(), registers.pp());
     }
 
-    for f.ssa.idominated.get(&n).each |&id| {
+    for f.ssa.idominated.get(&n).iter().advance |&id| {
       self.color(f, live, id);
     }
   }
@@ -319,18 +319,18 @@ impl Allocator {
         mem_maps.insert(pred, ~[]);
       }
 
-      for ins.each |ins| {
+      for ins.iter().advance |ins| {
         match *ins {
           ~Phi(tmp, ref map) => {
             debug!("phi var %? %?", tmp, *self.colors.get(&tmp));
             phi_vars.push(*self.colors.get(&tmp));
-            for map.each |pred, tmp| {
+            for map.iter().advance |(pred, tmp)| {
               phi_maps.find_mut(pred).unwrap().push(*self.colors.get(tmp));
             }
           }
           ~MemPhi(def, ref map) => {
             mem_vars.push(self.stack_loc(def));
-            for map.each |pred, &slot| {
+            for map.iter().advance |(pred, &slot)| {
               mem_maps.find_mut(pred).unwrap().push(self.stack_loc(slot));
             }
           }
@@ -507,7 +507,7 @@ impl Allocator {
         debug!("%?", copies);
         let mut dsts = ~[];
         let mut srcs = ~[];
-        for copies.each |&(dst, src)| {
+        for copies.iter().advance |&(dst, src)| {
           dsts.push(*self.colors.get(&dst));
           srcs.push(*self.colors.get(&src));
         }
@@ -611,7 +611,7 @@ fn resolve_perm(result: &[uint], incoming: &[uint], f: &fn(Resolution)) {
   }
 
   /* deal with all move chains first */
-  for result.each |&dst| {
+  for result.iter().advance |&dst| {
     /* if this destination is also a source, it's not the end of a chain */
     if src_dst.contains_key(&dst) { loop }
 
@@ -632,7 +632,7 @@ fn resolve_perm(result: &[uint], incoming: &[uint], f: &fn(Resolution)) {
   }
 
   /* Next, deal with all loops */
-  for result.each |&dst| {
+  for result.iter().advance |&dst| {
     /* if this isn't a destination any more, it was part of a chain */
     if !dst_src.contains_key(&dst) { loop }
 

@@ -92,7 +92,7 @@ pub fn eliminate_critical<T, S: Statement<T>>(cfg: &mut CFG<T>, info: &S) {
       critical.push((n1, n2));
     }
   }
-  for critical.each |&(n1, n2)| {
+  for critical.iter().advance |&(n1, n2)| {
     debug!("splitting critical edge %? %?", n1, n2);
     let edge = cfg.remove_edge(n1, n2);
     let new = cfg.new_id();
@@ -141,7 +141,7 @@ pub fn merge<T>(cfg: &mut CFG<T>,
       /* Add all of pred's incoming edges as incoming edges to n */
       let mut edges = ~[];
       for cfg.each_pred_edge(pred) |pred, &edge| { edges.push((pred, edge)); }
-      for edges.each |&(pred, edge)| { cfg.add_edge(pred, n, edge); }
+      for edges.iter().advance |&(pred, edge)| { cfg.add_edge(pred, n, edge); }
 
       /* merge the two blocks of statements */
       let mut blk = cfg.remove_node(pred);
@@ -157,7 +157,7 @@ pub fn merge<T>(cfg: &mut CFG<T>,
     for cfg.each_succ(n) |s| {
       succ.push(s);
     }
-    for succ.each |&succ| {
+    for succ.iter().advance |&succ| {
       if cfg.contains(succ) && !visited.contains(&succ) {
         root = domerge(cfg, visited, changes, root, succ);
       }
@@ -194,7 +194,7 @@ fn eliminate_dead(cfg: &mut ir::CFG) {
   /* figure out what to do with each constant node */
   let mut to_remove = ~[];
   let mut to_add = ~[];
-  for constant.each |&(node, c)| {
+  for constant.iter().advance |&(node, c)| {
     for cfg.each_succ_edge(node) |succ, edge| {
       let to_update = match edge {
         ir::False if c == 0 => ir::Always,
@@ -212,8 +212,8 @@ fn eliminate_dead(cfg: &mut ir::CFG) {
   }
 
   /* Actually apply all the changes */
-  for to_remove.each |&(n, s)| { cfg.remove_edge(n, s); }
-  for to_add.each |&(n, s, e)| { cfg.add_edge(n, s, e); }
+  for to_remove.iter().advance |&(n, s)| { cfg.remove_edge(n, s); }
+  for to_add.iter().advance |&(n, s, e)| { cfg.add_edge(n, s, e); }
 }
 
 /**
@@ -236,7 +236,7 @@ fn fix_phis(cfg: &mut ir::CFG) {
           /* TODO: shouldn't have to make a dup */
           let mut dup = HashMap::new();
           let mut predtmp = def;
-          for map.each |&pred, &tmp| {
+          for map.iter().advance |(&pred, &tmp)| {
             if cfg.contains_edge(pred, n) {
               dup.insert(pred, tmp);
               predtmp = tmp;

@@ -30,7 +30,7 @@ fn constrain_block(live: &temp::TempSet, delta: &[liveness::Delta],
   let mut synthetic = ~[];
   let mut live_in = HashSet::new();
   let mut live_out = HashSet::new();
-  for live.each |&t| {
+  for live.iter().advance |&t| {
     live_in.insert(t);
     live_out.insert(t);
   }
@@ -38,7 +38,7 @@ fn constrain_block(live: &temp::TempSet, delta: &[liveness::Delta],
   /* SSA will deal with these renamings later */
   fn pcopy(live: &temp::TempSet) -> ~Instruction {
     let mut copies = ~[];
-    for live.each |&tmp| {
+    for live.iter().advance |&tmp| {
       copies.push((tmp, tmp));
     }
     ~PCopy(copies)
@@ -110,7 +110,7 @@ fn constrain_block(live: &temp::TempSet, delta: &[liveness::Delta],
       ~Call(dst, fun, args) => {
         let mut newargs = ~[];
         let mut tempregs = HashSet::new();
-        for args.slice(0, uint::min(arch::arg_regs, args.len())).each |t| {
+        for args.slice(0, uint::min(arch::arg_regs, args.len())).iter().advance |t| {
           match *t {
             ~Temp(t) => { tempregs.insert(t); }
             _ => ()
@@ -146,7 +146,7 @@ fn constrain_block(live: &temp::TempSet, delta: &[liveness::Delta],
     }
 
     liveness::apply(&mut live_in, &delta[i]);
-    for synthetic.each |tmp| {
+    for synthetic.iter().advance |tmp| {
       live_in.remove(tmp);
     }
     synthetic.truncate(0);
