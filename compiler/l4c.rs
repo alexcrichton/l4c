@@ -103,7 +103,7 @@ fn main() {
     optopt("m"), optopt("arch"),
   ];
   let args = os::args();
-  let m = &match getopts(vec::tail(args), flags) {
+  let m = &match getopts(args.tail(), flags) {
     result::Ok(m)  => m,
     result::Err(e) => fail!(fail_str(e))
   };

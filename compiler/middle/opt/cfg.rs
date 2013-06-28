@@ -180,7 +180,7 @@ fn eliminate_dead(cfg: &mut ir::CFG) {
   /* figure out which nodes are constant, modifying them if necessary */
   let mut constant = ~[];
   do cfg.map_nodes |n, mut stms| {
-    let pop = match vec::last_opt(stms) {
+    let pop = match stms.last_opt() {
       Some(&~ir::Condition(~ir::Const(c, _))) => {
         constant.push((n, c));
         true
