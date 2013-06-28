@@ -210,7 +210,7 @@ impl PrettyPrint for Statement {
       Phi(tmp, ref map) => {
         let mut s = tmp.pp() + " <- phi(";
         for map.iter().advance |(&id, &tmp)| {
-          s += fmt!("[ %s - n%d ] ", tmp.pp(), id as int);
+          s.push_str(fmt!("[ %s - n%d ] ", tmp.pp(), id as int));
         }
         s + ")"
       }

@@ -582,9 +582,9 @@ impl PrettyPrint for bitv::Bitv {
       if first {
         first = false;
       } else {
-        s += ", ";
+        s.push_str(", ");
       }
-      s += i.to_str();
+      s.push_str(i.to_str());
     }
     return s + "}";
   }

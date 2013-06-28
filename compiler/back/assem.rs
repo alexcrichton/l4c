@@ -339,14 +339,14 @@ impl PrettyPrint for Instruction {
       Phi(tmp, ref map) => {
         let mut s = ~"//" + tmp.pp() + " <- phi(";
         for map.iter().advance |(&id, &tmp)| {
-          s += fmt!("[ %s - n%? ] ", tmp.pp(), id);
+          s.push_str(fmt!("[ %s - n%? ] ", tmp.pp(), id));
         }
         s + ")"
       }
       MemPhi(tag, ref map) => {
         let mut s = fmt!("//m%? <- mphi(", tag);
         for map.iter().advance |(&id, &tag)| {
-          s += fmt!("[ m%? - n%? ] ", tag, id);
+          s.push_str(fmt!("[ m%? - n%? ] ", tag, id));
         }
         s + ")"
       }
@@ -355,7 +355,7 @@ impl PrettyPrint for Instruction {
       PCopy(ref copies) => {
         let mut s = ~"{";
         for copies.iter().advance |&(k, v)| {
-          s += fmt!("(%? <= %?) ", k, v);
+          s.push_str(fmt!("(%? <= %?) ", k, v));
         }
         s + "}"
       }
@@ -448,13 +448,13 @@ impl PrettyPrint for Address {
     match *self {
       MOp(ref o, disp, ref off) => {
         let mut s = ~"";
-        for disp.iter().advance |&d| { s += fmt!("%?", d); }
-        s += "(";
-        s += o.pp();
+        for disp.iter().advance |&d| { s.push_str(fmt!("%?", d)); }
+        s.push_str("(");
+        s.push_str(o.pp());
         match *off {
           None => (),
           Some((ref off, mult)) => {
-            s += fmt!(", %s, %s", off.pp(), mult.pp());
+            s.push_str(fmt!(", %s, %s", off.pp(), mult.pp()));
           }
         }
         s + ")"

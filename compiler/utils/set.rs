@@ -18,9 +18,9 @@ impl<T: Eq + IterBytes + Hash + ToStr> PrettyPrint for HashSet<T> {
       if first {
         first = false;
       } else {
-        s += ", ";
+        s.push_str(", ");
       }
-      s += k.to_str();
+      s.push_str(k.to_str());
     }
     return s + "}";
   }
@@ -34,9 +34,9 @@ impl<K: Eq + IterBytes + Hash + ToStr, V: ToStr> PrettyPrint for HashMap<K, V> {
       if first {
         first = false;
       } else {
-        s += ", ";
+        s.push_str(", ");
       }
-      s += k.to_str() + ": " + v.to_str();
+      s.push_str(k.to_str() + ": " + v.to_str());
     }
     return s + "}";
   }
