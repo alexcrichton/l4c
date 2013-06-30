@@ -114,13 +114,13 @@ impl Statement {
         let e = e.map_temps(uses);
         ~Load(defs(tmp), e)
       }
-      ~Store(e1, e2) => ~Store(e1.map_temps(uses), e2.map_temps(uses)),
+      ~Store(e1, e2) => ~Store(e1.map_temps(|x| uses(x)), e2.map_temps(uses)),
       ~Condition(e) => ~Condition(e.map_temps(uses)),
       ~Return(e) => ~Return(e.map_temps(uses)),
       ~Die(e) => ~Die(e.map_temps(uses)),
       ~Call(tmp, e, args) => {
-        let e = e.map_temps(uses);
-        let args = vec::map_consume(args, |x| x.map_temps(uses));
+        let e = e.map_temps(|x| uses(x));
+        let args = vec::map_consume(args, |x| x.map_temps(|x| uses(x)));
         ~Call(defs(tmp), e, args)
       }
       ~Arguments(tmps) => ~Arguments(vec::map_consume(tmps, |t| defs(t))),
@@ -152,9 +152,9 @@ impl Statement {
     match *self {
       Move(_, ref e) | Load(_, ref e) | Condition(ref e) |
         Return(ref e) | Die(ref e) => e.each_temp(f),
-      Store(ref e1, ref e2) => { e1.each_temp(f) && e2.each_temp(f) }
+      Store(ref e1, ref e2) => { e1.each_temp(|x| f(x)) && e2.each_temp(f) }
       Call(_, ref e, ref args) => {
-        e.each_temp(f) && args.iter().advance(|e| e.each_temp(f))
+        e.each_temp(|x| f(x)) && args.iter().advance(|e| e.each_temp(|x| f(x)))
       }
       Phi(_, ref map) => { map.each_value(|&t| f(t)) }
       Cast(_, t) => { f(t) }
@@ -224,7 +224,7 @@ impl Expression {
   pub fn map_temps(~self, f: &fn(Temp) -> Temp) -> ~Expression {
     match self {
       ~BinaryOp(op, e1, e2) =>
-        ~BinaryOp(op, e1.map_temps(f), e2.map_temps(f)),
+        ~BinaryOp(op, e1.map_temps(|x| f(x)), e2.map_temps(f)),
       ~Temp(tmp) => ~Temp(f(tmp)),
       /* TODO: shouldn't have to re-build */
       ~Const(c, s) => ~Const(c, s),
@@ -235,7 +235,9 @@ impl Expression {
   pub fn each_temp(&self, f: &fn(Temp) -> bool) -> bool {
     match *self {
       Const(*) | LabelExp(*) => true,
-      BinaryOp(_, ref e1, ref e2) => { e1.each_temp(f) && e2.each_temp(f) }
+      BinaryOp(_, ref e1, ref e2) => {
+        e1.each_temp(|x| f(x)) && e2.each_temp(f)
+      }
       Temp(tmp) => { f(tmp) }
     }
   }

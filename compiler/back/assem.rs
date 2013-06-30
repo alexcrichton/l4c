@@ -148,7 +148,9 @@ impl Instruction {
       Return(~Temp(t))
         => { f(t) }
 
-      Store(ref addr, ref src) => { addr.each_temp(f) && src.each_temp(f) }
+      Store(ref addr, ref src) => {
+        addr.each_temp(|x| f(x)) && src.each_temp(f)
+      }
       Load(_, ref addr) => { addr.each_temp(f) }
 
       Call(_, ref fun, ref args) => {
@@ -205,7 +207,7 @@ impl ssa::Statement<Instruction> for RegisterInfo {
                defs: &fn(Temp) -> Temp) -> ~Instruction {
     match i {
       ~BinaryOp(op, o1, o2, o3) => {
-        let (o2, o3) = (o2.map_temps(uses), o3.map_temps(uses));
+        let (o2, o3) = (o2.map_temps(|x| uses(x)), o3.map_temps(uses));
         ~BinaryOp(op, o1.map_temps(defs), o2, o3)
       }
       ~Move(dest, src) => {
@@ -216,16 +218,18 @@ impl ssa::Statement<Instruction> for RegisterInfo {
         let src = src.map_temps(uses);
         ~Load(dest.map_temps(defs), src)
       }
-      ~Store(dest, src) => ~Store(dest.map_temps(uses), src.map_temps(uses)),
-      ~Die(c, o1, o2) => ~Die(c, o1.map_temps(uses), o2.map_temps(uses)),
+      ~Store(dest, src) => ~Store(dest.map_temps(|x| uses(x)),
+                                  src.map_temps(|x| uses(x))),
+      ~Die(c, o1, o2) => ~Die(c, o1.map_temps(|x| uses(x)),
+                              o2.map_temps(|x| uses(x))),
       ~Condition(c, o1, o2) =>
-        ~Condition(c, o1.map_temps(uses), o2.map_temps(uses)),
+        ~Condition(c, o1.map_temps(|x| uses(x)), o2.map_temps(|x| uses(x))),
       ~Spill(t, tag) => ~Spill(uses(t), tag),
       ~Reload(dest, tag) => ~Reload(defs(dest), tag),
       ~Phi(t, map) => ~Phi(defs(t), map),
       ~Call(dst, fun, args) => {
-        let fun = fun.map_temps(uses);
-        let args = vec::map_consume(args, |arg| arg.map_temps(uses));
+        let fun = fun.map_temps(|x| uses(x));
+        let args = vec::map_consume(args, |arg| arg.map_temps(|x| uses(x)));
         ~Call(defs(dst), fun, args)
       }
       ~Use(t) => ~Use(uses(t)),
@@ -424,7 +428,8 @@ impl Address {
   fn map_temps(~self, f: &fn(Temp) -> Temp) -> ~Address {
     match self {
       ~MOp(t, disp, off) =>
-        ~MOp(t.map_temps(f), disp, off.map(|&(x, m)| (x.map_temps(f), m))),
+        ~MOp(t.map_temps(|x| f(x)), disp,
+             off.map(|&(x, m)| (x.map_temps(|x| f(x)), m))),
       a => a
     }
   }
@@ -432,10 +437,10 @@ impl Address {
   fn each_temp(&self, f: &fn(Temp) -> bool) -> bool {
     match *self {
       MOp(ref o, _, ref off) => {
-        o.each_temp(f) && off.iter().advance(|p| {
+        o.each_temp(|x| f(x)) && off.iter().advance(|p| {
           /* TODO(#4653): make this sane again */
           let x = match *p { (ref x, _) => x };
-          x.each_temp(f)
+          x.each_temp(|x| f(x))
         })
       }
       Stack(*) | StackArg(*) => true
