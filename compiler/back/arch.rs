@@ -1,3 +1,5 @@
+#[allow(non_uppercase_statics)];
+
 use back::assem::*;
 use std::uint;
 

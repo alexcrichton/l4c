@@ -1,7 +1,6 @@
 use std::hashmap::HashMap;
 use std::io::WriterUtil;
 use std::io;
-use std::vec;
 
 use middle::{ssa, label};
 use middle::temp::Temp;
@@ -58,7 +57,7 @@ pub enum Edge {
 }
 
 pub fn Program(f: ~[Function]) -> Program {
-  Program{ funs: vec::map_consume(f, |f| f) }
+  Program{ funs: f }
 }
 
 pub fn Function(name: ~str) -> Function {
@@ -76,7 +75,7 @@ impl Graphable for Program {
     for self.funs.iter().advance |f| {
       f.cfg.dot(out,
         |id| fmt!("%s_n%d", f.name, id as int),
-        |id, &stms|
+        |id, stms|
           ~"label=\"" + stms.map(|s| s.pp()).connect("\\n") +
           fmt!("\\n[node=%d]\" shape=box", id as int),
         |&edge| fmt!("label=%?", edge)
@@ -120,10 +119,12 @@ impl Statement {
       ~Die(e) => ~Die(e.map_temps(uses)),
       ~Call(tmp, e, args) => {
         let e = e.map_temps(|x| uses(x));
-        let args = vec::map_consume(args, |x| x.map_temps(|x| uses(x)));
+        let args = args.consume_iter().transform(|x| x.map_temps(|x| uses(x)))
+                       .collect();
         ~Call(defs(tmp), e, args)
       }
-      ~Arguments(tmps) => ~Arguments(vec::map_consume(tmps, |t| defs(t))),
+      ~Arguments(tmps) => ~Arguments(tmps.consume_iter().transform(|t| defs(t))
+                                         .collect()),
       ~Phi(def, map) => {
         let mut map = map;
         let mut newmap = HashMap::new();

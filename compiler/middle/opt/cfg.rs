@@ -4,7 +4,6 @@
 
 use std::hashmap::{HashSet, HashMap};
 use std::util::replace;
-use std::vec;
 
 use middle::ssa::{CFG, Statement};
 use middle::ir;
@@ -72,7 +71,7 @@ pub fn prune<T>(cfg: &mut CFG<T>, root: NodeId) {
     }
   }
 
-  do vec::consume(to_delete) |_, id| {
+  for to_delete.consume_iter().advance |id| {
     cfg.remove_node(id);
   }
 }
@@ -101,7 +100,7 @@ pub fn eliminate_critical<T, S: Statement<T>>(cfg: &mut CFG<T>, info: &S) {
     cfg.add_edge(new, n2, ir::Always);
 
     /* Be sure to fix the predecessor of each phi node in our successor */
-    cfg.map_consume_node(n2, |stms| vec::map_consume(stms, |stm| {
+    cfg.map_consume_node(n2, |stms| stms.consume_iter().transform(|stm| {
       match info.phi_unwrap(stm) {
         Right((def, map)) => {
           let mut map = map;
@@ -111,7 +110,7 @@ pub fn eliminate_critical<T, S: Statement<T>>(cfg: &mut CFG<T>, info: &S) {
         }
         Left(stm) => stm
       }
-    }));
+    }).collect());
   }
 }
 
@@ -196,7 +195,7 @@ fn eliminate_dead(cfg: &mut ir::CFG) {
   let mut to_add = ~[];
   for constant.iter().advance |&(node, c)| {
     for cfg.each_succ_edge(node) |succ, edge| {
-      let to_update = match edge {
+      let to_update = match *edge {
         ir::False if c == 0 => ir::Always,
         ir::FBranch | ir::FLoopOut if c == 0 => ir::Branch,
         ir::True if c != 0 => ir::Always,
@@ -227,10 +226,10 @@ fn fix_phis(cfg: &mut ir::CFG) {
   let mut ids = ~[];
   for cfg.each_node |n, _| { ids.push(n); }
 
-  do vec::consume(ids) |_, n| {
+  for ids.consume_iter().advance |n| {
     let stms = cfg.pop_node(n);
 
-    let stms = do vec::map_consume(stms) |s| {
+    let stms = do stms.consume_iter().transform |s| {
       match s {
         ~ir::Phi(def, ref map) => {
           /* TODO: shouldn't have to make a dup */
@@ -250,7 +249,7 @@ fn fix_phis(cfg: &mut ir::CFG) {
         }
         _ => s
       }
-    };
+    }.collect();
 
     cfg.add_node(n, stms);
   }

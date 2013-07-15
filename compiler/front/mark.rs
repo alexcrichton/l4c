@@ -2,6 +2,7 @@ pub struct Coords(Span, @str);
 pub type Mark = uint;
 pub type Span = ((uint, uint), (uint, uint));
 
+#[allow(non_uppercase_statics)]
 pub static dummy: Mark = -1 as uint;
 
 pub struct Marked<T> {

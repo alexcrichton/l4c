@@ -6,8 +6,6 @@
  * that.
  */
 
-use std::vec;
-
 use back::assem::*;
 
 pub fn optimize(p: &mut Program) {
@@ -23,7 +21,7 @@ fn peep(ins: ~[~Instruction]) -> ~[~Instruction] {
   use Imm = back::assem::Immediate;
 
   /* right now, we don't need a look ahead of more than one */
-  do vec::map_consume(ins) |i| {
+  do ins.consume_iter().transform |i| {
     match i {
       /* shifting has constraints, so add if we can */
       ~BO(Mul, d, ~Imm(2, _), t) | ~BO(Mul, d, t, ~Imm(2, _)) =>
@@ -43,7 +41,7 @@ fn peep(ins: ~[~Instruction]) -> ~[~Instruction] {
       }
       i => i
     }
-  }
+  }.collect()
 }
 
 fn pow2(c: i32) -> bool {

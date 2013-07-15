@@ -24,7 +24,6 @@
 
 use std::hashmap::{HashMap, HashSet};
 use std::uint;
-use std::vec;
 
 use extra::sort;
 use middle::{ir, ssa, opt};
@@ -33,7 +32,7 @@ use back::assem::*;
 use utils::graph::*;
 use back::arch;
 
-static loop_out_weight: uint = 100000;
+static LOOP_OUT_WEIGHT: uint = 100000;
 
 /* If a temp isn't in a set, then its next_use distance is infinity */
 type NextUse = HashMap<Temp, uint>;
@@ -143,8 +142,8 @@ impl Spiller {
    */
   fn build_renamings(&mut self, f: &Function, n: NodeId) {
     let mut phis = HashMap::new();
-    for f.cfg.node(n).iter().advance |&ins| {
-      match ins {
+    for f.cfg.node(n).iter().advance |ins| {
+      match *ins {
         ~Phi(my_name, ref renamings) => {
           for renamings.iter().advance |(&pred, &their_name)| {
             match self.renamings.find_mut(&(pred, n)) {
@@ -203,7 +202,7 @@ impl Spiller {
       }
       if !self.next_use.contains_key(&succ) { loop }
       let edge_cost = match *f.cfg.edge(n, succ) {
-        ir::LoopOut | ir::FLoopOut => loop_out_weight, _ => 0
+        ir::LoopOut | ir::FLoopOut => LOOP_OUT_WEIGHT, _ => 0
       };
 
       /* Assume that all variables aren't used in this block and add block.len()
@@ -226,9 +225,9 @@ impl Spiller {
     /* Process all of our block's statements backwards */
     let mut deltas = ~[];
     let mut max = bottom.len();
-    for block.rev_iter().enumerate().advance |(i, &ins)| {
+    for block.rev_iter().enumerate().advance |(i, ins)| {
       let mut delta = ~[];
-      match ins {
+      match *ins {
         ~PCopy(*) => { deltas.push(delta); loop; }
         _ => ()
       }
@@ -256,7 +255,7 @@ impl Spiller {
       deltas.push(delta);
       max = uint::max(max, bottom.len());
     }
-    vec::reverse(deltas);
+    deltas.reverse();
 
     /* If we didn't update anything, return false */
     match self.next_use.find(&n) {
@@ -348,7 +347,8 @@ impl Spiller {
 
     debug!("%s", next_use.pp());
     let mut i = 0;
-    for f.cfg.node(n).iter().zip(self.deltas.get(&n).iter()).advance |(&ins, delta)| {
+    let node = f.cfg.pop_node(n);
+    for node.consume_iter().zip(self.deltas.get(&n).iter()).advance |(ins, delta)| {
       debug!("%2? %30s  %s %s", i, ins.pp(), next_use.pp(),
              delta.map(|a| fmt!("%?", a)).connect(", "));
 
@@ -366,10 +366,10 @@ impl Spiller {
         }
 
         ~PCopy(copies) => {
-          let newcopies = do vec::filter(copies) |&(dst, src)| {
+          let newcopies = do copies.iter().filter |& &(dst, src)| {
             assert!(dst == src);
             regs.contains(&src)
-          };
+          }.transform(|&x| x).collect();
           block.push(~PCopy(newcopies));
           apply_delta(delta);
         }
@@ -473,9 +473,9 @@ impl Spiller {
     /* cand = (phis | live_in) & used_in_loop */
     let mut cand = HashSet::new();
     /* If a variable is used in the loop, then its next_use as viewed from the
-       body of the loop would be less than loop_out_weight */
+       body of the loop would be less than LOOP_OUT_WEIGHT */
     for self.next_use.get(&n).iter().advance |(&tmp, &n)| {
-      if n < loop_out_weight {
+      if n < LOOP_OUT_WEIGHT {
         cand.insert(tmp);
       }
     }

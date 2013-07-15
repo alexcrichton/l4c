@@ -1,6 +1,5 @@
 use std::util::{replace, swap};
 use std::hashmap::HashMap;
-use std::vec;
 
 use front::ast;
 use middle::{temp, ir, label};
@@ -41,8 +40,7 @@ pub fn translate(mut p: ast::Program, safe: bool) -> ir::Program {
 
   debug!("translating");
   let mut accum = ~[];
-  /* TODO(#4878): 'decls.consume' causes segfault */
-  do vec::consume(decls) |_, d| {
+  for decls.consume_iter().advance |d| {
     match d.unwrap() {
       ast::Function(_, id, args, body) => {
         let mut trans = Translator {
@@ -141,11 +139,11 @@ impl ProgramInfo {
 
 impl<'self> Translator<'self> {
   fn arguments(&mut self, args: ~[(ast::Ident, @ast::Type)]) {
-    let args = vec::map_consume(args, |(id, t)| {
+    let args = do args.consume_iter().transform |(id, t)| {
       let tmp = self.tmp(typ(t));
       self.vars.insert(id, tmp);
       tmp
-    });
+    }.collect();
     self.stms.push(~ir::Arguments(args));
   }
 
@@ -222,8 +220,6 @@ impl<'self> Translator<'self> {
           ast::Deref(_, ref t) | ast::ArrSub(_, _, ref t) =>
             (true, do t.with_ref |&t| { typ(t) }),
           ast::Field(_, ref f, ref s) => {
-            /* TODO(#4653): make this actually sane */
-            /*let &(ref fields, _) = self.t.structs.get(&s.get());*/
             let typ = do s.with_ref |s| {
               match *self.t.structs.get(s) {
                 (ref fields, _) => fields.get(f).first()
@@ -349,7 +345,9 @@ impl<'self> Translator<'self> {
       ast::Call(e, args, t) => {
         let ret = t.take();
         let fun = self.exp(e.unwrap(), false);
-        let args = vec::map_consume(args, |e| self.exp(e.unwrap(), false));
+        let args = do args.consume_iter().transform |e| {
+          self.exp(e.unwrap(), false)
+        }.collect();
         let typ = typ(ret);
         let tmp = self.tmp(typ);
         self.stms.push(~ir::Call(tmp, fun, args));
@@ -390,7 +388,7 @@ impl<'self> Translator<'self> {
 
       ast::Field(e, id, s) => {
         let base = self.exp(e.unwrap(), true);
-        /* TODO(#4653): make this actually sane */
+        /* TODO(#7660): make this actually sane */
         /*let &(ref fields, _) = self.t.structs.get(&s.get());*/
         let sinfo = self.t.structs.get(&s.take());
         let fields = match *sinfo { (ref fields, _) => fields };

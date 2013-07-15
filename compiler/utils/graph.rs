@@ -1,7 +1,6 @@
 use std::hashmap::{HashMap, HashSet};
 use std::io::WriterUtil;
 use std::io;
-use std::vec;
 use extra::smallintmap::SmallIntMap;
 
 pub type NodeId = uint;
@@ -130,8 +129,8 @@ impl<N, E> Graph<N, E> {
     self.succ.get(&n).each_key(|&k| f(k))
   }
 
-  pub fn each_succ_edge(&self, n: NodeId, f: &fn(NodeId, E) -> bool) -> bool {
-    self.succ.get(&n).iter().advance(|(&n, &e)| f(n, e))
+  pub fn each_succ_edge(&self, n: NodeId, f: &fn(NodeId, &E) -> bool) -> bool {
+    self.succ.get(&n).iter().advance(|(&n, e)| f(n, e))
   }
 
   pub fn each_postorder(&self, root: NodeId, f: &fn(&NodeId) -> bool) -> bool {
@@ -207,7 +206,7 @@ impl<N, E> Graph<N, E> {
     let mut ordering = SmallIntMap::new();
     self.traverse(&mut ordering, root, 0);
     let mut v = ~[];
-    vec::grow(&mut v, ordering.len(), &root);
+    v.grow(ordering.len(), &root);
     for ordering.each |&id, &pos| {
       v[pos] = id;
     }

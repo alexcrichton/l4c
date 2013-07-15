@@ -8,7 +8,7 @@ struct MainChecker<'self> {
 
 pub fn check(p: &Program) {
   debug!("mainchecking");
-  if !p.decls.iter().any_(|x| ismain(p, *x)) {
+  if !p.decls.iter().any(|x| ismain(p, *x)) {
     p.error(mark::dummy, "No main function was found");
   }
   p.check();

@@ -93,7 +93,7 @@ impl<'self> Initchecker<'self> {
         self.uses(sym, *e1) || self.uses(sym, *e2),
       Ternary(ref e1, ref e2, ref e3, _) =>
         self.uses(sym, *e1) || self.uses(sym, *e2) || self.uses(sym, *e3),
-      Call(_, ref args, _) => args.iter().any_(|x| self.uses(sym, *x)),
+      Call(_, ref args, _) => args.iter().any(|x| self.uses(sym, *x)),
       _ => false
     }
   }

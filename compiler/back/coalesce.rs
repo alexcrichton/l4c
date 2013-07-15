@@ -206,14 +206,14 @@ fn use_def_maps<I: ssa::Statement<assem::Instruction>>(
       n: NodeId, info: &I, ins: &~[~assem::Instruction],
       uses: &mut UseMap, defs: &mut DefMap)
   {
-    for ins.iter().enumerate().advance |(i, &ins)| {
-      for info.each_def(ins) |tmp| {
+    for ins.iter().enumerate().advance |(i, ins)| {
+      for info.each_def(*ins) |tmp| {
         assert!(defs.insert(tmp, (n, i as int)));
       }
-      for info.each_use(ins) |tmp| {
+      for info.each_use(*ins) |tmp| {
         add_use(tmp, (n, i as int), uses);
       }
-      match info.phi_info(ins) {
+      match info.phi_info(*ins) {
         None => (),
         Some((_, m)) => {
           for m.iter().advance |(&pred, &tmp)| {
@@ -532,9 +532,9 @@ impl<'self, I: ssa::Statement<assem::Instruction>> Coalescer<'self, I> {
       {
         /* In a separate scope, see if we should skip merging the two chunks of
            these two variables */
-        /* TODO(#4653): make this sane again */
-        /*let &Chunk(ref xs, _) = chunks.get(&xc);*/
-        /*let &Chunk(ref ys, _) = chunks.get(&yc);*/
+        /* TODO(#7660): make this sane again */
+        /*let Chunk(ref xs, xw) = *chunks.get(&xc);*/
+        /*let Chunk(ref ys, yw) = *chunks.get(&yc);*/
         let (xs, xw) = match *chunks.get(&xc) { Chunk(ref xs, xw) => (xs, xw) };
         let (ys, yw) = match *chunks.get(&yc) { Chunk(ref ys, yw) => (ys, yw) };
 
@@ -625,7 +625,7 @@ impl<'self, I: ssa::Statement<assem::Instruction>> Coalescer<'self, I> {
       for self.f.cfg.each_succ_edge(n) |succ, edge| {
         if visited.contains(&succ) { loop }
         /* If we're moving out of a loop, decrement the weight */
-        let weight = match edge {
+        let weight = match *edge {
           ir::FLoopOut | ir::LoopOut => weight - 1, _ => weight
         };
         to_visit.push((succ, weight));

@@ -11,7 +11,6 @@
 
 use std::hashmap::HashMap;
 use std::i32;
-use std::vec;
 
 use middle::ir::*;
 use middle::temp::Temp;
@@ -39,14 +38,14 @@ impl<'self> ConstantFolder<'self> {
     let (order, _) = self.f.cfg.postorder(self.f.root);
     for order.rev_iter().advance |&n| {
       let node = self.f.cfg.pop_node(n);
-      let node = vec::map_consume(node, |s| self.stm(s));
+      let node = node.consume_iter().transform(|s| self.stm(s)).collect();
       self.f.cfg.add_node(n, node);
     }
 
     do self.f.cfg.map_nodes |_, stms| {
-      vec::map_consume(stms, |s| {
+      stms.consume_iter().transform(|s| {
         s.map_temps(|t| *self.temps.find(&t).get_or_default(&t), |t| t)
-      })
+      }).collect()
     }
   }
 
@@ -71,7 +70,9 @@ impl<'self> ConstantFolder<'self> {
       }
       ~Load(t, e) => ~Load(t, self.exp(e).first()),
       ~Call(t, e, args) => ~Call(t, e,
-                                 vec::map_consume(args, |e| self.exp(e).first())),
+                                 do args.consume_iter().transform |e| {
+                                   self.exp(e).first()
+                                 }.collect()),
       ~Store(e1, e2) => ~Store(self.exp(e1).first(), self.exp(e2).first()),
       ~Condition(e) => ~Condition(self.exp(e).first()),
       ~Return(e) => ~Return(self.exp(e).first()),

@@ -1,5 +1,4 @@
 use std::hashmap::{HashMap, HashSet};
-use std::vec;
 use extra::smallintmap::SmallIntMap;
 
 use middle::{temp, liveness, ir, opt};
@@ -233,11 +232,11 @@ impl<'self, T: PrettyPrint, S: Statement<T>> Converter<'self, T, S> {
     /* Process all statements in this block (possibly bumping versions) */
     debug!("mapping statements at %d", n as int);
     let stms = self.cfg.pop_node(n);
-    let stms = do vec::map_consume(stms) |s| {
+    let stms = do stms.consume_iter().transform |s| {
       debug!("%s", s.pp());
       self.info.map_temps(s, |usage| *map.get(&usage),
                              |def|   self.bump(&mut map, def))
-    };
+    }.collect();
     self.versions.insert(n, map);
     self.cfg.add_node(n, stms);
   }
@@ -255,7 +254,7 @@ impl<'self, T: PrettyPrint, S: Statement<T>> Converter<'self, T, S> {
    * their predecessor's edges
    */
   fn map_phi_temps(&mut self, n: graph::NodeId) {
-    self.cfg.map_consume_node(n, |stms| vec::map_consume(stms, |stm|
+    self.cfg.map_consume_node(n, |stms| stms.consume_iter().transform(|stm|
       match self.info.phi_unwrap(stm) {
         Left(stm) => stm,
         Right((def, map)) => {
@@ -267,7 +266,7 @@ impl<'self, T: PrettyPrint, S: Statement<T>> Converter<'self, T, S> {
           self.info.phi(def, new)
         }
       }
-    ));
+    ).collect());
   }
 
   /**

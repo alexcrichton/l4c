@@ -1,6 +1,5 @@
 use std::hashmap::{HashMap, HashSet};
-use std::util::swap;
-use std::vec;
+use std::util;
 
 use middle::{ir, temp, ssa, label};
 use back::{assem, arch};
@@ -20,11 +19,11 @@ pub fn codegen(ir::Program{funs}: ir::Program) -> assem::Program {
                               sizes: HashMap::new(),
                               oldtypes: HashMap::new() };
 
-  let funs = do vec::map_consume(funs) |f| {
+  let funs = do funs.consume_iter().transform |f| {
     let f = cg.run(f);
     cg.reset();
     f
-  };
+  }.collect();
   assem::Program{ funs: funs }
 }
 
@@ -32,26 +31,21 @@ impl CodeGenerator {
   fn run(&mut self, f: ir::Function) -> assem::Function {
     /* extract relevant information from the function */
     let ir::Function {root, name, cfg, loops, types, _} = f;
-    let mut types = types;
-    swap(&mut types, &mut self.oldtypes);
+    util::replace(&mut self.oldtypes, types);
 
     /* Map over the cfg into a new one */
-    let cfg = cfg.map(
-      |id, stms| {
-        debug!("block %?", id);
-        for stms.iter().advance |&s| {
-          self.stm(s);
-        }
-        let mut stms = ~[];
-        swap(&mut stms, &mut self.stms);
-        stms
-      },
-      |&edge| edge
-    );
+    let cfg = cfg.map(|id, stms| {
+      // TODO: smallintmap needs to be consumable
+      let stms = copy *stms;
+      debug!("block %?", id);
+      for stms.consume_iter().advance |s| {
+        self.stm(s);
+      }
+      util::replace(&mut self.stms, ~[])
+    }, |&e| e);
 
     /* Move our calculated sizes into the assem::Function instance */
-    let mut sizes = HashMap::new();
-    swap(&mut sizes, &mut self.sizes);
+    let sizes = util::replace(&mut self.sizes, HashMap::new());
 
     info!("codegen of %s done", name);
     assem::Function { name: name,
@@ -230,7 +224,9 @@ impl CodeGenerator {
       }
       ~ir::Call(tmp, fun, args) => {
         let fun = self.half(fun);
-        let args = vec::map_consume(args, |arg| self.half(arg));
+        let args = do args.consume_iter().transform |arg| {
+          self.half(arg)
+        }.collect();
         let tmp = self.tmp(tmp);
         self.push(~assem::Call(tmp, fun, args));
       }
@@ -278,7 +274,7 @@ impl CodeGenerator {
       ~assem::Call(dst, fun, args) => {
         let mut temps = HashSet::new();
         let mut args2 = ~[];
-        do vec::consume(args) |i, arg| {
+        for args.consume_iter().enumerate().advance |(i, arg)| {
           let arg = match arg {
             /* If we have first saw this temp, or the immediates/labels need to
                be stored on the stack, then no copy is needed */
@@ -340,7 +336,7 @@ impl CodeGenerator {
     match a {
       ~assem::MOp(base, disp, off) => {
         let base = unimm(base);
-        let off = off.map(|&(o, m)| (unimm(o), m));
+        let off = off.map_consume(|(o, m)| (unimm(o), m));
         ~assem::MOp(base, disp, off)
       }
       a => a

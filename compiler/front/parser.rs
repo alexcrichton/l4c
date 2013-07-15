@@ -3,7 +3,6 @@ use std::hashmap::HashMap;
 use std::io;
 use std::libc;
 use std::util;
-use std::vec;
 
 use front::ast;
 use front::ast::*;
@@ -240,7 +239,7 @@ impl<'self> Parser<'self> {
         }
         let end = self.expect(RBRACE);
         let mut cur = Some(self.mark(Nop, start, end));
-        do vec::consume_reverse(stmts) |_, s| {
+        for stmts.consume_rev_iter().advance |s| {
           match s {
             (false, ~Marked{ node: Declare(id, typ, init, _), span }) => {
               let sp = self.posgen.to_span(span);

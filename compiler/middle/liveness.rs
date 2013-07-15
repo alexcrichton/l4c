@@ -1,5 +1,4 @@
 use std::hashmap::{HashMap, HashSet};
-use std::vec;
 use extra::smallintmap::SmallIntMap;
 use extra::treemap::TreeSet;
 
@@ -55,9 +54,9 @@ pub fn calculate<T, S: Statement<T>>(cfg: &CFG<T>, root: NodeId,
 
 impl<'self, T, S: Statement<T>> Liveness<'self, T, S> {
   fn lookup_phis(&mut self, n: NodeId) {
-    for self.cfg.node(n).iter().advance |&stm| {
+    for self.cfg.node(n).iter().advance |stm| {
       debug!("phi map");
-      match self.info.phi_info(stm) {
+      match self.info.phi_info(*stm) {
         Some((_, map)) => {
           for map.iter().advance |(&pred, &tmp)| {
             self.phi_out.find_mut(&pred).unwrap().insert(tmp);
@@ -101,7 +100,7 @@ impl<'self, T, S: Statement<T>> Liveness<'self, T, S> {
       my_deltas.push(delta);
     }
     /* only return true if something has changed from before */
-    vec::reverse(my_deltas);
+    my_deltas.reverse();
     match self.a.in.find(&n) {
       None    => (),
       Some(s) => {

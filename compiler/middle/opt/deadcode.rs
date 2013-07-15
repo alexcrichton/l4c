@@ -10,7 +10,6 @@
  */
 
 use std::util::replace;
-use std::vec;
 use extra::bitv;
 
 use middle::ir::*;
@@ -36,8 +35,8 @@ impl Eliminator {
     self.used.clear();
     /* Mark all phi function arguments as used before we go anywhere */
     for f.cfg.each_node |_, stms| {
-      for stms.iter().advance |&s| {
-        match s {
+      for stms.iter().advance |s| {
+        match *s {
           ~Phi(_, ref m) => {
             for m.iter().advance |(_, &t)| {
               self.used.set(t, true);
@@ -53,9 +52,10 @@ impl Eliminator {
     let mut changed = false;
     for order.iter().advance |&n| {
       let orig = f.cfg.node(n).len();
-      f.cfg.node(n).rev_iter().advance(|&stm| self.stm(stm));
+      let node = f.cfg.pop_node(n);
+      node.consume_rev_iter().advance(|stm| self.stm(stm));
       let mut block = replace(&mut self.stms, ~[]);
-      vec::reverse(block);
+      block.reverse();
 
       let end = self.first_impossible(block);
       block.truncate(end);
@@ -108,8 +108,8 @@ impl Eliminator {
   }
 
   fn first_impossible(&self, b: &[~Statement]) -> uint {
-    for b.iter().enumerate().advance |(i, &stm)| {
-      match stm {
+    for b.iter().enumerate().advance |(i, stm)| {
+      match *stm {
         ~Die(~Const(c, _)) if c != 0 => return i + 1,
         ~Return(*) => return i + 1,
         _ => ()

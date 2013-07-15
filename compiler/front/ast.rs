@@ -4,7 +4,6 @@ use std::hashmap::{HashSet, HashMap};
 use std::io;
 use std::libc;
 use std::util;
-use std::vec;
 
 use front::mark;
 use front::mark::Marked;
@@ -96,7 +95,7 @@ pub enum Unop {
 impl Program {
   pub fn new(decls: ~[~GDecl], mut syms: ~[~str], p: ~[mark::Coords]) -> Program {
     let main = &~"main";
-    let mainid = match syms.iter().position_(|s| s.eq(main)) {
+    let mainid = match syms.iter().position(|s| s.eq(main)) {
       Some(i) => Ident(i),
       None => {
         syms.push(~"main");
@@ -166,7 +165,7 @@ impl PrettyPrint for Program {
 
 impl<'self> Elaborator<'self> {
   fn run(&mut self, decls: ~[~GDecl]) -> ~[~GDecl] {
-    let decls = vec::map_consume(decls, |x| self.elaborate(x));
+    let decls = decls.consume_iter().transform(|x| self.elaborate(x)).collect();
     self.program.check();
     return decls;
   }
@@ -287,7 +286,7 @@ impl<'self> Elaborator<'self> {
         Ternary(self.elaborate_exp(e1), self.elaborate_exp(e2),
                 self.elaborate_exp(e3), Cell::new_empty()),
       Call(id, L, _) =>
-        Call(id, vec::map_consume(L, |x| self.elaborate_exp(x)),
+        Call(id, L.consume_iter().transform(|x| self.elaborate_exp(x)).collect(),
              Cell::new_empty()),
       Deref(e, _) => Deref(self.elaborate_exp(e),
                            Cell::new_empty()),
@@ -328,7 +327,8 @@ impl<'self> Elaborator<'self> {
 
   fn resolve_pairs(&mut self, m: mark::Mark,
                    pairs: ~[(Ident, @Type)]) -> ~[(Ident, @Type)] {
-    vec::map_consume(pairs, |(id, typ)| (id, self.resolve(m, typ)))
+    pairs.consume_iter().transform(|(id, typ)| (id, self.resolve(m, typ)))
+         .collect()
   }
 }
 

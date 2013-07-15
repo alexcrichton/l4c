@@ -2,7 +2,6 @@ use std::cmp;
 use std::io;
 use std::io::WriterUtil;
 use std::hashmap::{HashMap, HashSet};
-use std::vec;
 
 use middle::{label, ir};
 pub use middle::ssa;
@@ -229,17 +228,19 @@ impl ssa::Statement<Instruction> for RegisterInfo {
       ~Phi(t, map) => ~Phi(defs(t), map),
       ~Call(dst, fun, args) => {
         let fun = fun.map_temps(|x| uses(x));
-        let args = vec::map_consume(args, |arg| arg.map_temps(|x| uses(x)));
+        let args = args.consume_iter().transform(|arg|
+          arg.map_temps(|x| uses(x))
+        ).collect();
         ~Call(defs(dst), fun, args)
       }
       ~Use(t) => ~Use(uses(t)),
       ~Return(t) => ~Return(t.map_temps(uses)),
       ~Arg(t, n) => ~Arg(defs(t), n),
       ~PCopy(copies) => {
-        ~PCopy(vec::map_consume(copies, |(dst, src)| {
+        ~PCopy(copies.consume_iter().transform(|(dst, src)| {
           let src = uses(src);
           (defs(dst), src)
-        }))
+        }).collect())
       }
       s => s
     }
@@ -429,7 +430,7 @@ impl Address {
     match self {
       ~MOp(t, disp, off) =>
         ~MOp(t.map_temps(|x| f(x)), disp,
-             off.map(|&(x, m)| (x.map_temps(|x| f(x)), m))),
+             off.map_consume(|(x, m)| (x.map_temps(|x| f(x)), m))),
       a => a
     }
   }
@@ -437,9 +438,7 @@ impl Address {
   fn each_temp(&self, f: &fn(Temp) -> bool) -> bool {
     match *self {
       MOp(ref o, _, ref off) => {
-        o.each_temp(|x| f(x)) && off.iter().advance(|p| {
-          /* TODO(#4653): make this sane again */
-          let x = match *p { (ref x, _) => x };
+        o.each_temp(|x| f(x)) && off.iter().advance(|&(ref x, _)| {
           x.each_temp(|x| f(x))
         })
       }
@@ -622,7 +621,7 @@ impl Graphable for Program {
     for self.funs.iter().advance |f| {
       f.cfg.dot(out,
         |id| fmt!("%s_n%d", f.name, id as int),
-        |id, &ins|
+        |id, ins|
           ~"label=\"" + ins.map(|s| s.pp()).connect("\\n") +
           fmt!("\\n[node=%d]\" shape=box", id as int),
         |&edge| fmt!("label=%?", edge)
@@ -666,7 +665,7 @@ impl Function {
 
       /* output the actual block */
       let instructions = self.cfg.node(block);
-      for instructions.iter().advance |&ins| {
+      for instructions.iter().advance |ins| {
         out.write_str("  ");
         out.write_str(ins.pp());
         out.write_char('\n');
@@ -676,7 +675,7 @@ impl Function {
       let mut always = None;
       let mut tedge = None;
       let mut fedge = None;
-      for self.cfg.each_succ_edge(block) |id, typ| {
+      for self.cfg.each_succ_edge(block) |id, &typ| {
         debug!("out of %? (%? - %?)", block, id, typ);
         match typ {
           ir::Always | ir::Branch | ir::LoopOut => {

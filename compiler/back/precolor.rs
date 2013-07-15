@@ -1,5 +1,4 @@
 use std::hashmap::HashSet;
-use std::vec;
 use std::uint;
 
 use back::assem::*;
@@ -65,7 +64,7 @@ fn constrain_block(live: &temp::TempSet, delta: &[liveness::Delta],
     )
   );
 
-  do vec::consume(ins) |i, ins| {
+  for ins.consume_iter().enumerate().advance |(i, ins)| {
     liveness::apply(&mut live_out, &delta[i]);
 
     match ins {
@@ -116,7 +115,7 @@ fn constrain_block(live: &temp::TempSet, delta: &[liveness::Delta],
             _ => ()
           }
         }
-        do vec::consume(args) |i, arg| {
+        for args.consume_iter().enumerate().advance |(i, arg)| {
           /* the first few arguments in registers need to be copied because all
              argument registers are caller-saved registers */
           if i < arch::arg_regs {

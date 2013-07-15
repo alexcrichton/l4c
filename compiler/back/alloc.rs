@@ -1,5 +1,4 @@
 use std::hashmap::{HashMap, HashSet};
-use std::vec;
 use std::uint;
 
 use extra::bitv;
@@ -392,7 +391,7 @@ impl Allocator {
       }
     }
 
-    do vec::consume(to_append) |_, (pred, ins)| {
+    for to_append.consume_iter().advance |(pred, ins)| {
       /* there are no critical edges in the graph, so we can just append */
       f.cfg.map_consume_node(pred, |stms| stms + ins);
     }
@@ -418,7 +417,7 @@ impl Allocator {
         for self.colors.each |_, &color| {
           let reg = arch::num_reg(color);
           if arch::callee_reg(reg) &&
-            self.callee_saved.iter().position_(|c| *c == color).is_none()
+            self.callee_saved.iter().position(|c| *c == color).is_none()
           {
             self.callee_saved.push(color);
             newins.push(~Raw(fmt!("push %s", reg.size(ir::Pointer))));
@@ -432,7 +431,7 @@ impl Allocator {
         }
       }
 
-      do vec::consume(prev) |_, ins| {
+      for prev.consume_iter().advance |ins| {
         self.alloc_ins(f, ins, |i| newins.push(i));
       }
       f.cfg.add_node(id, newins);
@@ -501,7 +500,8 @@ impl Allocator {
       }
       ~Call(dst, fun, args) =>
         push(~Call(dst, self.alloc_op(f, fun),
-                   vec::map_consume(args, |arg| self.alloc_op(f, arg)))),
+                   args.consume_iter().transform(|arg| self.alloc_op(f, arg))
+                                      .collect())),
 
       ~PCopy(ref copies) => {
         debug!("%?", copies);
@@ -622,7 +622,8 @@ fn resolve_perm(result: &[uint], incoming: &[uint], f: &fn(Resolution)) {
       let nxt = *dst_src.get(&cur);
       f(Left((cur, nxt)));
       dst_src.remove(&cur);
-      let L = vec::filter(src_dst.pop(&nxt).unwrap(), |&x| x != cur);
+      let L = src_dst.pop(&nxt).unwrap().consume_iter()
+                     .filter(|&x| x != cur).collect::<~[uint]>();
       if L.len() > 0 {
         src_dst.insert(nxt, L);
       }
@@ -639,8 +640,9 @@ fn resolve_perm(result: &[uint], incoming: &[uint], f: &fn(Resolution)) {
     /* Exchange everything through the 'dst' register to resolve the chain */
     let mut cur = dst;
     while src_dst.contains_key(&cur) {
-      let L = vec::filter(src_dst.pop(&cur).unwrap(),
-                          |&x| dst_src.contains_key(&x));
+      let L = do src_dst.pop(&cur).unwrap().consume_iter().filter |&x| {
+        dst_src.contains_key(&x)
+      }.collect::<~[uint]>();
       debug!("%?", L);
       assert!(L.len() == 1);
       let nxt = L[0];
@@ -654,12 +656,13 @@ fn resolve_perm(result: &[uint], incoming: &[uint], f: &fn(Resolution)) {
 #[cfg(test)]
 fn resolve_test(from: &[uint], to: &[uint]) {
   use extra::smallintmap::SmallIntMap;
+  use std::vec;
   let mut regs = vec::from_fn(10, |i| i);
 
   do resolve_perm(to, from) |foo| {
     match foo {
       Left((dst, src))  => { regs[dst] = regs[src]; }
-      Right((dst, src)) => { vec::swap(regs, dst, src); }
+      Right((dst, src)) => { regs.swap(dst, src); }
     }
   }
 
