@@ -59,6 +59,10 @@ impl<N, E> Graph<N, E> {
     self.nodes.get(&id)
   }
 
+  pub fn node_mut<'a>(&'a mut self, id: NodeId) -> &'a mut N {
+    self.nodes.find_mut(&id).unwrap()
+  }
+
   pub fn edge<'a>(&'a self, a: NodeId, b: NodeId) -> &'a E {
     self.succ.get(&a).get(&b)
   }

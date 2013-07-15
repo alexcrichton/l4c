@@ -22,6 +22,7 @@
  * throughout the code in this file.
  */
 
+use std::iterator::Counter;
 use std::hashmap::{HashMap, HashSet};
 use std::uint;
 
@@ -112,8 +113,7 @@ pub fn spill(p: &mut Program) {
     /* Finally, clean things up by appending the necessary spills/reloads to the
        relevant basic block */
     do s.connected.consume |(pred, _), ins| {
-      let new = f.cfg.pop_node(pred) + ins;
-      f.cfg.add_node(pred, new);
+      f.cfg.node_mut(pred).push_all_move(ins);
     }
   }
 }
@@ -225,7 +225,8 @@ impl Spiller {
     /* Process all of our block's statements backwards */
     let mut deltas = ~[];
     let mut max = bottom.len();
-    for block.rev_iter().enumerate().advance |(i, ins)| {
+    let indexes = Counter::new(block.len() - 1, -1);
+    for indexes.zip(block.rev_iter()).advance |(i, ins)| {
       let mut delta = ~[];
       match *ins {
         ~PCopy(*) => { deltas.push(delta); loop; }
