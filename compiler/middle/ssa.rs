@@ -144,14 +144,14 @@ impl<'self, T: PrettyPrint, S: Statement<T>> Converter<'self, T, S> {
   }
 
   /* Find where all phi functions need to go */
-  fn find_phis(&mut self, mut defs: Definitions) -> PhiLocations {
+  fn find_phis(&mut self, defs: Definitions) -> PhiLocations {
     /* Use the iterated dominance frontier algorithm, shown here:
           http://symbolaris.com/course/Compilers12/11-ssa.pdf
        to determine the optimal placement of phi functions */
 
     let mut phis: HashMap<Temp, ~HashSet<Temp>> = HashMap::new();
 
-    do defs.consume |tmp, defs| {
+    for defs.consume().advance |(tmp, defs)| {
       /* with one definition we can't possibly need a phi node */
       if defs.len() > 1 {
         debug!("idf for tmp: %s", tmp.pp());
@@ -258,9 +258,8 @@ impl<'self, T: PrettyPrint, S: Statement<T>> Converter<'self, T, S> {
       match self.info.phi_unwrap(stm) {
         Left(stm) => stm,
         Right((def, map)) => {
-          let mut map = map;
           let mut new = HashMap::new();
-          do map.consume |pred, tmp| {
+          for map.consume().advance |(pred, tmp)| {
             new.insert(pred, *self.versions.get(&pred).get(&tmp));
           }
           self.info.phi(def, new)

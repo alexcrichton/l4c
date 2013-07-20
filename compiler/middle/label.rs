@@ -1,5 +1,6 @@
 use utils::PrettyPrint;
 
+#[deriving(Clone)]
 pub enum Label {
   External(~str),
   Internal(~str)

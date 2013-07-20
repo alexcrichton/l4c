@@ -571,7 +571,7 @@ impl<'self, I: ssa::Statement<assem::Instruction>> Coalescer<'self, I> {
     /* Finally insert all chunks into a priority queue now that we've finalized
      * what each chunk is going to be */
     let mut ret = PriorityQueue::new();
-    do chunks.consume |i, c| {
+    for chunks.consume().advance |(i, c)| {
       if i != 0 {
         ret.push(c);
       }

@@ -116,7 +116,7 @@ fn main() {
   let mut ast = do prof(m, "generating ast") {
     let header = opt_maybe_str(m, "l").or(opt_maybe_str(m, "header"));
     let files = match header {
-      None => copy m.free,
+      None => m.free.clone(),
       Some(file) => vec::append(~[file], m.free)
     };
     match parser::parse_files(files, m.free[0]) {

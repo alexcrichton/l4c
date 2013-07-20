@@ -105,14 +105,14 @@ pub fn spill(p: &mut Program) {
     }
 
     /* In reverse postorder, spill everything! */
-    let order = f.cfg.postorder(f.root).first();
+    let (order, _) = f.cfg.postorder(f.root);
     for order.rev_iter().advance |&id| {
       s.spill(f, id);
     }
 
     /* Finally, clean things up by appending the necessary spills/reloads to the
        relevant basic block */
-    do s.connected.consume |(pred, _), ins| {
+    for s.connected.consume().advance |((pred, _), ins)| {
       f.cfg.node_mut(pred).push_all_move(ins);
     }
   }

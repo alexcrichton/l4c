@@ -51,6 +51,7 @@ pub enum Instruction {
   Arg(Temp, uint),        /* nth argument is wired to this temp */
 }
 
+#[deriving(Clone)]
 pub enum Operand {
   Immediate(i32, Size),
   Register(Register, Size),
@@ -58,6 +59,7 @@ pub enum Operand {
   LabelOp(Label)
 }
 
+#[deriving(Clone)]
 pub enum Address {
   /*   base      offset         multplier reg    multiplier size */
   MOp(~Operand, Option<uint>, Option<(~Operand, Multiplier)>),
@@ -65,21 +67,22 @@ pub enum Address {
   StackArg(uint),
 }
 
+#[deriving(Clone)]
 pub enum Multiplier {
   One, Two, Four, Eight
 }
 
-#[deriving(Eq)]
+#[deriving(Eq, Clone)]
 pub enum Binop {
   Add, Sub, Mul, Div, Mod, Cmp(Cond), And, Or, Xor, Lsh, Rsh
 }
 
-#[deriving(Eq)]
+#[deriving(Eq, Clone)]
 pub enum Cond {
   Lt, Lte, Gt, Gte, Eq, Neq
 }
 
-#[deriving(Eq)]
+#[deriving(Eq, Clone)]
 pub enum Register {
   EAX, EBX, ECX, EDX, EDI, ESI, ESP, EBP,
   R8D, R9D, R10D, R11D, R12D, R13D, R14D, R15D
@@ -290,7 +293,7 @@ impl ssa::Statement<Instruction> for StackInfo {
 impl PrettyPrint for Instruction {
   fn pp(&self) -> ~str {
     match *self {
-      Raw(ref s) => copy *s,
+      Raw(ref s) => s.clone(),
       Arg(t, i) => fmt!("%s = arg[%?]", t.pp(), i),
       Return(ref t) => fmt!("ret // %s", t.pp()),
       Use(t) => fmt!("use %s", t.pp()),
@@ -645,7 +648,7 @@ impl Function {
    * assembled to the actual program
    */
   fn output(&self, out: @io::Writer) {
-    let base = label::Internal(copy self.name).pp();
+    let base = label::Internal(self.name.clone()).pp();
     /* entry label */
     out.write_str(~".globl " + base + "\n");
     out.write_str(base + ":\n");

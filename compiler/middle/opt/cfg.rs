@@ -35,8 +35,8 @@ pub fn simplify(p: &mut ir::Program) {
        maintains information about what's a loop header and where its loop body
        and ending node both start. */
     let changes = changes;
-    let mut loops = replace(&mut f.loops, HashMap::new());
-    do loops.consume |cond, (body, end)| {
+    let loops = replace(&mut f.loops, HashMap::new());
+    for loops.consume().advance |(cond, (body, end))| {
       let cond = resolve(&changes, cond);
       let body = resolve(&changes, body);
       let end  = resolve(&changes, end);

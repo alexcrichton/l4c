@@ -116,7 +116,7 @@ impl Allocator {
         /* If we found a pcopy, then we're breaking liveness */
         ~PCopy(ref copies) => {
           assert!(pcopy.is_none());
-          pcopy = Some(copy *copies);
+          pcopy = Some(copies.clone());
           registers.clear();
           loop;
         }
@@ -228,7 +228,7 @@ impl Allocator {
           }
         }
         debug!("processing previous pcopy");
-        let copies = pcopy.swap_unwrap();
+        let copies = pcopy.take_unwrap();
         let mut regstmp = RegisterSet();
         for copies.iter().advance |&(dst, src)| {
           assert!(dst != src);
@@ -362,8 +362,8 @@ impl Allocator {
           }
           match i {
             Left((dst, src)) => { // move
-              ins.push(~Load(~copy eax, ~Stack(src + pushed * arch::ptrsize)));
-              ins.push(~Store(~Stack(dst + pushed * arch::ptrsize), ~copy eax));
+              ins.push(~Load(~eax.clone(), ~Stack(src + pushed * arch::ptrsize)));
+              ins.push(~Store(~Stack(dst + pushed * arch::ptrsize), ~eax.clone()));
             }
 
             Right((l1, l2)) => { // xchg
@@ -371,10 +371,10 @@ impl Allocator {
                 pushed = 2;
                 ins.push(~Raw(fmt!("pushq %s", ebx.pp())));
               }
-              ins.push(~Load(~copy eax, ~Stack(l1 + 2 * arch::ptrsize)));
-              ins.push(~Load(~copy ebx, ~Stack(l2 + 2 * arch::ptrsize)));
-              ins.push(~Store(~Stack(l1 + 2 * arch::ptrsize), ~copy ebx));
-              ins.push(~Store(~Stack(l2 + 2 * arch::ptrsize), ~copy eax));
+              ins.push(~Load(~eax.clone(), ~Stack(l1 + 2 * arch::ptrsize)));
+              ins.push(~Load(~ebx.clone(), ~Stack(l2 + 2 * arch::ptrsize)));
+              ins.push(~Store(~Stack(l1 + 2 * arch::ptrsize), ~ebx.clone()));
+              ins.push(~Store(~Stack(l2 + 2 * arch::ptrsize), ~eax.clone()));
             }
           }
         }
@@ -393,7 +393,9 @@ impl Allocator {
 
     for to_append.consume_iter().advance |(pred, ins)| {
       /* there are no critical edges in the graph, so we can just append */
-      f.cfg.map_consume_node(pred, |stms| stms + ins);
+      let mut prev = f.cfg.pop_node(pred);
+      prev.push_all_move(ins);
+      f.cfg.update_node(pred, prev);
     }
   }
 
@@ -492,7 +494,7 @@ impl Allocator {
           _ if s2 == d => fail!(~"invalid instruction in alloc"),
           /* catch-all last resort, generate a move */
           _ => {
-            push(~Move(copy d, copy s1));
+            push(~Move(d.clone(), s1.clone()));
             push(~BinaryOp(op, d, s2, s1));
           }
 

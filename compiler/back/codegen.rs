@@ -35,14 +35,12 @@ impl CodeGenerator {
 
     /* Map over the cfg into a new one */
     let cfg = cfg.map(|id, stms| {
-      // TODO: smallintmap needs to be consumable
-      let stms = copy *stms;
       debug!("block %?", id);
       for stms.consume_iter().advance |s| {
         self.stm(s);
       }
       util::replace(&mut self.stms, ~[])
-    }, |&e| e);
+    }, |e| e);
 
     /* Move our calculated sizes into the assem::Function instance */
     let sizes = util::replace(&mut self.sizes, HashMap::new());
@@ -103,7 +101,7 @@ impl CodeGenerator {
         let op = self.op(op);
         let e1 = self.half(e1);
         let e2 = self.half(e2);
-        self.push(~assem::BinaryOp(op, copy out, e1, e2));
+        self.push(~assem::BinaryOp(op, out.clone(), e1, e2));
         return out;
       }
     }
@@ -257,12 +255,12 @@ impl CodeGenerator {
       ~assem::BinaryOp(op @ assem::Mod, d, s1, s2) => {
         let s1 = if s1.imm() {
           let tmp = self.tmpnew(ir::Int);
-          self.stms.push(~assem::Move(copy tmp, s1));
+          self.stms.push(~assem::Move(tmp.clone(), s1));
           tmp
         } else { s1 };
         let s2 = if s2.imm() {
           let tmp = self.tmpnew(ir::Int);
-          self.stms.push(~assem::Move(copy tmp, s2));
+          self.stms.push(~assem::Move(tmp.clone(), s2));
           tmp
         } else { s2 };
         self.stms.push(~assem::BinaryOp(op, d, s1, s2));
@@ -288,7 +286,7 @@ impl CodeGenerator {
                 ~assem::Temp(t) => *self.sizes.get(&t), _ => arg.size()
               };
               let tmp = self.tmpnew(size);
-              self.stms.push(~assem::Move(copy tmp, arg));
+              self.stms.push(~assem::Move(tmp.clone(), arg));
               tmp
             }
             _ => arg
@@ -303,7 +301,7 @@ impl CodeGenerator {
         ~assem::Temp(t) => self.stms.push(~assem::Return(~assem::Temp(t))),
         op => {
           let tmp = self.tmpnew(op.size());
-          self.stms.push(~assem::Move(copy tmp, op));
+          self.stms.push(~assem::Move(tmp.clone(), op));
           self.stms.push(~assem::Return(tmp));
         }
       },
@@ -327,7 +325,7 @@ impl CodeGenerator {
       match o {
         ~assem::Immediate(*) => {
           let tmp = self.tmpnew(ir::Pointer);
-          self.stms.push(~assem::Move(copy tmp, o));
+          self.stms.push(~assem::Move(tmp.clone(), o));
           tmp
         }
         _ => o
@@ -352,7 +350,7 @@ impl CodeGenerator {
     match (o1, o2) {
       (~assem::Immediate(i1, s1), ~assem::Immediate(i2, s2)) => {
         let tmp = self.tmpnew(ir::Int);
-        self.stms.push(~assem::Move(copy tmp, ~assem::Immediate(i1, s1)));
+        self.stms.push(~assem::Move(tmp.clone(), ~assem::Immediate(i1, s1)));
         (c, tmp, ~assem::Immediate(i2, s2))
       }
       (~assem::Immediate(i1, s1), o2) =>

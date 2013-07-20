@@ -81,10 +81,10 @@ impl SymbolGenerator {
   pub fn intern(&mut self, s: &~str) -> ast::Ident {
     let s = match self.table.find(s) {
       Some(&i) => { return ast::Ident(i) }
-      None => copy *s
+      None => s.clone()
     };
     let ret = self.symbols.len();
-    self.table.insert(copy s, ret);
+    self.table.insert(s.clone(), ret);
     self.symbols.push(s);
     return ast::Ident(ret);
   }
@@ -243,11 +243,11 @@ impl<'self> Parser<'self> {
           match s {
             (false, ~Marked{ node: Declare(id, typ, init, _), span }) => {
               let sp = self.posgen.to_span(span);
-              cur = Some(self.mark(Declare(id, typ, init, cur.swap_unwrap()),
+              cur = Some(self.mark(Declare(id, typ, init, cur.take_unwrap()),
                                    sp, sp));
             }
             (_, s) => {
-              cur = Some(self.mark(Seq(s, cur.swap_unwrap()), start, end));
+              cur = Some(self.mark(Seq(s, cur.take_unwrap()), start, end));
             }
           }
         }

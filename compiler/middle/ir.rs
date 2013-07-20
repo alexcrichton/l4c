@@ -35,6 +35,7 @@ pub enum Statement {
   Die(~Expression),
 }
 
+#[deriving(Clone)]
 pub enum Expression {
   Temp(Temp),
   Const(i32, Type),
@@ -42,10 +43,10 @@ pub enum Expression {
   LabelExp(label::Label),
 }
 
-#[deriving(Eq)]
+#[deriving(Eq, Clone)]
 pub enum Type { Int, Pointer }
 
-#[deriving(Eq)]
+#[deriving(Eq, Clone)]
 pub enum Binop {
   Add, Sub, Mul, Div, Mod, Lt, Lte, Gt, Gte, Eq, Neq, And, Or, Xor, Lsh, Rsh
 }
@@ -126,9 +127,8 @@ impl Statement {
       ~Arguments(tmps) => ~Arguments(tmps.consume_iter().transform(|t| defs(t))
                                          .collect()),
       ~Phi(def, map) => {
-        let mut map = map;
         let mut newmap = HashMap::new();
-        do map.consume |k, v| {
+        for map.consume().advance |(k, v)| {
           newmap.insert(k, uses(v));
         }
         ~Phi(defs(def), newmap)
@@ -310,7 +310,7 @@ priv fn ssa_fun(f: &mut Function) {
   }
   /* update all type information for the new temps */
   f.types.clear();
-  do newtypes.consume |k, v| {
+  for newtypes.consume().advance |(k, v)| {
     f.types.insert(k, v);
   }
 }

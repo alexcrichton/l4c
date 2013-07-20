@@ -155,8 +155,9 @@ impl<'self> Translator<'self> {
         self.stm(s2.unwrap());
       }
       ast::Continue => {
-        /* TODO: can this copy be avoided? */
-        self.stm(copy self.for_step);
+        /* TODO: can this clone be avoided? */
+        let step = self.for_step.clone();
+        self.stm(step);
         let n = self.commit();
         self.f.cfg.add_edge(n, self.continue_to, ir::Branch);
       }
@@ -177,8 +178,8 @@ impl<'self> Translator<'self> {
       }
       ast::For(init, cond, step, body) => {
         self.stm(init.unwrap());
-        /* TODO: can this copy be avoided? */
-        let prevstep = replace(&mut self.for_step, copy step.node);
+        /* TODO: can this clone be avoided? */
+        let prevstep = replace(&mut self.for_step, step.node.clone());
         self.trans_loop(cond.unwrap(), ast::Seq(body, step));
         self.for_step = prevstep;
       }
@@ -235,11 +236,11 @@ impl<'self> Translator<'self> {
           Some(op) => {
             if ismem {
               let tmp = self.tmp(leftsize);
-              self.stms.push(~ir::Load(tmp, copy left));
+              self.stms.push(~ir::Load(tmp, left.clone()));
               ~ir::BinaryOp(self.oper(op), ~ir::Temp(tmp),
                             self.exp(e2.unwrap(), false))
             } else {
-              ~ir::BinaryOp(self.oper(op), copy left,
+              ~ir::BinaryOp(self.oper(op), left.clone(),
                             self.exp(e2.unwrap(), false))
             }
           }
@@ -305,7 +306,7 @@ impl<'self> Translator<'self> {
       ast::Const(c) => self.consti(c),
       ast::Var(ref id) => match self.vars.find(id) {
         Some(&t) => ~ir::Temp(t),
-        None     => copy *self.t.funs.get(id)
+        None     => self.t.funs.get(id).clone()
       },
       ast::Null => self.constp(0),
 
@@ -510,19 +511,19 @@ impl<'self> Translator<'self> {
 
   fn check_null(&mut self, e: &ir::Expression) {
     if !self.safe { return; }
-    let cond = ~ir::BinaryOp(ir::Eq, ~copy *e, self.constp(0));
+    let cond = ~ir::BinaryOp(ir::Eq, ~e.clone(), self.constp(0));
     self.stms.push(~ir::Die(cond));
   }
 
   fn check_bounds(&mut self, base: &ir::Expression, idx: &ir::Expression) {
     if !self.safe { return; }
     let tmp = self.tmp(ir::Int);
-    let size = ~ir::BinaryOp(ir::Sub, ~copy *base, self.constp(8));
+    let size = ~ir::BinaryOp(ir::Sub, ~base.clone(), self.constp(8));
     self.stms.push(~ir::Load(tmp, size));
 
-    let under = ~ir::BinaryOp(ir::Lt, ~copy *idx, self.consti(0));
+    let under = ~ir::BinaryOp(ir::Lt, ~idx.clone(), self.consti(0));
     self.stms.push(~ir::Die(under));
-    let over = ~ir::BinaryOp(ir::Gte, ~copy *idx, ~ir::Temp(tmp));
+    let over = ~ir::BinaryOp(ir::Gte, ~idx.clone(), ~ir::Temp(tmp));
     self.stms.push(~ir::Die(over));
   }
 

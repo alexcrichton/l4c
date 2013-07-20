@@ -160,23 +160,20 @@ impl<N, E> Graph<N, E> {
     self.nodes.insert(id, f(node));
   }
 
-  pub fn map<N2, E2>(&self, n: &fn(NodeId, &N) -> N2,
-                     e: &fn(&E) -> E2) -> Graph<N2, E2> {
+  pub fn map<N2, E2>(self, n: &fn(NodeId, N) -> N2,
+                     e: &fn(E) -> E2) -> Graph<N2, E2> {
+    let mut this = self;
     let mut g2 = Graph();
-    g2.next = self.next;
-    for self.nodes.each |&k, v| {
+    g2.next = this.next;
+    for this.nodes.consume().advance |(k, v)| {
       g2.nodes.insert(k, n(k, v));
     }
-    for self.pred.each |&k, v| {
-      let mut set = ~HashSet::new();
-      for v.iter().advance |&value| {
-        set.insert(value);
-      }
-      g2.pred.insert(k, set);
+    for this.pred.consume().advance |(k, v)| {
+      g2.pred.insert(k, v);
     }
-    for self.succ.each |&k, v| {
+    for this.succ.consume().advance |(k, v)| {
       let mut map = ~HashMap::new();
-      for v.iter().advance |(&k, v)| {
+      for v.consume().advance |(k, v)| {
         map.insert(k, e(v));
       }
       g2.succ.insert(k, map);

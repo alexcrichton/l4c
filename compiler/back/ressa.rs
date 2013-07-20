@@ -12,8 +12,8 @@ pub fn convert(p: &mut assem::Program) {
 
 fn ressa(f: &mut assem::Function) {
   /* first, convert all temp registers */
-  let mut remapping = ssa::convert(&mut f.cfg, f.root, &mut f.ssa,
-                                   &assem::RegisterInfo);
+  let remapping = ssa::convert(&mut f.cfg, f.root, &mut f.ssa,
+                               &assem::RegisterInfo);
 
   /* Next, convert all memory locations (from spilling) to ssa-form. It'd be
      nice if the analysis didn't have to get recomputed... */
@@ -23,7 +23,7 @@ fn ressa(f: &mut assem::Function) {
   /* All of the temps now have new names, so we need to re-register the size of
      each temp in the Function */
   let mut newsizes = HashMap::new();
-  do remapping.consume |new, old| {
+  for remapping.consume().advance |(new, old)| {
     newsizes.insert(new, *f.sizes.get(&old));
   }
   f.sizes.clear();

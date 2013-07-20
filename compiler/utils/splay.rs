@@ -262,7 +262,7 @@ impl<K: TotalOrd, V> MutableMap<K, V> for SplayMap<K, V> {
         }
 
         // TODO: Extra storage of None isn't necessary
-        let (value, left, right) = match self.root.swap_unwrap() {
+        let (value, left, right) = match self.root.take_unwrap() {
             ~Node {left, right, value, _} => (value, left, right)
         };
 

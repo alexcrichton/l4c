@@ -25,7 +25,7 @@ fn peep(ins: ~[~Instruction]) -> ~[~Instruction] {
     match i {
       /* shifting has constraints, so add if we can */
       ~BO(Mul, d, ~Imm(2, _), t) | ~BO(Mul, d, t, ~Imm(2, _)) =>
-        ~BO(Add, d, copy t, t),
+        ~BO(Add, d, t.clone(), t),
       /* Multiplying by a power of 2 is equivalent by shifting by the log */
       ~BO(Mul, d, ~Imm(c, s), t) | ~BO(Mul, d, t, ~Imm(c, s)) => {
         let (op, c) = if pow2(c) { (Lsh, log2(c)) } else { (Mul, c) };

@@ -64,13 +64,16 @@ impl<'self> Initchecker<'self> {
         ret
       }
       Break | Nop => false,
-      /* TODO: remove copy */
-      Continue => self.live(sym, &copy self.step),
+      Continue => {
+        /* TODO: remove clone */
+        let step = self.step.clone();
+        self.live(sym, &step)
+      }
       Express(ref e) | Return(ref e) => self.uses(sym, *e),
       Seq(ref s1, ref s2) => self.seq_live(sym, &s1.node, &s2.node),
       For(ref s1, ref e, ref s2, ref s3) => {
-        /* TODO: remove copy and use 'with' */
-        let prev = replace(&mut self.step, copy s2.node);
+        /* TODO: remove clone and use 'with' */
+        let prev = replace(&mut self.step, s2.node.clone());
         let ret = self.live(sym, &s1.node) ||
             ((self.uses(sym, *e) || self.seq_live(sym, &s3.node, &s2.node)) &&
              !self.defines(sym, &s1.node));

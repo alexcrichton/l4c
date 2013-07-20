@@ -5,6 +5,7 @@ pub type Span = ((uint, uint), (uint, uint));
 #[allow(non_uppercase_statics)]
 pub static dummy: Mark = -1 as uint;
 
+#[deriving(Clone)]
 pub struct Marked<T> {
   span: Mark,
   node: T,

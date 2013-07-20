@@ -42,7 +42,7 @@ pub enum gdecl {
 
 pub type Statement = Marked<stmt>;
 
-#[deriving(Eq)]
+#[deriving(Eq, Clone)]
 pub enum stmt {
   Assign(~Expression, Option<Binop>, ~Expression),
   If(~Expression, ~Statement, ~Statement),
@@ -59,7 +59,7 @@ pub enum stmt {
 
 pub type Expression = Marked<expr>;
 
-#[deriving(Eq)]
+#[deriving(Eq, Clone)]
 pub enum expr {
   Var(Ident),
   Boolean(bool),
@@ -76,18 +76,19 @@ pub enum expr {
   Null,
 }
 
+#[deriving(Clone)]
 pub enum Type {
   Int, Bool, Alias(Ident), Pointer(@Type), Array(@Type), Struct(Ident), Nullp,
   Fun(@Type, @~[@Type])
 }
 
-#[deriving(Eq)]
+#[deriving(Eq, Clone)]
 pub enum Binop {
   Plus, Minus, Times, Divide, Modulo, Less, LessEq, Greater, GreaterEq,
   Equals, NEquals, LAnd, LOr, BAnd, BOr, Xor, LShift, RShift
 }
 
-#[deriving(Eq)]
+#[deriving(Eq, Clone)]
 pub enum Unop {
   Negative, Invert, Bang
 }
@@ -121,7 +122,7 @@ impl Program {
   }
 
   pub fn str(&self, id: Ident) -> ~str {
-    copy self.symbols[*id]
+    self.symbols[*id].clone()
   }
 
   pub fn error(&self, m: mark::Mark, msg: &str) {
@@ -254,7 +255,7 @@ impl<'self> Elaborator<'self> {
       Assign(~Marked{ node: Var(id), span: e1span }, Some(o), e2) => {
         let e2span = e2.span;
         let v = ~Marked::new(Var(id), e1span);
-        let b = ~Marked::new(BinaryOp(o, copy v, e2), e2span);
+        let b = ~Marked::new(BinaryOp(o, v.clone(), e2), e2span);
         let e = ~Marked::new(Assign(v, None, b), span);
         return self.elaborate_stm(e);
       }
