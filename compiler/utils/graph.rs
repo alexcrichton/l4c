@@ -1,6 +1,8 @@
 use std::hashmap::{HashMap, HashSet};
 use std::io::WriterUtil;
 use std::io;
+use std::util;
+
 use extra::smallintmap::SmallIntMap;
 
 pub type NodeId = uint;
@@ -168,9 +170,7 @@ impl<N, E> Graph<N, E> {
     for this.nodes.consume().advance |(k, v)| {
       g2.nodes.insert(k, n(k, v));
     }
-    for this.pred.consume().advance |(k, v)| {
-      g2.pred.insert(k, v);
-    }
+    util::swap(&mut this.pred, &mut g2.pred);
     for this.succ.consume().advance |(k, v)| {
       let mut map = ~HashMap::new();
       for v.consume().advance |(k, v)| {
