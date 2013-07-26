@@ -338,7 +338,7 @@ impl PrettyPrint for Instruction {
                s2.pp(), s1.pp(), cond.suffix(), dstsmall, dstsmall, dest.pp())
         }
 
-        _ => fmt!("%s %s, %s // %s"
+        _ => fmt!("%s %s, %s // %s",
                   binop.pp(), s1.pp(), dest.pp(), s2.pp()),
       },
       Call(dst, ref e, ref args) =>
