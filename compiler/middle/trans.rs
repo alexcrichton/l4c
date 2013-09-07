@@ -40,7 +40,7 @@ pub fn translate(mut p: ast::Program, safe: bool) -> ir::Program {
 
   debug!("translating");
   let mut accum = ~[];
-  for decls.consume_iter().advance |d| {
+  for d in decls.move_iter() {
     match d.unwrap() {
       ast::Function(_, id, args, body) => {
         let mut trans = Translator {
@@ -90,7 +90,7 @@ fn typ_size(t: @ast::Type, structs: &AllStructInfo) -> uint {
 
 impl ProgramInfo {
   fn build(&mut self, p: &ast::Program) {
-    for p.decls.iter().advance |d| {
+    for d in p.decls.iter() {
       self.build_gdecl(p, *d)
     }
   }
@@ -100,7 +100,7 @@ impl ProgramInfo {
       ast::StructDef(id, ref fields) => {
         let mut table = HashMap::new();
         let mut size = 0;
-        for fields.iter().advance |&(id, t)| {
+        for &(id, t) in fields.iter() {
           let typsize = typ_size(t, &self.structs);
           if (size != 0 && size % typsize != 0) {
             size += 4; /* TODO: real math */
@@ -139,7 +139,7 @@ impl ProgramInfo {
 
 impl<'self> Translator<'self> {
   fn arguments(&mut self, args: ~[(ast::Ident, @ast::Type)]) {
-    let args = do args.consume_iter().transform |(id, t)| {
+    let args = do args.move_iter().map |(id, t)| {
       let tmp = self.tmp(typ(t));
       self.vars.insert(id, tmp);
       tmp
@@ -346,7 +346,7 @@ impl<'self> Translator<'self> {
       ast::Call(e, args, t) => {
         let ret = t.take();
         let fun = self.exp(e.unwrap(), false);
-        let args = do args.consume_iter().transform |e| {
+        let args = do args.move_iter().map |e| {
           self.exp(e.unwrap(), false)
         }.collect();
         let typ = typ(ret);

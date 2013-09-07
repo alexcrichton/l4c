@@ -22,7 +22,7 @@
  * throughout the code in this file.
  */
 
-use std::iterator::Counter;
+use std::iterator;
 use std::hashmap::{HashMap, HashSet};
 use std::uint;
 
@@ -65,7 +65,7 @@ struct Spiller {
 }
 
 pub fn spill(p: &mut Program) {
-  for p.funs.mut_iter().advance |f| {
+  for f in p.funs.mut_iter() {
     opt::cfg::eliminate_critical(&mut f.cfg, &RegisterInfo);
 
     /* TODO(#5884): eew */
@@ -91,7 +91,7 @@ pub fn spill(p: &mut Program) {
                          connected: connected };
 
     /* Build up phi renaming maps */
-    for f.cfg.each_node |n, _| {
+    for (n, _) in f.cfg.nodes() {
       s.build_renamings(f, n);
     }
 
@@ -99,30 +99,27 @@ pub fn spill(p: &mut Program) {
     let mut changed = true;
     while changed {
       changed = false;
-      for f.cfg.each_postorder(f.root) |&id| {
+      do f.cfg.each_postorder(f.root) |&id| {
         changed = s.build_next_use(f, id) || changed;
       }
     }
 
     /* In reverse postorder, spill everything! */
     let (order, _) = f.cfg.postorder(f.root);
-    for order.rev_iter().advance |&id| {
+    for &id in order.rev_iter() {
       s.spill(f, id);
     }
 
     /* Finally, clean things up by appending the necessary spills/reloads to the
        relevant basic block */
-    for s.connected.consume().advance |((pred, _), ins)| {
+    for ((pred, _), ins) in s.connected.move_iter() {
       f.cfg.node_mut(pred).push_all_move(ins);
     }
   }
 }
 
 fn sort(set: &TempSet, s: &NextUse) -> ~[Temp] {
-  let mut v = ~[];
-  for set.iter().advance |&tmp| {
-    v.push(tmp);
-  }
+  let mut v = set.iter().map(|&t| t).to_owned_vec();
   sort::quick_sort(v, |&a: &Temp, &b: &Temp| {
     match s.find(&b) {
       None => true,       /* a is always < infty */
@@ -142,10 +139,10 @@ impl Spiller {
    */
   fn build_renamings(&mut self, f: &Function, n: NodeId) {
     let mut phis = HashMap::new();
-    for f.cfg.node(n).iter().advance |ins| {
+    for ins in f.cfg.node(n).iter() {
       match *ins {
         ~Phi(my_name, ref renamings) => {
-          for renamings.iter().advance |(&pred, &their_name)| {
+          for (&pred, &their_name) in renamings.iter() {
             match self.renamings.find_mut(&(pred, n)) {
               Some(m) => {
                 match m.find_mut(&their_name) {
@@ -163,7 +160,7 @@ impl Spiller {
           }
           /* TODO: is the dup necessary? */
           let mut dup = HashMap::new();
-          for renamings.iter().advance |(&k, &v)| {
+          for (&k, &v) in renamings.iter() {
             dup.insert(k, v);
           }
           assert!(phis.insert(my_name, dup));
@@ -189,13 +186,13 @@ impl Spiller {
     let block = f.cfg.node(n);
 
     /* Union each of our predecessors into the 'bottom' map */
-    for f.cfg.each_succ(n) |succ| {
+    for succ in f.cfg.succ(n) {
       /* at the end the next use of each of the temps we transfer to the next
          node via phis is the length of the block that we're at */
       match self.phis.find(&succ) {
         None => (),
         Some(map) => {
-          for map.iter().advance |(_, phis)| {
+          for (_, phis) in map.iter() {
             bottom.insert(*phis.get(&n), block.len());
           }
         }
@@ -212,7 +209,7 @@ impl Spiller {
 
       /* Temps may change names along edges because of phi nodes, so be sure to
          account for that here */
-      for self.next_use.get(&succ).iter().advance |(&tmp, &next)| {
+      for (&tmp, &next) in self.next_use.get(&succ).iter() {
         let cost = next + edge_cost;
         let mytmp = self.their_name(tmp, n, succ);
         match bottom.pop(&mytmp) {
@@ -225,8 +222,8 @@ impl Spiller {
     /* Process all of our block's statements backwards */
     let mut deltas = ~[];
     let mut max = bottom.len();
-    let indexes = Counter::new(block.len() - 1, -1);
-    for indexes.zip(block.rev_iter()).advance |(i, ins)| {
+    let indexes = iterator::count(block.len() - 1, -1);
+    for (i, ins) in indexes.zip(block.rev_iter()) {
       let mut delta = ~[];
       match *ins {
         ~PCopy(*) => { deltas.push(delta); loop; }
@@ -234,7 +231,7 @@ impl Spiller {
       }
       /* If we define a temp, then the distance to the next use from the start
          is infinity because it's just not relevant */
-      for ins.each_def |tmp| {
+      do ins.each_def |tmp| {
         /* liveness stops here (hence pop) except for phi nodes */
         match bottom.pop(&tmp) {
           None    => (), /* well apparently this wasn't used anywhere */
@@ -249,7 +246,7 @@ impl Spiller {
 
       /* Our delta contains what the last distance to the temp used to be (None
        * for infty), and then we update it to our current distance now */
-      for ins.each_use |tmp| {
+      do ins.each_use |tmp| {
         delta.push((tmp, bottom.find(&tmp).map(|&x| *x)));
         bottom.insert(tmp, i);
       }
@@ -293,15 +290,15 @@ impl Spiller {
     /* Set up the sets which will become {regs,spill}_exit */
     let mut regs = HashSet::new();
     let mut spill = HashSet::new();
-    for regs_entry.iter().advance |&t| { regs.insert(t); }
-    for spill_entry.iter().advance |&t| { spill.insert(t); }
+    for &t in regs_entry.iter() { regs.insert(t); }
+    for &t in spill_entry.iter() { spill.insert(t); }
 
     /* move out of {regs,spill}_entry because we're done with them now */
     self.regs_entry.insert(n, regs_entry);
     self.spill_entry.insert(n, spill_entry);
 
     /* connect what we can, may not succeed */
-    for f.cfg.each_pred(n) |pred| {
+    for pred in f.cfg.preds(n) {
       self.connect_edge(pred, n);
     }
 
@@ -310,7 +307,7 @@ impl Spiller {
 
     /* next_use is always relative to the top of the block */
     let mut next_use = HashMap::new();
-    for self.next_use.get(&n).iter().advance |(&k, &v)| {
+    for (&k, &v) in self.next_use.get(&n).iter() {
       next_use.insert(k, v);
     }
 
@@ -320,7 +317,7 @@ impl Spiller {
       if regs.len() >= max {
         let sorted = sort(&regs, &next_use);
         debug!("%? %s", sorted, next_use.pp());
-        for sorted.slice(max, sorted.len()).iter().advance |&tmp| {
+        for &tmp in sorted.slice(max, sorted.len()).iter() {
           if !spill.contains(&tmp) && next_use.contains_key(&tmp) {
             debug!("spilling %?", tmp);
             block.push(~Spill(tmp, tmp));
@@ -338,7 +335,7 @@ impl Spiller {
          for down the road. We iterate in reverse order in case one instruction
          uses the same operand more than once. In this case the first listed
          delta is the one which is the relevant value */
-      for delta.rev_iter().advance |&(tmp, amt)| {
+      for &(tmp, amt) in delta.rev_iter() {
         match amt {
           None    => { assert!(next_use.remove(&tmp)); }
           Some(d) => { next_use.insert(tmp, d); }
@@ -349,7 +346,7 @@ impl Spiller {
     debug!("%s", next_use.pp());
     let mut i = 0;
     let node = f.cfg.pop_node(n);
-    for node.consume_iter().zip(self.deltas.get(&n).iter()).advance |(ins, delta)| {
+    for (ins, delta) in node.move_iter().zip(self.deltas.get(&n).iter()) {
       debug!("%2? %30s  %s %s", i, ins.pp(), next_use.pp(),
              delta.map(|a| fmt!("%?", a)).connect(", "));
 
@@ -370,20 +367,21 @@ impl Spiller {
           let newcopies = do copies.iter().filter |& &(dst, src)| {
             assert!(dst == src);
             regs.contains(&src)
-          }.transform(|&x| x).collect();
+          }.map(|&x| x).collect();
           block.push(~PCopy(newcopies));
           apply_delta(delta);
         }
 
         ins => {
           /* Determine what needs to be reloaded */
-          for ins.each_use |tmp| {
+          do ins.each_use |tmp| {
             debug!("%? %?", tmp, *next_use.get(&tmp));
             assert!(*next_use.get(&tmp) == i);
-            if regs.contains(&tmp) { loop }
-            reloaded.push(tmp);
-            regs.insert(tmp);
-            spill.insert(tmp);
+            if !regs.contains(&tmp) {
+              reloaded.push(tmp);
+              regs.insert(tmp);
+              spill.insert(tmp);
+            }
           }
           let extra = match ins {
             ~BinaryOp(op, _, _, _) if op.constrained() => 1,
@@ -397,18 +395,18 @@ impl Spiller {
           /* The next limit is relative to the next instruction */
           apply_delta(delta);
           let mut defs = 0;
-          for ins.each_def |_| { defs += 1; }
+          do ins.each_def |_| { defs += 1; }
           debug!("making room for results");
           limit(arch::num_regs - defs);
 
           /* Add all defined temps to the set of those in regs */
-          for ins.each_def |tmp| {
+          do ins.each_def |tmp| {
             regs.insert(tmp);
           }
           assert!(regs.len() <= arch::num_regs);
 
           /* Finally reload all operands as necessary, and then run ins */
-          for reloaded.iter().advance |&tmp| {
+          for &tmp in reloaded.iter() {
             block.push(~Reload(tmp, tmp));
           }
           reloaded.truncate(0);
@@ -425,7 +423,7 @@ impl Spiller {
     self.spill_exit.insert(n, spill);
 
     /* connect any lingering edges which weren't covered beforehand */
-    for f.cfg.each_succ(n) |succ| {
+    for succ in f.cfg.succ(n) {
       if self.spill_entry.contains_key(&succ) {
         self.connect_edge(n, succ);
       }
@@ -437,11 +435,11 @@ impl Spiller {
     let mut freq = HashMap::new();
     let mut take = HashSet::new();
     let mut cand = HashSet::new();
-    for f.cfg.each_pred(n) |pred| {
+    for pred in f.cfg.preds(n) {
       debug!("pred %?", pred);
       assert!(self.regs_end.contains_key(&pred));
-      for self.regs_end.get(&pred).iter().advance |&tmp| {
-        for self.my_names(tmp, pred, n) |mine| {
+      for &tmp in self.regs_end.get(&pred).iter() {
+        do self.my_names(tmp, pred, n) |mine| {
           let prev : uint = freq.find(&mine).map_default(0, |&x| *x);
           freq.insert(mine, prev + 1);
         }
@@ -449,7 +447,7 @@ impl Spiller {
     }
     debug!("frequencies: %s", freq.pp());
     let preds = f.cfg.num_pred(n);
-    for freq.iter().advance |(&tmp, &n)| {
+    for (&tmp, &n) in freq.iter() {
       if n == preds {
         take.insert(tmp);
       } else {
@@ -459,7 +457,7 @@ impl Spiller {
     if arch::num_regs - take.len() > 0 {
       let sorted = sort(&cand, self.next_use.get(&n));
       let max = arch::num_regs - take.len();
-      for sorted.slice(0, uint::min(max, sorted.len())).iter().advance |&tmp| {
+      for &tmp in sorted.slice(0, uint::min(max, sorted.len())).iter() {
         if self.next_use.get(&n).contains_key(&tmp) {
           take.insert(tmp);
         }
@@ -475,7 +473,7 @@ impl Spiller {
     let mut cand = HashSet::new();
     /* If a variable is used in the loop, then its next_use as viewed from the
        body of the loop would be less than LOOP_OUT_WEIGHT */
-    for self.next_use.get(&n).iter().advance |(&tmp, &n)| {
+    for (&tmp, &n) in self.next_use.get(&n).iter() {
       if n < LOOP_OUT_WEIGHT {
         cand.insert(tmp);
       }
@@ -484,10 +482,10 @@ impl Spiller {
     if cand.len() < arch::num_regs {
       /* live_through = (phis | live_in) - cand */
       let mut live_through = HashSet::new();
-      for self.next_use.get(&n).each_key |&tmp| {
+      for (&tmp, _) in self.next_use.get(&n).iter() {
         if !cand.contains(&tmp) { live_through.insert(tmp); }
       }
-      for self.phis.get(&n).each_key |&tmp| {
+      for (&tmp, _) in self.phis.get(&n).iter() {
         if !cand.contains(&tmp) { live_through.insert(tmp); }
       }
 
@@ -500,13 +498,13 @@ impl Spiller {
       if free > 0 {
         let sorted = sort(&live_through, self.next_use.get(&n));
         debug!("%?", sorted);
-        for sorted.slice(0, uint::min(free as uint, sorted.len())).iter().advance |&tmp| {
+        for &tmp in sorted.iter().take(free as uint) {
           cand.insert(tmp);
         }
       }
     } else if cand.len() > arch::num_regs {
       let sorted = sort(&cand, self.next_use.get(&n));
-      for sorted.slice(arch::num_regs, sorted.len()).iter().advance |tmp| {
+      for tmp in sorted.iter().skip(arch::num_regs) {
         cand.remove(tmp);
       }
     }
@@ -519,7 +517,7 @@ impl Spiller {
 
     visited.insert(cur);
     let mut ret = *self.max_pressures.get(&cur);
-    for f.cfg.each_succ(cur) |succ| {
+    for succ in f.cfg.succ(cur) {
       ret = uint::max(ret, self.max_pressure(f, succ, visited));
     }
     return ret;
@@ -529,21 +527,21 @@ impl Spiller {
     debug!("connecting preds: %?", n);
     /* Build up our list of required spilled registers */
     let mut spill = HashSet::new();
-    for f.cfg.each_pred(n) |pred| {
+    for pred in f.cfg.preds(n) {
       if !self.spill_exit.contains_key(&pred) { loop }
       /* Be sure we're using the right name for each temp spilled on the exit of
          our predecessors because we may be renaming it with a phi node */
-      for self.spill_exit.get(&pred).iter().advance |&tmp| {
+      for &tmp in self.spill_exit.get(&pred).iter() {
         /* spill is intersected with the entry set */
         if entry.contains(&tmp) {
-          for self.my_names(tmp, pred, n) |mine| {
+          do self.my_names(tmp, pred, n) |mine| {
             spill.insert(mine);
           }
         }
       }
     }
     /* TODO: this needs a better solution... */
-    for self.phis.get(&n).iter().advance |(k, _)| {
+    for (k, _) in self.phis.get(&n).iter() {
       spill.remove(k);
     }
     debug!("node %? entry regs:%s spill:%s", n, entry.pp(), spill.pp());
@@ -564,12 +562,12 @@ impl Spiller {
     let mut append = ~[];
     /* All registers they had which we don't have which we may eventually use
        need to be spilled */
-    for pred_regs_exit.iter().advance |&tmp| {
+    for &tmp in pred_regs_exit.iter() {
       /* no need to spill if it's already spilled */
       if pred_spill_exit.contains(&tmp) { loop }
 
       /* for each of my names for this temp, see if a spill is needed */
-      for self.my_names(tmp, pred, succ) |mine| {
+      do self.my_names(tmp, pred, succ) |mine| {
         debug!("name %? %? %?", mine, succ_regs.contains(&mine),
                nxt.contains_key(&mine));
         if !succ_regs.contains(&mine) && nxt.contains_key(&mine) {
@@ -579,7 +577,7 @@ impl Spiller {
     }
 
     /* Each register we want spilled that they haven't spilled needs a spill */
-    for succ_spill.iter().advance |&tmp| {
+    for &tmp in succ_spill.iter() {
       let theirs = self.their_name(tmp, pred, succ);
       if !pred_spill_exit.contains(&theirs) &&
           pred_regs_exit.contains(&theirs) {
@@ -588,7 +586,7 @@ impl Spiller {
     }
 
     /* Each register we have which they don't have needs a reload */
-    for succ_regs.iter().advance |&tmp| {
+    for &tmp in succ_regs.iter() {
       let theirs = self.their_name(tmp, pred, succ);
       debug!("ours %? theirs %?", tmp, theirs);
       if !pred_regs_exit.contains(&theirs) {
@@ -599,13 +597,14 @@ impl Spiller {
     self.connected.insert((pred, succ), append);
   }
 
-  fn my_names(&self, tmp: Temp, from: NodeId, to: NodeId,
-              f: &fn(Temp) -> bool) -> bool {
+  fn my_names(&self, tmp: Temp, from: NodeId, to: NodeId, f: &fn(Temp)) {
     match self.renamings.find(&(from, to)) {
       Some(m) => match m.find(&tmp) {
         Some(ret) => {
-          ret.iter().advance(|&t| f(t)) &&
-            (!self.next_use.get(&to).contains_key(&tmp) || f(tmp))
+          for &t in ret.iter() { f(t) }
+          if self.next_use.get(&to).contains_key(&tmp) {
+            f(tmp)
+          }
         }
         None => { f(tmp) }
       },
@@ -624,7 +623,7 @@ impl Spiller {
 #[cfg(test)]
 fn set(v: ~[int]) -> TempSet {
   let mut set = HashSet::new();
-  for v.iter().advance |&i| {
+  for &i in v.iter() {
     set.insert(i as Temp);
   }
   return set;

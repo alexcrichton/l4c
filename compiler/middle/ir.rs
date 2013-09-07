@@ -73,7 +73,7 @@ pub fn Function(name: ~str) -> Function {
 impl Graphable for Program {
   fn dot(&self, out: @io::Writer) {
     out.write_str("digraph {\n");
-    for self.funs.iter().advance |f| {
+    for f in self.funs.iter() {
       f.cfg.dot(out,
         |id| fmt!("%s_n%d", f.name, id as int),
         |id, stms|
@@ -120,15 +120,15 @@ impl Statement {
       ~Die(e) => ~Die(e.map_temps(uses)),
       ~Call(tmp, e, args) => {
         let e = e.map_temps(|x| uses(x));
-        let args = args.consume_iter().transform(|x| x.map_temps(|x| uses(x)))
+        let args = args.move_iter().map(|x| x.map_temps(|x| uses(x)))
                        .collect();
         ~Call(defs(tmp), e, args)
       }
-      ~Arguments(tmps) => ~Arguments(tmps.consume_iter().transform(|t| defs(t))
+      ~Arguments(tmps) => ~Arguments(tmps.move_iter().map(|t| defs(t))
                                          .collect()),
       ~Phi(def, map) => {
         let mut newmap = HashMap::new();
-        for map.consume().advance |(k, v)| {
+        for (k, v) in map.move_iter() {
           newmap.insert(k, uses(v));
         }
         ~Phi(defs(def), newmap)
@@ -140,26 +140,29 @@ impl Statement {
     }
   }
 
-  pub fn each_def(&self, f: &fn(Temp) -> bool) -> bool {
+  pub fn each_def(&self, f: &fn(Temp)) {
     match *self {
       Load(tmp, _) | Move(tmp, _) | Call(tmp, _, _) | Phi(tmp, _) |
         Cast(tmp, _) => { f(tmp) }
-      Arguments(ref tmps) => tmps.iter().advance(|&t| f(t)),
-      _ => true
+      Arguments(ref tmps) => { tmps.iter().advance(|&t| { f(t); true }); }
+      _ => ()
     }
   }
 
-  pub fn each_use(&self, f: &fn(Temp) -> bool) -> bool {
+  pub fn each_use(&self, f: &fn(Temp)) {
     match *self {
       Move(_, ref e) | Load(_, ref e) | Condition(ref e) |
         Return(ref e) | Die(ref e) => e.each_temp(f),
-      Store(ref e1, ref e2) => { e1.each_temp(|x| f(x)) && e2.each_temp(f) }
+      Store(ref e1, ref e2) => { e1.each_temp(|x| f(x)); e2.each_temp(f) }
       Call(_, ref e, ref args) => {
-        e.each_temp(|x| f(x)) && args.iter().advance(|e| e.each_temp(|x| f(x)))
+        e.each_temp(|x| f(x));
+        for e in args.iter(){ e.each_temp(|x| f(x)) }
       }
-      Phi(_, ref map) => { map.each_value(|&t| f(t)) }
+      Phi(_, ref map) => {
+        for (_, &v) in map.iter() { f(v) }
+      }
       Cast(_, t) => { f(t) }
-      Arguments(*) => true
+      Arguments(*) => ()
     }
   }
 }
@@ -174,12 +177,8 @@ impl ssa::Statement<Statement> for Info {
     s.map_temps(uses, defs)
   }
 
-  fn each_def(&self, s: &Statement, f: &fn(Temp) -> bool) -> bool {
-    s.each_def(f)
-  }
-  fn each_use(&self, s: &Statement, f: &fn(Temp) -> bool) -> bool {
-    s.each_use(f)
-  }
+  fn each_def(&self, s: &Statement, f: &fn(Temp)) { s.each_def(f) }
+  fn each_use(&self, s: &Statement, f: &fn(Temp)) { s.each_use(f) }
 
   fn phi_info<'r>(&self, me: &'r Statement) -> Option<(Temp, &'r ssa::PhiMap)> {
     match *me {
@@ -210,7 +209,7 @@ impl PrettyPrint for Statement {
              E.map(|e| e.pp()).connect(", ")),
       Phi(tmp, ref map) => {
         let mut s = tmp.pp() + " <- phi(";
-        for map.iter().advance |(&id, &tmp)| {
+        for (&id, &tmp) in map.iter() {
           s.push_str(fmt!("[ %s - n%d ] ", tmp.pp(), id as int));
         }
         s + ")"
@@ -233,11 +232,12 @@ impl Expression {
     }
   }
 
-  pub fn each_temp(&self, f: &fn(Temp) -> bool) -> bool {
+  pub fn each_temp(&self, f: &fn(Temp)) {
     match *self {
-      Const(*) | LabelExp(*) => true,
+      Const(*) | LabelExp(*) => (),
       BinaryOp(_, ref e1, ref e2) => {
-        e1.each_temp(|x| f(x)) && e2.each_temp(f)
+        e1.each_temp(|x| f(x));
+        e2.each_temp(f)
       }
       Temp(tmp) => { f(tmp) }
     }
@@ -294,23 +294,23 @@ impl PrettyPrint for Binop {
 }
 
 pub fn ssa(p: &mut Program) {
-  for p.funs.mut_iter().advance |f| {
+  for f in p.funs.mut_iter() {
     ssa_fun(f);
   }
 }
 
-priv fn ssa_fun(f: &mut Function) {
+fn ssa_fun(f: &mut Function) {
   /* tables/metadata altered through temp remapping */
   let mut newtypes = HashMap::new();
 
   /* And, convert! */
   let mapping = ssa::convert(&mut f.cfg, f.root, &mut f.analysis, &Info);
-  for mapping.iter().advance |(&new, old)| {
+  for (&new, old) in mapping.iter() {
     newtypes.insert(new, *f.types.get(old));
   }
   /* update all type information for the new temps */
   f.types.clear();
-  for newtypes.consume().advance |(k, v)| {
+  for (k, v) in newtypes.move_iter() {
     f.types.insert(k, v);
   }
 }

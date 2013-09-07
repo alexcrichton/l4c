@@ -1,9 +1,9 @@
 use std::cell::Cell;
 use std::hashmap::HashMap;
 use std::io;
-use std::libc;
 use std::util;
 
+use front::die;
 use front::ast;
 use front::ast::*;
 use front::mark::{Marked, Mark, Span, Coords};
@@ -53,9 +53,9 @@ pub fn parse_files(f: &[~str], main: &str) -> Result<Program, ~str> {
   let mut symgen = SymbolGenerator::new();
   let mut posgen = PositionGenerator::new();
 
-  for f.iter().advance |f| {
+  for f in f.iter() {
     let input = match io::file_reader(&Path(*f)) {
-      Ok(in) => in,
+      Ok(i) => i,
       Err(s) => { return Err(s); }
     };
 
@@ -239,7 +239,7 @@ impl<'self> Parser<'self> {
         }
         let end = self.expect(RBRACE);
         let mut cur = Some(self.mark(Nop, start, end));
-        for stmts.consume_rev_iter().advance |s| {
+        for s in stmts.move_rev_iter() {
           match s {
             (false, ~Marked{ node: Declare(id, typ, init, _), span }) => {
               let sp = self.posgen.to_span(span);
@@ -641,6 +641,6 @@ impl<'self> Parser<'self> {
   fn err(&mut self, sp: Span, s: &str) -> ! {
     let ((a, b), (c, d)) = sp;
     io::println(fmt!("%s: %u:%u-%u:%u %s", self.posgen.file, a, b, c, d, s));
-    unsafe { libc::exit(1); }
+    die();
   }
 }

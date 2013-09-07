@@ -26,7 +26,7 @@ pub fn check(a: &Program) {
 
 impl<'self> Typechecker<'self> {
   fn run(&mut self) {
-    for self.program.decls.iter().advance |x| {
+    for x in self.program.decls.iter() {
       self.tc_gdecl(*x)
     }
     self.program.check();
@@ -46,7 +46,7 @@ impl<'self> Typechecker<'self> {
       Function(ret, id, ref args, ref body) => {
         if self.bind_fun(id, g.span, ret, args) {
           self.vars.clear();
-          for args.iter().advance |&(id, typ)| {
+          for &(id, typ) in args.iter() {
             self.vars.insert(id, typ);
           }
           self.ret = ret;
@@ -99,7 +99,7 @@ impl<'self> Typechecker<'self> {
       },
       Declare(id, typ, ref init, ref stm) => {
         self.tc_small(span, typ);
-        for init.iter().advance |x| {
+        for x in init.iter() {
           self.tc_ensure(*x, typ);
         }
         if self.vars.contains_key(&id) {
@@ -181,7 +181,7 @@ impl<'self> Typechecker<'self> {
           if argtyps.len() != args.len() {
             self.program.error(span, "mismatched number of arguments");
           } else {
-            for args.iter().zip(argtyps.iter()).advance |(e, &t2)| {
+            for (e, &t2) in args.iter().zip(argtyps.iter()) {
               self.tc_ensure(*e, t2);
             }
           }
@@ -220,7 +220,7 @@ impl<'self> Typechecker<'self> {
 
     /* Build up the table of field => type information */
     let mut table = HashMap::new();
-    for fields.iter().advance |&(field, typ)| {
+    for &(field, typ) in fields.iter() {
       if table.contains_key(&field) {
         self.program.error(span, fmt!("Duplicate field: '%s'",
                                       self.program.str(field)));
@@ -245,7 +245,7 @@ impl<'self> Typechecker<'self> {
               ret: @Type, args: &~[(Ident, @Type)]) -> bool {
     let mut names = HashSet::new();
     let mut good = true ;
-    for args.iter().advance |&(name, typ)| {
+    for &(name, typ) in args.iter() {
       if !names.insert(name) {
         self.program.error(span, fmt!("Duplicate argument: %s",
                                       self.program.str(name)));
@@ -255,7 +255,7 @@ impl<'self> Typechecker<'self> {
     }
     good = self.tc_small(span, ret) && good;
 
-    let fun = self.funs.find(&id).map_consume(|x| *x);
+    let fun = self.funs.find(&id).map_move(|x| *x);
     match fun {
       Some((retp, argsp)) => {
         good = self.tc_equal(span, retp, ret) && good;
@@ -263,7 +263,7 @@ impl<'self> Typechecker<'self> {
           self.program.error(span, "Different number of arguments than before");
           good = false;
         } else {
-          for argsp.iter().zip(args.iter()).advance |(&expected, &(_, got))| {
+          for (&expected, &(_, got)) in argsp.iter().zip(args.iter()) {
             good = self.tc_equal(span, expected, got) && good;
           }
         }

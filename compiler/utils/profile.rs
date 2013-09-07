@@ -38,7 +38,7 @@ pub fn run<U>(f: &fn() -> U, name: &str) -> U {
 
 pub fn dbg<U>(name: &str, f: &fn() -> U) -> U {
   /* apparently local_data_{get,set} are unsafe... */
-  let lvls = local_data::pop(levels_key).get_or_default(0);
+  let lvls = local_data::pop(levels_key).unwrap_or_default(0);
   local_data::set(levels_key, lvls + 1);
   let start = time::precise_time_s();
   let ret = f();

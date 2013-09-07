@@ -9,7 +9,7 @@
 use back::assem::*;
 
 pub fn optimize(p: &mut Program) {
-  for p.funs.mut_iter().advance |f| {
+  for f in p.funs.mut_iter() {
     do f.cfg.map_nodes |_, ins| {
       peep(ins)
     }
@@ -21,7 +21,7 @@ fn peep(ins: ~[~Instruction]) -> ~[~Instruction] {
   use Imm = back::assem::Immediate;
 
   /* right now, we don't need a look ahead of more than one */
-  do ins.consume_iter().transform |i| {
+  do ins.move_iter().map |i| {
     match i {
       /* shifting has constraints, so add if we can */
       ~BO(Mul, d, ~Imm(2, _), t) | ~BO(Mul, d, t, ~Imm(2, _)) =>

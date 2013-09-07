@@ -11,7 +11,7 @@ pub type DeltaMap = HashMap<NodeId, ~[Delta]>;
 pub type Delta = ~[Either<Temp, Temp>];
 
 pub struct Analysis {
-  in: LiveMap,
+  in_: LiveMap,
   out: LiveMap,
   deltas: DeltaMap,
 }
@@ -24,7 +24,7 @@ struct Liveness<'self, T, S> {
 }
 
 pub fn Analysis() -> Analysis {
-  Analysis { in: HashMap::new(), out: HashMap::new(),
+  Analysis { in_: HashMap::new(), out: HashMap::new(),
              deltas: HashMap::new() }
 }
 
@@ -35,10 +35,10 @@ pub fn calculate<T, S: Statement<T>>(cfg: &CFG<T>, root: NodeId,
   let mut l = Liveness { a: result, phi_out: SmallIntMap::new(), cfg: cfg,
                          info: info };
 
-  for cfg.each_node |id, _| {
+  for (id, _) in cfg.nodes() {
     l.phi_out.insert(id, TreeSet::new());
   }
-  for cfg.each_node |id, _| {
+  for (id, _) in cfg.nodes() {
     l.lookup_phis(id);
   }
 
@@ -46,7 +46,7 @@ pub fn calculate<T, S: Statement<T>>(cfg: &CFG<T>, root: NodeId,
   let mut changed = true;
   while changed {
     changed = false;
-    for cfg.each_postorder(root) |&id| {
+    do cfg.each_postorder(root) |&id| {
       changed = l.liveness(id) || changed;
     }
   }
@@ -54,11 +54,11 @@ pub fn calculate<T, S: Statement<T>>(cfg: &CFG<T>, root: NodeId,
 
 impl<'self, T, S: Statement<T>> Liveness<'self, T, S> {
   fn lookup_phis(&mut self, n: NodeId) {
-    for self.cfg.node(n).iter().advance |stm| {
+    for stm in self.cfg.node(n).iter() {
       debug!("phi map");
       match self.info.phi_info(*stm) {
         Some((_, map)) => {
-          for map.iter().advance |(&pred, &tmp)| {
+          for (&pred, &tmp) in map.iter() {
             self.phi_out.find_mut(&pred).unwrap().insert(tmp);
           }
         }
@@ -70,29 +70,29 @@ impl<'self, T, S: Statement<T>> Liveness<'self, T, S> {
 
   fn liveness(&mut self, n: NodeId) -> bool {
     let mut live = HashSet::new();
-    for self.phi_out.get(&n).iter().advance |&t| {
+    for &t in self.phi_out.get(&n).iter() {
       live.insert(t);
     }
-    for self.cfg.each_succ(n) |succ| {
-      match self.a.in.find(&succ) {
+    for succ in self.cfg.succ(n) {
+      match self.a.in_.find(&succ) {
         Some(ref s) => {
-          for s.iter().advance |&t| { live.insert(t); }
+          for &t in s.iter() { live.insert(t); }
         }
         None => ()
       }
     }
     let mut live_out = HashSet::new();
-    for live.iter().advance |&t| { live_out.insert(t); }
+    for &t in live.iter() { live_out.insert(t); }
     self.a.out.insert(n, live_out);
     let mut my_deltas = ~[];
-    for self.cfg.node(n).rev_iter().advance |ins| {
+    for ins in self.cfg.node(n).rev_iter() {
       let mut delta = ~[];
-      for self.info.each_def(*ins) |def| {
+      do self.info.each_def(*ins) |def| {
         if live.remove(&def) {
           delta.push(Left(def));
         }
       }
-      for self.info.each_use(*ins) |tmp| {
+      do self.info.each_use(*ins) |tmp| {
         if live.insert(tmp) {
           delta.push(Right(tmp));
         }
@@ -101,7 +101,7 @@ impl<'self, T, S: Statement<T>> Liveness<'self, T, S> {
     }
     /* only return true if something has changed from before */
     my_deltas.reverse();
-    match self.a.in.find(&n) {
+    match self.a.in_.find(&n) {
       None    => (),
       Some(s) => {
         if &live == s && &my_deltas == self.a.deltas.get(&n) {
@@ -109,14 +109,14 @@ impl<'self, T, S: Statement<T>> Liveness<'self, T, S> {
         }
       }
     }
-    self.a.in.insert(n, live);
+    self.a.in_.insert(n, live);
     self.a.deltas.insert(n, my_deltas);
     return true;
   }
 }
 
 pub fn apply(set: &mut TempSet, delta: &Delta) {
-  for delta.iter().advance |&e| {
+  for &e in delta.iter() {
     match e {
       Right(tmp) => { set.remove(&tmp); }
       Left(tmp)  => { set.insert(tmp); }

@@ -97,23 +97,18 @@ pub struct RegisterInfo;
 pub struct StackInfo;
 
 impl Constraint {
-  fn allows(self, r: Register) -> bool{
+  pub fn allows(self, r: Register) -> bool{
     match (self, r) {
       (Idiv, EAX) | (Idiv, EDX) => false,
       (Idiv, _) => true,
-      (Caller, _) => {
-        for arch::each_caller |reg| {
-          if reg == r { return false; }
-        }
-        return true;
-      }
+      (Caller, _) => arch::callee_reg(r),
     }
   }
 }
 
 impl Instruction {
   #[inline(always)]
-  fn each_def(&self, f: &fn(Temp) -> bool) -> bool {
+  pub fn each_def(&self, f: &fn(Temp)) {
     match *self {
       BinaryOp(_, ~Temp(t), _, _) |
       Move(~Temp(t), _) |
@@ -124,19 +119,19 @@ impl Instruction {
       Arg(t, _)
         => { f(t) }
 
-      PCopy(ref copies) => copies.iter().advance(|&(def, _)| f(def)),
+      PCopy(ref copies) => for &(def, _) in copies.iter() { f(def) },
 
-      _ => true
+      _ => ()
     }
   }
 
   #[inline(always)]
-  fn each_use(&self, f: &fn(Temp) -> bool) -> bool {
+  pub fn each_use(&self, f: &fn(Temp)) {
     match *self {
       Condition(_, ~Temp(t1), ~Temp(t2)) |
       Die(_, ~Temp(t1), ~Temp(t2)) |
       BinaryOp(_, _, ~Temp(t1), ~Temp(t2))
-        => { f(t1) && f(t2) }
+        => { f(t1); f(t2) }
 
       Condition(_, ~Temp(t), _) |
       Condition(_, _, ~Temp(t)) |
@@ -151,45 +146,47 @@ impl Instruction {
         => { f(t) }
 
       Store(ref addr, ref src) => {
-        addr.each_temp(|x| f(x)) && src.each_temp(f)
+        addr.each_temp(|x| f(x));
+        src.each_temp(f);
       }
       Load(_, ref addr) => { addr.each_temp(f) }
 
       Call(_, ref fun, ref args) => {
-        let cont = match *fun {
+        match *fun {
           ~Temp(t) => { f(t) }
-          _ => true
+          _ => ()
         };
-        cont && args.iter().advance(|arg| {
+        for arg in args.iter() {
           match *arg {
             ~Temp(t) => { f(t) }
-            _ => true
+            _ => ()
           }
-        })
+        }
       }
 
-      PCopy(ref copies) => copies.iter().advance(|&(_, t)| f(t)),
+      PCopy(ref copies) => for &(_, t) in copies.iter() { f(t) },
 
-      _ => true
+      _ => ()
     }
   }
-  fn phi_info<'a>(&'a self) -> Option<(Temp, &'a ssa::PhiMap)> {
+
+  pub fn phi_info<'a>(&'a self) -> Option<(Temp, &'a ssa::PhiMap)> {
     match *self {
       Phi(d, ref m) => Some((d, m)),
       _ => None
     }
   }
 
-  fn is_phi(&self) -> bool { match *self { Phi(*) => true, _ => false } }
+  pub fn is_phi(&self) -> bool { match *self { Phi(*) => true, _ => false } }
 }
 
 impl ssa::Statement<Instruction> for RegisterInfo {
   fn phi(&self, t: Temp, map: ssa::PhiMap) -> ~Instruction { ~Phi(t, map) }
 
-  fn each_def(&self, i: &Instruction, f: &fn(Temp) -> bool) -> bool {
+  fn each_def(&self, i: &Instruction, f: &fn(Temp)) {
     i.each_def(f)
   }
-  fn each_use(&self, i: &Instruction, f: &fn(Temp) -> bool) -> bool {
+  fn each_use(&self, i: &Instruction, f: &fn(Temp)) {
     i.each_use(f)
   }
   fn phi_info<'r>(&self, me: &'r Instruction)
@@ -231,7 +228,7 @@ impl ssa::Statement<Instruction> for RegisterInfo {
       ~Phi(t, map) => ~Phi(defs(t), map),
       ~Call(dst, fun, args) => {
         let fun = fun.map_temps(|x| uses(x));
-        let args = args.consume_iter().transform(|arg|
+        let args = args.move_iter().map(|arg|
           arg.map_temps(|x| uses(x))
         ).collect();
         ~Call(defs(dst), fun, args)
@@ -240,7 +237,7 @@ impl ssa::Statement<Instruction> for RegisterInfo {
       ~Return(t) => ~Return(t.map_temps(uses)),
       ~Arg(t, n) => ~Arg(defs(t), n),
       ~PCopy(copies) => {
-        ~PCopy(copies.consume_iter().transform(|(dst, src)| {
+        ~PCopy(copies.move_iter().map(|(dst, src)| {
           let src = uses(src);
           (defs(dst), src)
         }).collect())
@@ -253,16 +250,16 @@ impl ssa::Statement<Instruction> for RegisterInfo {
 impl ssa::Statement<Instruction> for StackInfo {
   fn phi(&self, t: Temp, map: ssa::PhiMap) -> ~Instruction { ~MemPhi(t, map) }
 
-  fn each_def(&self, i: &Instruction, f: &fn(Temp) -> bool) -> bool {
+  fn each_def(&self, i: &Instruction, f: &fn(Temp)) {
     match *i {
       Spill(_, t) | MemPhi(t, _) => f(t),
-      _ => true
+      _ => ()
     }
   }
-  fn each_use(&self, i: &Instruction, f: &fn(Temp) -> bool) -> bool {
+  fn each_use(&self, i: &Instruction, f: &fn(Temp)) {
     match *i {
       Reload(_, t) => f(t),
-      _ => true
+      _ => ()
     }
   }
   fn phi_info<'r>(&self, me: &'r Instruction) -> Option<(Temp, &'r ssa::PhiMap)>
@@ -332,7 +329,7 @@ impl PrettyPrint for Instruction {
 
         Cmp(cond) => {
           let dstsmall = match *dest {
-            ~Register(r, _) => r.byte(), _ => dest.pp()
+            ~Register(r, _) => r.byte().to_owned(), _ => dest.pp()
           };
           fmt!("cmp %s, %s; set%s %s; movzbl %s, %s",
                s2.pp(), s1.pp(), cond.suffix(), dstsmall, dstsmall, dest.pp())
@@ -346,14 +343,14 @@ impl PrettyPrint for Instruction {
              ~"(" + args.map(|a| a.pp()).connect(", ") + ")"),
       Phi(tmp, ref map) => {
         let mut s = ~"//" + tmp.pp() + " <- phi(";
-        for map.iter().advance |(&id, &tmp)| {
+        for (&id, &tmp) in map.iter() {
           s.push_str(fmt!("[ %s - n%? ] ", tmp.pp(), id));
         }
         s + ")"
       }
       MemPhi(tag, ref map) => {
         let mut s = fmt!("//m%? <- mphi(", tag);
-        for map.iter().advance |(&id, &tag)| {
+        for (&id, &tag) in map.iter() {
           s.push_str(fmt!("[ m%? - n%? ] ", tag, id));
         }
         s + ")"
@@ -362,7 +359,7 @@ impl PrettyPrint for Instruction {
       Reload(t, tag) => fmt!("RELOAD %s <= %?", t.pp(), tag),
       PCopy(ref copies) => {
         let mut s = ~"{";
-        for copies.iter().advance |&(k, v)| {
+        for &(k, v) in copies.iter() {
           s.push_str(fmt!("(%? <= %?) ", k, v));
         }
         s + "}"
@@ -372,8 +369,8 @@ impl PrettyPrint for Instruction {
 }
 
 impl Operand {
-  fn imm(&self) -> bool { match *self { Immediate(*) => true, _ => false } }
-  fn reg(&self) -> bool { match *self { Register(*) => true, _ => false } }
+  pub fn imm(&self) -> bool { match *self { Immediate(*) => true, _ => false } }
+  pub fn reg(&self) -> bool { match *self { Register(*) => true, _ => false } }
 
   fn mask(&self, mask: i32) -> ~Operand {
     match *self {
@@ -382,7 +379,7 @@ impl Operand {
     }
   }
 
-  fn size(&self) -> Size {
+  pub fn size(&self) -> Size {
     match *self {
       Immediate(_, s) | Register(_, s) => s,
       LabelOp(*) => ir::Pointer,
@@ -390,14 +387,14 @@ impl Operand {
     }
   }
 
-  fn each_temp(&self, f: &fn(Temp) -> bool) -> bool {
+  pub fn each_temp(&self, f: &fn(Temp)) {
     match *self {
       Temp(t) => { f(t) }
-      _ => true
+      _ => ()
     }
   }
 
-  fn map_temps(~self, f: &fn(Temp) -> Temp) -> ~Operand {
+  pub fn map_temps(~self, f: &fn(Temp) -> Temp) -> ~Operand {
     match self {
       ~Temp(t) => ~Temp(f(t)),
       o        => o
@@ -409,7 +406,7 @@ impl PrettyPrint for Operand {
   fn pp(&self) -> ~str {
     match *self {
       Immediate(c, _) => fmt!("$%d", c as int),
-      Register(reg, s) => reg.size(s),
+      Register(reg, s) => reg.size(s).to_owned(),
       Temp(t) => t.pp(),
       LabelOp(ref l) => l.pp()
     }
@@ -433,19 +430,20 @@ impl Address {
     match self {
       ~MOp(t, disp, off) =>
         ~MOp(t.map_temps(|x| f(x)), disp,
-             off.map_consume(|(x, m)| (x.map_temps(|x| f(x)), m))),
+             off.map_move(|(x, m)| (x.map_temps(|x| f(x)), m))),
       a => a
     }
   }
 
-  fn each_temp(&self, f: &fn(Temp) -> bool) -> bool {
+  fn each_temp(&self, f: &fn(Temp)) {
     match *self {
       MOp(ref o, _, ref off) => {
-        o.each_temp(|x| f(x)) && off.iter().advance(|&(ref x, _)| {
+        o.each_temp(|x| f(x));
+        for &(ref x, _) in off.iter() {
           x.each_temp(|x| f(x))
-        })
+        }
       }
-      Stack(*) | StackArg(*) => true
+      Stack(*) | StackArg(*) => ()
     }
   }
 }
@@ -455,7 +453,7 @@ impl PrettyPrint for Address {
     match *self {
       MOp(ref o, disp, ref off) => {
         let mut s = ~"";
-        for disp.iter().advance |&d| { s.push_str(fmt!("%?", d)); }
+        for &d in disp.iter() { s.push_str(fmt!("%u", d)); }
         s.push_str("(");
         s.push_str(o.pp());
         match *off {
@@ -466,14 +464,14 @@ impl PrettyPrint for Address {
         }
         s + ")"
       }
-      Stack(i) => fmt!("%?(%%rsp)", i),
+      Stack(i) => fmt!("%u(%%rsp)", i),
       StackArg(i) => fmt!("arg[%?]", i),
     }
   }
 }
 
 impl Cond {
-  fn flip(&self) -> Cond {
+  pub fn flip(&self) -> Cond {
     match *self {
       Lt  => Gt,
       Lte => Gte,
@@ -483,7 +481,7 @@ impl Cond {
       Neq => Neq
     }
   }
-  fn negate(&self) -> Cond {
+  pub fn negate(&self) -> Cond {
     match *self {
       Lt  => Gte,
       Lte => Gt,
@@ -493,28 +491,28 @@ impl Cond {
       Neq => Eq
     }
   }
-  fn suffix(&self) -> ~str {
+  pub fn suffix(&self) -> &'static str {
     match *self {
-      Lt  => ~"l",
-      Lte => ~"le",
-      Gt  => ~"g",
-      Gte => ~"ge",
-      Eq  => ~"e",
-      Neq => ~"ne"
+      Lt  => "l",
+      Lte => "le",
+      Gt  => "g",
+      Gte => "ge",
+      Eq  => "e",
+      Neq => "ne"
     }
   }
 }
 
 impl Binop {
-  fn commutative(&self) -> bool {
+  pub fn commutative(&self) -> bool {
     match *self { Add | Mul | And | Or | Xor => true, _ => false }
   }
 
-  fn constrained(&self) -> bool {
+  pub fn constrained(&self) -> bool {
     match *self { Div | Mod | Lsh | Rsh => true, _ => false }
   }
 
-  fn divmod(&self) -> bool {
+  pub fn divmod(&self) -> bool {
     match *self { Div | Mod => true, _ => false }
   }
 }
@@ -538,61 +536,61 @@ impl PrettyPrint for Binop {
 }
 
 impl Register {
-  fn byte(&self) -> ~str {
+  pub fn byte(&self) -> &'static str {
     match *self {
-      EAX  => ~"%al",
-      EBX  => ~"%bl",
-      ECX  => ~"%cl",
-      EDX  => ~"%dl",
-      ESI  => ~"%sil",
-      EDI  => ~"%dil",
-      ESP  => ~"%spl",
-      EBP  => ~"%bpl",
-      R8D  => ~"%r8b",
-      R9D  => ~"%r9b",
-      R10D => ~"%r10b",
-      R11D => ~"%r11b",
-      R12D => ~"%r12b",
-      R13D => ~"%r13b",
-      R14D => ~"%r14b",
-      R15D => ~"%r15b",
+      EAX  => "%al",
+      EBX  => "%bl",
+      ECX  => "%cl",
+      EDX  => "%dl",
+      ESI  => "%sil",
+      EDI  => "%dil",
+      ESP  => "%spl",
+      EBP  => "%bpl",
+      R8D  => "%r8b",
+      R9D  => "%r9b",
+      R10D => "%r10b",
+      R11D => "%r11b",
+      R12D => "%r12b",
+      R13D => "%r13b",
+      R14D => "%r14b",
+      R15D => "%r15b",
     }
   }
 
-  fn size(&self, t: Size) -> ~str {
+  pub fn size(&self, t: Size) -> &'static str {
     match (*self, t) {
-      (EAX, ir::Int)      => ~"%eax",
-      (EAX, ir::Pointer)  => ~"%rax",
-      (EBX, ir::Int)      => ~"%ebx",
-      (EBX, ir::Pointer)  => ~"%rbx",
-      (ECX, ir::Int)      => ~"%ecx",
-      (ECX, ir::Pointer)  => ~"%rcx",
-      (EDX, ir::Int)      => ~"%edx",
-      (EDX, ir::Pointer)  => ~"%rdx",
-      (EDI, ir::Int)      => ~"%edi",
-      (EDI, ir::Pointer)  => ~"%rdi",
-      (ESI, ir::Int)      => ~"%esi",
-      (ESI, ir::Pointer)  => ~"%rsi",
-      (ESP, ir::Int)      => ~"%esp",
-      (ESP, ir::Pointer)  => ~"%rsp",
-      (EBP, ir::Int)      => ~"%ebp",
-      (EBP, ir::Pointer)  => ~"%rbp",
-      (R8D, ir::Int)      => ~"%r8d",
-      (R8D, ir::Pointer)  => ~"%r8",
-      (R9D, ir::Int)      => ~"%r9d",
-      (R9D, ir::Pointer)  => ~"%r9",
-      (R10D, ir::Int)     => ~"%r10d",
-      (R10D, ir::Pointer) => ~"%r10",
-      (R11D, ir::Int)     => ~"%r11d",
-      (R11D, ir::Pointer) => ~"%r11",
-      (R12D, ir::Int)     => ~"%r12d",
-      (R12D, ir::Pointer) => ~"%r12",
-      (R13D, ir::Int)     => ~"%r13d",
-      (R13D, ir::Pointer) => ~"%r13",
-      (R14D, ir::Int)     => ~"%r14d",
-      (R14D, ir::Pointer) => ~"%r14",
-      (R15D, ir::Int)     => ~"%r15d",
-      (R15D, ir::Pointer) => ~"%r15",
+      (EAX, ir::Int)      => "%eax",
+      (EAX, ir::Pointer)  => "%rax",
+      (EBX, ir::Int)      => "%ebx",
+      (EBX, ir::Pointer)  => "%rbx",
+      (ECX, ir::Int)      => "%ecx",
+      (ECX, ir::Pointer)  => "%rcx",
+      (EDX, ir::Int)      => "%edx",
+      (EDX, ir::Pointer)  => "%rdx",
+      (EDI, ir::Int)      => "%edi",
+      (EDI, ir::Pointer)  => "%rdi",
+      (ESI, ir::Int)      => "%esi",
+      (ESI, ir::Pointer)  => "%rsi",
+      (ESP, ir::Int)      => "%esp",
+      (ESP, ir::Pointer)  => "%rsp",
+      (EBP, ir::Int)      => "%ebp",
+      (EBP, ir::Pointer)  => "%rbp",
+      (R8D, ir::Int)      => "%r8d",
+      (R8D, ir::Pointer)  => "%r8",
+      (R9D, ir::Int)      => "%r9d",
+      (R9D, ir::Pointer)  => "%r9",
+      (R10D, ir::Int)     => "%r10d",
+      (R10D, ir::Pointer) => "%r10",
+      (R11D, ir::Int)     => "%r11d",
+      (R11D, ir::Pointer) => "%r11",
+      (R12D, ir::Int)     => "%r12d",
+      (R12D, ir::Pointer) => "%r12",
+      (R13D, ir::Int)     => "%r13d",
+      (R13D, ir::Pointer) => "%r13",
+      (R14D, ir::Int)     => "%r14d",
+      (R14D, ir::Pointer) => "%r14",
+      (R15D, ir::Int)     => "%r15d",
+      (R15D, ir::Pointer) => "%r15",
     }
   }
 }
@@ -621,7 +619,7 @@ impl PrettyPrint for Multiplier {
 impl Graphable for Program {
   fn dot(&self, out: @io::Writer) {
     out.write_str("digraph {\n");
-    for self.funs.iter().advance |f| {
+    for f in self.funs.iter() {
       f.cfg.dot(out,
         |id| fmt!("%s_n%d", f.name, id as int),
         |id, ins|
@@ -636,7 +634,7 @@ impl Graphable for Program {
 
 impl Program {
   pub fn output(&self, out: @io::Writer) {
-    for self.funs.iter().advance |f| {
+    for f in self.funs.iter() {
       f.output(out);
     }
   }
@@ -668,7 +666,7 @@ impl Function {
 
       /* output the actual block */
       let instructions = self.cfg.node(block);
-      for instructions.iter().advance |ins| {
+      for ins in instructions.iter() {
         out.write_str("  ");
         out.write_str(ins.pp());
         out.write_char('\n');
@@ -678,7 +676,7 @@ impl Function {
       let mut always = None;
       let mut tedge = None;
       let mut fedge = None;
-      for self.cfg.each_succ_edge(block) |id, &typ| {
+      for (id, &typ) in self.cfg.succ_edges(block) {
         debug!("out of %? (%? - %?)", block, id, typ);
         match typ {
           ir::Always | ir::Branch | ir::LoopOut => {

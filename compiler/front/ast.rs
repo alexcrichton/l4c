@@ -2,9 +2,9 @@ use std::cell::Cell;
 use std::cmp;
 use std::hashmap::{HashSet, HashMap};
 use std::io;
-use std::libc;
 use std::util;
 
+use front::die;
 use front::mark;
 use front::mark::Marked;
 use utils::PrettyPrint;
@@ -142,12 +142,12 @@ impl Program {
 
   pub fn die(&self, m: mark::Mark, msg: &str) -> ! {
     self.error(m, msg);
-    unsafe { libc::exit(1); }
+    die()
   }
 
   pub fn check(&self) {
     if *self.errored {
-      unsafe { libc::exit(1); }
+      die()
     }
   }
 }
@@ -166,7 +166,7 @@ impl PrettyPrint for Program {
 
 impl<'self> Elaborator<'self> {
   fn run(&mut self, decls: ~[~GDecl]) -> ~[~GDecl] {
-    let decls = decls.consume_iter().transform(|x| self.elaborate(x)).collect();
+    let decls = decls.move_iter().map(|x| self.elaborate(x)).collect();
     self.program.check();
     return decls;
   }
@@ -269,7 +269,7 @@ impl<'self> Elaborator<'self> {
              init: Option<~Expression>, rest: ~Statement) -> stmt {
     self.check_id(m, id);
     Declare(id, self.resolve(m, typ),
-            init.map_consume(|x| self.elaborate_exp(x)), rest)
+            init.map_move(|x| self.elaborate_exp(x)), rest)
   }
 
   fn elaborate_exp(&mut self, e: ~Expression) -> ~Expression {
@@ -287,7 +287,7 @@ impl<'self> Elaborator<'self> {
         Ternary(self.elaborate_exp(e1), self.elaborate_exp(e2),
                 self.elaborate_exp(e3), Cell::new_empty()),
       Call(id, L, _) =>
-        Call(id, L.consume_iter().transform(|x| self.elaborate_exp(x)).collect(),
+        Call(id, L.move_iter().map(|x| self.elaborate_exp(x)).collect(),
              Cell::new_empty()),
       Deref(e, _) => Deref(self.elaborate_exp(e),
                            Cell::new_empty()),
@@ -328,13 +328,13 @@ impl<'self> Elaborator<'self> {
 
   fn resolve_pairs(&mut self, m: mark::Mark,
                    pairs: ~[(Ident, @Type)]) -> ~[(Ident, @Type)] {
-    pairs.consume_iter().transform(|(id, typ)| (id, self.resolve(m, typ)))
+    pairs.move_iter().map(|(id, typ)| (id, self.resolve(m, typ)))
          .collect()
   }
 }
 
 impl expr {
-  fn lvalue(&self) -> bool {
+  pub fn lvalue(&self) -> bool {
     match *self {
       Var(_)              => true,
       Field(ref e, _, _)  => e.node.lvalue(),
@@ -346,7 +346,7 @@ impl expr {
 }
 
 impl Type {
-  fn small(&self) -> bool {
+  pub fn small(&self) -> bool {
     match *self {
       Struct(_) => false,
       _ => true
@@ -368,6 +368,4 @@ impl cmp::Eq for Type {
       _ => false
     }
   }
-
-  fn ne(&self, other: &Type) -> bool { !self.eq(other) }
 }

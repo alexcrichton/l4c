@@ -2,11 +2,11 @@ use std::hashmap::{HashMap, HashSet};
 use std::i32;
 use std::io::ReaderUtil;
 use std::io;
-use std::libc;
 use std::str;
 use std::u32;
 use std::u64;
 
+use front::die;
 use front::ast;
 use front::mark::Span;
 use front::parser;
@@ -63,7 +63,7 @@ pub struct Lexer<'self> {
 }
 
 impl<'self> Lexer<'self> {
-  pub fn new<'a>(file: @str, in: @io::Reader,
+  pub fn new<'a>(file: @str, input: @io::Reader,
                  s: &'a mut parser::SymbolGenerator) -> Lexer<'a> {
     let mut keywords = HashMap::new();
     keywords.insert(~"return", RETURN);
@@ -89,7 +89,7 @@ impl<'self> Lexer<'self> {
     bad_keywords.insert(~"string");
     bad_keywords.insert(~"void");
 
-    Lexer { input: in, cur: ~"", state: Start, commdepth: 0,
+    Lexer { input: input, cur: ~"", state: Start, commdepth: 0,
             next: None, keywords: keywords, symgen: s,
             commslash: false, commstar: false, startrow: 1, startcol: 1,
             endrow: 1, endcol: 1, types: HashSet::new(), file: file,
@@ -102,7 +102,8 @@ impl<'self> Lexer<'self> {
         Some(c) => { self.next = None; c }
         None => self.input.read_char()
       };
-      if c as int == -1 {
+      // lol I/O is bad
+      if unsafe { ::std::cast::transmute::<char, i32>(c) } == -1 {
         return (EOF, ((-1, -1), (-1, -1)));
       }
       match self.consume(c) {
@@ -173,7 +174,7 @@ impl<'self> Lexer<'self> {
           '!' => { self.state = OneBang; }
           '%' => { self.state = OnePercent; }
 
-          _ => self.err(fmt!("unexpected character `%c`", c))
+          _ => self.err(fmt!("unexpected character `%?`", c))
         }
       }
 
@@ -405,7 +406,7 @@ impl<'self> Lexer<'self> {
     io::println(fmt!("%s: %u:%u-%u:%u %s", self.file,
                      self.startrow, self.startcol, self.endrow, self.endcol,
                      s));
-    unsafe { libc::exit(1); }
+    die()
   }
 }
 

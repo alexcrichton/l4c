@@ -21,7 +21,7 @@ pub fn simplify(p: &mut ir::Program) {
 
   /* TODO: this may need to be integrated with constant folding as part of it?
            to see this, look at ../tests1/kestrel-logical01.l2 */
-  for p.funs.mut_iter().advance |f| {
+  for f in p.funs.mut_iter() {
     /* Take out all the dead branches/edges */
     eliminate_dead(&mut f.cfg);
     /* Remove all unreachable nodes */
@@ -36,7 +36,7 @@ pub fn simplify(p: &mut ir::Program) {
        and ending node both start. */
     let changes = changes;
     let loops = replace(&mut f.loops, HashMap::new());
-    for loops.consume().advance |(cond, (body, end))| {
+    for (cond, (body, end)) in loops.move_iter() {
       let cond = resolve(&changes, cond);
       let body = resolve(&changes, body);
       let end  = resolve(&changes, end);
@@ -56,7 +56,7 @@ pub fn simplify(p: &mut ir::Program) {
 pub fn prune<T>(cfg: &mut CFG<T>, root: NodeId) {
   fn visit<T>(cfg: &CFG<T>, n: NodeId, visited: &mut NodeSet) {
     visited.insert(n);
-    for cfg.each_succ(n) |succ| {
+    for succ in cfg.succ(n) {
       if !visited.contains(&succ) {
         visit(cfg, succ, visited);
       }
@@ -65,13 +65,13 @@ pub fn prune<T>(cfg: &mut CFG<T>, root: NodeId) {
   let mut visited = HashSet::new();
   visit(cfg, root, &mut visited);
   let mut to_delete = ~[];
-  for cfg.each_node |id, _| {
+  for (id, _) in cfg.nodes() {
     if !visited.contains(&id) {
       to_delete.push(id);
     }
   }
 
-  for to_delete.consume_iter().advance |id| {
+  for id in to_delete.move_iter() {
     cfg.remove_node(id);
   }
 }
@@ -84,14 +84,14 @@ pub fn prune<T>(cfg: &mut CFG<T>, root: NodeId) {
 pub fn eliminate_critical<T, S: Statement<T>>(cfg: &mut CFG<T>, info: &S) {
   /* can't modify the graph during traversal */
   let mut critical = ~[];
-  for cfg.each_edge |n1, n2| {
+  for (n1, n2) in cfg.edges() {
     /* critical edges are defined as those whose source has multiple out edges
        and whose target has multiple in edges */
     if cfg.num_succ(n1) > 1 && cfg.num_pred(n2) > 1 {
       critical.push((n1, n2));
     }
   }
-  for critical.iter().advance |&(n1, n2)| {
+  for &(n1, n2) in critical.iter() {
     debug!("splitting critical edge %? %?", n1, n2);
     let edge = cfg.remove_edge(n1, n2);
     let new = cfg.new_id();
@@ -100,7 +100,7 @@ pub fn eliminate_critical<T, S: Statement<T>>(cfg: &mut CFG<T>, info: &S) {
     cfg.add_edge(new, n2, ir::Always);
 
     /* Be sure to fix the predecessor of each phi node in our successor */
-    cfg.map_consume_node(n2, |stms| stms.consume_iter().transform(|stm| {
+    cfg.map_consume_node(n2, |stms| stms.move_iter().map(|stm| {
       match info.phi_unwrap(stm) {
         Right((def, map)) => {
           let mut map = map;
@@ -129,7 +129,7 @@ pub fn merge<T>(cfg: &mut CFG<T>,
     visited.insert(n);
     let mut preds = 0;
     let mut pred = 0;
-    for cfg.each_pred(n) |p| {
+    for p in cfg.preds(n) {
       preds += 1;
       pred = p;
     }
@@ -139,8 +139,8 @@ pub fn merge<T>(cfg: &mut CFG<T>,
 
       /* Add all of pred's incoming edges as incoming edges to n */
       let mut edges = ~[];
-      for cfg.each_pred_edge(pred) |pred, &edge| { edges.push((pred, edge)); }
-      for edges.iter().advance |&(pred, edge)| { cfg.add_edge(pred, n, edge); }
+      for (pred, &edge) in cfg.pred_edges(pred) { edges.push((pred, edge)); }
+      for &(pred, edge) in edges.iter() { cfg.add_edge(pred, n, edge); }
 
       /* merge the two blocks of statements */
       let mut blk = cfg.remove_node(pred);
@@ -153,10 +153,10 @@ pub fn merge<T>(cfg: &mut CFG<T>,
       }
     }
     let mut succ = ~[];
-    for cfg.each_succ(n) |s| {
+    for s in cfg.succ(n) {
       succ.push(s);
     }
-    for succ.iter().advance |&succ| {
+    for &succ in succ.iter() {
       if cfg.contains(succ) && !visited.contains(&succ) {
         root = domerge(cfg, visited, changes, root, succ);
       }
@@ -193,8 +193,8 @@ fn eliminate_dead(cfg: &mut ir::CFG) {
   /* figure out what to do with each constant node */
   let mut to_remove = ~[];
   let mut to_add = ~[];
-  for constant.iter().advance |&(node, c)| {
-    for cfg.each_succ_edge(node) |succ, edge| {
+  for &(node, c) in constant.iter() {
+    for (succ, edge) in cfg.succ_edges(node) {
       let to_update = match *edge {
         ir::False if c == 0 => ir::Always,
         ir::FBranch | ir::FLoopOut if c == 0 => ir::Branch,
@@ -211,8 +211,8 @@ fn eliminate_dead(cfg: &mut ir::CFG) {
   }
 
   /* Actually apply all the changes */
-  for to_remove.iter().advance |&(n, s)| { cfg.remove_edge(n, s); }
-  for to_add.iter().advance |&(n, s, e)| { cfg.add_edge(n, s, e); }
+  for &(n, s) in to_remove.iter() { cfg.remove_edge(n, s); }
+  for &(n, s, e) in to_add.iter() { cfg.add_edge(n, s, e); }
 }
 
 /**
@@ -224,18 +224,18 @@ fn eliminate_dead(cfg: &mut ir::CFG) {
 fn fix_phis(cfg: &mut ir::CFG) {
   /* need cfg to be immutable inside, so we can't use map_nodes */
   let mut ids = ~[];
-  for cfg.each_node |n, _| { ids.push(n); }
+  for (n, _) in cfg.nodes() { ids.push(n); }
 
-  for ids.consume_iter().advance |n| {
+  for n in ids.move_iter() {
     let stms = cfg.pop_node(n);
 
-    let stms = do stms.consume_iter().transform |s| {
+    let stms = do stms.move_iter().map |s| {
       match s {
         ~ir::Phi(def, ref map) => {
           /* TODO: shouldn't have to make a dup */
           let mut dup = HashMap::new();
           let mut predtmp = def;
-          for map.iter().advance |(&pred, &tmp)| {
+          for (&pred, &tmp) in map.iter() {
             if cfg.contains_edge(pred, n) {
               dup.insert(pred, tmp);
               predtmp = tmp;

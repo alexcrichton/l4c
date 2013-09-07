@@ -125,7 +125,7 @@ pub fn optimize<I: ssa::Statement<assem::Instruction>>(
   let (uses, defs) = use_def_maps(&f.cfg, info);
 
   let mut pre = bitv::Bitv::new(max_temp, false);
-  for precolored.iter().advance |&t| {
+  for &t in precolored.iter() {
     pre.set(t, true);
   }
   /* TODO(#5884): this is silly */
@@ -161,19 +161,19 @@ fn liveness_map<I: ssa::Statement<assem::Instruction>>(
 ) -> HashMap<NodeId, ~[bitv::Bitv]>
 {
   let mut ret = HashMap::new();
-  for cfg.each_node |id, stms| {
+  for (id, stms) in cfg.nodes() {
     let mut vec = ~[];
     let mut set = HashSet::new();
-    for live.in.get(&id).iter().advance |&t| { set.insert(t); }
+    for &t in live.in_.get(&id).iter() { set.insert(t); }
 
-    for stms.iter().enumerate().advance |(i, stm)| {
+    for (i, stm) in stms.iter().enumerate() {
       /* we care about 'live-out' variables on an instruction */
       liveness::apply(&mut set, &live.deltas.get(&id)[i]);
       let mut bitv = bitv::Bitv::new(max, false);
-      for set.iter().advance |&t| { bitv.set(t, true); }
+      for &t in set.iter() { bitv.set(t, true); }
       /* at one instruction, the defined registers interfere with all live out
        * registers, even if the defined register isn't actually used anywhere */
-      for info.each_def(*stm) |t| { bitv.set(t, true); }
+      do info.each_def(*stm) |t| { bitv.set(t, true); }
 
       vec.push(bitv);
     }
@@ -195,7 +195,7 @@ fn use_def_maps<I: ssa::Statement<assem::Instruction>>(
   let mut defs = HashMap::new();
 
   do profile::dbg("building use/def") {
-    for cfg.each_node |id, ins| {
+    for (id, ins) in cfg.nodes() {
       build_use_def(id, info, ins, &mut uses, &mut defs);
     }
   }
@@ -206,17 +206,17 @@ fn use_def_maps<I: ssa::Statement<assem::Instruction>>(
       n: NodeId, info: &I, ins: &~[~assem::Instruction],
       uses: &mut UseMap, defs: &mut DefMap)
   {
-    for ins.iter().enumerate().advance |(i, ins)| {
-      for info.each_def(*ins) |tmp| {
+    for (i, ins) in ins.iter().enumerate() {
+      do info.each_def(*ins) |tmp| {
         assert!(defs.insert(tmp, (n, i as int)));
       }
-      for info.each_use(*ins) |tmp| {
+      do info.each_use(*ins) |tmp| {
         add_use(tmp, (n, i as int), uses);
       }
       match info.phi_info(*ins) {
         None => (),
         Some((_, m)) => {
-          for m.iter().advance |(&pred, &tmp)| {
+          for (&pred, &tmp) in m.iter() {
             add_use(tmp, (pred, int::max_value), uses);
           }
         }
@@ -267,8 +267,8 @@ impl<'self, I: ssa::Statement<assem::Instruction>> Coalescer<'self, I> {
       ($set:expr, $color:expr) =>
       ({
         /* Unfix all temps */
-        for tmps.iter().advance |&tmp| { self.fixed.set(tmp, false); }
-        for $set.iter().advance |&tmp| {
+        for &tmp in tmps.iter() { self.fixed.set(tmp, false); }
+        for &tmp in $set.iter() {
           self.recolor(tmp, $color);
           self.fixed.set(tmp, true);
         }
@@ -276,12 +276,12 @@ impl<'self, I: ssa::Statement<assem::Instruction>> Coalescer<'self, I> {
     );
 
     /* Sanity check that we're not coalescing fixed temps */
-    for tmps.iter().advance |&t| {
+    for &t in tmps.iter() {
       assert!(!self.fixed.get(t));
     }
 
     /* For each register, attempt to color everything to that register */
-    for uint::range(1, self.max_color + 1) |r| {
+    for r in range(1u, self.max_color + 1) {
       debug!("trying %?", r);
       docolor!(tmps, r);
       match self.best_subset(&tmps, r) {
@@ -305,7 +305,7 @@ impl<'self, I: ssa::Statement<assem::Instruction>> Coalescer<'self, I> {
     debug!("-------------------------------------------------------------");
     info!("selected %? for %s", best_color, best_set.pp());
     docolor!(best_set, best_color);
-    for best_set.iter().advance |t| {
+    for t in best_set.iter() {
       tmps.remove(t);
     }
     if tmps.len() > 0 {
@@ -324,7 +324,7 @@ impl<'self, I: ssa::Statement<assem::Instruction>> Coalescer<'self, I> {
    */
   fn best_subset(&mut self, s: &TempSet, c: uint) -> Option<(TempSet, uint)> {
     fn first(s: &TempSet) -> Temp {
-      for s.iter().advance |&t| { return t }
+      for &t in s.iter() { return t }
       fail!()
     }
 
@@ -334,7 +334,7 @@ impl<'self, I: ssa::Statement<assem::Instruction>> Coalescer<'self, I> {
     /* Left is a set of temps that haven't yet been processed, and it's
        initially the subset of 's' of all temps with color 'c' */
     let mut left = HashSet::new();
-    for s.iter().advance |&tmp| {
+    for &tmp in s.iter() {
       if *self.colors.get(&tmp) == c {
         left.insert(tmp);
       }
@@ -357,7 +357,7 @@ impl<'self, I: ssa::Statement<assem::Instruction>> Coalescer<'self, I> {
         subset.insert(tmp);
         left.remove(&tmp);
         assert!(self.affinities.contains_key(&tmp));
-        for self.affinities.get(&tmp).iter().advance |(&next, &weight)| {
+        for (&next, &weight) in self.affinities.get(&tmp).iter() {
           debug!("%? affine with %? cost %?", tmp, next, weight);
           if left.contains(&next) && !subset.contains(&next) {
             debug!("adding %?", next);
@@ -403,17 +403,17 @@ impl<'self, I: ssa::Statement<assem::Instruction>> Coalescer<'self, I> {
     self.set_color(t, c, &mut changed);
     debug!("recoloring %? to %?", t, c);
 
-    for self.interferences(t).iter().advance |&tmp| {
+    for &tmp in self.interferences(t).iter() {
       debug!("recoloring %? interfering with %?", tmp, t);
       if !self.avoid_color(tmp, c, &mut changed) {
         /* rollback */
-        for changed.iter().advance |&tmp| {
+        for &tmp in changed.iter() {
           assert!(self.old_color.contains_key(&tmp));
           self.colors.insert(tmp, *self.old_color.get(&tmp));
         }
       }
     }
-    for changed.iter().advance |&tmp| {
+    for &tmp in changed.iter() {
       self.fixed.set(tmp, false);
     }
   }
@@ -447,7 +447,7 @@ impl<'self, I: ssa::Statement<assem::Instruction>> Coalescer<'self, I> {
       self.min_color(t, c)
     };
     self.set_color(t, color, changed);
-    for self.interferences(t).iter().advance |&tmp| {
+    for &tmp in self.interferences(t).iter() {
       if !self.avoid_color(tmp, color, changed) {
         debug!("failed to avoid on interference %?", tmp);
         return false;
@@ -464,14 +464,14 @@ impl<'self, I: ssa::Statement<assem::Instruction>> Coalescer<'self, I> {
   fn min_color(&mut self, t: Temp, ignore: uint) -> uint {
     /* cnts[i] = inft  =>  i can't be used for 't' */
     let mut cnts = vec::from_elem(self.max_color, uint::max_value);
-    for uint::range(1, self.max_color + 1) |r| {
+    for r in range(1u, self.max_color + 1) {
       if r != ignore && self.admissible(t, r) {
         cnts[r - 1] = 0;
       }
     }
 
     /* Iterate over our interferences and bump counts for their colors */
-    for self.interferences(t).iter().advance |&tmp| {
+    for &tmp in self.interferences(t).iter() {
       let idx = *self.colors.get(&tmp) - 1;
       if cnts[idx] != uint::max_value {
         cnts[idx] += 1;
@@ -481,7 +481,7 @@ impl<'self, I: ssa::Statement<assem::Instruction>> Coalescer<'self, I> {
     /* And finally find the minimum index */
     let mut mini = 0;
     let mut min = uint::max_value;
-    for cnts.iter().enumerate().advance |(i, &cnt)| {
+    for (i, &cnt) in cnts.iter().enumerate() {
       if cnt < min {
         min = cnt;
         mini = i;
@@ -550,15 +550,15 @@ impl<'self, I: ssa::Statement<assem::Instruction>> Coalescer<'self, I> {
         merge = HashSet::new();
         merge.insert(x);
         merge.insert(y);
-        for xs.iter().advance |&x| { merge.insert(x); }
-        for ys.iter().advance |&y| { merge.insert(y); }
+        for &x in xs.iter() { merge.insert(x); }
+        for &y in ys.iter() { merge.insert(y); }
         weight = w + xw + yw;
       }
 
       /* In another scope where 'chunks' is mutable, insert/remove chunks */
       let num = next_chunk;
       next_chunk += 1;
-      for merge.iter().advance |&tmp| {
+      for &tmp in merge.iter() {
         temp_chunks.insert(tmp, num);
       }
       chunks.insert(num, Chunk(merge, weight));
@@ -571,7 +571,7 @@ impl<'self, I: ssa::Statement<assem::Instruction>> Coalescer<'self, I> {
     /* Finally insert all chunks into a priority queue now that we've finalized
      * what each chunk is going to be */
     let mut ret = PriorityQueue::new();
-    for chunks.consume().advance |(i, c)| {
+    for (i, c) in chunks.move_iter() {
       if i != 0 {
         ret.push(c);
       }
@@ -596,10 +596,10 @@ impl<'self, I: ssa::Statement<assem::Instruction>> Coalescer<'self, I> {
       /* We have a more costly weight if we're moving into a loop */
       let weight = weight +
         if self.f.loops.contains_key(&n) { 1 } else { 0 };
-      for self.f.cfg.node(n).iter().advance |ins| {
+      for ins in self.f.cfg.node(n).iter() {
         match self.info.phi_info(*ins) {
           Some((def, map)) => {
-            for map.iter().advance |(_, &tmp)| {
+            for (_, &tmp) in map.iter() {
               self.add_affine(tmp, def, weight);
               self.add_affine(def, tmp, weight);
               pq.push(Affinity(tmp, def, weight));
@@ -611,7 +611,7 @@ impl<'self, I: ssa::Statement<assem::Instruction>> Coalescer<'self, I> {
         if self.consider_pcopy {
           match *ins {
             ~assem::PCopy(ref copies) => {
-              for copies.iter().advance |&(a, b)| {
+              for &(a, b) in copies.iter() {
                 self.add_affine(a, b, weight);
                 self.add_affine(b, a, weight);
                 pq.push(Affinity(a, b, weight));
@@ -622,7 +622,7 @@ impl<'self, I: ssa::Statement<assem::Instruction>> Coalescer<'self, I> {
         }
       }
 
-      for self.f.cfg.each_succ_edge(n) |succ, edge| {
+      for (succ, edge) in self.f.cfg.succ_edges(n) {
         if visited.contains(&succ) { loop }
         /* If we're moving out of a loop, decrement the weight */
         let weight = match *edge {
@@ -680,7 +680,7 @@ impl<'self, I: ssa::Statement<assem::Instruction>> Coalescer<'self, I> {
     match self.uses.find(&t) {
       None => (),
       Some(m) => {
-        for m.iter().advance |&loc| {
+        for &loc in m.iter() {
           if self.dominates((bdef, bline), loc) {
             return true;
           }
@@ -713,7 +713,7 @@ impl<'self, I: ssa::Statement<assem::Instruction>> Coalescer<'self, I> {
     let mut bitv = bitv::Bitv::new(self.max_temp, false);
     match self.uses.find(&t) {
       Some(uses) => {
-        for uses.iter().advance |&(block, _)| {
+        for &(block, _) in uses.iter() {
           self.find_interferences(t, block, &mut bitv, &mut visited);
         }
       }
@@ -726,11 +726,12 @@ impl<'self, I: ssa::Statement<assem::Instruction>> Coalescer<'self, I> {
       }
     }
     let mut set = HashSet::new();
-    for bitv.ones |x| {
+    do bitv.ones |x| {
       if x != t {
         set.insert(x);
       }
-    }
+      true
+    };
     debug!("%? interferencs: %s", t, set.pp());
     let ret = @set;
     self.interference.insert(t, ret);
@@ -771,14 +772,14 @@ impl<'self, I: ssa::Statement<assem::Instruction>> Coalescer<'self, I> {
 
     /* the set of live variables has already been computed at all instructions,
        so we just need to union whatever sets have our variable in question */
-    for self.liveness_map.get(&n).iter().advance |bitv| {
+    for bitv in self.liveness_map.get(&n).iter() {
       if bitv.get(x) {
         set.union(bitv);
       }
     }
 
     let &def = self.defs.get(&x);
-    for self.f.cfg.each_pred(n) |pred| {
+    for pred in self.f.cfg.preds(n) {
       /* Be sure to check the dominance relation relative to the end of the
          predecessor's block as opposed to the start as x could have been
          defined in the block */

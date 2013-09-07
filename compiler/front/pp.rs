@@ -3,7 +3,7 @@ use front::mark::Marked;
 use utils::PrettyPrint;
 
 pub trait PrettyPrintAST {
-  pub fn pp(&self, p: &Program) -> ~str;
+  fn pp(&self, p: &Program) -> ~str;
 }
 
 fn tab(s: ~str) -> ~str {

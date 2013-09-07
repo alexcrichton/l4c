@@ -1,7 +1,6 @@
 #[allow(non_uppercase_statics)];
 
 use back::assem::*;
-use std::uint;
 
 pub static arg_regs: uint = 6;
 pub static ptrsize: uint = 8;
@@ -10,8 +9,10 @@ pub static ret_reg: Register = EAX;
 pub static num_regs: uint = 15;
 pub static caller_regs: uint = 9;
 
-pub fn each_reg(f: &fn(uint) -> bool) -> bool {
-  uint::range(1, num_regs + 1, f)
+pub fn each_reg(f: &fn(uint)) {
+  for i in range(1, num_regs + 1) {
+    f(i)
+  }
 }
 
 pub fn arg_reg(i: uint) -> Register {
@@ -68,9 +69,8 @@ pub fn num_reg(i: uint) -> Register {
   }
 }
 
-pub fn each_caller(f: &fn(Register) -> bool) -> bool {
-  f(EAX) && f(ECX) && f(EDX) && f(ESI) && f(EDI) && f(R8D) && f(R9D) && f(R10D)
-    && f(R11D)
+pub fn each_caller(f: &fn(Register)) {
+  f(EAX); f(ECX); f(EDX); f(ESI); f(EDI); f(R8D); f(R9D); f(R10D); f(R11D)
 }
 
 pub fn callee_reg(r: Register) -> bool {

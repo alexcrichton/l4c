@@ -30,7 +30,7 @@ struct Allocator {
 }
 
 pub fn color(p: &mut Program) {
-  for p.funs.mut_iter().advance |f| {
+  for f in p.funs.mut_iter() {
     let mut live_regs = liveness::Analysis();
     let mut live_stack = liveness::Analysis();
     liveness::calculate(&f.cfg, f.root, &mut live_regs, &RegisterInfo);
@@ -47,7 +47,7 @@ pub fn color(p: &mut Program) {
     /* Color the graph completely */
     info!("coloring: %s", f.name);
     do profile::dbg("coloring") { a.color(f, &live_regs, f.root); }
-    for a.colors.each |tmp, color| {
+    for (tmp, color) in a.colors.iter() {
       debug!("%s => %?", tmp.to_str(), color);
     }
 
@@ -95,14 +95,14 @@ impl Allocator {
     debug!("coloring %?", n);
     let mut tmplive = HashSet::new();
     let mut registers = RegisterSet();
-    for live.in.get(&n).iter().advance |&t| {
+    for &t in live.in_.get(&n).iter() {
       tmplive.insert(t);
       registers.set(*self.colors.get(&t), true);
     }
     debug!("%s", tmplive.pp())
 
     let mut pcopy = None;
-    for f.cfg.node(n).iter().enumerate().advance |(i, ins)| {
+    for (i, ins) in f.cfg.node(n).iter().enumerate() {
       /* examine data for next instruction for last use information */
       {
         let delta = &live.deltas.get(&n)[i];
@@ -165,7 +165,7 @@ impl Allocator {
                 self.precolor(*dst, match op { Div => EAX, _ => EDX });
                 banned.set(arch::reg_num(EDX), true);
                 banned.set(arch::reg_num(EAX), true);
-                for tmplive.iter().advance |&tmp| {
+                for &tmp in tmplive.iter() {
                   assert!(self.constraints.insert(tmp, Idiv));
                 }
                 match *op2 {
@@ -188,13 +188,13 @@ impl Allocator {
           ~Call(dst, _, ref args) => {
             self.colors.insert(dst, arch::reg_num(EAX));
             assert!(self.precolored.insert(dst));
-            for args.iter().enumerate().advance |(i, arg)| {
+            for (i, arg) in args.iter().enumerate() {
               self.precolor(*arg, arch::arg_reg(i));
             }
-            for arch::each_caller |r| {
+            do arch::each_caller |r| {
               banned.set(arch::reg_num(r), true);
             }
-            for tmplive.iter().advance |&tmp| {
+            for &tmp in tmplive.iter() {
               assert!(self.constraints.insert(tmp, Caller));
             }
           }
@@ -213,15 +213,15 @@ impl Allocator {
 
         /* TODO: cleanup? */
         debug!("coloring uses");
-        for ins.each_use |tmp| {
+        do ins.each_use |tmp| {
           self.process(tmp, &mut banned);
         }
         debug!("processing live-out temporaries");
-        for tmplive.iter().advance |&tmp| {
+        for &tmp in tmplive.iter() {
           self.process(tmp, &mut banned);
         }
         debug!("pruning dead uses");
-        for ins.each_use |tmp| {
+        do ins.each_use |tmp| {
           if !tmplive.contains(&tmp) {
             debug!("removing %?", tmp);
             banned.set(*self.colors.get(&tmp), false);
@@ -230,25 +230,25 @@ impl Allocator {
         debug!("processing previous pcopy");
         let copies = pcopy.take_unwrap();
         let mut regstmp = RegisterSet();
-        for copies.iter().advance |&(dst, src)| {
+        for &(dst, src) in copies.iter() {
           assert!(dst != src);
           match self.colors.find(&dst) {
             Some(&c) => { regstmp.set(c, true); }
             None    => ()
           }
         }
-        for copies.iter().advance |&(dst, _)| {
+        for &(dst, _) in copies.iter() {
           self.process(dst, &mut regstmp);
         }
         debug!("adding in all live-out temps");
-        for tmplive.iter().advance |tmp| {
+        for tmp in tmplive.iter() {
           match self.colors.find(tmp) {
             Some(&c) => { registers.set(c, true); }
             None => ()
           }
         }
         debug!("processing defs");
-        for ins.each_def |tmp| {
+        do ins.each_def |tmp| {
           if !self.colors.contains_key(&tmp) {
             self.process(tmp, &mut registers);
             if !tmplive.contains(&tmp) {
@@ -259,14 +259,14 @@ impl Allocator {
         pcopy = None;
       } else {
         /* normal coloration of each instruction */
-        for ins.each_use |tmp| {
+        do ins.each_use |tmp| {
           debug!("found use %?", tmp);
           if !tmplive.contains(&tmp) {
             debug!("removing %? %?", tmp, self.colors.get(&tmp));
             registers.set(*self.colors.get(&tmp), false);
           }
         }
-        for ins.each_def |tmp| {
+        do ins.each_def |tmp| {
           let color = min_vacant(&registers);
           assert!(color <= arch::num_regs);
           assert!(self.colors.insert(tmp, color));
@@ -278,7 +278,7 @@ impl Allocator {
       debug!("after %s %s", tmplive.pp(), registers.pp());
     }
 
-    for f.ssa.idominated.get(&n).iter().advance |&id| {
+    for &id in f.ssa.idominated.get(&n).iter() {
       self.color(f, live, id);
     }
   }
@@ -308,28 +308,28 @@ impl Allocator {
   fn remove_phis(&self, f: &mut Function) {
     let mut to_append = ~[];
 
-    for f.cfg.each_node |id, ins| {
+    for (id, ins) in f.cfg.nodes() {
       let mut phi_vars = ~[];
       let mut phi_maps = HashMap::new();
       let mut mem_vars = ~[];
       let mut mem_maps = HashMap::new();
-      for f.cfg.each_pred(id) |pred| {
+      for pred in f.cfg.preds(id) {
         phi_maps.insert(pred, ~[]);
         mem_maps.insert(pred, ~[]);
       }
 
-      for ins.iter().advance |ins| {
+      for ins in ins.iter() {
         match *ins {
           ~Phi(tmp, ref map) => {
             debug!("phi var %? %?", tmp, *self.colors.get(&tmp));
             phi_vars.push(*self.colors.get(&tmp));
-            for map.iter().advance |(pred, tmp)| {
+            for (pred, tmp) in map.iter() {
               phi_maps.find_mut(pred).unwrap().push(*self.colors.get(tmp));
             }
           }
           ~MemPhi(def, ref map) => {
             mem_vars.push(self.stack_loc(def));
-            for map.iter().advance |(pred, &slot)| {
+            for (pred, &slot) in map.iter() {
               mem_maps.find_mut(pred).unwrap().push(self.stack_loc(slot));
             }
           }
@@ -337,7 +337,7 @@ impl Allocator {
         }
       }
 
-      for f.cfg.each_pred(id) |pred| {
+      for pred in f.cfg.preds(id) {
         let perm = phi_maps.pop(&pred).unwrap();
         let mems = mem_maps.pop(&pred).unwrap();
 
@@ -391,7 +391,7 @@ impl Allocator {
       }
     }
 
-    for to_append.consume_iter().advance |(pred, ins)| {
+    for (pred, ins) in to_append.move_iter() {
       /* there are no critical edges in the graph, so we can just append */
       let mut prev = f.cfg.pop_node(pred);
       prev.push_all_move(ins);
@@ -410,13 +410,13 @@ impl Allocator {
   fn remove_temps(&mut self, f: &mut Function) {
     let (order, _) = f.cfg.postorder(f.root);
 
-    for order.rev_iter().advance |&id| {
+    for &id in order.rev_iter() {
       let prev = f.cfg.pop_node(id);
       let mut newins = ~[];
       /* If we're the root node, set up the stack after saving the callee
          saved registers */
       if id == f.root {
-        for self.colors.each |_, &color| {
+        for (_, &color) in self.colors.iter() {
           let reg = arch::num_reg(color);
           if arch::callee_reg(reg) &&
             self.callee_saved.iter().position(|c| *c == color).is_none()
@@ -433,7 +433,7 @@ impl Allocator {
         }
       }
 
-      for prev.consume_iter().advance |ins| {
+      for ins in prev.move_iter() {
         self.alloc_ins(f, ins, |i| newins.push(i));
       }
       f.cfg.add_node(id, newins);
@@ -464,7 +464,7 @@ impl Allocator {
                          ~Immediate(self.stack_size(false) as i32, ir::Pointer),
                          ~Register(ESP, ir::Pointer)));
         }
-        for self.callee_saved.rev_iter().advance |&color| {
+        for &color in self.callee_saved.rev_iter() {
           push(~Raw(fmt!("pop %s", arch::num_reg(color).size(ir::Pointer))));
         }
         push(~Return(op));
@@ -502,14 +502,14 @@ impl Allocator {
       }
       ~Call(dst, fun, args) =>
         push(~Call(dst, self.alloc_op(f, fun),
-                   args.consume_iter().transform(|arg| self.alloc_op(f, arg))
-                                      .collect())),
+                   args.move_iter().map(|arg| self.alloc_op(f, arg))
+                       .collect())),
 
       ~PCopy(ref copies) => {
         debug!("%?", copies);
         let mut dsts = ~[];
         let mut srcs = ~[];
-        for copies.iter().advance |&(dst, src)| {
+        for &(dst, src) in copies.iter() {
           dsts.push(*self.colors.get(&dst));
           srcs.push(*self.colors.get(&src));
         }
@@ -528,7 +528,7 @@ impl Allocator {
         ~Stack((idx + 1) * arch::ptrsize + self.stack_size(true)),
       ~MOp(base, disp, off) =>
         ~MOp(self.alloc_op(f, base), disp,
-             off.map_consume(|(x, mult)| (self.alloc_op(f, x), mult)))
+             off.map_move(|(x, mult)| (self.alloc_op(f, x), mult)))
     }
   }
 
@@ -580,14 +580,15 @@ impl PrettyPrint for bitv::Bitv {
   fn pp(&self) -> ~str {
     let mut s = ~"{";
     let mut first = true;
-    for self.ones |i| {
+    do self.ones |i| {
       if first {
         first = false;
       } else {
         s.push_str(", ");
       }
       s.push_str(i.to_str());
-    }
+      true
+    };
     return s + "}";
   }
 }
@@ -602,7 +603,7 @@ fn resolve_perm(result: &[uint], incoming: &[uint], f: &fn(Resolution)) {
   /* maps describing src -> dst and dst -> src */
   let mut src_dst: SmallIntMap<~[uint]> = SmallIntMap::new();
   let mut dst_src = SmallIntMap::new();
-  for result.iter().zip(incoming.iter()).advance |(&dst, &src)| {
+  for (&dst, &src) in result.iter().zip(incoming.iter()) {
     if dst == src { loop }
     assert!(dst_src.insert(dst, src));
     match src_dst.find_mut(&src) {
@@ -613,7 +614,7 @@ fn resolve_perm(result: &[uint], incoming: &[uint], f: &fn(Resolution)) {
   }
 
   /* deal with all move chains first */
-  for result.iter().advance |&dst| {
+  for &dst in result.iter() {
     /* if this destination is also a source, it's not the end of a chain */
     if src_dst.contains_key(&dst) { loop }
 
@@ -624,7 +625,7 @@ fn resolve_perm(result: &[uint], incoming: &[uint], f: &fn(Resolution)) {
       let nxt = *dst_src.get(&cur);
       f(Left((cur, nxt)));
       dst_src.remove(&cur);
-      let L = src_dst.pop(&nxt).unwrap().consume_iter()
+      let L = src_dst.pop(&nxt).unwrap().move_iter()
                      .filter(|&x| x != cur).collect::<~[uint]>();
       if L.len() > 0 {
         src_dst.insert(nxt, L);
@@ -635,14 +636,14 @@ fn resolve_perm(result: &[uint], incoming: &[uint], f: &fn(Resolution)) {
   }
 
   /* Next, deal with all loops */
-  for result.iter().advance |&dst| {
+  for &dst in result.iter() {
     /* if this isn't a destination any more, it was part of a chain */
     if !dst_src.contains_key(&dst) { loop }
 
     /* Exchange everything through the 'dst' register to resolve the chain */
     let mut cur = dst;
     while src_dst.contains_key(&cur) {
-      let L = do src_dst.pop(&cur).unwrap().consume_iter().filter |&x| {
+      let L = do src_dst.pop(&cur).unwrap().move_iter().filter |&x| {
         dst_src.contains_key(&x)
       }.collect::<~[uint]>();
       debug!("%?", L);
@@ -669,15 +670,15 @@ fn resolve_test(from: &[uint], to: &[uint]) {
   }
 
   let mut map = SmallIntMap::new();
-  for uint::range(0, 10) |i| { map.insert(i, ()); }
-  for from.iter().zip(to.iter()).advance |(&f, &t)| {
+  for i in range(0u, 10) { map.insert(i, ()); }
+  for (&f, &t) in from.iter().zip(to.iter()) {
     map.remove(&t);
     if regs[t] != f {
       fail!(fmt!("expected %? to be %? but it was %?", t, f, regs[t]));
     }
   }
   debug!("%?", regs);
-  for map.each |&k, _| {
+  for (&k, _) in map.iter() {
     if regs[k] != k {
       fail!(fmt!("clobbered %? to %?", k, regs[k]));
     }

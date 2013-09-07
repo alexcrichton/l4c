@@ -20,7 +20,7 @@ struct Eliminator {
 }
 
 pub fn optimize(p: &mut Program) {
-  for p.funs.mut_iter().advance |f| {
+  for f in p.funs.mut_iter() {
     let mut opt = Eliminator { stms: ~[],
                                used: bitv::Bitv::new(f.types.len(), false) };
     /* TODO: surely this is easier on SSA form? */
@@ -34,11 +34,11 @@ impl Eliminator {
     debug!("running");
     self.used.clear();
     /* Mark all phi function arguments as used before we go anywhere */
-    for f.cfg.each_node |_, stms| {
-      for stms.iter().advance |s| {
+    for (_, stms) in f.cfg.nodes() {
+      for s in stms.iter() {
         match *s {
           ~Phi(_, ref m) => {
-            for m.iter().advance |(_, &t)| {
+            for (_, &t) in m.iter() {
               self.used.set(t, true);
             }
           }
@@ -50,10 +50,10 @@ impl Eliminator {
     /* Be sure to start at the top of the graph to visit definitions first */
     let (order, _) = f.cfg.postorder(f.root);
     let mut changed = false;
-    for order.iter().advance |&n| {
+    for &n in order.iter() {
       let orig = f.cfg.node(n).len();
       let node = f.cfg.pop_node(n);
-      node.consume_rev_iter().advance(|stm| self.stm(stm));
+      node.move_rev_iter().advance(|stm| self.stm(stm));
       let mut block = replace(&mut self.stms, ~[]);
       block.reverse();
 
@@ -75,7 +75,7 @@ impl Eliminator {
       s => s
     };
     let mut def = None;
-    for s.each_def |t| {
+    do s.each_def |t| {
       assert!(def.is_none());
       def = Some(t);
     }
@@ -92,7 +92,7 @@ impl Eliminator {
       None => ()
     }
     /* otherwise, mark all our uses as 'used', and continue on */
-    for s.each_use |t| {
+    do s.each_use |t| {
       self.used.set(t, true);
     }
     self.stms.push(s);
@@ -108,7 +108,7 @@ impl Eliminator {
   }
 
   fn first_impossible(&self, b: &[~Statement]) -> uint {
-    for b.iter().enumerate().advance |(i, stm)| {
+    for (i, stm) in b.iter().enumerate() {
       match *stm {
         ~Die(~Const(c, _)) if c != 0 => return i + 1,
         ~Return(*) => return i + 1,

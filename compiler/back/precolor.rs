@@ -7,12 +7,12 @@ use middle::temp::Temp;
 use back::arch;
 
 pub fn constrain(p: &mut Program) {
-  for p.funs.mut_iter().advance |f| {
+  for f in p.funs.mut_iter() {
     let mut live = liveness::Analysis();
     liveness::calculate(&f.cfg, f.root, &mut live, &RegisterInfo);
     let mut temps = temp::new_init(f.temps);
     do f.cfg.map_nodes |id, stms| {
-      constrain_block(live.in.get(&id), *live.deltas.get(&id), |t| {
+      constrain_block(live.in_.get(&id), *live.deltas.get(&id), |t| {
         let tmp = temps.new();
         let size = f.sizes.get_copy(&t);
         f.sizes.insert(tmp, size);
@@ -29,7 +29,7 @@ fn constrain_block(live: &temp::TempSet, delta: &[liveness::Delta],
   let mut synthetic = ~[];
   let mut live_in = HashSet::new();
   let mut live_out = HashSet::new();
-  for live.iter().advance |&t| {
+  for &t in live.iter() {
     live_in.insert(t);
     live_out.insert(t);
   }
@@ -37,7 +37,7 @@ fn constrain_block(live: &temp::TempSet, delta: &[liveness::Delta],
   /* SSA will deal with these renamings later */
   fn pcopy(live: &temp::TempSet) -> ~Instruction {
     let mut copies = ~[];
-    for live.iter().advance |&tmp| {
+    for &tmp in live.iter() {
       copies.push((tmp, tmp));
     }
     ~PCopy(copies)
@@ -64,7 +64,7 @@ fn constrain_block(live: &temp::TempSet, delta: &[liveness::Delta],
     )
   );
 
-  for ins.consume_iter().enumerate().advance |(i, ins)| {
+  for (i, ins) in ins.move_iter().enumerate() {
     liveness::apply(&mut live_out, &delta[i]);
 
     match ins {
@@ -109,13 +109,13 @@ fn constrain_block(live: &temp::TempSet, delta: &[liveness::Delta],
       ~Call(dst, fun, args) => {
         let mut newargs = ~[];
         let mut tempregs = HashSet::new();
-        for args.slice(0, uint::min(arch::arg_regs, args.len())).iter().advance |t| {
+        for t in args.slice(0, uint::min(arch::arg_regs, args.len())).iter() {
           match *t {
             ~Temp(t) => { tempregs.insert(t); }
             _ => ()
           }
         }
-        for args.consume_iter().enumerate().advance |(i, arg)| {
+        for (i, arg) in args.move_iter().enumerate() {
           /* the first few arguments in registers need to be copied because all
              argument registers are caller-saved registers */
           if i < arch::arg_regs {
@@ -145,7 +145,7 @@ fn constrain_block(live: &temp::TempSet, delta: &[liveness::Delta],
     }
 
     liveness::apply(&mut live_in, &delta[i]);
-    for synthetic.iter().advance |tmp| {
+    for tmp in synthetic.iter() {
       live_in.remove(tmp);
     }
     synthetic.truncate(0);

@@ -19,7 +19,7 @@ pub fn codegen(ir::Program{funs}: ir::Program) -> assem::Program {
                               sizes: HashMap::new(),
                               oldtypes: HashMap::new() };
 
-  let funs = do funs.consume_iter().transform |f| {
+  let funs = do funs.move_iter().map |f| {
     let f = cg.run(f);
     cg.reset();
     f
@@ -36,7 +36,7 @@ impl CodeGenerator {
     /* Map over the cfg into a new one */
     let cfg = cfg.map(|id, stms| {
       debug!("block %?", id);
-      for stms.consume_iter().advance |s| {
+      for s in stms.move_iter() {
         self.stm(s);
       }
       util::replace(&mut self.stms, ~[])
@@ -149,7 +149,7 @@ impl CodeGenerator {
   fn stm(&mut self, s: ~ir::Statement) {
     match s {
       ~ir::Arguments(ref tmps) => {
-        for tmps.iter().enumerate().advance |(i, &tmp)| {
+        for (i, &tmp) in tmps.iter().enumerate() {
           let tmp = self.tmp(tmp);
           if i < arch::arg_regs {
             self.push(~assem::Arg(tmp, i));
@@ -161,7 +161,7 @@ impl CodeGenerator {
       }
       ~ir::Phi(tmp, ref map) => {
         let mut map2 = HashMap::new();
-        for map.iter().advance |(&k, &v)| {
+        for (&k, &v) in map.iter() {
           map2.insert(k, self.tmp(v));
         }
         let tmp = self.tmp(tmp);
@@ -222,7 +222,7 @@ impl CodeGenerator {
       }
       ~ir::Call(tmp, fun, args) => {
         let fun = self.half(fun);
-        let args = do args.consume_iter().transform |arg| {
+        let args = do args.move_iter().map |arg| {
           self.half(arg)
         }.collect();
         let tmp = self.tmp(tmp);
@@ -272,7 +272,7 @@ impl CodeGenerator {
       ~assem::Call(dst, fun, args) => {
         let mut temps = HashSet::new();
         let mut args2 = ~[];
-        for args.consume_iter().enumerate().advance |(i, arg)| {
+        for (i, arg) in args.move_iter().enumerate() {
           let arg = match arg {
             /* If we have first saw this temp, or the immediates/labels need to
                be stored on the stack, then no copy is needed */
@@ -334,7 +334,7 @@ impl CodeGenerator {
     match a {
       ~assem::MOp(base, disp, off) => {
         let base = unimm(base);
-        let off = off.map_consume(|(o, m)| (unimm(o), m));
+        let off = off.map_move(|(o, m)| (unimm(o), m));
         ~assem::MOp(base, disp, off)
       }
       a => a

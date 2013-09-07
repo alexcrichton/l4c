@@ -5,7 +5,7 @@ use middle::ssa;
 use back::assem;
 
 pub fn convert(p: &mut assem::Program) {
-  for p.funs.mut_iter().advance |f| {
+  for f in p.funs.mut_iter() {
     ressa(f);
   }
 }
@@ -23,12 +23,12 @@ fn ressa(f: &mut assem::Function) {
   /* All of the temps now have new names, so we need to re-register the size of
      each temp in the Function */
   let mut newsizes = HashMap::new();
-  for remapping.consume().advance |(new, old)| {
+  for (new, old) in remapping.move_iter() {
     newsizes.insert(new, *f.sizes.get(&old));
   }
   f.sizes.clear();
   let mut max = 0;
-  for newsizes.iter().advance |(&k, &v)| {
+  for (&k, &v) in newsizes.iter() {
     debug!("%? => %?", k, v);
     f.sizes.insert(k, v);
     max = uint::max(max, k as uint);

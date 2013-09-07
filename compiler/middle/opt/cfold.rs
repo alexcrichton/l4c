@@ -22,7 +22,7 @@ struct ConstantFolder<'self> {
 }
 
 pub fn optimize(p: &mut Program) {
-  for p.funs.mut_iter().advance |f| {
+  for f in p.funs.mut_iter() {
     /* TODO(#5884): should initialize directly */
     let (constants, temps) = (HashMap::new(), HashMap::new());
     let mut opt = ConstantFolder { f: f,
@@ -36,15 +36,15 @@ impl<'self> ConstantFolder<'self> {
   fn run(&mut self) {
     /* Be sure to start at the top of the graph to visit definitions first */
     let (order, _) = self.f.cfg.postorder(self.f.root);
-    for order.rev_iter().advance |&n| {
+    for &n in order.rev_iter() {
       let node = self.f.cfg.pop_node(n);
-      let node = node.consume_iter().transform(|s| self.stm(s)).collect();
+      let node = node.move_iter().map(|s| self.stm(s)).collect();
       self.f.cfg.add_node(n, node);
     }
 
     do self.f.cfg.map_nodes |_, stms| {
-      stms.consume_iter().transform(|s| {
-        s.map_temps(|t| *self.temps.find(&t).get_or_default(&t), |t| t)
+      stms.move_iter().map(|s| {
+        s.map_temps(|t| *self.temps.find(&t).unwrap_or_default(&t), |t| t)
       }).collect()
     }
   }
@@ -70,7 +70,7 @@ impl<'self> ConstantFolder<'self> {
       }
       ~Load(t, e) => ~Load(t, self.exp(e).first()),
       ~Call(t, e, args) => ~Call(t, e,
-                                 do args.consume_iter().transform |e| {
+                                 do args.move_iter().map |e| {
                                    self.exp(e).first()
                                  }.collect()),
       ~Store(e1, e2) => ~Store(self.exp(e1).first(), self.exp(e2).first()),

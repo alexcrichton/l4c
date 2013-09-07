@@ -35,6 +35,12 @@ mod front {
     mod returncheck;
     mod typecheck;
   }
+
+  pub fn die() -> ! {
+    #[fixed_stack_segment]; #[inline(never)];
+    use std::libc;
+    unsafe { libc::exit(1) }
+  }
 }
 
 mod middle {
