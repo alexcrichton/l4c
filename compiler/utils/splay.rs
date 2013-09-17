@@ -378,9 +378,8 @@ fn destroy<K, V>(mut cur: ~Node<K, V>) {
 
 #[unsafe_destructor]
 impl<K, V> Drop for SplayMap<K, V> {
-    fn drop(&self) {
-        let me = unsafe { cast::transmute_mut(self) };
-        match me.root.take() {
+    fn drop(&mut self) {
+        match self.root.take() {
             Some(n) => destroy(n),
             None => {}
         }

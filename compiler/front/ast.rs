@@ -173,10 +173,10 @@ impl<'self> Elaborator<'self> {
   fn elaborate(&mut self, g: ~GDecl) -> ~GDecl {
     /* TODO(#4653): in this macro, it should be $id instead of 'id' */
     macro_rules! check_set (
-      ($set:expr, $id:expr, $name:expr) => {
+      ($set:expr, $id:expr, $name:expr, $span:expr) => {
         if $set.contains(&id) {
-          self.program.error(span, fmt!("'%s' already a %s",
-                                        self.program.str(id), $name));
+          self.program.error($span, fmt!("'%s' already a %s",
+                                         self.program.str(id), $name));
         }
       }
     );
@@ -193,22 +193,22 @@ impl<'self> Elaborator<'self> {
       }
       Typedef(id, typ) => {
         self.check_id(span, id);
-        check_set!(self.efuns, *id, "function");
-        check_set!(self.efuns, *id, "function");
-        check_set!(self.funs, *id, "function");
+        check_set!(self.efuns, *id, "function", span);
+        check_set!(self.efuns, *id, "function", span);
+        check_set!(self.funs, *id, "function", span);
         let typ = self.resolve(span, typ);
         self.types.insert(id, typ);
         Typedef(id, typ)
       }
       StructDef(id, fields) => {
-        check_set!(self.structs, id, "struct");
+        check_set!(self.structs, id, "struct", span);
         self.structs.insert(id);
         StructDef(id, self.resolve_pairs(span, fields))
       }
       Function(ret, id, args, body) => {
         self.check_id(span, id);
-        check_set!(self.efuns, id, "function");
-        check_set!(self.funs, id, "function");
+        check_set!(self.efuns, id, "function", span);
+        check_set!(self.funs, id, "function", span);
         self.funs.insert(id);
         Function(self.resolve(span, ret), id, self.resolve_pairs(span, args),
                   self.elaborate_stm(body))

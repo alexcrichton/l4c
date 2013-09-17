@@ -1,4 +1,4 @@
-use std::iterator;
+use std::iter;
 use std::hashmap::{HashMap, HashSet, HashMapIterator, HashSetIterator};
 use std::io::WriterUtil;
 use std::io;
@@ -247,12 +247,12 @@ impl<'self, N, E> Iterator<(NodeId, NodeId)> for EdgeIterator<'self, N, E> {
 }
 
 type PredIterator<'self> =
-    iterator::Map<'self, &'self NodeId, NodeId, HashSetIterator<'self, NodeId>>;
+    iter::Map<'self, &'self NodeId, NodeId, HashSetIterator<'self, NodeId>>;
 type SuccIterator<'self, E> =
-    iterator::Map<'self, (&'self NodeId, &'self E), NodeId,
+    iter::Map<'self, (&'self NodeId, &'self E), NodeId,
                   HashMapIterator<'self, NodeId, E>>;
 type SuccEdgeIterator<'self, E> =
-    iterator::Map<'self, (&'self NodeId, &'self E), (NodeId, &'self E),
+    iter::Map<'self, (&'self NodeId, &'self E), (NodeId, &'self E),
                   HashMapIterator<'self, NodeId, E>>;
 struct PredEdgeIterator<'self, N, E> {
   priv g: &'self Graph<N, E>,

@@ -4,7 +4,7 @@ use std::ops::Drop;
 
 use extra::time;
 
-static levels_key: local_data::Key<uint> = &local_data::Key;
+local_data_key!(levels_key: uint)
 
 pub struct Guard {
   priv enabled: bool,
@@ -12,7 +12,7 @@ pub struct Guard {
 }
 
 impl Drop for Guard {
-  fn drop(&self) {
+  fn drop(&mut self) {
     if self.enabled {
       io::println(fmt!("%.2fs", time::precise_time_s() - self.start));
     }
@@ -38,7 +38,7 @@ pub fn run<U>(f: &fn() -> U, name: &str) -> U {
 
 pub fn dbg<U>(name: &str, f: &fn() -> U) -> U {
   /* apparently local_data_{get,set} are unsafe... */
-  let lvls = local_data::pop(levels_key).unwrap_or_default(0);
+  let lvls = local_data::pop(levels_key).unwrap_or_zero();
   local_data::set(levels_key, lvls + 1);
   let start = time::precise_time_s();
   let ret = f();

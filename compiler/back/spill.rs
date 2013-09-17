@@ -22,7 +22,7 @@
  * throughout the code in this file.
  */
 
-use std::iterator;
+use std::iter;
 use std::hashmap::{HashMap, HashSet};
 use std::uint;
 
@@ -222,7 +222,7 @@ impl Spiller {
     /* Process all of our block's statements backwards */
     let mut deltas = ~[];
     let mut max = bottom.len();
-    let indexes = iterator::count(block.len() - 1, -1);
+    let indexes = iter::count(block.len() - 1, -1);
     for (i, ins) in indexes.zip(block.rev_iter()) {
       let mut delta = ~[];
       match *ins {

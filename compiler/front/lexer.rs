@@ -2,9 +2,9 @@ use std::hashmap::{HashMap, HashSet};
 use std::i32;
 use std::io::ReaderUtil;
 use std::io;
+use std::num;
 use std::str;
 use std::u32;
-use std::u64;
 
 use front::die;
 use front::ast;
@@ -358,7 +358,7 @@ impl<'self> Lexer<'self> {
   }
 
   fn parse_num(&mut self, base: uint) -> i32 {
-    match u64::from_str_radix(self.cur, base) {
+    match num::from_str_radix::<u64>(self.cur, base) {
       Some(n) if (base == 10 && n <= i32::max_value as u64 + 1) ||
                  (base == 16 && n <= u32::max_value as u64) => {
         unsafe { str::raw::set_len(&mut self.cur, 0); }

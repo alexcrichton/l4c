@@ -44,7 +44,7 @@ impl<'self> ConstantFolder<'self> {
 
     do self.f.cfg.map_nodes |_, stms| {
       stms.move_iter().map(|s| {
-        s.map_temps(|t| *self.temps.find(&t).unwrap_or_default(&t), |t| t)
+        s.map_temps(|t| *self.temps.find(&t).unwrap_or(&t), |t| t)
       }).collect()
     }
   }
