@@ -276,7 +276,7 @@ fn test_basic() {
   g.add_node(n1, 1);
   g.add_node(n2, 2);
   g.add_edge(n1, n2, 3);
-  for (n, &e) in g.each_succ_edge(n1) {
+  for (n, &e) in g.succ_edges(n1) {
     assert!(n == n2 && e == 3);
   }
   for (id, &n) in g.nodes() {

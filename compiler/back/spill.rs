@@ -146,11 +146,11 @@ impl Spiller {
             match self.renamings.find_mut(&(pred, n)) {
               Some(m) => {
                 match m.find_mut(&their_name) {
-                  Some(l) => { l.push(my_name); loop }
+                  Some(l) => { l.push(my_name); continue }
                   None => ()
                 }
                 m.insert(their_name, ~[my_name]);
-                loop
+                continue
               }
               None => ()
             }
@@ -197,7 +197,7 @@ impl Spiller {
           }
         }
       }
-      if !self.next_use.contains_key(&succ) { loop }
+      if !self.next_use.contains_key(&succ) { continue }
       let edge_cost = match *f.cfg.edge(n, succ) {
         ir::LoopOut | ir::FLoopOut => LOOP_OUT_WEIGHT, _ => 0
       };
@@ -226,7 +226,7 @@ impl Spiller {
     for (i, ins) in indexes.zip(block.rev_iter()) {
       let mut delta = ~[];
       match *ins {
-        ~PCopy(*) => { deltas.push(delta); loop; }
+        ~PCopy(*) => { deltas.push(delta); continue; }
         _ => ()
       }
       /* If we define a temp, then the distance to the next use from the start
@@ -528,7 +528,7 @@ impl Spiller {
     /* Build up our list of required spilled registers */
     let mut spill = HashSet::new();
     for pred in f.cfg.preds(n) {
-      if !self.spill_exit.contains_key(&pred) { loop }
+      if !self.spill_exit.contains_key(&pred) { continue }
       /* Be sure we're using the right name for each temp spilled on the exit of
          our predecessors because we may be renaming it with a phi node */
       for &tmp in self.spill_exit.get(&pred).iter() {
@@ -564,7 +564,7 @@ impl Spiller {
        need to be spilled */
     for &tmp in pred_regs_exit.iter() {
       /* no need to spill if it's already spilled */
-      if pred_spill_exit.contains(&tmp) { loop }
+      if pred_spill_exit.contains(&tmp) { continue }
 
       /* for each of my names for this temp, see if a spill is needed */
       do self.my_names(tmp, pred, succ) |mine| {

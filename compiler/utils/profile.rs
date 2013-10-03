@@ -8,7 +8,7 @@ local_data_key!(levels_key: uint)
 
 pub struct Guard {
   priv enabled: bool,
-  priv start: float,
+  priv start: f64,
 }
 
 impl Drop for Guard {
@@ -43,7 +43,7 @@ pub fn dbg<U>(name: &str, f: &fn() -> U) -> U {
   let start = time::precise_time_s();
   let ret = f();
   let val = time::precise_time_s() - start;
-  if val > 0.001f {
+  if val > 0.001 {
     debug!("%s%s %.8fs", "  ".repeat(lvls), name,
            time::precise_time_s() - start);
   }

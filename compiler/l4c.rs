@@ -111,7 +111,7 @@ fn main() {
   let args = os::args();
   let m = &match getopts(args.tail(), flags) {
     result::Ok(m)  => m,
-    result::Err(e) => fail!(fail_str(e))
+    result::Err(e) => fail2!("{}", e.to_err_msg())
   };
   if m.free.len() == 0 {
     help();
@@ -120,7 +120,7 @@ fn main() {
 
   /* front */
   let mut ast = do prof(m, "generating ast") {
-    let header = opt_maybe_str(m, "l").or(opt_maybe_str(m, "header"));
+    let header = m.opt_str("l").or(m.opt_str("header"));
     let files = match header {
       None => m.free.clone(),
       Some(file) => vec::append(~[file], m.free)
@@ -131,7 +131,7 @@ fn main() {
     }
   };
   do prof(m, "elaboration") { ast.elaborate(); }
-  if opt_present(m, "dump-ast") {
+  if m.opt_present("dump-ast") {
     io::println(ast.pp());
   }
   do prof(m, "typecheck")   { analysis::typecheck::check(&ast)   }
@@ -140,13 +140,13 @@ fn main() {
   do prof(m, "initcheck")   { analysis::initcheck::check(&ast)   }
 
   /* middle */
-  let safe = opt_present(m, "safe") && !opt_present(m, "unsafe");
+  let safe = m.opt_present("safe") && !m.opt_present("unsafe");
   let mut ir;
   {
     let _p = profstk(m, "translation");
     ir = trans::translate(ast, safe);
   }
-  if opt_present(m, "dot-ir")  { ir.dot(io::stdout()); }
+  if m.opt_present("dot-ir")  { ir.dot(io::stdout()); }
   pass(ir::ssa, &mut ir, m, "dot-ssa");
 
   pass(opt::cfold::optimize,    &mut ir, m, "dot-cfold");
@@ -159,7 +159,7 @@ fn main() {
     let _p = profstk(m, "codegen");
     assem = codegen::codegen(ir);
   }
-  if opt_present(m, "dot-assem") { assem.dot(io::stdout()); }
+  if m.opt_present("dot-assem") { assem.dot(io::stdout()); }
   pass(peephole::optimize,  &mut assem, m, "dot-peephole");
   pass(precolor::constrain, &mut assem, m, "dot-precolor");
   pass(spill::spill,        &mut assem, m, "dot-spilled");
@@ -176,14 +176,14 @@ fn main() {
 fn pass<T : Graphable, U>(f: &fn(&mut T) -> U, p: &mut T,
                           m: &extra::getopts::Matches, s: &str) -> U {
   let ret = do prof(m, s) { f(p) };
-  if extra::getopts::opt_present(m, s) {
+  if m.opt_present(s) {
     p.dot(io::stdout());
   }
   return ret;
 }
 
 fn prof<U>(m : &extra::getopts::Matches, s : &str, f: &fn() -> U) -> U {
-  if extra::getopts::opt_present(m, "profile") {
+  if m.opt_present("profile") {
     profile::run(f, s)
   } else {
     f()
@@ -191,5 +191,5 @@ fn prof<U>(m : &extra::getopts::Matches, s : &str, f: &fn() -> U) -> U {
 }
 
 fn profstk(m : &extra::getopts::Matches, s : &str) -> profile::Guard {
-  profile::Guard::new(extra::getopts::opt_present(m, "profile"), s)
+  profile::Guard::new(m.opt_present("profile"), s)
 }

@@ -541,10 +541,10 @@ impl<'self, I: ssa::Statement<assem::Instruction>> Coalescer<'self, I> {
         /* Here try to find if anything pairwise interfers between the chunks,
          * and if it does we have to break out and just go to the next affinity
          * edge in the graph */
-        let continue = xs.iter().advance(|&v| {
+        let cont = xs.iter().advance(|&v| {
           ys.iter().advance(|&w| !self.interferes(v, w))
         });
-        if !continue { loop }
+        if !cont { continue }
 
         /* no element of the two chunks interfere, merge the chunks */
         merge = HashSet::new();
@@ -623,7 +623,7 @@ impl<'self, I: ssa::Statement<assem::Instruction>> Coalescer<'self, I> {
       }
 
       for (succ, edge) in self.f.cfg.succ_edges(n) {
-        if visited.contains(&succ) { loop }
+        if visited.contains(&succ) { continue }
         /* If we're moving out of a loop, decrement the weight */
         let weight = match *edge {
           ir::FLoopOut | ir::LoopOut => weight - 1, _ => weight

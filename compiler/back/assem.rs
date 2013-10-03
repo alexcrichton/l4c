@@ -658,7 +658,7 @@ impl Function {
 
     while skipped.len() > 0 {
       let block = skipped.pop();
-      if visited.contains(&block) { loop }
+      if visited.contains(&block) { continue }
 
       /* Each block has its own label (so it can be jumped to) */
       visited.insert(block);

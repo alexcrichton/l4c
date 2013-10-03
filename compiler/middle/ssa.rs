@@ -154,9 +154,9 @@ impl<'self, T: PrettyPrint, S: Statement<T>> Converter<'self, T, S> {
         debug!("idf for tmp: %s", tmp.pp());
         let locs = self.idf(defs);
         for n in locs.iter() {
-          if !self.liveness.in_.get(n).contains(&tmp) { loop }
+          if !self.liveness.in_.get(n).contains(&tmp) { continue }
           match phis.find_mut(n) {
-            Some(s) => { s.insert(tmp); loop; }
+            Some(s) => { s.insert(tmp); continue; }
             None => {}
           }
           phis.insert(*n, ~set::singleton(tmp));
@@ -310,11 +310,11 @@ fn analyze<T>(cfg: &CFG<T>, root: graph::NodeId, analysis: &mut Analysis) {
   while changed {
     changed = false;
     for &b in order.rev_iter() {
-      if b == root { loop }
+      if b == root { continue }
       let mut new_idom = -1;
 
       for p in cfg.preds(b) {
-        if !idoms.contains_key(&p) { loop }
+        if !idoms.contains_key(&p) { continue }
         if new_idom == -1 {
           new_idom = p;
         } else {
@@ -382,7 +382,7 @@ fn dom_frontiers<T>(cfg: &CFG<T>, root: graph::NodeId,
 
     /* for all c where idom[c] = a */
     for &c in idominated.get(&a).iter() {
-      if a == c { loop }
+      if a == c { continue }
       debug!("df_up[%d, %d]...", a as int, c as int);
 
       /* df_up[a, c] */

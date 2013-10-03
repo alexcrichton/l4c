@@ -203,7 +203,7 @@ fn eliminate_dead(cfg: &mut ir::CFG) {
         _ => {
           debug!("removing edge %? %?", node, succ);
           to_remove.push((node, succ));
-          loop;
+          continue
         }
       };
       to_add.push((node, succ, to_update));

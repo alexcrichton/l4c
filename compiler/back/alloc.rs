@@ -118,7 +118,7 @@ impl Allocator {
           assert!(pcopy.is_none());
           pcopy = Some(copies.clone());
           registers.clear();
-          loop;
+          continue
         }
         /* Be sure we always assign stack slots. It should be noted that these
          * are currently not in SSA form. */
@@ -147,7 +147,7 @@ impl Allocator {
           if tmplive.contains(&tmp) {
             registers.set(color, true);
           }
-          loop;
+          continue
         }
         _ => ()
       }
@@ -208,7 +208,7 @@ impl Allocator {
           /* All unconstrained instructions between a pcopy and the constrained
              instruction are spills/reloads and we can ignore them (we'll color
              them later */
-          _ => loop
+          _ => continue
         };
 
         /* TODO: cleanup? */
@@ -604,10 +604,10 @@ fn resolve_perm(result: &[uint], incoming: &[uint], f: &fn(Resolution)) {
   let mut src_dst: SmallIntMap<~[uint]> = SmallIntMap::new();
   let mut dst_src = SmallIntMap::new();
   for (&dst, &src) in result.iter().zip(incoming.iter()) {
-    if dst == src { loop }
+    if dst == src { continue }
     assert!(dst_src.insert(dst, src));
     match src_dst.find_mut(&src) {
-      Some(l) => { l.push(dst); loop }
+      Some(l) => { l.push(dst); continue }
       None => ()
     }
     src_dst.insert(src, ~[dst]);
@@ -616,7 +616,7 @@ fn resolve_perm(result: &[uint], incoming: &[uint], f: &fn(Resolution)) {
   /* deal with all move chains first */
   for &dst in result.iter() {
     /* if this destination is also a source, it's not the end of a chain */
-    if src_dst.contains_key(&dst) { loop }
+    if src_dst.contains_key(&dst) { continue}
 
     /* having found the end of a chain, go up the chain moving everything into
        the right spot as we go along */
@@ -638,7 +638,7 @@ fn resolve_perm(result: &[uint], incoming: &[uint], f: &fn(Resolution)) {
   /* Next, deal with all loops */
   for &dst in result.iter() {
     /* if this isn't a destination any more, it was part of a chain */
-    if !dst_src.contains_key(&dst) { loop }
+    if !dst_src.contains_key(&dst) { continue }
 
     /* Exchange everything through the 'dst' register to resolve the chain */
     let mut cur = dst;
@@ -678,7 +678,7 @@ fn resolve_test(from: &[uint], to: &[uint]) {
     }
   }
   debug!("%?", regs);
-  for (&k, _) in map.iter() {
+  for (k, _) in map.iter() {
     if regs[k] != k {
       fail!(fmt!("clobbered %? to %?", k, regs[k]));
     }

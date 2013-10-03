@@ -224,13 +224,14 @@ impl<'self> Typechecker<'self> {
       if table.contains_key(&field) {
         self.program.error(span, fmt!("Duplicate field: '%s'",
                                       self.program.str(field)));
-        loop;
+        continue;
       }
       /* Make sure structs are all defined and not recursive */
       match typ {
         @Struct(id2) =>
           if id == id2 {
-            self.program.error(span, "Cannot define a nested structure"); loop;
+            self.program.error(span, "Cannot define a nested structure");
+            continue;
           },
         _ => ()
       }

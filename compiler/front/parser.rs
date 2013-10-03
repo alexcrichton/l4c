@@ -626,7 +626,7 @@ impl<'self> Parser<'self> {
     let amt = amt - 1;
     while amt >= self.pending.len() {
       match self.lexer.next() {
-        (NEWLINE, _) | (COMMENT(*), _) => { loop }
+        (NEWLINE, _) | (COMMENT(*), _) => { continue }
         tok => { self.pending.push(tok); }
       }
     }
