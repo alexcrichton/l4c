@@ -1,4 +1,4 @@
-compiler/bin/*
+bin/*
 *.swp
 *.dot
 *.svg
