@@ -1,18 +1,18 @@
-#[link(name = "l4c")];
+#[feature(macro_rules, globs)];
 
 extern mod extra;
 
-use utils::*;
 use std::io;
 use std::result;
 use std::vec;
 use std::os;
 
-pub mod utils {
+use utils::profile;
+
+mod utils {
   pub mod set;
   pub mod graph;
   pub mod profile;
-  pub mod splay;
 
   pub trait PrettyPrint {
     fn pp(&self) -> ~str;
@@ -89,10 +89,7 @@ where OPTION is
 }
 
 fn main() {
-  use front::*;
-  use middle::*;
-  use back::*;
-  use extra::getopts::*;
+  use extra::getopts::{optflag, optopt, getopts};
 
   let flags = ~[
     optflag("v"), optflag("verbose"),
@@ -125,7 +122,7 @@ fn main() {
       None => m.free.clone(),
       Some(file) => vec::append(~[file], m.free)
     };
-    match parser::parse_files(files, m.free[0]) {
+    match front::parser::parse_files(files, m.free[0]) {
       Ok(ast) => ast,
       Err(e) => fail!(e)
     }
@@ -134,37 +131,37 @@ fn main() {
   if m.opt_present("dump-ast") {
     io::println(ast.pp());
   }
-  do prof(m, "typecheck")   { analysis::typecheck::check(&ast)   }
-  do prof(m, "returncheck") { analysis::returncheck::check(&ast) }
-  do prof(m, "maincheck")   { analysis::maincheck::check(&ast)   }
-  do prof(m, "initcheck")   { analysis::initcheck::check(&ast)   }
+  do prof(m, "typecheck")   { front::analysis::typecheck::check(&ast)   }
+  do prof(m, "returncheck") { front::analysis::returncheck::check(&ast) }
+  do prof(m, "maincheck")   { front::analysis::maincheck::check(&ast)   }
+  do prof(m, "initcheck")   { front::analysis::initcheck::check(&ast)   }
 
   /* middle */
   let safe = m.opt_present("safe") && !m.opt_present("unsafe");
   let mut ir;
   {
     let _p = profstk(m, "translation");
-    ir = trans::translate(ast, safe);
+    ir = middle::trans::translate(ast, safe);
   }
   if m.opt_present("dot-ir")  { ir.dot(io::stdout()); }
-  pass(ir::ssa, &mut ir, m, "dot-ssa");
+  pass(middle::ir::ssa, &mut ir, m, "dot-ssa");
 
-  pass(opt::cfold::optimize,    &mut ir, m, "dot-cfold");
-  pass(opt::cfg::simplify,      &mut ir, m, "dot-simplify");
-  pass(opt::deadcode::optimize, &mut ir, m, "dot-deadcode");
+  pass(middle::opt::cfold::optimize,    &mut ir, m, "dot-cfold");
+  pass(middle::opt::cfg::simplify,      &mut ir, m, "dot-simplify");
+  pass(middle::opt::deadcode::optimize, &mut ir, m, "dot-deadcode");
 
   /* backend */
   let mut assem;
   {
     let _p = profstk(m, "codegen");
-    assem = codegen::codegen(ir);
+    assem = back::codegen::codegen(ir);
   }
   if m.opt_present("dot-assem") { assem.dot(io::stdout()); }
-  pass(peephole::optimize,  &mut assem, m, "dot-peephole");
-  pass(precolor::constrain, &mut assem, m, "dot-precolor");
-  pass(spill::spill,        &mut assem, m, "dot-spilled");
-  pass(ressa::convert,      &mut assem, m, "dot-ressa");
-  pass(alloc::color,        &mut assem, m, "dot-colored");
+  pass(back::peephole::optimize,  &mut assem, m, "dot-peephole");
+  pass(back::precolor::constrain, &mut assem, m, "dot-precolor");
+  pass(back::spill::spill,        &mut assem, m, "dot-spilled");
+  pass(back::ressa::convert,      &mut assem, m, "dot-ressa");
+  pass(back::alloc::color,        &mut assem, m, "dot-colored");
 
   let output = Path(m.free[0]).with_filetype("s");
   match io::file_writer(&output, [io::Truncate, io::Create]) {
@@ -173,8 +170,8 @@ fn main() {
   }
 }
 
-fn pass<T : Graphable, U>(f: &fn(&mut T) -> U, p: &mut T,
-                          m: &extra::getopts::Matches, s: &str) -> U {
+fn pass<T: utils::Graphable, U>(f: &fn(&mut T) -> U, p: &mut T,
+                                m: &extra::getopts::Matches, s: &str) -> U {
   let ret = do prof(m, s) { f(p) };
   if m.opt_present(s) {
     p.dot(io::stdout());

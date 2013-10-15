@@ -4,7 +4,8 @@ use extra::treemap::TreeSet;
 
 use middle::temp::{Temp, TempSet};
 use middle::ssa::{CFG, Statement};
-use utils::graph::*;
+use utils::graph;
+use utils::graph::NodeId;
 
 pub type LiveMap = HashMap<NodeId, TempSet>;
 pub type DeltaMap = HashMap<NodeId, ~[Delta]>;
