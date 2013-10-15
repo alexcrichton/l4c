@@ -8,6 +8,8 @@ use std::vec;
 use std::os;
 
 use utils::profile;
+use utils::PrettyPrint;
+use utils::Graphable;
 
 mod utils {
   pub mod set;
@@ -30,10 +32,10 @@ mod front {
   pub mod parser;
 
   pub mod analysis {
-    mod initcheck;
-    mod maincheck;
-    mod returncheck;
-    mod typecheck;
+    pub mod initcheck;
+    pub mod maincheck;
+    pub mod returncheck;
+    pub mod typecheck;
   }
 
   pub fn die() -> ! {
@@ -52,9 +54,9 @@ mod middle {
   pub mod trans;
 
   pub mod opt {
-    mod cfold;
-    mod cfg;
-    mod deadcode;
+    pub mod cfold;
+    pub mod cfg;
+    pub mod deadcode;
   }
 }
 

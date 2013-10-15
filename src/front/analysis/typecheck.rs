@@ -256,7 +256,7 @@ impl<'self> Typechecker<'self> {
     }
     good = self.tc_small(span, ret) && good;
 
-    let fun = self.funs.find(&id).map_move(|x| *x);
+    let fun = self.funs.find(&id).map(|x| *x);
     match fun {
       Some((retp, argsp)) => {
         good = self.tc_equal(span, retp, ret) && good;

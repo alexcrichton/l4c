@@ -3,6 +3,7 @@ use std::util;
 
 use middle::{ir, temp, ssa, label};
 use back::{assem, arch};
+use utils::PrettyPrint;
 
 pub struct CodeGenerator {
   priv temps: temp::Allocator,
@@ -334,7 +335,7 @@ impl CodeGenerator {
     match a {
       ~assem::MOp(base, disp, off) => {
         let base = unimm(base);
-        let off = off.map_move(|(o, m)| (unimm(o), m));
+        let off = off.map(|(o, m)| (unimm(o), m));
         ~assem::MOp(base, disp, off)
       }
       a => a

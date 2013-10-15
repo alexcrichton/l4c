@@ -26,12 +26,13 @@ use std::iter;
 use std::hashmap::{HashMap, HashSet};
 use std::uint;
 
-use extra::sort;
-use middle::{ir, ssa, opt};
-use middle::temp::{Temp, TempSet};
-use back::assem::*;
-use utils::graph::*;
 use back::arch;
+use back::assem::*;
+use extra::sort;
+use middle::temp::{Temp, TempSet};
+use middle::{ir, ssa, opt};
+use utils::PrettyPrint;
+use utils::graph::*;
 
 static LOOP_OUT_WEIGHT: uint = 100000;
 
@@ -247,7 +248,7 @@ impl Spiller {
       /* Our delta contains what the last distance to the temp used to be (None
        * for infty), and then we update it to our current distance now */
       do ins.each_use |tmp| {
-        delta.push((tmp, bottom.find(&tmp).map(|&x| *x)));
+        delta.push((tmp, bottom.find(&tmp).map(|x| *x)));
         bottom.insert(tmp, i);
       }
       deltas.push(delta);
@@ -440,7 +441,7 @@ impl Spiller {
       assert!(self.regs_end.contains_key(&pred));
       for &tmp in self.regs_end.get(&pred).iter() {
         do self.my_names(tmp, pred, n) |mine| {
-          let prev : uint = freq.find(&mine).map_default(0, |&x| *x);
+          let prev : uint = freq.find(&mine).map_default(0, |x| *x);
           freq.insert(mine, prev + 1);
         }
       }

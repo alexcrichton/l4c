@@ -528,7 +528,7 @@ impl Allocator {
         ~Stack((idx + 1) * arch::ptrsize + self.stack_size(true)),
       ~MOp(base, disp, off) =>
         ~MOp(self.alloc_op(f, base), disp,
-             off.map_move(|(x, mult)| (self.alloc_op(f, x), mult)))
+             off.map(|(x, mult)| (self.alloc_op(f, x), mult)))
     }
   }
 

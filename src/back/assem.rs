@@ -430,7 +430,7 @@ impl Address {
     match self {
       ~MOp(t, disp, off) =>
         ~MOp(t.map_temps(|x| f(x)), disp,
-             off.map_move(|(x, m)| (x.map_temps(|x| f(x)), m))),
+             off.map(|(x, m)| (x.map_temps(|x| f(x)), m))),
       a => a
     }
   }

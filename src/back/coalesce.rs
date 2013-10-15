@@ -57,7 +57,7 @@ use extra::smallintmap::SmallIntMap;
 use middle::{ir, liveness, ssa};
 use middle::temp::{Temp, TempSet};
 use back::{assem, arch, alloc};
-use utils::{profile, set};
+use utils::{profile, set, PrettyPrint};
 use utils::graph::{NodeSet, NodeId};
 
 type Location = (NodeId, int);
@@ -525,8 +525,8 @@ impl<'self, I: ssa::Statement<assem::Instruction>> Coalescer<'self, I> {
        can only be done if nothing pairwise interferes */
     while !pq.is_empty() {
       let Affinity(x, y, w) = pq.pop();
-      let xc = temp_chunks.find(&x).map_default(0, |&x| *x);
-      let yc = temp_chunks.find(&y).map_default(0, |&x| *x);
+      let xc = temp_chunks.find(&x).map_default(0, |x| *x);
+      let yc = temp_chunks.find(&y).map_default(0, |x| *x);
       let mut merge;
       let weight;
       {

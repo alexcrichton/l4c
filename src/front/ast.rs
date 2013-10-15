@@ -269,7 +269,7 @@ impl<'self> Elaborator<'self> {
              init: Option<~Expression>, rest: ~Statement) -> stmt {
     self.check_id(m, id);
     Declare(id, self.resolve(m, typ),
-            init.map_move(|x| self.elaborate_exp(x)), rest)
+            init.map(|x| self.elaborate_exp(x)), rest)
   }
 
   fn elaborate_exp(&mut self, e: ~Expression) -> ~Expression {
