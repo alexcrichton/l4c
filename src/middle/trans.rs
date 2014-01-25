@@ -13,8 +13,8 @@ struct ProgramInfo {
   structs: AllStructInfo,
 }
 
-struct Translator<'self> {
-  t: &'self ProgramInfo,
+struct Translator<'a> {
+  t: &'a ProgramInfo,
   f: ir::Function,
   vars: HashMap<ast::Ident, temp::Temp>,
   temps: temp::Allocator,
@@ -59,7 +59,7 @@ pub fn translate(mut p: ast::Program, safe: bool) -> ir::Program {
         trans.f.root = trans.cur_id;
         trans.arguments(args);
         trans.stm(body.unwrap());
-        let Translator{ f, _ } = trans;
+        let Translator{ f, .. } = trans;
         accum.push(f);
       }
       _ => ()
@@ -69,18 +69,18 @@ pub fn translate(mut p: ast::Program, safe: bool) -> ir::Program {
   return ir::Program(accum);
 }
 
-fn typ(t: @ast::Type) -> ir::Type {
-  match t {
-    @ast::Array(_) | @ast::Struct(_) | @ast::Pointer(_) => ir::Pointer,
+fn typ(t: &ast::Type) -> ir::Type {
+  match *t {
+    ast::Array(_) | ast::Struct(_) | ast::Pointer(_) => ir::Pointer,
     _ => ir::Int
   }
 }
 
-fn typ_size(t: @ast::Type, structs: &AllStructInfo) -> uint {
-  match t {
-    @ast::Int | @ast::Bool => 4,
-    @ast::Pointer(_) | @ast::Array(_) => 8,
-    @ast::Struct(ref id) => {
+fn typ_size(t: &ast::Type, structs: &AllStructInfo) -> uint {
+  match *t {
+    ast::Int | ast::Bool => 4,
+    ast::Pointer(_) | ast::Array(_) => 8,
+    ast::Struct(ref id) => {
       let &(_, size) = structs.get(id);
       size
     }
@@ -100,9 +100,9 @@ impl ProgramInfo {
       ast::StructDef(id, ref fields) => {
         let mut table = HashMap::new();
         let mut size = 0;
-        for &(id, t) in fields.iter() {
+        for &(id, ref t) in fields.iter() {
           let typsize = typ_size(t, &self.structs);
-          if (size != 0 && size % typsize != 0) {
+          if size != 0 && size % typsize != 0 {
             size += 4; /* TODO: real math */
           }
           table.insert(id, (typ(t), size));
@@ -137,13 +137,13 @@ impl ProgramInfo {
   }
 }
 
-impl<'self> Translator<'self> {
-  fn arguments(&mut self, args: ~[(ast::Ident, @ast::Type)]) {
-    let args = do args.move_iter().map |(id, t)| {
-      let tmp = self.tmp(typ(t));
+impl<'a> Translator<'a> {
+  fn arguments(&mut self, args: ~[(ast::Ident, ast::Type)]) {
+    let args = args.move_iter().map(|(id, t)| {
+      let tmp = self.tmp(typ(&t));
       self.vars.insert(id, tmp);
       tmp
-    }.collect();
+    }).collect();
     self.stms.push(~ir::Arguments(args));
   }
 
@@ -203,7 +203,7 @@ impl<'self> Translator<'self> {
         self.f.cfg.add_edge(false_end, self.cur_id, ir::Always);
       }
       ast::Declare(id, t, exp, s) => {
-        let tmp = self.tmp(typ(t));
+        let tmp = self.tmp(typ(&t));
         match exp {
           None => (),
           Some(init) => {
@@ -218,13 +218,14 @@ impl<'self> Translator<'self> {
       ast::Assign(e1, op, e2) => {
         let (ismem, leftsize) = match e1.node {
           ast::Var(_) => (false, ir::Int), /* size doesn't matter */
-          ast::Deref(_, ref t) | ast::ArrSub(_, _, ref t) =>
-            (true, do t.with_ref |&t| { typ(t) }),
+          ast::Deref(_, ref t) | ast::ArrSub(_, _, ref t) => {
+            let t = t.borrow();
+            (true, typ(t.get().get_ref()))
+          }
           ast::Field(_, ref f, ref s) => {
-            let typ = do s.with_ref |s| {
-              match *self.t.structs.get(s) {
-                (ref fields, _) => fields.get(f).first()
-              }
+            let s = s.borrow();
+            let typ = match *self.t.structs.get(s.get().get_ref()) {
+              (ref fields, _) => fields.get(f).first()
             };
             (true, typ)
           }
@@ -340,16 +341,18 @@ impl<'self> Translator<'self> {
         }
       }
 
-      ast::Ternary(e1, e2, e3, t) =>
-        self.tern(e1.unwrap(), e2.unwrap(), e3.unwrap(), typ(t.take()), addr),
+      ast::Ternary(e1, e2, e3, t) => {
+        let t = t.borrow_mut().get().take_unwrap();
+        self.tern(e1.unwrap(), e2.unwrap(), e3.unwrap(), typ(&t), addr)
+      }
 
       ast::Call(e, args, t) => {
-        let ret = t.take();
+        let ret = t.borrow_mut().get().take_unwrap();
         let fun = self.exp(e.unwrap(), false);
-        let args = do args.move_iter().map |e| {
+        let args = args.move_iter().map(|e| {
           self.exp(e.unwrap(), false)
-        }.collect();
-        let typ = typ(ret);
+        }).collect();
+        let typ = typ(&ret);
         let tmp = self.tmp(typ);
         self.stms.push(~ir::Call(tmp, fun, args));
         ~ir::Temp(tmp)
@@ -357,11 +360,11 @@ impl<'self> Translator<'self> {
 
       ast::Alloc(t) => {
         let amt = self.consti(1);
-        self.alloc(t, amt, ~"salloc")
+        self.alloc(&t, amt, ~"salloc")
       }
       ast::AllocArray(t, e) => {
         let amt = self.exp(e.unwrap(), false);
-        self.alloc(t, amt, ~"salloc_array")
+        self.alloc(&t, amt, ~"salloc_array")
       }
 
       ast::ArrSub(arr, idx, t) => {
@@ -373,9 +376,10 @@ impl<'self> Translator<'self> {
         self.stms.push(~ir::Cast(idxp, idxt));
 
         self.check_null(base);
-        self.check_bounds(base, ~ir::Temp(idxt));
+        self.check_bounds(base, &ir::Temp(idxt));
 
-        let t = t.take();
+        let t = t.borrow();
+        let t = t.get().get_ref();
         let elsize = self.constp(typ_size(t, &self.t.structs) as i32);
         let offset = ~ir::BinaryOp(ir::Mul, ~ir::Temp(idxp), elsize);
         let address = ~ir::BinaryOp(ir::Add, base, offset);
@@ -391,7 +395,7 @@ impl<'self> Translator<'self> {
         let base = self.exp(e.unwrap(), true);
         /* TODO(#7660): make this actually sane */
         /*let &(ref fields, _) = self.t.structs.get(&s.get());*/
-        let sinfo = self.t.structs.get(&s.take());
+        let sinfo = self.t.structs.get(s.borrow_mut().get().get_ref());
         let fields = match *sinfo { (ref fields, _) => fields };
         let &(typ, size) = fields.get(&id);
         let address = ~ir::BinaryOp(ir::Add, base, self.constp(size as i32));
@@ -410,14 +414,14 @@ impl<'self> Translator<'self> {
         if addr {
           return address;
         }
-        let dest = self.tmp(typ(t.take()));
+        let dest = self.tmp(typ(t.borrow_mut().get().get_ref()));
         self.stms.push(~ir::Load(dest, address));
         ~ir::Temp(dest)
       }
     }
   }
 
-  fn alloc(&mut self, t: @ast::Type, cnt: ~ir::Expression,
+  fn alloc(&mut self, t: &ast::Type, cnt: ~ir::Expression,
            safe: ~str) -> ~ir::Expression {
     let fun = label::External(if self.safe { safe } else { ~"calloc" });
     let fun = ~ir::LabelExp(fun);

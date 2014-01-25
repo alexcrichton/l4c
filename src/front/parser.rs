@@ -1,4 +1,4 @@
-use std::cell::Cell;
+use std::cell::RefCell;
 use std::hashmap::HashMap;
 use std::io;
 use std::util;
@@ -12,7 +12,7 @@ use front::lexer::*;
 struct PositionGenerator {
   spans: ~[Coords],
   map: HashMap<Span, uint>,
-  file: @str,
+  file: ~str,
 }
 
 pub struct SymbolGenerator {
@@ -54,13 +54,13 @@ pub fn parse_files(f: &[~str], main: &str) -> Result<Program, ~str> {
   let mut posgen = PositionGenerator::new();
 
   for f in f.iter() {
-    let input = match io::file_reader(&Path(*f)) {
+    let mut input = match io::result(|| io::File::open(&Path::new(f.as_slice()))) {
       Ok(i) => i,
-      Err(s) => { return Err(s); }
+      Err(s) => { return Err(format!("{:?}", s)); }
     };
 
-    posgen.file = f.to_managed();
-    let mut lexer = Lexer::new(posgen.file, input, &mut symgen);
+    posgen.file = f.to_owned();
+    let mut lexer = Lexer::new(posgen.file.clone(), &mut input, &mut symgen);
     let mut parser = Parser::new(&mut lexer, &mut posgen, main);
 
     while parser.cur != EOF {
@@ -90,13 +90,13 @@ impl SymbolGenerator {
   }
 
   pub fn unwrap(self) -> ~[~str] {
-    match self { SymbolGenerator{ symbols, _ } => symbols }
+    match self { SymbolGenerator{ symbols, .. } => symbols }
   }
 }
 
 impl PositionGenerator {
   fn new() -> PositionGenerator {
-    PositionGenerator{ spans: ~[], map: HashMap::new(), file: @"" }
+    PositionGenerator{ spans: ~[], map: HashMap::new(), file: ~"" }
   }
 
   fn gen(&mut self, sp: Span) -> Mark {
@@ -105,7 +105,7 @@ impl PositionGenerator {
       None => {}
     }
     let ret = self.spans.len();
-    self.spans.push(Coords(sp, self.file));
+    self.spans.push(Coords(sp, self.file.clone()));
     self.map.insert(sp, ret);
     return ret;
   }
@@ -115,21 +115,21 @@ impl PositionGenerator {
   }
 
   fn unwrap(self) -> ~[Coords] {
-    match self { PositionGenerator{ spans, _ } => spans }
+    match self { PositionGenerator{ spans, .. } => spans }
   }
 }
 
-struct Parser<'self> {
-  lexer: &'self mut Lexer<'self>,
-  posgen: &'self mut PositionGenerator,
-  target: &'self str,
+struct Parser<'a> {
+  lexer: &'a mut Lexer<'a>,
+  posgen: &'a mut PositionGenerator,
+  target: &'a str,
 
   cur: Token,
   span: Span,
   pending: ~[(Token, Span)],
 }
 
-impl<'self> Parser<'self> {
+impl<'a> Parser<'a> {
   fn new<'a>(l: &'a mut Lexer<'a>, p: &'a mut PositionGenerator,
              target: &'a str) -> Parser<'a> {
     let mut p = Parser{ lexer: l, cur: EOF, span: ((0, 0), (0, 0)),
@@ -184,7 +184,7 @@ impl<'self> Parser<'self> {
   }
 
   // Parse a struct-like list of fields
-  fn parse_field_list(&mut self) -> ~[(Ident, @Type)] {
+  fn parse_field_list(&mut self) -> ~[(Ident, Type)] {
     let mut fields = ~[];
     while self.cur != RBRACE {
       let typ = self.parse_type();
@@ -201,11 +201,11 @@ impl<'self> Parser<'self> {
     let ret = self.parse_type();
     let name = self.parse_ident();
     self.expect(LPAREN);
-    let args = do self.parse_list |p| {
+    let args = self.parse_list(|p| {
       let t = p.parse_type();
       let i = p.parse_ident();
       (i, t)
-    };
+    });
     let end = self.expect(RPAREN);
 
     if self.cur == SEMI {
@@ -332,7 +332,7 @@ impl<'self> Parser<'self> {
     let start = self.span;
     match self.cur {
       // Declaration of a variable
-      STRUCT | INT | BOOL | TYPE(*) => {
+      STRUCT | INT | BOOL | TYPE(..) => {
         let typ = self.parse_type();
         let name = self.parse_ident();
         let init = if self.cur == SEMI { None } else {
@@ -371,7 +371,7 @@ impl<'self> Parser<'self> {
   // Parse one expression, using no precedences lower than the given
   // precedence.
   fn parse_exp(&mut self, precedence: Precedence) -> ~Expression {
-    debug!("exp(%?) starting on %?", precedence, self.cur);
+    debug!("exp({:?}) starting on {:?}", precedence, self.cur);
     let start = self.span;
     // Start with the lhs of an expression. It may have a rhs (to be determined
     // later on)
@@ -379,10 +379,10 @@ impl<'self> Parser<'self> {
       // function calls
       (IDENT(id), sp) if self.cur == LPAREN => {
         self.expect(LPAREN);
-        let args = do self.parse_list |p| { p.parse_exp(Default) };
+        let args = self.parse_list(|p| p.parse_exp(Default));
         let end = self.expect(RPAREN);
         let e = self.mark(Var(id), sp, sp);
-        self.mark(Call(e, args, Cell::new_empty()), start, end)
+        self.mark(Call(e, args, RefCell::new(None)), start, end)
       }
 
       (IDENT(id), sp) => { self.mark(Var(id), sp, sp) }
@@ -404,7 +404,7 @@ impl<'self> Parser<'self> {
         if self.cur == PLUSPLUS || self.cur == MINUSMINUS {
           self.err(self.span, "invalid expression for C0");
         }
-        self.mark(Deref(e, Cell::new_empty()), start, end)
+        self.mark(Deref(e, RefCell::new(None)), start, end)
       }
       (ALLOC, start) => {
         self.expect(LPAREN);
@@ -423,12 +423,12 @@ impl<'self> Parser<'self> {
       (NULL, sp)  => { self.mark(Null, sp, sp) }
       (TRUE, sp)  => { self.mark(Boolean(true), sp, sp) }
       (FALSE, sp) => { self.mark(Boolean(false), sp, sp) }
-      (t, sp) => self.err(sp, fmt!("unimpl %?", t))
+      (t, sp) => self.err(sp, format!("unimpl {:?}", t))
     };
 
     // while we can conume more tokens (as determined by precedences), do so
     loop {
-      debug!("expanding expression %?", base);
+      debug!("expanding expression {:?}", base);
       let prec = self.cur.precedence();
       if precedence > prec || (precedence == prec && !prec.right()) {
         break;
@@ -439,7 +439,7 @@ impl<'self> Parser<'self> {
           self.shift();
           let end = self.span;
           let field = self.parse_ident_or_type();
-          base = self.mark(Field(base, field, Cell::new_empty()), start, end);
+          base = self.mark(Field(base, field, RefCell::new(None)), start, end);
         }
 
         // this is purely syntactic sugar for a field of a deref, so we simply
@@ -448,8 +448,8 @@ impl<'self> Parser<'self> {
           self.shift();
           let end = self.span;
           let field = self.parse_ident_or_type();
-          base = self.mark(Deref(base, Cell::new_empty()), end, end);
-          base = self.mark(Field(base, field, Cell::new_empty()), start, end);
+          base = self.mark(Deref(base, RefCell::new(None)), end, end);
+          base = self.mark(Field(base, field, RefCell::new(None)), start, end);
         }
 
         // Sure would be nice to not list out all the binops here.
@@ -467,7 +467,7 @@ impl<'self> Parser<'self> {
           self.shift();
           let idx = self.parse_exp(Default);
           let end = self.expect(RBRACKET);
-          base = self.mark(ArrSub(base, idx, Cell::new_empty()), start, end);
+          base = self.mark(ArrSub(base, idx, RefCell::new(None)), start, end);
         }
 
         QUESTION => {
@@ -476,7 +476,7 @@ impl<'self> Parser<'self> {
           self.expect(COLON);
           let f = self.parse_exp(prec);
           let end = self.posgen.to_span(f.span);
-          base = self.mark(Ternary(base, t, f, Cell::new_empty()), start, end);
+          base = self.mark(Ternary(base, t, f, RefCell::new(None)), start, end);
         }
 
         _ => { break }
@@ -486,7 +486,7 @@ impl<'self> Parser<'self> {
   }
 
   // Parse a list of arguments to a function
-  fn parse_list<T>(&mut self, f: &fn(&mut Parser) -> T) -> ~[T] {
+  fn parse_list<T>(&mut self, f: |&mut Parser| -> T) -> ~[T] {
     let mut fields = ~[];
     let mut first = true;
     while self.cur != RPAREN {
@@ -509,14 +509,14 @@ impl<'self> Parser<'self> {
   }
 
   // Parse a type
-  fn parse_type(&mut self) -> @Type {
+  fn parse_type(&mut self) -> Type {
     // First, get the base type
     let mut cur = match self.shift() {
-      (BOOL, _)     => @Bool,
-      (INT, _)      => @Int,
-      (TYPE(id), _) => @Alias(id),
-      (STRUCT, _)   => { @Struct(self.parse_ident_or_type()) }
-      (NULL, _)     => @Nullp,
+      (BOOL, _)     => Bool,
+      (INT, _)      => Int,
+      (TYPE(id), _) => Alias(id),
+      (STRUCT, _)   => { Struct(self.parse_ident_or_type()) }
+      (NULL, _)     => Nullp,
       (_, sp)       => self.err(sp, "expected a type")
     };
 
@@ -525,12 +525,12 @@ impl<'self> Parser<'self> {
       match self.cur {
         STAR => {
           self.shift();
-          cur = @Pointer(cur);
+          cur = Pointer(~cur);
         }
         LBRACKET => {
           self.shift();
           self.expect(RBRACKET);
-          cur = @Array(cur);
+          cur = Array(~cur);
         }
         _ => { return cur; }
       }
@@ -593,7 +593,7 @@ impl<'self> Parser<'self> {
   // Expect the token to be in 'cur', and then advance
   fn expect(&mut self, t: Token) -> Span {
     if self.cur != t {
-      self.err(self.span, fmt!("expected %?", t));
+      self.err(self.span, format!("expected {:?}", t));
     }
     self.shift().second()
   }
@@ -601,10 +601,9 @@ impl<'self> Parser<'self> {
   // Move one token down
   fn shift(&mut self) -> (Token, Span) {
     fn pop(p: &mut Parser) -> (Token, Span) {
-      let (next, nsp) = if p.pending.len() > 0 {
-        p.pending.shift()
-      } else {
-        p.lexer.next()
+      let (next, nsp) = match p.pending.shift() {
+        Some(p) => p,
+        None => p.lexer.next()
       };
       let prev = util::replace(&mut p.cur, next);
       let psp = util::replace(&mut p.span, nsp);
@@ -614,7 +613,7 @@ impl<'self> Parser<'self> {
     let ret = pop(self);
     loop {
       match self.cur {
-        NEWLINE | COMMENT(*) => { pop(self); }
+        NEWLINE | COMMENT(..) => { pop(self); }
         _ => { return ret; }
       }
     }
@@ -626,7 +625,7 @@ impl<'self> Parser<'self> {
     let amt = amt - 1;
     while amt >= self.pending.len() {
       match self.lexer.next() {
-        (NEWLINE, _) | (COMMENT(*), _) => { continue }
+        (NEWLINE, _) | (COMMENT(..), _) => { continue }
         tok => { self.pending.push(tok); }
       }
     }
@@ -640,7 +639,7 @@ impl<'self> Parser<'self> {
   // Abort parsing with the given error
   fn err(&mut self, sp: Span, s: &str) -> ! {
     let ((a, b), (c, d)) = sp;
-    io::println(fmt!("%s: %u:%u-%u:%u %s", self.posgen.file, a, b, c, d, s));
+    println!("{}: {}:{}-{}:{} {}", self.posgen.file, a, b, c, d, s);
     die();
   }
 }

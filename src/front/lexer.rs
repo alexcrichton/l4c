@@ -1,9 +1,7 @@
 use std::hashmap::{HashMap, HashSet};
 use std::i32;
-use std::io::ReaderUtil;
 use std::io;
 use std::num;
-use std::str;
 use std::u32;
 
 use front::die;
@@ -40,13 +38,13 @@ enum State {
   TwoLT, TwoGT,
 }
 
-pub struct Lexer<'self> {
-  priv input: @io::Reader,
+pub struct Lexer<'a> {
+  priv input: io::BufferedReader<&'a mut io::Reader>,
   priv keywords: HashMap<~str, Token>,
   priv bad_keywords: HashSet<~str>,
-  priv symgen: &'self mut parser::SymbolGenerator,
+  priv symgen: &'a mut parser::SymbolGenerator,
   priv types: HashSet<ast::Ident>,
-  priv file: @str,
+  priv file: ~str,
 
   priv state: State,
   priv cur: ~str,
@@ -62,9 +60,11 @@ pub struct Lexer<'self> {
   priv commstar: bool,
 }
 
-impl<'self> Lexer<'self> {
-  pub fn new<'a>(file: @str, input: @io::Reader,
+impl<'a> Lexer<'a> {
+  pub fn new<'a>(file: ~str, input: &'a mut io::Reader,
                  s: &'a mut parser::SymbolGenerator) -> Lexer<'a> {
+    let input = io::BufferedReader::new(input);
+
     let mut keywords = HashMap::new();
     keywords.insert(~"return", RETURN);
     keywords.insert(~"while", WHILE);
@@ -100,12 +100,11 @@ impl<'self> Lexer<'self> {
     loop {
       let c = match self.next {
         Some(c) => { self.next = None; c }
-        None => self.input.read_char()
+        None => match self.input.read_char() {
+            Some(c) => c,
+            None => return (EOF, ((-1, -1), (-1, -1)))
+        }
       };
-      // lol I/O is bad
-      if unsafe { ::std::cast::transmute::<char, i32>(c) } == -1 {
-        return (EOF, ((-1, -1), (-1, -1)));
-      }
       match self.consume(c) {
         Some(tok) => {
           let start = (self.startrow, self.startcol);
@@ -174,7 +173,7 @@ impl<'self> Lexer<'self> {
           '!' => { self.state = OneBang; }
           '%' => { self.state = OnePercent; }
 
-          _ => self.err(fmt!("unexpected character `%?`", c))
+          _ => self.err(format!("unexpected character `{}`", c))
         }
       }
 
@@ -316,7 +315,7 @@ impl<'self> Lexer<'self> {
 
           c => {
             let tok = self.ident();
-            unsafe { str::raw::set_len(&mut self.cur, 0); }
+            unsafe { self.cur.set_len(0); }
             return self.reset_back(c, tok);
           }
         }
@@ -361,7 +360,7 @@ impl<'self> Lexer<'self> {
     match num::from_str_radix::<u64>(self.cur, base) {
       Some(n) if (base == 10 && n <= i32::max_value as u64 + 1) ||
                  (base == 16 && n <= u32::max_value as u64) => {
-        unsafe { str::raw::set_len(&mut self.cur, 0); }
+        unsafe { self.cur.set_len(0); }
         return n as i32;
       }
       _ => self.err("invalid numerical literal (too large)")
@@ -403,9 +402,8 @@ impl<'self> Lexer<'self> {
 
   // Abort lexing with the given error
   fn err(&mut self, s: &str) -> ! {
-    io::println(fmt!("%s: %u:%u-%u:%u %s", self.file,
-                     self.startrow, self.startcol, self.endrow, self.endcol,
-                     s));
+    println!("{}: {}:{}-{}:{} {}", self.file,
+             self.startrow, self.startcol, self.endrow, self.endcol, s);
     die()
   }
 }

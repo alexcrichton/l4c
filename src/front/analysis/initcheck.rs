@@ -2,8 +2,8 @@ use std::util::replace;
 use front::ast::*;
 use front::mark;
 
-struct Initchecker<'self> {
-  program: &'self Program,
+struct Initchecker<'a> {
+  program: &'a Program,
   step: stmt,
 }
 
@@ -13,7 +13,7 @@ pub fn check(a: &Program) {
   ic.run();
 }
 
-impl<'self> Initchecker<'self> {
+impl<'a> Initchecker<'a> {
   fn run(&mut self) {
     for x in self.program.decls.iter() {
       self.check_gdecl(*x);
@@ -36,7 +36,7 @@ impl<'self> Initchecker<'self> {
       While(_, ref s) => self.analyze(*s),
       Declare(id, _, None, ref s) =>
         if self.live(id, &s.node) {
-          self.program.error(s.span, fmt!("Uninitialized variable: '%s'",
+          self.program.error(s.span, format!("Uninitialized variable: '{}'",
                                           self.program.str(id)));
         } else {
           self.analyze(*s);
@@ -112,7 +112,7 @@ impl<'self> Initchecker<'self> {
     match *s {
       Declare(id, _, Some(_), ref s) => sym == id || self.defines(sym, &s.node),
       Declare(_, _, _, ref s) => self.defines(sym, &s.node),
-      Assign(~mark::Marked{ node: Var(id), _ }, _, _) => id == sym,
+      Assign(~mark::Marked{ node: Var(id), .. }, _, _) => id == sym,
       If(_, ref s1, ref s2) =>
         self.defines(sym, &s1.node) && self.defines(sym, &s2.node),
       While(_, _) | Assign(_, _, _) | Nop | Express(_) => false,

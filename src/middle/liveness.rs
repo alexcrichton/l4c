@@ -8,7 +8,12 @@ use utils::graph::NodeId;
 
 pub type LiveMap = HashMap<NodeId, TempSet>;
 pub type DeltaMap = HashMap<NodeId, ~[Delta]>;
-pub type Delta = ~[Either<Temp, Temp>];
+pub type Delta = ~[DeltaOp];
+#[deriving(Eq)]
+pub enum DeltaOp {
+    Remove(Temp),
+    Add(Temp),
+}
 
 pub struct Analysis {
   in_: LiveMap,
@@ -16,10 +21,10 @@ pub struct Analysis {
   deltas: DeltaMap,
 }
 
-struct Liveness<'self, T, S> {
-  a: &'self mut Analysis,
-  info: &'self S,
-  cfg: &'self CFG<T>,
+struct Liveness<'a, T, S> {
+  a: &'a mut Analysis,
+  info: &'a S,
+  cfg: &'a CFG<T>,
   phi_out: SmallIntMap<TreeSet<Temp>>,
 }
 
@@ -46,13 +51,13 @@ pub fn calculate<T, S: Statement<T>>(cfg: &CFG<T>, root: NodeId,
   let mut changed = true;
   while changed {
     changed = false;
-    do cfg.each_postorder(root) |&id| {
+    cfg.each_postorder(root, |&id| {
       changed = l.liveness(id) || changed;
-    }
+    })
   }
 }
 
-impl<'self, T, S: Statement<T>> Liveness<'self, T, S> {
+impl<'a, T, S: Statement<T>> Liveness<'a, T, S> {
   fn lookup_phis(&mut self, n: NodeId) {
     for stm in self.cfg.node(n).iter() {
       debug!("phi map");
@@ -87,16 +92,16 @@ impl<'self, T, S: Statement<T>> Liveness<'self, T, S> {
     let mut my_deltas = ~[];
     for ins in self.cfg.node(n).rev_iter() {
       let mut delta = ~[];
-      do self.info.each_def(*ins) |def| {
+      self.info.each_def(*ins, |def| {
         if live.remove(&def) {
-          delta.push(Left(def));
+          delta.push(Add(def));
         }
-      }
-      do self.info.each_use(*ins) |tmp| {
+      });
+      self.info.each_use(*ins, |tmp| {
         if live.insert(tmp) {
-          delta.push(Right(tmp));
+          delta.push(Remove(tmp));
         }
-      }
+      });
       my_deltas.push(delta);
     }
     /* only return true if something has changed from before */
@@ -118,8 +123,8 @@ impl<'self, T, S: Statement<T>> Liveness<'self, T, S> {
 pub fn apply(set: &mut TempSet, delta: &Delta) {
   for &e in delta.iter() {
     match e {
-      Right(tmp) => { set.remove(&tmp); }
-      Left(tmp)  => { set.insert(tmp); }
+      Remove(tmp) => { set.remove(&tmp); }
+      Add(tmp)  => { set.insert(tmp); }
     }
   }
 }

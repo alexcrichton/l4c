@@ -12,7 +12,7 @@ fn rc_gdecl(p: &Program, g: &GDecl) {
   match g.node {
     Function(_, id, _, ref body) => {
       if !returns(*body) {
-        p.error(g.span, fmt!("Function '%s' does not return", p.str(id)));
+        p.error(g.span, format!("Function '{}' does not return", p.str(id)));
       }
     }
     _ => ()

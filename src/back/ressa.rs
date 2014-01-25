@@ -1,5 +1,5 @@
 use std::hashmap::HashMap;
-use std::uint;
+use std::num;
 
 use middle::ssa;
 use back::assem;
@@ -29,9 +29,9 @@ fn ressa(f: &mut assem::Function) {
   f.sizes.clear();
   let mut max = 0;
   for (&k, &v) in newsizes.iter() {
-    debug!("%? => %?", k, v);
+    debug!("{:?} => {:?}", k, v);
     f.sizes.insert(k, v);
-    max = uint::max(max, k as uint);
+    max = num::max(max, k as uint);
   }
   f.temps = max + 1;
 }

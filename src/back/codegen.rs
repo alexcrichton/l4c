@@ -20,23 +20,23 @@ pub fn codegen(ir::Program{funs}: ir::Program) -> assem::Program {
                               sizes: HashMap::new(),
                               oldtypes: HashMap::new() };
 
-  let funs = do funs.move_iter().map |f| {
+  let funs = funs.move_iter().map(|f| {
     let f = cg.run(f);
     cg.reset();
     f
-  }.collect();
+  }).collect();
   assem::Program{ funs: funs }
 }
 
 impl CodeGenerator {
   fn run(&mut self, f: ir::Function) -> assem::Function {
     /* extract relevant information from the function */
-    let ir::Function {root, name, cfg, loops, types, _} = f;
+    let ir::Function {root, name, cfg, loops, types, ..} = f;
     util::replace(&mut self.oldtypes, types);
 
     /* Map over the cfg into a new one */
     let cfg = cfg.map(|id, stms| {
-      debug!("block %?", id);
+      debug!("block {:?}", id);
       for s in stms.move_iter() {
         self.stm(s);
       }
@@ -46,7 +46,7 @@ impl CodeGenerator {
     /* Move our calculated sizes into the assem::Function instance */
     let sizes = util::replace(&mut self.sizes, HashMap::new());
 
-    info!("codegen of %s done", name);
+    info!("codegen of {} done", name);
     assem::Function { name: name,
                       cfg: cfg,
                       root: root,
@@ -71,7 +71,7 @@ impl CodeGenerator {
       ir::Eq  => assem::Eq,
       ir::Neq => assem::Neq,
       ir::Xor => assem::Neq,
-      _       => fail!(fmt!("'%?' not a condition", c))
+      _       => fail!("'{:?}' not a condition", c)
     }
   }
 
@@ -115,7 +115,7 @@ impl CodeGenerator {
     /* When optimizations are turned on, constants are favored on the left-hand
        side of binops, so that assumption is made here to test for fewer cases
        and make things all-around easier */
-    debug!("%s", e.pp());
+    debug!("{}", e.pp());
     let offsetify = |e: ~ir::Expression| {
       match e {
         ~BinaryOp(Add, e1, e2) => {
@@ -214,8 +214,8 @@ impl CodeGenerator {
         self.push(~assem::Die(cond, e1, e2));
       }
       ~ir::Die(~ir::Const(0, _)) => (),
-      ~ir::Die(~ir::Const(*)) =>
-        self.push(~assem::Raw(fmt!("jmp %sraise_segv", label::prefix()))),
+      ~ir::Die(~ir::Const(..)) =>
+        self.push(~assem::Raw(format!("jmp {}raise_segv", label::prefix()))),
       ~ir::Die(_) => fail!(~"invalid die"),
       ~ir::Return(e) => {
         let e = self.half(e);
@@ -223,9 +223,9 @@ impl CodeGenerator {
       }
       ~ir::Call(tmp, fun, args) => {
         let fun = self.half(fun);
-        let args = do args.move_iter().map |arg| {
+        let args = args.move_iter().map(|arg| {
           self.half(arg)
-        }.collect();
+        }).collect();
         let tmp = self.tmp(tmp);
         self.push(~assem::Call(tmp, fun, args));
       }
@@ -278,8 +278,8 @@ impl CodeGenerator {
             /* If we have first saw this temp, or the immediates/labels need to
                be stored on the stack, then no copy is needed */
             ~assem::Temp(t) if temps.insert(t) => arg,
-            ~assem::Immediate(*) |
-              ~assem::LabelOp(*) if i >= arch::arg_regs => arg,
+            ~assem::Immediate(..) |
+              ~assem::LabelOp(..) if i >= arch::arg_regs => arg,
 
             /* Otherwise we need to create a temp to store this argument */
             _ if i < arch::arg_regs => {
@@ -324,7 +324,7 @@ impl CodeGenerator {
   fn constrain_addr(&mut self, a: ~assem::Address) -> ~assem::Address {
     let unimm = |o: ~assem::Operand| {
       match o {
-        ~assem::Immediate(*) => {
+        ~assem::Immediate(..) => {
           let tmp = self.tmpnew(ir::Pointer);
           self.stms.push(~assem::Move(tmp.clone(), o));
           tmp

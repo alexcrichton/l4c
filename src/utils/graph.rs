@@ -1,32 +1,28 @@
 use std::iter;
-use std::hashmap::{HashMap, HashSet, HashMapIterator, HashSetIterator};
-use std::io::WriterUtil;
 use std::io;
 use std::util;
 
-use extra::smallintmap::{SmallIntMap, SmallIntMapIterator};
+use hm = std::hashmap;
+use sm = extra::smallintmap;
 
 pub type NodeId = uint;
-pub type NodeSet = HashSet<NodeId>;
+pub type NodeSet = hm::HashSet<NodeId>;
 
 pub struct Graph<N, E> {
-  priv nodes: SmallIntMap<N>,
-  priv succ:  SmallIntMap<~HashMap<NodeId, E>>,
-  priv pred:  SmallIntMap<~NodeSet>,
+  priv nodes: sm::SmallIntMap<N>,
+  priv succ:  sm::SmallIntMap<~hm::HashMap<NodeId, E>>,
+  priv pred:  sm::SmallIntMap<~NodeSet>,
   priv next:  NodeId
 }
 
 pub fn Graph<N, E>() -> Graph<N, E>{
-  Graph{ nodes: SmallIntMap::new(),
-         succ:  SmallIntMap::new(),
-         pred:  SmallIntMap::new(),
+  Graph{ nodes: sm::SmallIntMap::new(),
+         succ:  sm::SmallIntMap::new(),
+         pred:  sm::SmallIntMap::new(),
          next:  0 }
 }
 
 impl<N, E> Graph<N, E> {
-  pub fn num_nodes(&self) -> uint {
-    self.nodes.len()
-  }
   pub fn num_pred(&self, n: NodeId) -> uint {
     self.pred.get(&n).len()
   }
@@ -37,8 +33,8 @@ impl<N, E> Graph<N, E> {
   pub fn new_id(&mut self) -> NodeId {
     let ret = self.next;
     self.next += 1;
-    self.succ.insert(ret, ~HashMap::new());
-    self.pred.insert(ret, ~HashSet::new());
+    self.succ.insert(ret, ~hm::HashMap::new());
+    self.pred.insert(ret, ~hm::HashSet::new());
     ret
   }
 
@@ -107,7 +103,7 @@ impl<N, E> Graph<N, E> {
     EdgeIterator { g: self, iter: self.succ.iter(), cur: None }
   }
 
-  pub fn nodes<'a>(&'a self) -> SmallIntMapIterator<'a, N> {
+  pub fn nodes<'a>(&'a self) -> sm::Entries<'a, N> {
     self.nodes.iter()
   }
 
@@ -127,17 +123,12 @@ impl<N, E> Graph<N, E> {
     self.succ.get(&n).iter().map(|(&n, e)| (n, e))
   }
 
-  pub fn each_postorder(&self, root: NodeId, f: &fn(&NodeId)) {
+  pub fn each_postorder(&self, root: NodeId, f: |&NodeId|) {
     let (order, _) = self.postorder(root);
     for n in order.iter() { f(n) }
   }
 
-  pub fn each_rev_postorder(&self, root: NodeId, f: &fn(&NodeId)) {
-    let (ord, _) = self.postorder(root);
-    for n in ord.rev_iter() { f(n) }
-  }
-
-  pub fn map_nodes(&mut self, f: &fn(NodeId, N) -> N) {
+  pub fn map_nodes(&mut self, f: |NodeId, N| -> N) {
     let mut keys = ~[];
     for (k, _) in self.nodes.iter() { keys.push(k); }
     for k in keys.move_iter() {
@@ -145,13 +136,13 @@ impl<N, E> Graph<N, E> {
     }
   }
 
-  pub fn map_consume_node(&mut self, id: NodeId, f: &fn(N) -> N) {
+  pub fn map_consume_node(&mut self, id: NodeId, f: |N| -> N) {
     let node = self.nodes.pop(&id).unwrap();
     self.nodes.insert(id, f(node));
   }
 
-  pub fn map<N2, E2>(self, n: &fn(NodeId, N) -> N2,
-                     e: &fn(E) -> E2) -> Graph<N2, E2> {
+  pub fn map<N2, E2>(self, n: |NodeId, N| -> N2,
+                     e: |E| -> E2) -> Graph<N2, E2> {
     let mut this = self;
     let mut g2 = Graph();
     g2.next = this.next;
@@ -160,7 +151,7 @@ impl<N, E> Graph<N, E> {
     }
     util::swap(&mut this.pred, &mut g2.pred);
     for (k, v) in this.succ.move_iter() {
-      let mut map = ~HashMap::new();
+      let mut map = ~hm::HashMap::new();
       for (k, v) in v.move_iter() {
         map.insert(k, e(v));
       }
@@ -169,10 +160,10 @@ impl<N, E> Graph<N, E> {
     return g2;
   }
 
-  pub fn dot(&self, out: @io::Writer,
-             nid: &fn(NodeId) -> ~str,
-             node: &fn(NodeId, &N) -> ~str,
-             edge: &fn(&E) -> ~str) {
+  pub fn dot(&self, out: &mut io::Writer,
+             nid: |NodeId| -> ~str,
+             node: |NodeId, &N| -> ~str,
+             edge: |&E| -> ~str) {
     for (id, n) in self.nodes.iter() {
       out.write_str(nid(id));
       out.write_str(" [");
@@ -191,8 +182,8 @@ impl<N, E> Graph<N, E> {
     }
   }
 
-  pub fn postorder(&self, root: NodeId) -> (~[NodeId], SmallIntMap<int>) {
-    let mut ordering = SmallIntMap::new();
+  pub fn postorder(&self, root: NodeId) -> (~[NodeId], sm::SmallIntMap<int>) {
+    let mut ordering = sm::SmallIntMap::new();
     self.traverse(&mut ordering, root, 0);
     let mut v = ~[];
     v.grow(ordering.len(), &root);
@@ -202,7 +193,7 @@ impl<N, E> Graph<N, E> {
     return (v, ordering);
   }
 
-  pub fn traverse(&self, o: &mut SmallIntMap<int>, n: NodeId, i: int) -> int {
+  pub fn traverse(&self, o: &mut sm::SmallIntMap<int>, n: NodeId, i: int) -> int {
     match o.find(&n) {
       Some(_) => return i,
       None => ()
@@ -219,13 +210,13 @@ impl<N, E> Graph<N, E> {
 
 // Iterators for the graph
 
-struct EdgeIterator<'self, N, E> {
-  priv g: &'self Graph<N, E>,
-  priv iter: SmallIntMapIterator<'self, ~HashMap<NodeId, E>>,
-  priv cur: Option<(NodeId, HashMapIterator<'self, NodeId, E>)>,
+struct EdgeIterator<'a, N, E> {
+  priv g: &'a Graph<N, E>,
+  priv iter: sm::Entries<'a, ~hm::HashMap<NodeId, E>>,
+  priv cur: Option<(NodeId, hm::Entries<'a, NodeId, E>)>,
 }
 
-impl<'self, N, E> Iterator<(NodeId, NodeId)> for EdgeIterator<'self, N, E> {
+impl<'a, N, E> Iterator<(NodeId, NodeId)> for EdgeIterator<'a, N, E> {
   fn next(&mut self) -> Option<(NodeId, NodeId)> {
     loop {
       match self.cur {
@@ -246,22 +237,22 @@ impl<'self, N, E> Iterator<(NodeId, NodeId)> for EdgeIterator<'self, N, E> {
   }
 }
 
-type PredIterator<'self> =
-    iter::Map<'self, &'self NodeId, NodeId, HashSetIterator<'self, NodeId>>;
-type SuccIterator<'self, E> =
-    iter::Map<'self, (&'self NodeId, &'self E), NodeId,
-                  HashMapIterator<'self, NodeId, E>>;
-type SuccEdgeIterator<'self, E> =
-    iter::Map<'self, (&'self NodeId, &'self E), (NodeId, &'self E),
-                  HashMapIterator<'self, NodeId, E>>;
-struct PredEdgeIterator<'self, N, E> {
-  priv g: &'self Graph<N, E>,
+type PredIterator<'a> =
+    iter::Map<'a, &'a NodeId, NodeId, hm::SetItems<'a, NodeId>>;
+type SuccIterator<'a, E> =
+    iter::Map<'a, (&'a NodeId, &'a E), NodeId,
+                  hm::Entries<'a, NodeId, E>>;
+type SuccEdgeIterator<'a, E> =
+    iter::Map<'a, (&'a NodeId, &'a E), (NodeId, &'a E),
+                  hm::Entries<'a, NodeId, E>>;
+struct PredEdgeIterator<'a, N, E> {
+  priv g: &'a Graph<N, E>,
   priv src: NodeId,
-  priv iter: HashSetIterator<'self, NodeId>
+  priv iter: hm::SetItems<'a, NodeId>
 }
 
-impl<'self, N, E> Iterator<(NodeId, &'self E)> for PredEdgeIterator<'self, N, E> {
-  fn next(&mut self) -> Option<(NodeId, &'self E)> {
+impl<'a, N, E> Iterator<(NodeId, &'a E)> for PredEdgeIterator<'a, N, E> {
+  fn next(&mut self) -> Option<(NodeId, &'a E)> {
     match self.iter.next() {
       Some(&k) => Some((k, self.g.edge(k, self.src))),
       None => None

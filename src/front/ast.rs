@@ -1,4 +1,4 @@
-use std::cell::Cell;
+use std::cell::{RefCell, Cell};
 use std::cmp;
 use std::hashmap::{HashSet, HashMap};
 use std::io;
@@ -13,16 +13,16 @@ pub struct Program {
   decls: ~[~GDecl],
   priv symbols: ~[~str],
   priv positions: ~[mark::Coords],
-  priv errored: @mut bool,
+  priv errored: Cell<bool>,
   mainid: Ident,
 }
 
-struct Elaborator<'self> {
+struct Elaborator<'a> {
   efuns:   HashSet<Ident>,
   funs:    HashSet<Ident>,
   structs: HashSet<Ident>,
-  types:   HashMap<Ident, @Type>,
-  program: &'self mut Program,
+  types:   HashMap<Ident, Type>,
+  program: &'a mut Program,
 }
 
 #[deriving(IterBytes, Clone, Eq)]
@@ -32,12 +32,12 @@ pub type GDecl = Marked<gdecl>;
 
 #[deriving(Eq)]
 pub enum gdecl {
-  Typedef(Ident, @Type),
-  StructDef(Ident, ~[(Ident, @Type)]),
+  Typedef(Ident, Type),
+  StructDef(Ident, ~[(Ident, Type)]),
   StructDecl(Ident),
-  Function(@Type, Ident, ~[(Ident, @Type)], ~Statement),
-  FunIDecl(@Type, Ident, ~[(Ident, @Type)]),
-  FunEDecl(@Type, Ident, ~[(Ident, @Type)])
+  Function(Type, Ident, ~[(Ident, Type)], ~Statement),
+  FunIDecl(Type, Ident, ~[(Ident, Type)]),
+  FunEDecl(Type, Ident, ~[(Ident, Type)])
 }
 
 pub type Statement = Marked<stmt>;
@@ -54,7 +54,7 @@ pub enum stmt {
   Nop,
   Return(~Expression),
   Seq(~Statement, ~Statement),
-  Declare(Ident, @Type, Option<~Expression>, ~Statement),
+  Declare(Ident, Type, Option<~Expression>, ~Statement),
 }
 
 pub type Expression = Marked<expr>;
@@ -66,20 +66,20 @@ pub enum expr {
   Const(i32),
   BinaryOp(Binop, ~Expression, ~Expression),
   UnaryOp(Unop, ~Expression),
-  Ternary(~Expression, ~Expression, ~Expression, Cell<@Type>),
-  Call(~Expression, ~[~Expression], Cell<(@Type)>),
-  Deref(~Expression, Cell<@Type>),
-  Field(~Expression, Ident, Cell<Ident>),
-  ArrSub(~Expression, ~Expression, Cell<@Type>),
-  Alloc(@Type),
-  AllocArray(@Type, ~Expression),
+  Ternary(~Expression, ~Expression, ~Expression, RefCell<Option<Type>>),
+  Call(~Expression, ~[~Expression], RefCell<Option<Type>>),
+  Deref(~Expression, RefCell<Option<Type>>),
+  Field(~Expression, Ident, RefCell<Option<Ident>>),
+  ArrSub(~Expression, ~Expression, RefCell<Option<Type>>),
+  Alloc(Type),
+  AllocArray(Type, ~Expression),
   Null,
 }
 
 #[deriving(Clone)]
 pub enum Type {
-  Int, Bool, Alias(Ident), Pointer(@Type), Array(@Type), Struct(Ident), Nullp,
-  Fun(@Type, @~[@Type])
+  Int, Bool, Alias(Ident), Pointer(~Type), Array(~Type), Struct(Ident), Nullp,
+  Fun(~Type, ~[Type])
 }
 
 #[deriving(Eq, Clone)]
@@ -104,7 +104,7 @@ impl Program {
       }
     };
     Program{ decls: decls, symbols: syms, mainid: mainid, positions: p,
-             errored: @mut false }
+             errored: Cell::new(false) }
   }
 
   pub fn elaborate(&mut self) {
@@ -122,22 +122,23 @@ impl Program {
   }
 
   pub fn str(&self, id: Ident) -> ~str {
-    self.symbols[*id].clone()
+    let Ident(n) = id;
+    self.symbols[n].clone()
   }
 
   pub fn error(&self, m: mark::Mark, msg: &str) {
-    let out = io::stderr();
+    let mut out = io::stderr();
     if m == mark::dummy {
-      out.write_str(fmt!("error: %s\n", msg));
+      out.write_str(format!("error: {}\n", msg));
     } else {
       match self.positions[m] {
-        mark::Coords(((l1, c1), (l2, c2)), file) => {
-          out.write_str(fmt!("%s:%u.%u-%u.%u:error: %s\n", file, l1, c1, l2,
-                             c2, msg));
+        mark::Coords(((l1, c1), (l2, c2)), ref file) => {
+          out.write_str(format!("{}:{}.{}-{}.{}:error: {}\n", *file, l1, c1, l2,
+                                c2, msg));
         }
       }
     }
-    *self.errored = true;
+    self.errored.set(true);
   }
 
   pub fn die(&self, m: mark::Mark, msg: &str) -> ! {
@@ -146,7 +147,7 @@ impl Program {
   }
 
   pub fn check(&self) {
-    if *self.errored {
+    if self.errored.get() {
       die()
     }
   }
@@ -164,7 +165,7 @@ impl PrettyPrint for Program {
   }
 }
 
-impl<'self> Elaborator<'self> {
+impl<'a> Elaborator<'a> {
   fn run(&mut self, decls: ~[~GDecl]) -> ~[~GDecl] {
     let decls = decls.move_iter().map(|x| self.elaborate(x)).collect();
     self.program.check();
@@ -175,8 +176,8 @@ impl<'self> Elaborator<'self> {
     macro_rules! check_set (
       ($set:expr, $id:expr, $name:expr, $span:expr) => {
         if $set.contains(&id) {
-          self.program.error($span, fmt!("'%s' already a %s",
-                                         self.program.str(id), $name));
+          self.program.error($span, format!("'{}' already a {}",
+                                            self.program.str(id), $name));
         }
       }
     );
@@ -197,7 +198,7 @@ impl<'self> Elaborator<'self> {
         check_set!(self.efuns, *id, "function", span);
         check_set!(self.funs, *id, "function", span);
         let typ = self.resolve(span, typ);
-        self.types.insert(id, typ);
+        self.types.insert(id, typ.clone());
         Typedef(id, typ)
       }
       StructDef(id, fields) => {
@@ -237,7 +238,7 @@ impl<'self> Elaborator<'self> {
       }
       For(s1, e1, s2, s3) => {
         match s2 {
-          ~Marked{ node: Declare(*), span } => {
+          ~Marked{ node: Declare(..), span } => {
             self.program.error(span, "declarations not allowed in for-loop steps")
           }
           _ => {}
@@ -265,7 +266,7 @@ impl<'self> Elaborator<'self> {
     return ~Marked::new(node, span);
   }
 
-  fn declare(&mut self, id: Ident, m: mark::Mark, typ: @Type,
+  fn declare(&mut self, id: Ident, m: mark::Mark, typ: Type,
              init: Option<~Expression>, rest: ~Statement) -> stmt {
     self.check_id(m, id);
     Declare(id, self.resolve(m, typ),
@@ -285,16 +286,16 @@ impl<'self> Elaborator<'self> {
         BinaryOp(o, self.elaborate_exp(e1), self.elaborate_exp(e2)),
       Ternary(e1, e2, e3, _) =>
         Ternary(self.elaborate_exp(e1), self.elaborate_exp(e2),
-                self.elaborate_exp(e3), Cell::new_empty()),
+                self.elaborate_exp(e3), RefCell::new(None)),
       Call(id, L, _) =>
         Call(id, L.move_iter().map(|x| self.elaborate_exp(x)).collect(),
-             Cell::new_empty()),
+             RefCell::new(None)),
       Deref(e, _) => Deref(self.elaborate_exp(e),
-                           Cell::new_empty()),
-      Field(e, id, _) => Field(self.elaborate_exp(e), id, Cell::new_empty()),
+                           RefCell::new(None)),
+      Field(e, id, _) => Field(self.elaborate_exp(e), id, RefCell::new(None)),
       ArrSub(e1, e2, _) =>
         ArrSub(self.elaborate_exp(e1), self.elaborate_exp(e2),
-               Cell::new_empty()),
+               RefCell::new(None)),
       Alloc(t) => Alloc(self.resolve(span, t)),
       AllocArray(t, e) => AllocArray(self.resolve(span, t),
                                      self.elaborate_exp(e))
@@ -304,30 +305,31 @@ impl<'self> Elaborator<'self> {
 
   fn check_id(&mut self, m: mark::Mark, s: Ident) {
     if self.types.contains_key(&s) {
-      self.program.error(m, fmt!("'%s' already a type", self.program.str(s)));
+      self.program.error(m, format!("'{}' already a type", self.program.str(s)));
     }
   }
 
-  fn resolve(&mut self, m: mark::Mark, t: @Type) -> @Type {
+  fn resolve(&mut self, m: mark::Mark, t: Type) -> Type {
     match t {
-      @Int | @Bool | @Nullp | @Struct(_) => t,
-      @Pointer(t) => @Pointer(self.resolve(m, t)),
-      @Array(t) => @Array(self.resolve(m, t)),
-      @Alias(sym) =>
+      Int | Bool | Nullp | Struct(_) => t,
+      Pointer(t) => Pointer(~self.resolve(m, *t)),
+      Array(t) => Array(~self.resolve(m, *t)),
+      Alias(sym) =>
         match self.types.find(&sym) {
-          Some(&t) => t,
+          Some(t) => t.clone(),
           None    => {
-            self.program.error(m, fmt!("'%s' is undefined",
-                                       self.program.str(sym)));
+            self.program.error(m, format!("'{}' is undefined",
+                                          self.program.str(sym)));
             t
           }
         },
-      @Fun(t1, L) => @Fun(self.resolve(m, t1), @L.map(|&t| self.resolve(m, t)))
+      Fun(t1, L) => Fun(~self.resolve(m, *t1),
+                        L.move_iter().map(|t| self.resolve(m, t)).collect())
     }
   }
 
   fn resolve_pairs(&mut self, m: mark::Mark,
-                   pairs: ~[(Ident, @Type)]) -> ~[(Ident, @Type)] {
+                   pairs: ~[(Ident, Type)]) -> ~[(Ident, Type)] {
     pairs.move_iter().map(|(id, typ)| (id, self.resolve(m, typ)))
          .collect()
   }
@@ -362,7 +364,7 @@ impl cmp::Eq for Type {
       (&Pointer(ref t1), &Pointer(ref t2)) => t1.eq(t2),
       (&Array(ref t1), &Array(ref t2)) => t1.eq(t2),
       (&Struct(ref s1), &Struct(ref s2)) => s1.eq(s2),
-      (&Fun(t1, L1), &Fun(t2, L2)) =>
+      (&Fun(ref t1, ref L1), &Fun(ref t2, ref L2)) =>
         t1 == t2 && L1.len() == L2.len() &&
           L1.iter().zip(L2.iter()).all(|(a, b)| a == b),
       _ => false

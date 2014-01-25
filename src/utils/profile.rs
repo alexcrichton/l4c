@@ -14,7 +14,7 @@ pub struct Guard {
 impl Drop for Guard {
   fn drop(&mut self) {
     if self.enabled {
-      io::println(fmt!("%.2fs", time::precise_time_s() - self.start));
+      io::println(format!("{:.2f}s", time::precise_time_s() - self.start));
     }
   }
 }
@@ -22,29 +22,29 @@ impl Drop for Guard {
 impl Guard {
   pub fn new(print: bool, name: &str) -> Guard {
     if print {
-      io::print(fmt!("%20s ", name));
+      io::print(format!("{:20s} ", name));
     }
     Guard { enabled: print, start: time::precise_time_s() }
   }
 }
 
-pub fn run<U>(f: &fn() -> U, name: &str) -> U {
+pub fn run<U>(f: || -> U, name: &str) -> U {
   let start = time::precise_time_s();
-  io::print(fmt!("%20s ", name));
+  io::print(format!("{:20s} ", name));
   let ret = f();
-  io::println(fmt!("%.2fs", time::precise_time_s() - start));
+  io::println(format!("{:.2f}s", time::precise_time_s() - start));
   return ret;
 }
 
-pub fn dbg<U>(name: &str, f: &fn() -> U) -> U {
+pub fn dbg<U>(name: &str, f: || -> U) -> U {
   /* apparently local_data_{get,set} are unsafe... */
-  let lvls = local_data::pop(levels_key).unwrap_or_zero();
+  let lvls = local_data::pop(levels_key).unwrap_or(0);
   local_data::set(levels_key, lvls + 1);
   let start = time::precise_time_s();
   let ret = f();
   let val = time::precise_time_s() - start;
   if val > 0.001 {
-    debug!("%s%s %.8fs", "  ".repeat(lvls), name,
+    debug!("{}{} {:.8f}s", "  ".repeat(lvls), name,
            time::precise_time_s() - start);
   }
   local_data::set(levels_key, lvls);

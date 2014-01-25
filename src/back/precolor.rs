@@ -1,5 +1,5 @@
 use std::hashmap::HashSet;
-use std::uint;
+use std::num;
 
 use back::assem::*;
 use middle::{liveness, temp};
@@ -11,19 +11,19 @@ pub fn constrain(p: &mut Program) {
     let mut live = liveness::Analysis();
     liveness::calculate(&f.cfg, f.root, &mut live, &RegisterInfo);
     let mut temps = temp::new_init(f.temps);
-    do f.cfg.map_nodes |id, stms| {
+    f.cfg.map_nodes(|id, stms| {
       constrain_block(live.in_.get(&id), *live.deltas.get(&id), |t| {
         let tmp = temps.new();
         let size = f.sizes.get_copy(&t);
         f.sizes.insert(tmp, size);
         tmp
       }, stms)
-    }
+    });
   }
 }
 
 fn constrain_block(live: &temp::TempSet, delta: &[liveness::Delta],
-                   tmpclone: &fn(Temp) -> Temp,
+                   tmpclone: |Temp| -> Temp,
                    ins: ~[~Instruction]) -> ~[~Instruction] {
   let mut new = ~[];
   let mut synthetic = ~[];
@@ -109,7 +109,7 @@ fn constrain_block(live: &temp::TempSet, delta: &[liveness::Delta],
       ~Call(dst, fun, args) => {
         let mut newargs = ~[];
         let mut tempregs = HashSet::new();
-        for t in args.slice(0, uint::min(arch::arg_regs, args.len())).iter() {
+        for t in args.slice(0, num::min(arch::arg_regs, args.len())).iter() {
           match *t {
             ~Temp(t) => { tempregs.insert(t); }
             _ => ()

@@ -1,4 +1,4 @@
-#[allow(non_uppercase_statics)];
+#[allow(non_uppercase_statics, dead_code)];
 
 use back::assem::*;
 
@@ -9,7 +9,7 @@ pub static ret_reg: Register = EAX;
 pub static num_regs: uint = 15;
 pub static caller_regs: uint = 9;
 
-pub fn each_reg(f: &fn(uint)) {
+pub fn each_reg(f: |uint|) {
   for i in range(1, num_regs + 1) {
     f(i)
   }
@@ -23,7 +23,7 @@ pub fn arg_reg(i: uint) -> Register {
     3 => ECX,
     4 => R8D,
     5 => R9D,
-    _ => fail!(~"not that many argument registers")
+    _ => fail!("not that many argument registers")
   }
 }
 
@@ -44,7 +44,7 @@ pub fn reg_num(r: Register) -> uint {
     R14D => 13,
     R15D => 14,
     EBP  => 15,
-    _    => fail!(fmt!("no num assigned %?", r))
+    _    => fail!("no num assigned {:?}", r)
   }
 }
 
@@ -65,11 +65,11 @@ pub fn num_reg(i: uint) -> Register {
     13 => R14D,
     14 => R15D,
     15 => EBP,
-    _ => fail!(fmt!("%u is not a register", i))
+    _ => fail!("{} is not a register", i)
   }
 }
 
-pub fn each_caller(f: &fn(Register)) {
+pub fn each_caller(f: |Register|) {
   f(EAX); f(ECX); f(EDX); f(ESI); f(EDI); f(R8D); f(R9D); f(R10D); f(R11D)
 }
 

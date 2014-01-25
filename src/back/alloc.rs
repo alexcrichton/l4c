@@ -1,5 +1,5 @@
 use std::hashmap::{HashMap, HashSet};
-use std::uint;
+use std::num;
 
 use extra::bitv;
 use extra::smallintmap::SmallIntMap;
@@ -14,8 +14,10 @@ use utils::{profile, graph, PrettyPrint};
 type RegisterSet = bitv::Bitv;
 pub type ColorMap = SmallIntMap<uint>;
 pub type ConstraintMap = SmallIntMap<Constraint>;
-/* Left = move(dst, src), Right = xchg(r1, r1) */
-type Resolution = Either<(uint, uint), (uint, uint)>;
+enum Resolution {
+    Copy(uint, uint),
+    Xchg(uint, uint),
+}
 
 struct Allocator {
   colors: ColorMap,
@@ -45,27 +47,27 @@ pub fn color(p: &mut Program) {
                            callee_saved: ~[] };
 
     /* Color the graph completely */
-    info!("coloring: %s", f.name);
-    do profile::dbg("coloring") { a.color(f, &live_regs, f.root); }
+    info!("coloring: {}", f.name);
+    profile::dbg("coloring", || a.color(f, &live_regs, f.root));
     for (tmp, color) in a.colors.iter() {
-      debug!("%s => %?", tmp.to_str(), color);
+      debug!("{} => {:?}", tmp.to_str(), color);
     }
 
-    do profile::dbg("coalescing registers") {
+    profile::dbg("coalescing registers", || {
       coalesce::optimize(f, &live_regs, &mut a.colors, &a.precolored,
                          &a.constraints, &RegisterInfo, true, arch::num_regs);
-    }
-    do profile::dbg("coalescing stack slots") {
+    });
+    profile::dbg("coalescing stack slots", || {
       info!("stack slots");
       /* no precolored slots or constraints, yay! */
       let max = a.slots.len();
       coalesce::optimize(f, &live_stack, &mut a.slots, &HashSet::new(),
                          &SmallIntMap::new(), &StackInfo, false, max);
-    }
+    });
 
     /* Finally remove all phi nodes and all temps */
-    do profile::dbg("removing phis") { a.remove_phis(f); }
-    do profile::dbg("removing tmps") { a.remove_temps(f); }
+    profile::dbg("removing phis", || a.remove_phis(f));
+    profile::dbg("removing tmps", || a.remove_temps(f));
   }
 }
 
@@ -74,12 +76,12 @@ fn RegisterSet() -> RegisterSet {
 }
 
 fn min_vacant(colors: &RegisterSet) -> uint {
-  debug!("min vacant %s", colors.pp());
+  debug!("min vacant {}", colors.pp());
   let mut i = 1;
   while colors.get(i) {
     i += 1;
   }
-  debug!("%?", i);
+  debug!("{:?}", i);
   return i;
 }
 
@@ -92,23 +94,23 @@ impl Allocator {
    */
   fn color(&mut self, f: &Function, live: &liveness::Analysis,
            n: graph::NodeId) {
-    debug!("coloring %?", n);
+    debug!("coloring {:?}", n);
     let mut tmplive = HashSet::new();
     let mut registers = RegisterSet();
     for &t in live.in_.get(&n).iter() {
       tmplive.insert(t);
       registers.set(*self.colors.get(&t), true);
     }
-    debug!("%s", tmplive.pp())
+    debug!("{}", tmplive.pp())
 
     let mut pcopy = None;
     for (i, ins) in f.cfg.node(n).iter().enumerate() {
       /* examine data for next instruction for last use information */
       {
         let delta = &live.deltas.get(&n)[i];
-        debug!("%s", ins.pp());
-        debug!("deltas %?", delta);
-        debug!("before %s %s", tmplive.pp(), registers.pp());
+        debug!("{}", ins.pp());
+        debug!("deltas {:?}", delta);
+        debug!("before {} {}", tmplive.pp(), registers.pp());
         liveness::apply(&mut tmplive, delta);
       }
 
@@ -136,7 +138,7 @@ impl Allocator {
         }
         /* Keep track of the maximum number of args passed to called funs */
         ~Store(~Stack(pos), _) => {
-          self.max_call_stack = uint::max(pos + arch::ptrsize,
+          self.max_call_stack = num::max(pos + arch::ptrsize,
                                           self.max_call_stack);
         }
         /* do simple precoloring of args up front */
@@ -170,7 +172,7 @@ impl Allocator {
                 }
                 match *op2 {
                   ~Temp(t) => { self.constraints.insert(t, Idiv); }
-                  _ => fail!(~"not a tmp")
+                  _ => fail!("not a tmp")
                 }
               }
 
@@ -179,7 +181,7 @@ impl Allocator {
                 self.precolor(*op2, ECX);
                 banned.set(arch::reg_num(ECX), true);
               }
-              _ => fail!(fmt!("implement %?", op))
+              _ => fail!("implement {:?}", op)
             }
           }
 
@@ -191,9 +193,9 @@ impl Allocator {
             for (i, arg) in args.iter().enumerate() {
               self.precolor(*arg, arch::arg_reg(i));
             }
-            do arch::each_caller |r| {
+            arch::each_caller(|r| {
               banned.set(arch::reg_num(r), true);
-            }
+            });
             for &tmp in tmplive.iter() {
               assert!(self.constraints.insert(tmp, Caller));
             }
@@ -213,20 +215,20 @@ impl Allocator {
 
         /* TODO: cleanup? */
         debug!("coloring uses");
-        do ins.each_use |tmp| {
+        ins.each_use(|tmp| {
           self.process(tmp, &mut banned);
-        }
+        });
         debug!("processing live-out temporaries");
         for &tmp in tmplive.iter() {
           self.process(tmp, &mut banned);
         }
         debug!("pruning dead uses");
-        do ins.each_use |tmp| {
+        ins.each_use(|tmp| {
           if !tmplive.contains(&tmp) {
-            debug!("removing %?", tmp);
+            debug!("removing {:?}", tmp);
             banned.set(*self.colors.get(&tmp), false);
           }
-        }
+        });
         debug!("processing previous pcopy");
         let copies = pcopy.take_unwrap();
         let mut regstmp = RegisterSet();
@@ -248,34 +250,34 @@ impl Allocator {
           }
         }
         debug!("processing defs");
-        do ins.each_def |tmp| {
+        ins.each_def(|tmp| {
           if !self.colors.contains_key(&tmp) {
             self.process(tmp, &mut registers);
             if !tmplive.contains(&tmp) {
               registers.set(*self.colors.get(&tmp), false);
             }
           }
-        }
+        });
         pcopy = None;
       } else {
         /* normal coloration of each instruction */
-        do ins.each_use |tmp| {
-          debug!("found use %?", tmp);
+        ins.each_use(|tmp| {
+          debug!("found use {:?}", tmp);
           if !tmplive.contains(&tmp) {
-            debug!("removing %? %?", tmp, self.colors.get(&tmp));
+            debug!("removing {:?} {:?}", tmp, self.colors.get(&tmp));
             registers.set(*self.colors.get(&tmp), false);
           }
-        }
-        do ins.each_def |tmp| {
+        });
+        ins.each_def(|tmp| {
           let color = min_vacant(&registers);
           assert!(color <= arch::num_regs);
           assert!(self.colors.insert(tmp, color));
           if tmplive.contains(&tmp) {
             registers.set(color, true);
           }
-        }
+        });
       }
-      debug!("after %s %s", tmplive.pp(), registers.pp());
+      debug!("after {} {}", tmplive.pp(), registers.pp());
     }
 
     for &id in f.ssa.idominated.get(&n).iter() {
@@ -289,7 +291,7 @@ impl Allocator {
         assert!(self.colors.insert(t, arch::reg_num(r)));
         assert!(self.precolored.insert(t));
       }
-      _ => fail!(fmt!("not a tmp %?", o))
+      _ => fail!("not a tmp {:?}", o)
     }
   }
 
@@ -298,7 +300,7 @@ impl Allocator {
       assert!(regs.get(*self.colors.get(&t)));
     } else {
       let color = min_vacant(regs);
-      /*debug!("assigning %s %? %s", $t.pp(), color, $regs.pp());*/
+      /*debug!("assigning {} {:?} {}", $t.pp(), color, $regs.pp());*/
       assert!(color <= arch::num_regs);
       assert!(self.colors.insert(t, color));
       regs.set(color, true);
@@ -321,7 +323,7 @@ impl Allocator {
       for ins in ins.iter() {
         match *ins {
           ~Phi(tmp, ref map) => {
-            debug!("phi var %? %?", tmp, *self.colors.get(&tmp));
+            debug!("phi var {:?} {:?}", tmp, *self.colors.get(&tmp));
             phi_vars.push(*self.colors.get(&tmp));
             for (pred, tmp) in map.iter() {
               phi_maps.find_mut(pred).unwrap().push(*self.colors.get(tmp));
@@ -341,12 +343,12 @@ impl Allocator {
         let perm = phi_maps.pop(&pred).unwrap();
         let mems = mem_maps.pop(&pred).unwrap();
 
-        debug!("resolving phi for %? <= %?", id, pred);
+        debug!("resolving phi for {:?} <= {:?}", id, pred);
         // First, resolve all register permutations
         let mut ins = ~[];
-        do self.resolve_perm(phi_vars, perm) |i| {
+        self.resolve_perm(phi_vars, perm, |i| {
           ins.push(i);
-        }
+        });
 
         // Second, resolve the memory phi permutations. To do so, each
         // move needs a scratch register, and each exchange needs two registers.
@@ -355,21 +357,21 @@ impl Allocator {
         let mut pushed = 0;
         let eax = Register(EAX, ir::Pointer);
         let ebx = Register(EBX, ir::Pointer);
-        do resolve_perm(mem_vars, mems) |i| {
+        resolve_perm(mem_vars, mems, |i| {
           if pushed == 0 {
             pushed = 1;
-            ins.push(~Raw(fmt!("pushq %s", eax.pp())));
+            ins.push(~Raw(format!("pushq {}", eax.pp())));
           }
           match i {
-            Left((dst, src)) => { // move
+            Copy(dst, src) => { // move
               ins.push(~Load(~eax.clone(), ~Stack(src + pushed * arch::ptrsize)));
               ins.push(~Store(~Stack(dst + pushed * arch::ptrsize), ~eax.clone()));
             }
 
-            Right((l1, l2)) => { // xchg
+            Xchg(l1, l2) => { // xchg
               if pushed == 1 {
                 pushed = 2;
-                ins.push(~Raw(fmt!("pushq %s", ebx.pp())));
+                ins.push(~Raw(format!("pushq {}", ebx.pp())));
               }
               ins.push(~Load(~eax.clone(), ~Stack(l1 + 2 * arch::ptrsize)));
               ins.push(~Load(~ebx.clone(), ~Stack(l2 + 2 * arch::ptrsize)));
@@ -377,12 +379,12 @@ impl Allocator {
               ins.push(~Store(~Stack(l2 + 2 * arch::ptrsize), ~eax.clone()));
             }
           }
-        }
+        });
         if pushed > 1 {
-          ins.push(~Raw(fmt!("popq %s", ebx.pp())));
+          ins.push(~Raw(format!("popq {}", ebx.pp())));
         }
         if pushed > 0 {
-          ins.push(~Raw(fmt!("popq %s", eax.pp())));
+          ins.push(~Raw(format!("popq {}", eax.pp())));
         }
 
         if ins.len() > 0 {
@@ -422,7 +424,7 @@ impl Allocator {
             self.callee_saved.iter().position(|c| *c == color).is_none()
           {
             self.callee_saved.push(color);
-            newins.push(~Raw(fmt!("push %s", reg.size(ir::Pointer))));
+            newins.push(~Raw(format!("push {}", reg.size(ir::Pointer))));
           }
         }
         if self.stack_size(false) != 0 {
@@ -441,7 +443,7 @@ impl Allocator {
   }
 
   fn alloc_ins(&mut self, f: &Function, i: ~Instruction,
-               push: &fn(~Instruction))
+               push: |~Instruction|)
   {
     match i {
       ~Spill(t, tag) => push(~Store(self.stack_pos(tag), self.alloc_tmp(f, t))),
@@ -456,7 +458,7 @@ impl Allocator {
       ~Die(c, o1, o2) =>
         push(~Die(c, self.alloc_op(f, o1), self.alloc_op(f, o2))),
       ~Move(o1, o2) => push(~Move(self.alloc_op(f, o1), self.alloc_op(f, o2))),
-      ~MemPhi(*) | ~Use(*) | ~Phi(*) | ~Arg(*) => (),
+      ~MemPhi(..) | ~Use(..) | ~Phi(..) | ~Arg(..) => (),
 
       ~Return(op) => {
         if self.stack_size(false) != 0 {
@@ -465,7 +467,7 @@ impl Allocator {
                          ~Register(ESP, ir::Pointer)));
         }
         for &color in self.callee_saved.rev_iter() {
-          push(~Raw(fmt!("pop %s", arch::num_reg(color).size(ir::Pointer))));
+          push(~Raw(format!("pop {}", arch::num_reg(color).size(ir::Pointer))));
         }
         push(~Return(op));
       }
@@ -480,7 +482,7 @@ impl Allocator {
 
         match op {
           /* these are all special cases handled elsewhere */
-          Div | Mod | Cmp(*) => push(~BinaryOp(op, d, s1, s2)),
+          Div | Mod | Cmp(..) => push(~BinaryOp(op, d, s1, s2)),
 
           /* x86 imul can have 3 operands if one is an immediate */
           Mul if s1.imm() && !s2.imm() => push(~BinaryOp(Mul, d, s2, s1)),
@@ -491,7 +493,7 @@ impl Allocator {
           /* d = s1 op d, can commute */
           _ if s2 == d && op.commutative() => push(~BinaryOp(op, d, s1, s2)),
           /* should be handled elsewhere */
-          _ if s2 == d => fail!(~"invalid instruction in alloc"),
+          _ if s2 == d => fail!("invalid instruction in alloc"),
           /* catch-all last resort, generate a move */
           _ => {
             push(~Move(d.clone(), s1.clone()));
@@ -506,7 +508,7 @@ impl Allocator {
                        .collect())),
 
       ~PCopy(ref copies) => {
-        debug!("%?", copies);
+        debug!("{:?}", copies);
         let mut dsts = ~[];
         let mut srcs = ~[];
         for &(dst, src) in copies.iter() {
@@ -514,9 +516,9 @@ impl Allocator {
           srcs.push(*self.colors.get(&src));
         }
         debug!("resolving pcopy");
-        do self.resolve_perm(dsts, srcs) |ins| {
+        self.resolve_perm(dsts, srcs, |ins| {
           push(ins);
-        }
+        });
       }
     }
   }
@@ -534,7 +536,7 @@ impl Allocator {
 
   fn stack_loc(&self, tag: Tag) -> uint {
     if !self.slots.contains_key(&tag) {
-      fail!(fmt!("no spill for %?", tag));
+      fail!("no spill for {:?}", tag);
     }
     *self.slots.get(&tag) * arch::ptrsize + self.max_call_stack
   }
@@ -553,7 +555,7 @@ impl Allocator {
 
   fn alloc_op(&mut self, f: &Function, o: ~Operand) -> ~Operand {
     match o {
-      ~Immediate(*) | ~LabelOp(*) | ~Register(*) => o,
+      ~Immediate(..) | ~LabelOp(..) | ~Register(..) => o,
       ~Temp(tmp) => self.alloc_tmp(f, tmp)
     }
   }
@@ -564,15 +566,15 @@ impl Allocator {
   }
 
   fn resolve_perm(&self, result: &[uint], incoming: &[uint],
-                  f: &fn(~Instruction) ){
+                  f: |~Instruction| ){
     let mkreg = |i: uint| ~Register(arch::num_reg(i), ir::Pointer);
-    do resolve_perm(result, incoming) |r| {
+    resolve_perm(result, incoming, |r| {
       match r {
-        Left((dst, src)) => f(~Move(mkreg(dst), mkreg(src))),
-        Right((r1, r2)) => f(~Raw(fmt!("xchg %s, %s", mkreg(r1).pp(),
+        Copy(dst, src) => f(~Move(mkreg(dst), mkreg(src))),
+        Xchg(r1, r2) => f(~Raw(format!("xchg {}, {}", mkreg(r1).pp(),
                                        mkreg(r2).pp())))
       }
-    }
+    });
   }
 }
 
@@ -580,7 +582,7 @@ impl PrettyPrint for bitv::Bitv {
   fn pp(&self) -> ~str {
     let mut s = ~"{";
     let mut first = true;
-    do self.ones |i| {
+    self.ones(|i| {
       if first {
         first = false;
       } else {
@@ -588,7 +590,7 @@ impl PrettyPrint for bitv::Bitv {
       }
       s.push_str(i.to_str());
       true
-    };
+    });
     return s + "}";
   }
 }
@@ -597,7 +599,7 @@ impl PrettyPrint for bitv::Bitv {
  * Perform the actual resolution of moves/exchanges to get from incoming to the
  * result specified.
  */
-fn resolve_perm(result: &[uint], incoming: &[uint], f: &fn(Resolution)) {
+fn resolve_perm(result: &[uint], incoming: &[uint], f: |Resolution|) {
   use extra::smallintmap::SmallIntMap;
 
   /* maps describing src -> dst and dst -> src */
@@ -623,7 +625,7 @@ fn resolve_perm(result: &[uint], incoming: &[uint], f: &fn(Resolution)) {
     let mut cur = dst;
     while dst_src.contains_key(&cur) {
       let nxt = *dst_src.get(&cur);
-      f(Left((cur, nxt)));
+      f(Copy(cur, nxt));
       dst_src.remove(&cur);
       let L = src_dst.pop(&nxt).unwrap().move_iter()
                      .filter(|&x| x != cur).collect::<~[uint]>();
@@ -643,14 +645,14 @@ fn resolve_perm(result: &[uint], incoming: &[uint], f: &fn(Resolution)) {
     /* Exchange everything through the 'dst' register to resolve the chain */
     let mut cur = dst;
     while src_dst.contains_key(&cur) {
-      let L = do src_dst.pop(&cur).unwrap().move_iter().filter |&x| {
+      let L = src_dst.pop(&cur).unwrap().move_iter().filter(|&x| {
         dst_src.contains_key(&x)
-      }.collect::<~[uint]>();
-      debug!("%?", L);
+      }).collect::<~[uint]>();
+      debug!("{:?}", L);
       assert!(L.len() == 1);
       let nxt = L[0];
       if nxt == dst { break }
-      f(Right((dst, nxt)));
+      f(Xchg(dst, nxt));
       cur = nxt;
     }
   }
@@ -662,25 +664,25 @@ fn resolve_test(from: &[uint], to: &[uint]) {
   use std::vec;
   let mut regs = vec::from_fn(10, |i| i);
 
-  do resolve_perm(to, from) |foo| {
+  resolve_perm(to, from, |foo| {
     match foo {
-      Left((dst, src))  => { regs[dst] = regs[src]; }
-      Right((dst, src)) => { regs.swap(dst, src); }
+      Copy(dst, src)  => { regs[dst] = regs[src]; }
+      Xchg(dst, src) => { regs.swap(dst, src); }
     }
-  }
+  });
 
   let mut map = SmallIntMap::new();
   for i in range(0u, 10) { map.insert(i, ()); }
   for (&f, &t) in from.iter().zip(to.iter()) {
     map.remove(&t);
     if regs[t] != f {
-      fail!(fmt!("expected %? to be %? but it was %?", t, f, regs[t]));
+      fail!("expected {:?} to be {:?} but it was {:?}", t, f, regs[t]);
     }
   }
-  debug!("%?", regs);
+  debug!("{:?}", regs);
   for (k, _) in map.iter() {
     if regs[k] != k {
-      fail!(fmt!("clobbered %? to %?", k, regs[k]));
+      fail!("clobbered {:?} to {:?}", k, regs[k]);
     }
   }
 }

@@ -1,5 +1,4 @@
 use std::hashmap::HashMap;
-use std::io::WriterUtil;
 use std::io;
 
 use middle::{ssa, label};
@@ -71,15 +70,15 @@ pub fn Function(name: ~str) -> Function {
 }
 
 impl Graphable for Program {
-  fn dot(&self, out: @io::Writer) {
+  fn dot(&self, out: &mut io::Writer) {
     out.write_str("digraph {\n");
     for f in self.funs.iter() {
       f.cfg.dot(out,
-        |id| fmt!("%s_n%d", f.name, id as int),
+        |id| format!("{}_n{}", f.name, id as int),
         |id, stms|
-          ~"label=\"" + stms.map(|s| s.pp()).connect("\\n") +
-          fmt!("\\n[node=%d]\" shape=box", id as int),
-        |&edge| fmt!("label=%?", edge)
+          "label=\"" + stms.map(|s| s.pp()).connect("\\n") +
+          format!("\n[node={}]\" shape=box", id as int),
+        |&edge| format!("label={:?}", edge)
       )
     }
     out.write_str("\n}");
@@ -103,8 +102,8 @@ impl Binop {
 }
 
 impl Statement {
-  pub fn map_temps(~self, uses: &fn(Temp) -> Temp,
-               defs: &fn(Temp) -> Temp) -> ~Statement {
+  pub fn map_temps(~self, uses: |Temp| -> Temp,
+               defs: |Temp| -> Temp) -> ~Statement {
     match self {
       ~Move(tmp, e) => {
         let e = e.map_temps(uses);
@@ -140,7 +139,7 @@ impl Statement {
     }
   }
 
-  pub fn each_def(&self, f: &fn(Temp)) {
+  pub fn each_def(&self, f: |Temp|) {
     match *self {
       Load(tmp, _) | Move(tmp, _) | Call(tmp, _, _) | Phi(tmp, _) |
         Cast(tmp, _) => { f(tmp) }
@@ -149,7 +148,7 @@ impl Statement {
     }
   }
 
-  pub fn each_use(&self, f: &fn(Temp)) {
+  pub fn each_use(&self, f: |Temp|) {
     match *self {
       Move(_, ref e) | Load(_, ref e) | Condition(ref e) |
         Return(ref e) | Die(ref e) => e.each_temp(f),
@@ -162,7 +161,7 @@ impl Statement {
         for (_, &v) in map.iter() { f(v) }
       }
       Cast(_, t) => { f(t) }
-      Arguments(*) => ()
+      Arguments(..) => ()
     }
   }
 }
@@ -172,13 +171,13 @@ pub struct Info;
 impl ssa::Statement<Statement> for Info {
   fn phi(&self, t: Temp, map: ssa::PhiMap) -> ~Statement { ~Phi(t, map) }
 
-  fn map_temps(&self, s: ~Statement, uses: &fn(Temp) -> Temp,
-               defs: &fn(Temp) -> Temp) -> ~Statement {
+  fn map_temps(&self, s: ~Statement, uses: |Temp| -> Temp,
+               defs: |Temp| -> Temp) -> ~Statement {
     s.map_temps(uses, defs)
   }
 
-  fn each_def(&self, s: &Statement, f: &fn(Temp)) { s.each_def(f) }
-  fn each_use(&self, s: &Statement, f: &fn(Temp)) { s.each_use(f) }
+  fn each_def(&self, s: &Statement, f: |Temp|) { s.each_def(f) }
+  fn each_use(&self, s: &Statement, f: |Temp|) { s.each_use(f) }
 
   fn phi_info<'r>(&self, me: &'r Statement) -> Option<(Temp, &'r ssa::PhiMap)> {
     match *me {
@@ -186,10 +185,10 @@ impl ssa::Statement<Statement> for Info {
       _             => None
     }
   }
-  fn phi_unwrap(&self, me: ~Statement) -> Either<~Statement, (Temp, ssa::PhiMap)> {
+  fn phi_unwrap(&self, me: ~Statement) -> Result<(Temp, ssa::PhiMap), ~Statement> {
     match me {
-      ~Phi(d, m) => Right((d, m)),
-      s          => Left(s)
+      ~Phi(d, m) => Ok((d, m)),
+      s          => Err(s)
     }
   }
 }
@@ -205,23 +204,23 @@ impl PrettyPrint for Statement {
       Return(ref e) => ~"return " + e.pp(),
       Die(ref e) => ~"die if " + e.pp(),
       Call(t, ref e, ref E) =>
-        fmt!("%s <- %s(%s)", t.pp(), e.pp(),
-             E.map(|e| e.pp()).connect(", ")),
+        format!("{} <- {}({})", t.pp(), e.pp(),
+                E.map(|e| e.pp()).connect(", ")),
       Phi(tmp, ref map) => {
         let mut s = tmp.pp() + " <- phi(";
         for (&id, &tmp) in map.iter() {
-          s.push_str(fmt!("[ %s - n%d ] ", tmp.pp(), id as int));
+          s.push_str(format!("[ {} - n{} ] ", tmp.pp(), id as int));
         }
         s + ")"
       }
       Arguments(ref tmps) =>
-        fmt!("args %s", tmps.map(|&t| t.pp()).connect(", ")),
+        format!("args {}", tmps.map(|&t| t.pp()).connect(", ")),
     }
   }
 }
 
 impl Expression {
-  pub fn map_temps(~self, f: &fn(Temp) -> Temp) -> ~Expression {
+  pub fn map_temps(~self, f: |Temp| -> Temp) -> ~Expression {
     match self {
       ~BinaryOp(op, e1, e2) =>
         ~BinaryOp(op, e1.map_temps(|x| f(x)), e2.map_temps(f)),
@@ -232,9 +231,9 @@ impl Expression {
     }
   }
 
-  pub fn each_temp(&self, f: &fn(Temp)) {
+  pub fn each_temp(&self, f: |Temp|) {
     match *self {
-      Const(*) | LabelExp(*) => (),
+      Const(..) | LabelExp(..) => (),
       BinaryOp(_, ref e1, ref e2) => {
         e1.each_temp(|x| f(x));
         e2.each_temp(f)
@@ -262,7 +261,7 @@ impl PrettyPrint for Expression {
   fn pp(&self) -> ~str {
     match *self {
       Temp(ref t) => t.pp(),
-      Const(c, _) => fmt!("0x%x", c as uint),
+      Const(c, _) => format!("0x{:x}", c as uint),
       BinaryOp(op, ref e1, ref e2) =>
         ~"(" + e1.pp() + " " + op.pp() + " " + e2.pp() + ")",
       LabelExp(ref l) => l.pp()

@@ -1,6 +1,5 @@
 use std::cmp;
 use std::io;
-use std::io::WriterUtil;
 use std::hashmap::{HashMap, HashSet};
 
 use middle::{label, ir};
@@ -108,7 +107,7 @@ impl Constraint {
 
 impl Instruction {
   #[inline(always)]
-  pub fn each_def(&self, f: &fn(Temp)) {
+  pub fn each_def(&self, f: |Temp|) {
     match *self {
       BinaryOp(_, ~Temp(t), _, _) |
       Move(~Temp(t), _) |
@@ -126,7 +125,7 @@ impl Instruction {
   }
 
   #[inline(always)]
-  pub fn each_use(&self, f: &fn(Temp)) {
+  pub fn each_use(&self, f: |Temp|) {
     match *self {
       Condition(_, ~Temp(t1), ~Temp(t2)) |
       Die(_, ~Temp(t1), ~Temp(t2)) |
@@ -177,16 +176,16 @@ impl Instruction {
     }
   }
 
-  pub fn is_phi(&self) -> bool { match *self { Phi(*) => true, _ => false } }
+  pub fn is_phi(&self) -> bool { match *self { Phi(..) => true, _ => false } }
 }
 
 impl ssa::Statement<Instruction> for RegisterInfo {
   fn phi(&self, t: Temp, map: ssa::PhiMap) -> ~Instruction { ~Phi(t, map) }
 
-  fn each_def(&self, i: &Instruction, f: &fn(Temp)) {
+  fn each_def(&self, i: &Instruction, f: |Temp|) {
     i.each_def(f)
   }
-  fn each_use(&self, i: &Instruction, f: &fn(Temp)) {
+  fn each_use(&self, i: &Instruction, f: |Temp|) {
     i.each_use(f)
   }
   fn phi_info<'r>(&self, me: &'r Instruction)
@@ -195,15 +194,15 @@ impl ssa::Statement<Instruction> for RegisterInfo {
     me.phi_info()
   }
   fn phi_unwrap(&self, me: ~Instruction)
-      -> Either<~Instruction, (Temp, ssa::PhiMap)> {
+      -> Result<(Temp, ssa::PhiMap), ~Instruction> {
     match me {
-      ~Phi(d, m) => Right((d, m)),
-      i          => Left(i)
+      ~Phi(d, m) => Ok((d, m)),
+      i          => Err(i)
     }
   }
 
-  fn map_temps(&self, i: ~Instruction, uses: &fn(Temp) -> Temp,
-               defs: &fn(Temp) -> Temp) -> ~Instruction {
+  fn map_temps(&self, i: ~Instruction, uses: |Temp| -> Temp,
+               defs: |Temp| -> Temp) -> ~Instruction {
     match i {
       ~BinaryOp(op, o1, o2, o3) => {
         let (o2, o3) = (o2.map_temps(|x| uses(x)), o3.map_temps(uses));
@@ -250,13 +249,13 @@ impl ssa::Statement<Instruction> for RegisterInfo {
 impl ssa::Statement<Instruction> for StackInfo {
   fn phi(&self, t: Temp, map: ssa::PhiMap) -> ~Instruction { ~MemPhi(t, map) }
 
-  fn each_def(&self, i: &Instruction, f: &fn(Temp)) {
+  fn each_def(&self, i: &Instruction, f: |Temp|) {
     match *i {
       Spill(_, t) | MemPhi(t, _) => f(t),
       _ => ()
     }
   }
-  fn each_use(&self, i: &Instruction, f: &fn(Temp)) {
+  fn each_use(&self, i: &Instruction, f: |Temp|) {
     match *i {
       Reload(_, t) => f(t),
       _ => ()
@@ -269,15 +268,15 @@ impl ssa::Statement<Instruction> for StackInfo {
     }
   }
   fn phi_unwrap(&self, me: ~Instruction)
-      -> Either<~Instruction, (Temp, ssa::PhiMap)> {
+      -> Result<(Temp, ssa::PhiMap), ~Instruction> {
     match me {
-      ~MemPhi(d, m) => Right((d, m)),
-      i             => Left(i)
+      ~MemPhi(d, m) => Ok((d, m)),
+      i             => Err(i)
     }
   }
 
-  fn map_temps(&self, i: ~Instruction, uses: &fn(Temp) -> Temp,
-               defs: &fn(Temp) -> Temp) -> ~Instruction {
+  fn map_temps(&self, i: ~Instruction, uses: |Temp| -> Temp,
+               defs: |Temp| -> Temp) -> ~Instruction {
     match i {
       ~MemPhi(t, map) => ~MemPhi(defs(t), map),
       ~Spill(r, t) => ~Spill(r, defs(t)),
@@ -291,20 +290,20 @@ impl PrettyPrint for Instruction {
   fn pp(&self) -> ~str {
     match *self {
       Raw(ref s) => s.clone(),
-      Arg(t, i) => fmt!("%s = arg[%?]", t.pp(), i),
-      Return(ref t) => fmt!("ret // %s", t.pp()),
-      Use(t) => fmt!("use %s", t.pp()),
+      Arg(t, i) => format!("{} = arg[{:?}]", t.pp(), i),
+      Return(ref t) => format!("ret // {}", t.pp()),
+      Use(t) => format!("use {}", t.pp()),
       Die(c, ref o1, ref o2) =>
-        fmt!("cmp %s, %s; j%s %sraise_segv", o2.pp(), o1.pp(),
+        format!("cmp {}, {}; j{} {}raise_segv", o2.pp(), o1.pp(),
              c.suffix(), label::prefix()),
       Condition(c, ref o1, ref o2) =>
-        fmt!("cmp %s, %s // %s", o2.pp(), o1.pp(), c.suffix()),
+        format!("cmp {}, {} // {}", o2.pp(), o1.pp(), c.suffix()),
       Load(ref dst, ref addr) =>
-        fmt!("mov %s, %s", addr.pp(), dst.pp()),
+        format!("mov {}, {}", addr.pp(), dst.pp()),
       Store(ref addr, ref src) => match *src {
-        ~Immediate(_, ir::Pointer) => fmt!("movq %s, %s", src.pp(), addr.pp()),
-        ~Immediate(_, ir::Int)     => fmt!("movl %s, %s", src.pp(), addr.pp()),
-        _                          => fmt!("mov %s, %s", src.pp(), addr.pp()),
+        ~Immediate(_, ir::Pointer) => format!("movq {}, {}", src.pp(), addr.pp()),
+        ~Immediate(_, ir::Int)     => format!("movl {}, {}", src.pp(), addr.pp()),
+        _                          => format!("mov {}, {}", src.pp(), addr.pp()),
       },
       Move(ref o1, ref o2) =>
         if o1.size() != o2.size() && !o2.imm() {
@@ -315,52 +314,52 @@ impl PrettyPrint for Instruction {
       BinaryOp(binop, ref dest, ref s1, ref s2) => match binop {
         /* multiplications can have third operand if it's an immediate */
         Mul if s2.imm() && !s1.imm() => {
-          fmt!("imul %s, %s, %s", s2.pp(), s1.pp(), dest.pp())
+          format!("imul {}, {}, {}", s2.pp(), s1.pp(), dest.pp())
         }
         /* division/mod are both weird */
-        Div | Mod => fmt!("cltd; idiv %s // %s <- %s %s %s", s2.pp(), dest.pp(),
+        Div | Mod => format!("cltd; idiv {} // {} <- {} {} {}", s2.pp(), dest.pp(),
                           s1.pp(), binop.pp(), s2.pp()),
 
         /* Shifting by immediates can only use lower 5 bits */
         Lsh | Rsh if s1.imm() =>
-          fmt!("%s %s, %s", binop.pp(), s1.mask(0x1f).pp(), dest.pp()),
+          format!("{} {}, {}", binop.pp(), s1.mask(0x1f).pp(), dest.pp()),
         Lsh | Rsh if s1.reg() =>
-          fmt!("%s %%cl, %s", binop.pp(), dest.pp()),
+          format!("{} %%cl, {}", binop.pp(), dest.pp()),
 
         Cmp(cond) => {
           let dstsmall = match *dest {
             ~Register(r, _) => r.byte().to_owned(), _ => dest.pp()
           };
-          fmt!("cmp %s, %s; set%s %s; movzbl %s, %s",
+          format!("cmp {}, {}; set{} {}; movzbl {}, {}",
                s2.pp(), s1.pp(), cond.suffix(), dstsmall, dstsmall, dest.pp())
         }
 
-        _ => fmt!("%s %s, %s // %s",
+        _ => format!("{} {}, {} // {}",
                   binop.pp(), s1.pp(), dest.pp(), s2.pp()),
       },
       Call(dst, ref e, ref args) =>
-        fmt!("call %s // %s <- %s", e.pp(), dst.pp(),
+        format!("call {} // {} <- {}", e.pp(), dst.pp(),
              ~"(" + args.map(|a| a.pp()).connect(", ") + ")"),
       Phi(tmp, ref map) => {
         let mut s = ~"//" + tmp.pp() + " <- phi(";
         for (&id, &tmp) in map.iter() {
-          s.push_str(fmt!("[ %s - n%? ] ", tmp.pp(), id));
+          s.push_str(format!("[ {} - n{:?} ] ", tmp.pp(), id));
         }
         s + ")"
       }
       MemPhi(tag, ref map) => {
-        let mut s = fmt!("//m%? <- mphi(", tag);
+        let mut s = format!("//m{:?} <- mphi(", tag);
         for (&id, &tag) in map.iter() {
-          s.push_str(fmt!("[ m%? - n%? ] ", tag, id));
+          s.push_str(format!("[ m{:?} - n{:?} ] ", tag, id));
         }
         s + ")"
       }
-      Spill(t, tag) => fmt!("SPILL %s -> %?", t.pp(), tag),
-      Reload(t, tag) => fmt!("RELOAD %s <= %?", t.pp(), tag),
+      Spill(t, tag) => format!("SPILL {} -> {:?}", t.pp(), tag),
+      Reload(t, tag) => format!("RELOAD {} <= {:?}", t.pp(), tag),
       PCopy(ref copies) => {
         let mut s = ~"{";
         for &(k, v) in copies.iter() {
-          s.push_str(fmt!("(%? <= %?) ", k, v));
+          s.push_str(format!("({:?} <= {:?}) ", k, v));
         }
         s + "}"
       }
@@ -369,8 +368,8 @@ impl PrettyPrint for Instruction {
 }
 
 impl Operand {
-  pub fn imm(&self) -> bool { match *self { Immediate(*) => true, _ => false } }
-  pub fn reg(&self) -> bool { match *self { Register(*) => true, _ => false } }
+  pub fn imm(&self) -> bool { match *self { Immediate(..) => true, _ => false } }
+  pub fn reg(&self) -> bool { match *self { Register(..) => true, _ => false } }
 
   fn mask(&self, mask: i32) -> ~Operand {
     match *self {
@@ -382,19 +381,19 @@ impl Operand {
   pub fn size(&self) -> Size {
     match *self {
       Immediate(_, s) | Register(_, s) => s,
-      LabelOp(*) => ir::Pointer,
-      Temp(*) => ir::Int
+      LabelOp(..) => ir::Pointer,
+      Temp(..) => ir::Int
     }
   }
 
-  pub fn each_temp(&self, f: &fn(Temp)) {
+  pub fn each_temp(&self, f: |Temp|) {
     match *self {
       Temp(t) => { f(t) }
       _ => ()
     }
   }
 
-  pub fn map_temps(~self, f: &fn(Temp) -> Temp) -> ~Operand {
+  pub fn map_temps(~self, f: |Temp| -> Temp) -> ~Operand {
     match self {
       ~Temp(t) => ~Temp(f(t)),
       o        => o
@@ -405,7 +404,7 @@ impl Operand {
 impl PrettyPrint for Operand {
   fn pp(&self) -> ~str {
     match *self {
-      Immediate(c, _) => fmt!("$%d", c as int),
+      Immediate(c, _) => format!("${}", c as int),
       Register(reg, s) => reg.size(s).to_owned(),
       Temp(t) => t.pp(),
       LabelOp(ref l) => l.pp()
@@ -426,7 +425,7 @@ impl cmp::Eq for Operand {
 }
 
 impl Address {
-  fn map_temps(~self, f: &fn(Temp) -> Temp) -> ~Address {
+  fn map_temps(~self, f: |Temp| -> Temp) -> ~Address {
     match self {
       ~MOp(t, disp, off) =>
         ~MOp(t.map_temps(|x| f(x)), disp,
@@ -435,7 +434,7 @@ impl Address {
     }
   }
 
-  fn each_temp(&self, f: &fn(Temp)) {
+  fn each_temp(&self, f: |Temp|) {
     match *self {
       MOp(ref o, _, ref off) => {
         o.each_temp(|x| f(x));
@@ -443,7 +442,7 @@ impl Address {
           x.each_temp(|x| f(x))
         }
       }
-      Stack(*) | StackArg(*) => ()
+      Stack(..) | StackArg(..) => ()
     }
   }
 }
@@ -453,19 +452,19 @@ impl PrettyPrint for Address {
     match *self {
       MOp(ref o, disp, ref off) => {
         let mut s = ~"";
-        for &d in disp.iter() { s.push_str(fmt!("%u", d)); }
+        for &d in disp.iter() { s.push_str(format!("{}", d)); }
         s.push_str("(");
         s.push_str(o.pp());
         match *off {
           None => (),
           Some((ref off, mult)) => {
-            s.push_str(fmt!(", %s, %s", off.pp(), mult.pp()));
+            s.push_str(format!(", {}, {}", off.pp(), mult.pp()));
           }
         }
         s + ")"
       }
-      Stack(i) => fmt!("%u(%%rsp)", i),
-      StackArg(i) => fmt!("arg[%?]", i),
+      Stack(i) => format!("{}(%rsp)", i),
+      StackArg(i) => format!("arg[{:?}]", i),
     }
   }
 }
@@ -511,10 +510,6 @@ impl Binop {
   pub fn constrained(&self) -> bool {
     match *self { Div | Mod | Lsh | Rsh => true, _ => false }
   }
-
-  pub fn divmod(&self) -> bool {
-    match *self { Div | Mod => true, _ => false }
-  }
 }
 
 impl PrettyPrint for Binop {
@@ -541,10 +536,10 @@ impl Register {
       EAX  => "%al",
       EBX  => "%bl",
       ECX  => "%cl",
-      EDX  => "%dl",
-      ESI  => "%sil",
-      EDI  => "%dil",
-      ESP  => "%spl",
+      EDX  => "{}l",
+      ESI  => "{}il",
+      EDI  => "{}il",
+      ESP  => "{}pl",
       EBP  => "%bpl",
       R8D  => "%r8b",
       R9D  => "%r9b",
@@ -603,7 +598,7 @@ impl Multiplier {
   pub fn from_int(i: i32) -> Multiplier {
     match i {
       1 => One, 2 => Two, 4 => Four, 8 => Eight,
-      _ => fail!(fmt!("can't make multiplier for %?", i))
+      _ => fail!(format!("can't make multiplier for {:?}", i))
     }
   }
 }
@@ -617,15 +612,15 @@ impl PrettyPrint for Multiplier {
 }
 
 impl Graphable for Program {
-  fn dot(&self, out: @io::Writer) {
+  fn dot(&self, out: &mut io::Writer) {
     out.write_str("digraph {\n");
     for f in self.funs.iter() {
       f.cfg.dot(out,
-        |id| fmt!("%s_n%d", f.name, id as int),
+        |id| format!("{}_n{}", f.name, id as int),
         |id, ins|
           ~"label=\"" + ins.map(|s| s.pp()).connect("\\n") +
-          fmt!("\\n[node=%d]\" shape=box", id as int),
-        |&edge| fmt!("label=%?", edge)
+          format!("\n[node={}]\" shape=box", id as int),
+        |&edge| format!("label={:?}", edge)
       )
     }
     out.write_str("\n}");
@@ -633,7 +628,7 @@ impl Graphable for Program {
 }
 
 impl Program {
-  pub fn output(&self, out: @io::Writer) {
+  pub fn output(&self, out: &mut io::Writer) {
     for f in self.funs.iter() {
       f.output(out);
     }
@@ -645,19 +640,19 @@ impl Function {
    * Traverses the cfg and outputs a stream of instructions which can be
    * assembled to the actual program
    */
-  fn output(&self, out: @io::Writer) {
+  fn output(&self, out: &mut io::Writer) {
     let base = label::Internal(self.name.clone()).pp();
     /* entry label */
     out.write_str(~".globl " + base + "\n");
     out.write_str(base + ":\n");
-    let lbl = |n: graph::NodeId| fmt!("%s_bb_%d", base, n as int);
+    let lbl = |n: graph::NodeId| format!("{}_bb_{}", base, n as int);
 
     /* skipped is a stack of nodes that we have yet to visit */
     let mut skipped = ~[self.root];
     let mut visited = HashSet::new();
 
-    while skipped.len() > 0 {
-      let block = skipped.pop();
+    loop {
+      let block = match skipped.pop() { Some(a) => a, None => break };
       if visited.contains(&block) { continue }
 
       /* Each block has its own label (so it can be jumped to) */
@@ -677,7 +672,7 @@ impl Function {
       let mut tedge = None;
       let mut fedge = None;
       for (id, &typ) in self.cfg.succ_edges(block) {
-        debug!("out of %? (%? - %?)", block, id, typ);
+        debug!("out of {:?} ({:?} - {:?})", block, id, typ);
         match typ {
           ir::Always | ir::Branch | ir::LoopOut => {
             assert!(tedge.is_none() && fedge.is_none() && always.is_none());
@@ -702,7 +697,7 @@ impl Function {
         /* Otherwise always branches or edges to visited blocks are jumps */
         Some((_, id)) => {
           skipped.unshift(id);
-          out.write_str(fmt!("  jmp L%s\n", lbl(id)));
+          out.write_str(format!("  jmp L{}\n", lbl(id)));
         }
 
         None => {
@@ -712,8 +707,8 @@ impl Function {
 
             (Some((tedge, tid)), Some((fedge, fid))) => {
               /* On a conditional branch, the last ins must be Condition */
-              let cond = match *instructions.last() {
-                ~Condition(c, _, _) => c,
+              let cond = match instructions.last() {
+                Some(&~Condition(c, _, _)) => c,
                 _ => fail!(~"Need a condition with true/false edges")
               };
 
@@ -723,8 +718,8 @@ impl Function {
                 (ir::True, _) => {
                   skipped.push(fid);
                   skipped.push(tid);
-                  out.write_str(fmt!("  j%s L%s\n", cond.negate().suffix(),
-                                     lbl(fid)));
+                  out.write_str(format!("  j{} L{}\n", cond.negate().suffix(),
+                                        lbl(fid)));
                 }
 
                 /* Otherwise we can use the condition as is and we update the
@@ -732,7 +727,7 @@ impl Function {
                 (_, ir::False) => {
                   skipped.push(tid);
                   skipped.push(fid);
-                  out.write_str(fmt!("  j%s L%s\n", cond.suffix(), lbl(tid)));
+                  out.write_str(format!("  j{} L{}\n", cond.suffix(), lbl(tid)));
                 }
 
                 _ => fail!(~"invalidly specified edges")

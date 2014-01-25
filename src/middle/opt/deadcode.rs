@@ -75,10 +75,10 @@ impl Eliminator {
       s => s
     };
     let mut def = None;
-    do s.each_def |t| {
+    s.each_def(|t| {
       assert!(def.is_none());
       def = Some(t);
-    }
+    });
 
     /* If the definition was never used, and we're a pure statement (no side
        effects) then we can definitely remove this code */
@@ -92,16 +92,16 @@ impl Eliminator {
       None => ()
     }
     /* otherwise, mark all our uses as 'used', and continue on */
-    do s.each_use |t| {
+    s.each_use(|t| {
       self.used.set(t, true);
-    }
+    });
     self.stms.push(s);
     return true;
   }
 
   fn ispure(&self, s: &Statement) -> bool {
     match *s {
-      Call(*) | Load(*) |
+      Call(..) | Load(..) |
         Move(_, ~BinaryOp(Div, _, _)) | Move(_, ~BinaryOp(Mod, _, _)) => false,
       _ => true
     }
@@ -111,7 +111,7 @@ impl Eliminator {
     for (i, stm) in b.iter().enumerate() {
       match *stm {
         ~Die(~Const(c, _)) if c != 0 => return i + 1,
-        ~Return(*) => return i + 1,
+        ~Return(..) => return i + 1,
         _ => ()
       }
     }

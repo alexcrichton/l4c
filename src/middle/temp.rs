@@ -34,6 +34,6 @@ impl Allocator {
 
 impl PrettyPrint for Temp {
   fn pp(&self) -> ~str {
-    fmt!("%%t%u", *self as uint)
+    format!("%t{}", *self as uint)
   }
 }
