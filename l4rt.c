@@ -30,11 +30,11 @@ int printchar (int c) {
 }
 
 int printint (int n) {
-  fprintf(stderr, "%d", n);
+  return fprintf(stderr, "%d", n);
 }
 
 int printhex (int n) {
-  fprintf(stderr, "0x%X", n);
+  return fprintf(stderr, "0x%X", n);
 }
 
 int readchar () {
@@ -74,7 +74,7 @@ int viewasint (float x) {
 }
 
 int printfloat (int x) {
-  fprintf(stderr, "%f", viewasfloat(x));
+  return fprintf(stderr, "%f", viewasfloat(x));
 }
 
 int readfloat () {
@@ -117,7 +117,7 @@ int main() {
 }
 
 void raise_segv() {
-  *(int*)NULL = 0;
+  *(volatile int*)NULL = 0;
 }
 
 void *salloc(int32_t elems, size_t bytes) {

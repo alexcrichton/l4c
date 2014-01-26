@@ -6,6 +6,7 @@ use std::io;
 use std::result;
 use std::vec;
 use std::os;
+use std::task;
 
 use utils::profile;
 use utils::PrettyPrint;
@@ -107,7 +108,7 @@ fn main() {
         optopt("m"), optopt("arch"),
         ];
     let args = os::args();
-    let m = &match getopts(args.tail(), flags) {
+    let m = match getopts(args.tail(), flags) {
         result::Ok(m)  => m,
         result::Err(e) => fail!("{}", e.to_err_msg())
     };
@@ -116,6 +117,12 @@ fn main() {
         return;
     }
 
+    let mut t = task::task();
+    t.opts.stack_size = Some(64 * 1024 * 1024);
+    t.spawn(proc() { run_compiler(&m); });
+}
+
+fn run_compiler(m: &extra::getopts::Matches) {
     /* front */
     let mut ast = prof(m, "generating ast", || {
         let header = m.opt_str("l").or(m.opt_str("header"));

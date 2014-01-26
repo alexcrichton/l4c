@@ -324,7 +324,7 @@ impl PrettyPrint for Instruction {
         Lsh | Rsh if s1.imm() =>
           format!("{} {}, {}", binop.pp(), s1.mask(0x1f).pp(), dest.pp()),
         Lsh | Rsh if s1.reg() =>
-          format!("{} %%cl, {}", binop.pp(), dest.pp()),
+          format!("{} %cl, {}", binop.pp(), dest.pp()),
 
         Cmp(cond) => {
           let dstsmall = match *dest {
@@ -536,10 +536,10 @@ impl Register {
       EAX  => "%al",
       EBX  => "%bl",
       ECX  => "%cl",
-      EDX  => "{}l",
-      ESI  => "{}il",
-      EDI  => "{}il",
-      ESP  => "{}pl",
+      EDX  => "%dl",
+      ESI  => "%sil",
+      EDI  => "%dil",
+      ESP  => "%spl",
       EBP  => "%bpl",
       R8D  => "%r8b",
       R9D  => "%r9b",

@@ -24,6 +24,7 @@ bin/driver: driver.go
 	@mkdir -p bin
 	go build -o $@ $<
 
+test: RUSTFLAGS += -A dead-code
 test:
 	$(RUSTC) $(RUSTFLAGS) --test src/l4c.rs -o bin/l4c-test
 	./bin/l4c-test
