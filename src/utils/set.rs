@@ -5,39 +5,39 @@ use std::hash::Hash;
 use utils::PrettyPrint;
 
 pub fn singleton<T: Eq + IterBytes + Hash>(t: T) -> HashSet<T> {
-  let mut s = HashSet::new();
-  s.insert(t);
-  return s;
+    let mut s = HashSet::new();
+    s.insert(t);
+    return s;
 }
 
 impl<T: Eq + IterBytes + Hash + ToStr> PrettyPrint for HashSet<T> {
-  fn pp(&self) -> ~str {
-    let mut s = ~"{";
-    let mut first = true;
-    for k in self.iter() {
-      if first {
-        first = false;
-      } else {
-        s.push_str(", ");
-      }
-      s.push_str(k.to_str());
+    fn pp(&self) -> ~str {
+        let mut s = ~"{";
+        let mut first = true;
+        for k in self.iter() {
+            if first {
+                first = false;
+            } else {
+                s.push_str(", ");
+            }
+            s.push_str(k.to_str());
+        }
+        return s + "}";
     }
-    return s + "}";
-  }
 }
 
 impl<K: Eq + IterBytes + Hash + ToStr, V: ToStr> PrettyPrint for HashMap<K, V> {
-  fn pp(&self) -> ~str {
-    let mut s = ~"{";
-    let mut first = true;
-    for (k, v) in self.iter() {
-      if first {
-        first = false;
-      } else {
-        s.push_str(", ");
-      }
-      s.push_str(k.to_str() + ": " + v.to_str());
+    fn pp(&self) -> ~str {
+        let mut s = ~"{";
+        let mut first = true;
+        for (k, v) in self.iter() {
+            if first {
+                first = false;
+            } else {
+                s.push_str(", ");
+            }
+            s.push_str(k.to_str() + ": " + v.to_str());
+        }
+        return s + "}";
     }
-    return s + "}";
-  }
 }

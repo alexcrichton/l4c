@@ -129,12 +129,12 @@ impl Program {
   pub fn error(&self, m: mark::Mark, msg: &str) {
     let mut out = io::stderr();
     if m == mark::dummy {
-      out.write_str(format!("error: {}\n", msg));
+      out.write_str(format!("error: {}\n", msg)).unwrap();
     } else {
       match self.positions[m] {
         mark::Coords(((l1, c1), (l2, c2)), ref file) => {
           out.write_str(format!("{}:{}.{}-{}.{}:error: {}\n", *file, l1, c1, l2,
-                                c2, msg));
+                                c2, msg)).unwrap();
         }
       }
     }

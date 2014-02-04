@@ -21,7 +21,7 @@ mod utils {
         fn pp(&self) -> ~str;
     }
     pub trait Graphable {
-        fn dot(&self, &mut ::std::io::Writer);
+        fn dot(&self, &mut ::std::io::Writer) -> ::std::io::IoResult<()>;
     }
 }
 
@@ -151,7 +151,7 @@ fn run_compiler(m: &extra::getopts::Matches) {
         let _p = profstk(m, "translation");
         ir = middle::trans::translate(ast, safe);
     }
-    if m.opt_present("dot-ir")  { ir.dot(&mut io::stdout()); }
+    if m.opt_present("dot-ir")  { ir.dot(&mut io::stdout()).unwrap(); }
     pass(middle::ir::ssa, &mut ir, m, "dot-ssa");
 
     pass(middle::opt::cfold::optimize,    &mut ir, m, "dot-cfold");
@@ -164,7 +164,7 @@ fn run_compiler(m: &extra::getopts::Matches) {
         let _p = profstk(m, "codegen");
         assem = back::codegen::codegen(ir);
     }
-    if m.opt_present("dot-assem") { assem.dot(&mut io::stdout()); }
+    if m.opt_present("dot-assem") { assem.dot(&mut io::stdout()).unwrap(); }
     pass(back::peephole::optimize,  &mut assem, m, "dot-peephole");
     pass(back::precolor::constrain, &mut assem, m, "dot-precolor");
     pass(back::spill::spill,        &mut assem, m, "dot-spilled");
@@ -173,8 +173,8 @@ fn run_compiler(m: &extra::getopts::Matches) {
 
     let output = Path::new(m.free[0].as_slice()).with_extension("s");
 
-    match io::result(|| io::File::create(&output)) {
-        Ok(mut f)  => assem.output(&mut f),
+    match io::File::create(&output) {
+        Ok(mut f) => assem.output(&mut f).unwrap(),
         Err(e) => fail!(e)
     }
 }
@@ -183,7 +183,7 @@ fn pass<T: utils::Graphable, U>(f: |&mut T| -> U, p: &mut T,
                                 m: &extra::getopts::Matches, s: &str) -> U {
     let ret = prof(m, s, || f(p));
     if m.opt_present(s) {
-        p.dot(&mut io::stdout());
+        p.dot(&mut io::stdout()).unwrap();
     }
     return ret;
 }

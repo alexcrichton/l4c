@@ -54,7 +54,7 @@ pub fn parse_files(f: &[~str], main: &str) -> Result<Program, ~str> {
   let mut posgen = PositionGenerator::new();
 
   for f in f.iter() {
-    let mut input = match io::result(|| io::File::open(&Path::new(f.as_slice()))) {
+    let mut input = match io::File::open(&Path::new(f.as_slice())) {
       Ok(i) => i,
       Err(s) => { return Err(format!("{:?}", s)); }
     };

@@ -193,7 +193,7 @@ fn do_op(op: Binop, i1: i32, i2: i32, t: Type) -> (~Expression, bool) {
     Lsh => (~Const(i1 << i2, t), true),
     Rsh => (~Const(i1 >> i2, t), true),
     Div | Mod => {
-      if i2 == 0 || (i1 == i32::min_value && i2 == -1) {
+      if i2 == 0 || (i1 == i32::MIN && i2 == -1) {
         (~BinaryOp(op, ~Const(i1, t), ~Const(i2, t)), false)
       } else {
         match op {

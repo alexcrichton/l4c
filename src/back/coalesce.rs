@@ -218,7 +218,7 @@ fn use_def_maps<I: ssa::Statement<assem::Instruction>>(
                 None => (),
                 Some((_, m)) => {
                     for (&pred, &tmp) in m.iter() {
-                        add_use(tmp, (pred, int::max_value), uses);
+                        add_use(tmp, (pred, int::MAX), uses);
                     }
                 }
             }
@@ -464,7 +464,7 @@ impl<'a, I: ssa::Statement<assem::Instruction>> Coalescer<'a, I> {
      */
     fn min_color(&mut self, t: Temp, ignore: uint) -> uint {
         /* cnts[i] = inft  =>  i can't be used for 't' */
-        let mut cnts = vec::from_elem(self.max_color, uint::max_value);
+        let mut cnts = vec::from_elem(self.max_color, uint::MAX);
         for r in range(1u, self.max_color + 1) {
             if r != ignore && self.admissible(t, r) {
                 cnts[r - 1] = 0;
@@ -474,14 +474,14 @@ impl<'a, I: ssa::Statement<assem::Instruction>> Coalescer<'a, I> {
         /* Iterate over our interferences and bump counts for their colors */
         for &tmp in self.interferences(t).borrow().iter() {
             let idx = *self.colors.get(&tmp) - 1;
-            if cnts[idx] != uint::max_value {
+            if cnts[idx] != uint::MAX {
                 cnts[idx] += 1;
             }
         }
 
         /* And finally find the minimum index */
         let mut mini = 0;
-        let mut min = uint::max_value;
+        let mut min = uint::MAX;
         for (i, &cnt) in cnts.iter().enumerate() {
             if cnt < min {
                 min = cnt;
@@ -787,7 +787,7 @@ impl<'a, I: ssa::Statement<assem::Instruction>> Coalescer<'a, I> {
             /* Be sure to check the dominance relation relative to the end of the
                predecessor's block as opposed to the start as x could have been
                defined in the block */
-            if self.dominates(def, (pred, int::max_value)) {
+            if self.dominates(def, (pred, int::MAX)) {
                 self.find_interferences(x, pred, set, visited);
             }
         }

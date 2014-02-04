@@ -101,8 +101,8 @@ impl<'a> Lexer<'a> {
       let c = match self.next {
         Some(c) => { self.next = None; c }
         None => match self.input.read_char() {
-            Some(c) => c,
-            None => return (EOF, ((-1, -1), (-1, -1)))
+            Ok(c) => c,
+            Err(..) => return (EOF, ((-1, -1), (-1, -1)))
         }
       };
       match self.consume(c) {
@@ -358,8 +358,8 @@ impl<'a> Lexer<'a> {
 
   fn parse_num(&mut self, base: uint) -> i32 {
     match num::from_str_radix::<u64>(self.cur, base) {
-      Some(n) if (base == 10 && n <= i32::max_value as u64 + 1) ||
-                 (base == 16 && n <= u32::max_value as u64) => {
+      Some(n) if (base == 10 && n <= i32::MAX as u64 + 1) ||
+                 (base == 16 && n <= u32::MAX as u64) => {
         unsafe { self.cur.set_len(0); }
         return n as i32;
       }

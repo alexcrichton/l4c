@@ -612,27 +612,28 @@ impl PrettyPrint for Multiplier {
 }
 
 impl Graphable for Program {
-  fn dot(&self, out: &mut io::Writer) {
-    out.write_str("digraph {\n");
+  fn dot(&self, out: &mut io::Writer) -> io::IoResult<()> {
+    if_ok!(out.write_str("digraph {\n"));
     for f in self.funs.iter() {
-      f.cfg.dot(out,
+      if_ok!(f.cfg.dot(out,
         |id| format!("{}_n{}", f.name, id as int),
         |id, ins|
           ~"label=\"" + ins.map(|s| s.pp()).connect("\\n") +
           format!("\n[node={}]\" shape=box", id as int),
         |&edge| format!("label={:?}", edge)
-      )
+      ));
     }
-    out.write_str("\n}");
+    out.write_str("\n}")
   }
 }
 
 impl Program {
-  pub fn output(&self, out: &mut io::Writer) {
-    for f in self.funs.iter() {
-      f.output(out);
+    pub fn output(&self, out: &mut io::Writer) -> io::IoResult<()> {
+        for f in self.funs.iter() {
+            if_ok!(f.output(out));
+        }
+        Ok(())
     }
-  }
 }
 
 impl Function {
@@ -640,11 +641,11 @@ impl Function {
    * Traverses the cfg and outputs a stream of instructions which can be
    * assembled to the actual program
    */
-  fn output(&self, out: &mut io::Writer) {
+  fn output(&self, out: &mut io::Writer) -> io::IoResult<()> {
     let base = label::Internal(self.name.clone()).pp();
     /* entry label */
-    out.write_str(~".globl " + base + "\n");
-    out.write_str(base + ":\n");
+    if_ok!(out.write_str(~".globl " + base + "\n"));
+    if_ok!(out.write_str(base + ":\n"));
     let lbl = |n: graph::NodeId| format!("{}_bb_{}", base, n as int);
 
     /* skipped is a stack of nodes that we have yet to visit */
@@ -657,14 +658,14 @@ impl Function {
 
       /* Each block has its own label (so it can be jumped to) */
       visited.insert(block);
-      out.write_str(~"L" + lbl(block) + ":\n");
+      if_ok!(out.write_str(~"L" + lbl(block) + ":\n"));
 
       /* output the actual block */
       let instructions = self.cfg.node(block);
       for ins in instructions.iter() {
-        out.write_str("  ");
-        out.write_str(ins.pp());
-        out.write_char('\n');
+        if_ok!(out.write_str("  "));
+        if_ok!(out.write_str(ins.pp()));
+        if_ok!(out.write_char('\n'));
       }
 
       /* Collect information about the edges */
@@ -697,7 +698,7 @@ impl Function {
         /* Otherwise always branches or edges to visited blocks are jumps */
         Some((_, id)) => {
           skipped.unshift(id);
-          out.write_str(format!("  jmp L{}\n", lbl(id)));
+          if_ok!(out.write_str(format!("  jmp L{}\n", lbl(id))));
         }
 
         None => {
@@ -718,8 +719,9 @@ impl Function {
                 (ir::True, _) => {
                   skipped.push(fid);
                   skipped.push(tid);
-                  out.write_str(format!("  j{} L{}\n", cond.negate().suffix(),
-                                        lbl(fid)));
+                  if_ok!(out.write_str(format!("  j{} L{}\n",
+                                               cond.negate().suffix(),
+                                               lbl(fid))));
                 }
 
                 /* Otherwise we can use the condition as is and we update the
@@ -727,7 +729,8 @@ impl Function {
                 (_, ir::False) => {
                   skipped.push(tid);
                   skipped.push(fid);
-                  out.write_str(format!("  j{} L{}\n", cond.suffix(), lbl(tid)));
+                  if_ok!(out.write_str(format!("  j{} L{}\n", cond.suffix(),
+                                               lbl(tid))));
                 }
 
                 _ => fail!(~"invalidly specified edges")
@@ -740,5 +743,6 @@ impl Function {
 
       /* and finally, the basic block is done with its emission! */
     }
+    Ok(())
   }
 }
