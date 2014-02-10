@@ -3,7 +3,7 @@ use std::io;
 use std::util;
 
 use hm = std::hashmap;
-use sm = extra::smallintmap;
+use sm = collections::smallintmap;
 
 pub type NodeId = uint;
 pub type NodeSet = hm::HashSet<NodeId>;

@@ -10,7 +10,7 @@
  */
 
 use std::util::replace;
-use extra::bitv;
+use collections::bitv;
 
 use middle::ir::*;
 

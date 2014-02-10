@@ -1,5 +1,5 @@
 use std::hashmap::{HashMap, HashSet};
-use extra::smallintmap::SmallIntMap;
+use collections::SmallIntMap;
 
 use middle::{temp, liveness, ir, opt};
 use middle::temp::Temp;
@@ -9,7 +9,7 @@ pub struct Analysis {
     /* idoms[a] = b => all elements of b are immeidately dominated by a */
     idominated: Idominated,
     /* idoms[a] = b => immediate dominator of a is b */
-                    idominator: Idominators,
+    idominator: Idominators,
 }
 
 pub trait Statement<T> {

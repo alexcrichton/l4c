@@ -1,6 +1,5 @@
 use std::hashmap::{HashMap, HashSet};
-use extra::smallintmap::SmallIntMap;
-use extra::treemap::TreeSet;
+use collections::{SmallIntMap, TreeSet};
 
 use middle::temp::{Temp, TempSet};
 use middle::ssa::{CFG, Statement};

@@ -1,6 +1,8 @@
 #[feature(macro_rules, globs)];
 
 extern mod extra;
+extern mod getopts;
+extern mod collections;
 
 use std::io;
 use std::result;
@@ -72,49 +74,39 @@ mod back {
     pub mod peephole;
 }
 
-fn help() {
-    println!("Usage: {}", os::args()[0]);
-    println!(" [OPTION...] SOURCEFILE
-where OPTION is
-  -v        --verbose       verbose messages
-            --dump-ast      pretty print the AST
-            --dump-asm      pretty print the assembly before register allocaction
-  -p        --profile       profile the compiler
-  -l l4.h0  --header=l4.h0  header file for the program
-            --dot           output DOT file for the cfg
-            --safe          safe compilation with memory checks
-            --unsafe        unsafe compilation with no memory checks
-  -O 0      --optimize=0    level of optimizations to perform
-  -m x64    --arch=x64      architecture to emit ([x64] | x86)
-
-");
-}
-
 fn main() {
-    use extra::getopts::{optflag, optopt, getopts};
+    use getopts::{optflag, optopt, getopts};
 
     let flags = ~[
-        optflag("v"), optflag("verbose"),
-        optflag("dump-ast"),
-        optflag("profile"),
-        optflag("f"), optflag("profile"),
-        optopt("header"), optopt("l"),
-        optflag("dot-ir"), optflag("dot-ssa"), optflag("dot-cfold"),
-        optflag("dot-deadcode"), optflag("dot-simplify"),
-        optflag("dot-assem"), optflag("dot-spilled"), optflag("dot-ressa"),
-        optflag("dot-colored"), optflag("dot-precolor"), optflag("dot-peephole"),
-        optflag("safe"), optflag("unsafe"),
-        optopt("O"), optopt("optimize"),
-        optopt("m"), optopt("arch"),
-        ];
+        optflag("h", "help", "print this help message"),
+        optflag("v", "verbose", "verbose messages"),
+        optflag("", "dump-ast", "pretty print the AST"),
+        optflag("p", "profile", "profile the compiler"),
+        optopt("l", "header", "header file for the program", "HEADER"),
+        optflag("", "dot-ir", "dot IR after ast translation"),
+        optflag("", "dot-ssa", "dot IR after SSA"),
+        optflag("", "dot-cfold", "dot IR after constant folding"),
+        optflag("", "dot-deadcode", "dot IR after dead code"),
+        optflag("", "dot-simplify", "dot IR after simplification",),
+        optflag("", "dot-assem", "dot IR after lowering"),
+        optflag("", "dot-spilled", "dot IR after spilling"),
+        optflag("", "dot-ressa", "dot IR after ressa"),
+        optflag("", "dot-colored", "dot IR after coloring"),
+        optflag("", "dot-precolor", "dot IR after precoloring"),
+        optflag("", "dot-peephole", "dot IR after peephole optimizations"),
+        optflag("", "safe", "safe compilation with memory checks"),
+        optflag("", "unsafe", "unsafe compilation with no memory checks"),
+        optopt("O", "optimize", "level of optimizations to perform", "LEVEL"),
+        optopt("m", "arch", "architecture to emit", "([x64] | x86)"),
+    ];
     let args = os::args();
     let m = match getopts(args.tail(), flags) {
         result::Ok(m)  => m,
         result::Err(e) => fail!("{}", e.to_err_msg())
     };
-    if m.free.len() == 0 {
-        help();
-        return;
+    if m.free.len() == 0 || m.opt_present("h") {
+        let msg = format!("usage: {} [OPTION...] SOURCEFILE", os::args()[0]);
+        return println!("{}", getopts::usage(msg, flags));
     }
 
     let mut t = task::task();
@@ -122,7 +114,7 @@ fn main() {
     t.spawn(proc() { run_compiler(&m); });
 }
 
-fn run_compiler(m: &extra::getopts::Matches) {
+fn run_compiler(m: &getopts::Matches) {
     /* front */
     let mut ast = prof(m, "generating ast", || {
         let header = m.opt_str("l").or(m.opt_str("header"));
@@ -180,7 +172,7 @@ fn run_compiler(m: &extra::getopts::Matches) {
 }
 
 fn pass<T: utils::Graphable, U>(f: |&mut T| -> U, p: &mut T,
-                                m: &extra::getopts::Matches, s: &str) -> U {
+                                m: &getopts::Matches, s: &str) -> U {
     let ret = prof(m, s, || f(p));
     if m.opt_present(s) {
         p.dot(&mut io::stdout()).unwrap();
@@ -188,7 +180,7 @@ fn pass<T: utils::Graphable, U>(f: |&mut T| -> U, p: &mut T,
     return ret;
 }
 
-fn prof<U>(m : &extra::getopts::Matches, s : &str, f: || -> U) -> U {
+fn prof<U>(m : &getopts::Matches, s : &str, f: || -> U) -> U {
     if m.opt_present("profile") {
         profile::run(f, s)
     } else {
@@ -196,6 +188,6 @@ fn prof<U>(m : &extra::getopts::Matches, s : &str, f: || -> U) -> U {
     }
 }
 
-fn profstk(m : &extra::getopts::Matches, s : &str) -> profile::Guard {
+fn profstk(m : &getopts::Matches, s : &str) -> profile::Guard {
     profile::Guard::new(m.opt_present("profile"), s)
 }

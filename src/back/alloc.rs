@@ -1,8 +1,8 @@
 use std::hashmap::{HashMap, HashSet};
 use std::num;
 
-use extra::bitv;
-use extra::smallintmap::SmallIntMap;
+use collections::bitv;
+use collections::SmallIntMap;
 
 use middle::{ir, liveness};
 use middle::temp::Temp;
@@ -600,7 +600,7 @@ impl PrettyPrint for bitv::Bitv {
  * result specified.
  */
 fn resolve_perm(result: &[uint], incoming: &[uint], f: |Resolution|) {
-  use extra::smallintmap::SmallIntMap;
+  use collections::SmallIntMap;
 
   /* maps describing src -> dst and dst -> src */
   let mut src_dst: SmallIntMap<~[uint]> = SmallIntMap::new();
@@ -660,7 +660,7 @@ fn resolve_perm(result: &[uint], incoming: &[uint], f: |Resolution|) {
 
 #[cfg(test)]
 fn resolve_test(from: &[uint], to: &[uint]) {
-  use extra::smallintmap::SmallIntMap;
+  use collections::SmallIntMap;
   use std::vec;
   let mut regs = vec::from_fn(10, |i| i);
 

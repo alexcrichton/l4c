@@ -51,9 +51,8 @@ use std::rc::Rc;
 use std::uint;
 use std::vec;
 
-use extra::bitv;
-use extra::priority_queue::PriorityQueue;
-use extra::smallintmap::SmallIntMap;
+use collections::bitv;
+use collections::{SmallIntMap, PriorityQueue};
 
 use middle::{ir, liveness, ssa};
 use middle::temp::{Temp, TempSet};
@@ -73,41 +72,41 @@ struct Coalescer<'a, I> {
     precolored: bitv::Bitv,
     /* For all temps with constraints, contains mapping of the constraints. This
        is used when determining the admissible registers for a temp */
-                    constraints: &'a alloc::ConstraintMap,
-                    /* Actual coloring information that's modified */
-                    colors: &'a mut alloc::ColorMap,
+    constraints: &'a alloc::ConstraintMap,
+    /* Actual coloring information that's modified */
+    colors: &'a mut alloc::ColorMap,
 
-                    /* Set of fixed temps (cannot be changed) */
-                    fixed: bitv::Bitv,
-                    /* Map of affine temps, and their weights. The map works both ways, as in
-                       looking up x then y is the same as looking up y then x */
-                    affinities: Affinities,
-                    /* Temporary mapping remembering the old colors of temps for rollbacks */
-                    old_color: SmallIntMap<uint>,
+    /* Set of fixed temps (cannot be changed) */
+    fixed: bitv::Bitv,
+    /* Map of affine temps, and their weights. The map works both ways, as in
+       looking up x then y is the same as looking up y then x */
+    affinities: Affinities,
+    /* Temporary mapping remembering the old colors of temps for rollbacks */
+    old_color: SmallIntMap<uint>,
 
-                    /* Mapping of a temp to where it's defined */
-                    defs: &'a DefMap,
-                    /* Mapping of a temp to the set of locations in which it is used */
-                    uses: &'a UseMap,
+    /* Mapping of a temp to where it's defined */
+    defs: &'a DefMap,
+    /* Mapping of a temp to the set of locations in which it is used */
+    uses: &'a UseMap,
 
-                    /* find_interferences is an incredibly slow method, and this is a
-                       precomputation of the input to a more efficient format to be used in that
-                       method (more information on the method itself) */
-                    liveness_map: &'a HashMap<NodeId, ~[bitv::Bitv]>,
+    /* find_interferences is an incredibly slow method, and this is a
+       precomputation of the input to a more efficient format to be used in that
+       method (more information on the method itself) */
+    liveness_map: &'a HashMap<NodeId, ~[bitv::Bitv]>,
 
-                    /* This algorithm requires a lot of information about the interference graph
-                       and associated components, and because interference information is very
-                       costly to generate, there are a number of caches which store the results of
-                       this computation to facilitate usage later on */
-                    interference: HashMap<Temp, Rc<TempSet>>,
-                    dominates: HashMap<(NodeId, NodeId), bool>,
+    /* This algorithm requires a lot of information about the interference graph
+       and associated components, and because interference information is very
+       costly to generate, there are a number of caches which store the results of
+       this computation to facilitate usage later on */
+    interference: HashMap<Temp, Rc<TempSet>>,
+    dominates: HashMap<(NodeId, NodeId), bool>,
 
-                    f: &'a assem::Function,
-                    live: &'a liveness::Analysis,
-                    info: &'a I,
-                    consider_pcopy: bool,
-                    max_temp: uint,
-                    max_color: uint,
+    f: &'a assem::Function,
+    live: &'a liveness::Analysis,
+    info: &'a I,
+    consider_pcopy: bool,
+    max_temp: uint,
+    max_color: uint,
 }
 
 pub fn optimize<I: ssa::Statement<assem::Instruction>>(
