@@ -1,5 +1,5 @@
 use std::hashmap::{HashMap, HashSet};
-use std::util;
+use std::mem;
 
 use middle::{ir, temp, ssa, label};
 use back::{assem, arch};
@@ -32,7 +32,7 @@ impl CodeGenerator {
   fn run(&mut self, f: ir::Function) -> assem::Function {
     /* extract relevant information from the function */
     let ir::Function {root, name, cfg, loops, types, ..} = f;
-    util::replace(&mut self.oldtypes, types);
+    mem::replace(&mut self.oldtypes, types);
 
     /* Map over the cfg into a new one */
     let cfg = cfg.map(|id, stms| {
@@ -40,11 +40,11 @@ impl CodeGenerator {
       for s in stms.move_iter() {
         self.stm(s);
       }
-      util::replace(&mut self.stms, ~[])
+      mem::replace(&mut self.stms, ~[])
     }, |e| e);
 
     /* Move our calculated sizes into the assem::Function instance */
-    let sizes = util::replace(&mut self.sizes, HashMap::new());
+    let sizes = mem::replace(&mut self.sizes, HashMap::new());
 
     info!("codegen of {} done", name);
     assem::Function { name: name,

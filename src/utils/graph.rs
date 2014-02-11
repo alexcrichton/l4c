@@ -1,6 +1,6 @@
 use std::iter;
 use std::io;
-use std::util;
+use std::mem;
 
 use hm = std::hashmap;
 use sm = collections::smallintmap;
@@ -150,7 +150,7 @@ impl<N, E> Graph<N, E> {
         for (k, v) in this.nodes.move_iter() {
             g2.nodes.insert(k, n(k, v));
         }
-        util::swap(&mut this.pred, &mut g2.pred);
+        mem::swap(&mut this.pred, &mut g2.pred);
         for (k, v) in this.succ.move_iter() {
             let mut map = ~hm::HashMap::new();
             for (k, v) in v.move_iter() {

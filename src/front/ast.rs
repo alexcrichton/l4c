@@ -2,7 +2,7 @@ use std::cell::{RefCell, Cell};
 use std::cmp;
 use std::hashmap::{HashSet, HashMap};
 use std::io;
-use std::util;
+use std::mem;
 
 use front::die;
 use front::mark;
@@ -108,7 +108,7 @@ impl Program {
   }
 
   pub fn elaborate(&mut self) {
-    let prev = util::replace(&mut self.decls, ~[]);
+    let prev = mem::replace(&mut self.decls, ~[]);
     let decls;
     {
       let mut e = Elaborator{ efuns:   HashSet::new(),

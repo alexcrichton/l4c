@@ -1,4 +1,4 @@
-use std::util::{replace, swap};
+use std::mem::{replace, swap};
 use std::hashmap::HashMap;
 
 use front::ast;

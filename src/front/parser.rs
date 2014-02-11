@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::hashmap::HashMap;
 use std::io;
-use std::util;
+use std::mem;
 
 use front::die;
 use front::ast;
@@ -605,8 +605,8 @@ impl<'a> Parser<'a> {
         Some(p) => p,
         None => p.lexer.next()
       };
-      let prev = util::replace(&mut p.cur, next);
-      let psp = util::replace(&mut p.span, nsp);
+      let prev = mem::replace(&mut p.cur, next);
+      let psp = mem::replace(&mut p.span, nsp);
       (prev, psp)
     }
 

@@ -1,4 +1,4 @@
-use std::util::replace;
+use std::mem::replace;
 use front::ast::*;
 use front::mark;
 

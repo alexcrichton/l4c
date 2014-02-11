@@ -9,7 +9,7 @@
  * Furthermore, this eliminates all code after a 'return' or sure death.
  */
 
-use std::util::replace;
+use std::mem::replace;
 use collections::bitv;
 
 use middle::ir::*;

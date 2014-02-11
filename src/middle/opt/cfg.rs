@@ -3,7 +3,7 @@
  */
 
 use std::hashmap::{HashSet, HashMap};
-use std::util::replace;
+use std::mem::replace;
 
 use middle::ssa::{CFG, Statement};
 use middle::ir;
