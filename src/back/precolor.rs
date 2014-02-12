@@ -7,19 +7,20 @@ use middle::temp::Temp;
 use back::arch;
 
 pub fn constrain(p: &mut Program) {
-  for f in p.funs.mut_iter() {
-    let mut live = liveness::Analysis();
-    liveness::calculate(&f.cfg, f.root, &mut live, &RegisterInfo);
-    let mut temps = temp::new_init(f.temps);
-    f.cfg.map_nodes(|id, stms| {
-      constrain_block(live.in_.get(&id), *live.deltas.get(&id), |t| {
-        let tmp = temps.new();
-        let size = f.sizes.get_copy(&t);
-        f.sizes.insert(tmp, size);
-        tmp
-      }, stms)
-    });
-  }
+    for f in p.funs.mut_iter() {
+        let mut live = liveness::Analysis();
+        liveness::calculate(&f.cfg, f.root, &mut live, &RegisterInfo);
+        let mut temps = temp::new_init(f.temps);
+        let sizes = &mut f.sizes;
+        f.cfg.map_nodes(|id, stms| {
+            constrain_block(live.in_.get(&id), *live.deltas.get(&id), |t| {
+                let tmp = temps.new();
+                let size = sizes.get_copy(&t);
+                sizes.insert(tmp, size);
+                tmp
+            }, stms)
+        });
+    }
 }
 
 fn constrain_block(live: &temp::TempSet, delta: &[liveness::Delta],

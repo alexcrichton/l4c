@@ -313,9 +313,11 @@ impl Spiller {
 
     /* Limit the amount of variables in registers by spilling those which are
        used the farthest away */
-    let limit = |max: uint| {
+    fn limit(max: uint, regs: &mut HashSet<Temp>, spill: &mut HashSet<Temp>,
+             next_use: &mut HashMap<Temp, uint>,
+             block: &mut ~[~Instruction]) {
       if regs.len() >= max {
-        let sorted = sort(&regs, &next_use);
+        let sorted = sort(regs, next_use);
         debug!("{:?} {}", sorted, next_use.pp());
         for &tmp in sorted.slice(max, sorted.len()).iter() {
           if !spill.contains(&tmp) && next_use.contains_key(&tmp) {
@@ -329,7 +331,8 @@ impl Spiller {
       assert!(regs.len() <= max);
     };
 
-    let apply_delta = |delta: &~[(Temp, Option<uint>)]| {
+    fn apply_delta(delta: &~[(Temp, Option<uint>)],
+                   next_use: &mut HashMap<Temp, uint>) {
       /* For each delta if the value is None, then that means the liveness has
          stopped. Otherwise the next_use value is updated with what it should be
          for down the road. We iterate in reverse order in case one instruction
@@ -360,7 +363,7 @@ impl Spiller {
           } else if next_use.contains_key(&tmp) {
             block.push(~MemPhi(tmp, map));
           }
-          apply_delta(delta);
+          apply_delta(delta, &mut next_use);
         }
 
         ~PCopy(copies) => {
@@ -369,7 +372,7 @@ impl Spiller {
             regs.contains(&src)
           }).map(|&x| x).collect();
           block.push(~PCopy(newcopies));
-          apply_delta(delta);
+          apply_delta(delta, &mut next_use);
         }
 
         ins => {
@@ -390,14 +393,16 @@ impl Spiller {
           };
           /* This limit is relative to the next_use of this instruction */
           debug!("making room for operands");
-          limit(arch::num_regs - extra);
+          limit(arch::num_regs - extra, &mut regs, &mut spill, &mut next_use,
+                &mut block);
 
           /* The next limit is relative to the next instruction */
-          apply_delta(delta);
+          apply_delta(delta, &mut next_use);
           let mut defs = 0;
           ins.each_def(|_| { defs += 1; });
           debug!("making room for results");
-          limit(arch::num_regs - defs);
+          limit(arch::num_regs - defs, &mut regs, &mut spill, &mut next_use,
+                &mut block);
 
           /* Add all defined temps to the set of those in regs */
           ins.each_def(|tmp| {

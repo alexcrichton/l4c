@@ -1,4 +1,5 @@
 use std::hashmap::{HashMap, HashSet};
+use std::cell::RefCell;
 use collections::SmallIntMap;
 
 use middle::{temp, liveness, ir, opt};
@@ -214,8 +215,8 @@ impl<'a, T: PrettyPrint, S: Statement<T>> Converter<'a, T, S> {
         match phis.find(&n) {
             None => (),
             Some(ref temps) => {
-                /* Keep track of what we changed our temps to so the phi functions can
-                   be placed correctly in the next step */
+                /* Keep track of what we changed our temps to so the phi
+                   functions can be placed correctly in the next step */
                 let mut mapping = ~HashMap::new();
                 for &tmp in temps.iter() {
                     mapping.insert(tmp, self.bump(&mut map, tmp));
@@ -225,15 +226,16 @@ impl<'a, T: PrettyPrint, S: Statement<T>> Converter<'a, T, S> {
         }
 
         /* Process all statements in this block (possibly bumping versions) */
+        let map = RefCell::new(map);
         debug!("mapping statements at {}", n as int);
         let stms = self.cfg.pop_node(n);
         let stms = stms.move_iter().map(|s| {
             debug!("{}", s.pp());
             self.info.map_temps(s,
-                                |usage| *map.get(&usage),
-                                |def|   self.bump(&mut map, def))
+                                |usage| *map.borrow().get().get(&usage),
+                                |def|   self.bump(map.borrow_mut().get(), def))
         }).collect();
-        self.versions.insert(n, map);
+        self.versions.insert(n, map.unwrap());
         self.cfg.add_node(n, stms);
     }
 
@@ -250,18 +252,20 @@ impl<'a, T: PrettyPrint, S: Statement<T>> Converter<'a, T, S> {
      * their predecessor's edges
      */
     fn map_phi_temps(&mut self, n: graph::NodeId) {
-        self.cfg.map_consume_node(n, |stms| stms.move_iter().map(|stm|
-           match self.info.phi_unwrap(stm) {
+        let info = &self.info;
+        let versions = &self.versions;
+        self.cfg.map_consume_node(n, |stms| stms.move_iter().map(|stm| {
+           match info.phi_unwrap(stm) {
                Err(stm) => stm,
                Ok((def, map)) => {
                    let mut new = HashMap::new();
                    for (pred, tmp) in map.move_iter() {
-                       new.insert(pred, *self.versions.get(&pred).get(&tmp));
+                       new.insert(pred, *versions.get(&pred).get(&tmp));
                    }
-                   self.info.phi(def, new)
+                   info.phi(def, new)
                }
            }
-        ).collect());
+        }).collect());
     }
 
     /**
