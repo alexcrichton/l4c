@@ -34,14 +34,13 @@ impl<'a> Initchecker<'a> {
                 self.analyze(*s1); self.analyze(*s2);
             }
             While(_, ref s) => self.analyze(*s),
-            Declare(id, _, None, ref s) =>
-                if self.live(id, &s.node) {
-                    self.program.error(s.span,
-                                       format!("Uninitialized variable: '{}'",
-                                               self.program.str(id)));
-                } else {
-                    self.analyze(*s);
-                },
+            Declare(id, _, None, ref s) => if self.live(id, &s.node) {
+                self.program.error(s.span,
+                                   format!("Uninitialized variable: '{}'",
+                                           self.program.str(id)));
+            } else {
+                self.analyze(*s);
+            },
             Declare(_, _, _, ref s) => self.analyze(*s),
             For(_, _, _, ref body) => self.analyze(*body),
             _ => ()
@@ -116,11 +115,11 @@ impl<'a> Initchecker<'a> {
             Assign(~mark::Marked{ node: Var(id), .. }, _, _) => id == sym,
             If(_, ref s1, ref s2) =>
                 self.defines(sym, &s1.node) && self.defines(sym, &s2.node),
-                While(_, _) | Assign(_, _, _) | Nop | Express(_) => false,
-                For(ref init, _, _, _) => self.defines(sym, &init.node),
-                Break | Continue | Return(_) => true,
-                Seq(ref s1, ref s2) =>
-                    self.defines(sym, &s1.node) || self.defines(sym, &s2.node),
+            While(_, _) | Assign(_, _, _) | Nop | Express(_) => false,
+            For(ref init, _, _, _) => self.defines(sym, &init.node),
+            Break | Continue | Return(_) => true,
+            Seq(ref s1, ref s2) =>
+                self.defines(sym, &s1.node) || self.defines(sym, &s2.node),
         }
     }
 }

@@ -229,8 +229,9 @@ impl<'a, T: PrettyPrint, S: Statement<T>> Converter<'a, T, S> {
         let stms = self.cfg.pop_node(n);
         let stms = stms.move_iter().map(|s| {
             debug!("{}", s.pp());
-            self.info.map_temps(s, |usage| *map.get(&usage),
-            |def|   self.bump(&mut map, def))
+            self.info.map_temps(s,
+                                |usage| *map.get(&usage),
+                                |def|   self.bump(&mut map, def))
         }).collect();
         self.versions.insert(n, map);
         self.cfg.add_node(n, stms);
@@ -250,17 +251,17 @@ impl<'a, T: PrettyPrint, S: Statement<T>> Converter<'a, T, S> {
      */
     fn map_phi_temps(&mut self, n: graph::NodeId) {
         self.cfg.map_consume_node(n, |stms| stms.move_iter().map(|stm|
-                                                                 match self.info.phi_unwrap(stm) {
-                                                                     Err(stm) => stm,
-                                                                     Ok((def, map)) => {
-                                                                         let mut new = HashMap::new();
-                                                                         for (pred, tmp) in map.move_iter() {
-                                                                             new.insert(pred, *self.versions.get(&pred).get(&tmp));
-                                                                         }
-                                                                         self.info.phi(def, new)
-                                                                     }
-                                                                 }
-                                                                ).collect());
+           match self.info.phi_unwrap(stm) {
+               Err(stm) => stm,
+               Ok((def, map)) => {
+                   let mut new = HashMap::new();
+                   for (pred, tmp) in map.move_iter() {
+                       new.insert(pred, *self.versions.get(&pred).get(&tmp));
+                   }
+                   self.info.phi(def, new)
+               }
+           }
+        ).collect());
     }
 
     /**
