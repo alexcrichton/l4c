@@ -2,7 +2,7 @@
  * TODO: dox;
  */
 
-use std::hashmap::{HashSet, HashMap};
+use collections::{HashSet, HashMap};
 use std::mem::replace;
 
 use middle::ssa::{CFG, Statement};

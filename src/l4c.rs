@@ -1,8 +1,8 @@
 #[feature(macro_rules, globs)];
 
-extern mod extra;
-extern mod getopts;
-extern mod collections;
+extern crate getopts;
+extern crate collections;
+extern crate time;
 
 use std::io;
 use std::result;

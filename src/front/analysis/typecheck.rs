@@ -1,4 +1,4 @@
-use std::hashmap::{HashMap, HashSet};
+use collections::{HashMap, HashSet};
 
 use front::mark::Mark;
 use front::ast::*;
@@ -294,7 +294,7 @@ impl<'a> Typechecker<'a> {
         }
 
         if good {
-            self.funs.insert(id, (ret.clone(), args.map(|x| x.second())));
+            self.funs.insert(id, (ret.clone(), args.map(|x| x.ref1().clone())));
         }
         return good;
     }

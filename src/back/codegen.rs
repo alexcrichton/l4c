@@ -1,4 +1,4 @@
-use std::hashmap::{HashMap, HashSet};
+use collections::{HashMap, HashSet};
 use std::mem;
 
 use middle::{ir, temp, ssa, label};

@@ -1,5 +1,5 @@
 use std::mem::{replace, swap};
-use std::hashmap::HashMap;
+use collections::HashMap;
 
 use front::ast;
 use middle::{temp, ir, label};
@@ -225,7 +225,7 @@ impl<'a> Translator<'a> {
           ast::Field(_, ref f, ref s) => {
             let s = s.borrow();
             let typ = match *self.t.structs.get(s.get().get_ref()) {
-              (ref fields, _) => fields.get(f).first()
+              (ref fields, _) => fields.get(f).val0()
             };
             (true, typ)
           }

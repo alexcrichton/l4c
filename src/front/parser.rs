@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::hashmap::HashMap;
+use collections::HashMap;
 use std::io;
 use std::mem;
 
@@ -143,7 +143,7 @@ impl<'a> Parser<'a> {
     fn parse_gdecl(&mut self) -> ~GDecl {
         match self.cur {
             TYPEDEF => {
-                let start = self.shift().second();
+                let start = self.shift().val1();
                 let typ = self.parse_type();
                 let id = self.parse_ident();
                 self.lexer.add_type(id); // must be before expectation
@@ -602,7 +602,7 @@ impl<'a> Parser<'a> {
         if self.cur != t {
             self.err(self.span, format!("expected {:?}", t));
         }
-        self.shift().second()
+        self.shift().val1()
     }
 
     // Move one token down
@@ -636,11 +636,11 @@ impl<'a> Parser<'a> {
                 tok => { self.pending.push(tok); }
             }
         }
-        return self.pending[amt].first();
+        return self.pending[amt].val0();
     }
 
     fn mark<T>(&mut self, t: T, start: Span, end: Span) -> ~Marked<T> {
-        return ~Marked::new(t, self.posgen.gen((start.first(), end.second())));
+        return ~Marked::new(t, self.posgen.gen((start.val0(), end.val1())));
     }
 
     // Abort parsing with the given error

@@ -23,8 +23,8 @@
  */
 
 use std::iter;
-use std::hashmap::{HashMap, HashSet};
-use std::num;
+use std::cmp;
+use collections::{HashMap, HashSet};
 
 use back::arch;
 use back::assem::*;
@@ -213,7 +213,7 @@ impl Spiller {
         let cost = next + edge_cost;
         let mytmp = self.their_name(tmp, n, succ);
         match bottom.pop(&mytmp) {
-          Some(amt) => { bottom.insert(mytmp, num::min(cost, amt)); }
+          Some(amt) => { bottom.insert(mytmp, cmp::min(cost, amt)); }
           None      => { bottom.insert(mytmp, cost); }
         }
       }
@@ -251,7 +251,7 @@ impl Spiller {
         bottom.insert(tmp, i);
       });
       deltas.push(delta);
-      max = num::max(max, bottom.len());
+      max = cmp::max(max, bottom.len());
     }
     deltas.reverse();
 
@@ -462,7 +462,7 @@ impl Spiller {
     if arch::num_regs - take.len() > 0 {
       let sorted = sort(&cand, self.next_use.get(&n));
       let max = arch::num_regs - take.len();
-      for &tmp in sorted.slice(0, num::min(max, sorted.len())).iter() {
+      for &tmp in sorted.slice(0, cmp::min(max, sorted.len())).iter() {
         if self.next_use.get(&n).contains_key(&tmp) {
           take.insert(tmp);
         }
@@ -523,7 +523,7 @@ impl Spiller {
     visited.insert(cur);
     let mut ret = *self.max_pressures.get(&cur);
     for succ in f.cfg.succ(cur) {
-      ret = num::max(ret, self.max_pressure(f, succ, visited));
+      ret = cmp::max(ret, self.max_pressure(f, succ, visited));
     }
     return ret;
   }

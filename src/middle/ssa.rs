@@ -1,4 +1,4 @@
-use std::hashmap::{HashMap, HashSet};
+use collections::{HashMap, HashSet};
 use std::cell::RefCell;
 use collections::SmallIntMap;
 

@@ -1,5 +1,5 @@
-use std::hashmap::HashSet;
-use std::num;
+use std::cmp;
+use collections::HashSet;
 
 use back::assem::*;
 use middle::{liveness, temp};
@@ -110,7 +110,7 @@ fn constrain_block(live: &temp::TempSet, delta: &[liveness::Delta],
       ~Call(dst, fun, args) => {
         let mut newargs = ~[];
         let mut tempregs = HashSet::new();
-        for t in args.slice(0, num::min(arch::arg_regs, args.len())).iter() {
+        for t in args.slice(0, cmp::min(arch::arg_regs, args.len())).iter() {
           match *t {
             ~Temp(t) => { tempregs.insert(t); }
             _ => ()

@@ -45,7 +45,7 @@
  */
 
 use std::cmp;
-use std::hashmap::{HashMap, HashSet};
+use collections::{HashMap, HashSet};
 use std::int;
 use std::rc::Rc;
 use std::uint;

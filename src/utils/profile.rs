@@ -2,7 +2,7 @@ use std::io;
 use std::local_data;
 use std::ops::Drop;
 
-use extra::time;
+use time;
 
 local_data_key!(levels_key: uint)
 

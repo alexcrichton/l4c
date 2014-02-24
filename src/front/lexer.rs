@@ -1,4 +1,4 @@
-use std::hashmap::{HashMap, HashSet};
+use collections::{HashMap, HashSet};
 use std::i32;
 use std::io;
 use std::num;

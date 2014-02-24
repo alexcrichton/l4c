@@ -1,4 +1,4 @@
-use std::hashmap::{HashMap, HashSet};
+use collections::{HashMap, HashSet};
 use collections::{SmallIntMap, TreeSet};
 
 use middle::temp::{Temp, TempSet};

@@ -1,4 +1,4 @@
-use std::hashmap::HashMap;
+use collections::HashMap;
 use std::io;
 
 use middle::{ssa, label};
@@ -71,9 +71,9 @@ pub fn Function(name: ~str) -> Function {
 
 impl Graphable for Program {
   fn dot(&self, out: &mut io::Writer) -> io::IoResult<()> {
-    if_ok!(out.write_str("digraph {\n"));
+    try!(out.write_str("digraph {\n"));
     for f in self.funs.iter() {
-      if_ok!(f.cfg.dot(out,
+      try!(f.cfg.dot(out,
         |id| format!("{}_n{}", f.name, id as int),
         |id, stms|
           "label=\"" + stms.map(|s| s.pp()).connect("\\n") +

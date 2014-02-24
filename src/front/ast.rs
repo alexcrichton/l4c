@@ -1,6 +1,6 @@
 use std::cell::{RefCell, Cell};
 use std::cmp;
-use std::hashmap::{HashSet, HashMap};
+use collections::{HashSet, HashMap};
 use std::io;
 use std::mem;
 
@@ -25,12 +25,13 @@ struct Elaborator<'a> {
     program: &'a mut Program,
 }
 
-#[deriving(IterBytes, Clone, Eq)]
+#[deriving(Hash, Clone, Eq)]
 pub struct Ident(uint);
 
 pub type GDecl = Marked<gdecl>;
 
 #[deriving(Eq)]
+#[allow(non_camel_case_types)]
 pub enum gdecl {
     Typedef(Ident, Type),
     StructDef(Ident, ~[(Ident, Type)]),
@@ -43,6 +44,7 @@ pub enum gdecl {
 pub type Statement = Marked<stmt>;
 
 #[deriving(Eq, Clone)]
+#[allow(non_camel_case_types)]
 pub enum stmt {
     Assign(~Expression, Option<Binop>, ~Expression),
     If(~Expression, ~Statement, ~Statement),
@@ -60,6 +62,7 @@ pub enum stmt {
 pub type Expression = Marked<expr>;
 
 #[deriving(Eq, Clone)]
+#[allow(non_camel_case_types)]
 pub enum expr {
     Var(Ident),
     Boolean(bool),

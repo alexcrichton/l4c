@@ -1,16 +1,15 @@
-use std::hashmap::{HashSet, HashMap};
+use collections::{HashSet, HashMap};
 use std::cmp::Eq;
-use std::to_bytes::IterBytes;
 use std::hash::Hash;
 use utils::PrettyPrint;
 
-pub fn singleton<T: Eq + IterBytes + Hash>(t: T) -> HashSet<T> {
+pub fn singleton<T: Eq + Hash>(t: T) -> HashSet<T> {
     let mut s = HashSet::new();
     s.insert(t);
     return s;
 }
 
-impl<T: Eq + IterBytes + Hash + ToStr> PrettyPrint for HashSet<T> {
+impl<T: Eq + Hash + ToStr> PrettyPrint for HashSet<T> {
     fn pp(&self) -> ~str {
         let mut s = ~"{";
         let mut first = true;
@@ -26,7 +25,7 @@ impl<T: Eq + IterBytes + Hash + ToStr> PrettyPrint for HashSet<T> {
     }
 }
 
-impl<K: Eq + IterBytes + Hash + ToStr, V: ToStr> PrettyPrint for HashMap<K, V> {
+impl<K: Eq + Hash + ToStr, V: ToStr> PrettyPrint for HashMap<K, V> {
     fn pp(&self) -> ~str {
         let mut s = ~"{";
         let mut first = true;

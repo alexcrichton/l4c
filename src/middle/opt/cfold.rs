@@ -9,7 +9,7 @@
  * so the move can be considered dead code.
  */
 
-use std::hashmap::HashMap;
+use collections::HashMap;
 use std::i32;
 
 use middle::ir::*;
@@ -58,7 +58,7 @@ impl<'a> ConstantFolder<'a> {
     fn stm(&mut self, s: ~Statement) -> ~Statement {
         match s {
             ~Move(t, e) => {
-                let e = self.exp(e).first();
+                let e = self.exp(e).val0();
                 match e {
                     ~Const(amt, _) => { self.constants.insert(t, amt); }
                     ~Temp(cp)      => {
@@ -71,15 +71,15 @@ impl<'a> ConstantFolder<'a> {
                 }
                 ~Move(t, e)
             }
-            ~Load(t, e) => ~Load(t, self.exp(e).first()),
+            ~Load(t, e) => ~Load(t, self.exp(e).val0()),
             ~Call(t, e, args) => ~Call(t, e,
                                        args.move_iter().map(|e| {
-                                           self.exp(e).first()
+                                           self.exp(e).val0()
                                        }).collect()),
-            ~Store(e1, e2) => ~Store(self.exp(e1).first(), self.exp(e2).first()),
-            ~Condition(e) => ~Condition(self.exp(e).first()),
-            ~Return(e) => ~Return(self.exp(e).first()),
-            ~Die(e) => ~Die(self.exp(e).first()),
+            ~Store(e1, e2) => ~Store(self.exp(e1).val0(), self.exp(e2).val0()),
+            ~Condition(e) => ~Condition(self.exp(e).val0()),
+            ~Return(e) => ~Return(self.exp(e).val0()),
+            ~Die(e) => ~Die(self.exp(e).val0()),
 
             /* TODO: shouldn't have to re-build these things */
             ~Arguments(args) => ~Arguments(args),

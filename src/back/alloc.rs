@@ -1,5 +1,5 @@
-use std::hashmap::{HashMap, HashSet};
-use std::num;
+use collections::{HashMap, HashSet};
+use std::cmp;
 
 use collections::bitv;
 use collections::SmallIntMap;
@@ -138,7 +138,7 @@ impl Allocator {
         }
         /* Keep track of the maximum number of args passed to called funs */
         ~Store(~Stack(pos), _) => {
-          self.max_call_stack = num::max(pos + arch::ptrsize,
+          self.max_call_stack = cmp::max(pos + arch::ptrsize,
                                           self.max_call_stack);
         }
         /* do simple precoloring of args up front */

@@ -2,7 +2,7 @@ use std::iter;
 use std::io;
 use std::mem;
 
-use hm = std::hashmap;
+use hm = collections::hashmap;
 use sm = collections::smallintmap;
 
 pub type NodeId = uint;
@@ -166,19 +166,19 @@ impl<N, E> Graph<N, E> {
                node: |NodeId, &N| -> ~str,
                edge: |&E| -> ~str) -> io::IoResult<()> {
         for (id, n) in self.nodes.iter() {
-            if_ok!(out.write_str(nid(id)));
-            if_ok!(out.write_str(" ["));
-            if_ok!(out.write_str(node(id, n)));
-            if_ok!(out.write_str("];\n"));
+            try!(out.write_str(nid(id)));
+            try!(out.write_str(" ["));
+            try!(out.write_str(node(id, n)));
+            try!(out.write_str("];\n"));
         }
         for (id1, neighbors) in self.succ.iter() {
             for (&id2, e) in neighbors.iter() {
-                if_ok!(out.write_str(nid(id1)));
-                if_ok!(out.write_str(" -> "));
-                if_ok!(out.write_str(nid(id2)));
-                if_ok!(out.write_str(" ["));
-                if_ok!(out.write_str(edge(e)));
-                if_ok!(out.write_str("];\n"));
+                try!(out.write_str(nid(id1)));
+                try!(out.write_str(" -> "));
+                try!(out.write_str(nid(id2)));
+                try!(out.write_str(" ["));
+                try!(out.write_str(edge(e)));
+                try!(out.write_str("];\n"));
             }
         }
         Ok(())

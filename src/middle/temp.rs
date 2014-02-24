@@ -1,4 +1,4 @@
-use std::hashmap::HashSet;
+use collections::HashSet;
 use utils::PrettyPrint;
 
 pub type Temp = uint;

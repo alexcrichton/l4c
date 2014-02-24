@@ -1,6 +1,6 @@
 use std::cmp;
 use std::io;
-use std::hashmap::{HashMap, HashSet};
+use collections::{HashMap, HashSet};
 
 use middle::{label, ir};
 pub use middle::ssa;
@@ -613,9 +613,9 @@ impl PrettyPrint for Multiplier {
 
 impl Graphable for Program {
   fn dot(&self, out: &mut io::Writer) -> io::IoResult<()> {
-    if_ok!(out.write_str("digraph {\n"));
+    try!(out.write_str("digraph {\n"));
     for f in self.funs.iter() {
-      if_ok!(f.cfg.dot(out,
+      try!(f.cfg.dot(out,
         |id| format!("{}_n{}", f.name, id as int),
         |id, ins|
           ~"label=\"" + ins.map(|s| s.pp()).connect("\\n") +
@@ -630,7 +630,7 @@ impl Graphable for Program {
 impl Program {
     pub fn output(&self, out: &mut io::Writer) -> io::IoResult<()> {
         for f in self.funs.iter() {
-            if_ok!(f.output(out));
+            try!(f.output(out));
         }
         Ok(())
     }
@@ -644,8 +644,8 @@ impl Function {
   fn output(&self, out: &mut io::Writer) -> io::IoResult<()> {
     let base = label::Internal(self.name.clone()).pp();
     /* entry label */
-    if_ok!(out.write_str(~".globl " + base + "\n"));
-    if_ok!(out.write_str(base + ":\n"));
+    try!(out.write_str(~".globl " + base + "\n"));
+    try!(out.write_str(base + ":\n"));
     let lbl = |n: graph::NodeId| format!("{}_bb_{}", base, n as int);
 
     /* skipped is a stack of nodes that we have yet to visit */
@@ -658,14 +658,14 @@ impl Function {
 
       /* Each block has its own label (so it can be jumped to) */
       visited.insert(block);
-      if_ok!(out.write_str(~"L" + lbl(block) + ":\n"));
+      try!(out.write_str(~"L" + lbl(block) + ":\n"));
 
       /* output the actual block */
       let instructions = self.cfg.node(block);
       for ins in instructions.iter() {
-        if_ok!(out.write_str("  "));
-        if_ok!(out.write_str(ins.pp()));
-        if_ok!(out.write_char('\n'));
+        try!(out.write_str("  "));
+        try!(out.write_str(ins.pp()));
+        try!(out.write_char('\n'));
       }
 
       /* Collect information about the edges */
@@ -698,7 +698,7 @@ impl Function {
         /* Otherwise always branches or edges to visited blocks are jumps */
         Some((_, id)) => {
           skipped.unshift(id);
-          if_ok!(out.write_str(format!("  jmp L{}\n", lbl(id))));
+          try!(out.write_str(format!("  jmp L{}\n", lbl(id))));
         }
 
         None => {
@@ -719,7 +719,7 @@ impl Function {
                 (ir::True, _) => {
                   skipped.push(fid);
                   skipped.push(tid);
-                  if_ok!(out.write_str(format!("  j{} L{}\n",
+                  try!(out.write_str(format!("  j{} L{}\n",
                                                cond.negate().suffix(),
                                                lbl(fid))));
                 }
@@ -729,7 +729,7 @@ impl Function {
                 (_, ir::False) => {
                   skipped.push(tid);
                   skipped.push(fid);
-                  if_ok!(out.write_str(format!("  j{} L{}\n", cond.suffix(),
+                  try!(out.write_str(format!("  j{} L{}\n", cond.suffix(),
                                                lbl(tid))));
                 }
 
