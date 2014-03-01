@@ -167,7 +167,10 @@ fn run_compiler(m: &getopts::Matches) {
     let output = Path::new(m.free[0].as_slice()).with_extension("s");
 
     match io::File::create(&output) {
-        Ok(mut f) => assem.output(&mut f).unwrap(),
+        Ok(f) => {
+            let mut b = io::BufferedWriter::new(f);
+            assem.output(&mut b).unwrap()
+        }
         Err(e) => fail!(e)
     }
 }

@@ -55,13 +55,14 @@ pub fn parse_files(f: &[~str], main: &str) -> Result<Program, ~str> {
     let mut posgen = PositionGenerator::new();
 
     for f in f.iter() {
-        let mut input = match io::File::open(&Path::new(f.as_slice())) {
+        let input = match io::File::open(&Path::new(f.as_slice())).read_to_end() {
             Ok(i) => i,
             Err(e) => { return Err(format!("{}", e)); }
         };
+        let mut rdr = io::MemReader::new(input);
 
         posgen.file = f.to_owned();
-        let mut lexer = Lexer::new(posgen.file.clone(), &mut input, &mut symgen);
+        let mut lexer = Lexer::new(posgen.file.clone(), &mut rdr, &mut symgen);
         let mut parser = Parser::new(&mut lexer, &mut posgen, main);
 
         while parser.cur != EOF {

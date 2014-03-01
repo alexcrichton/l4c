@@ -62,7 +62,7 @@ pub struct Lexer<'a> {
 
 impl<'a> Lexer<'a> {
     pub fn new<'a>(file: ~str, input: &'a mut io::Reader,
-    s: &'a mut parser::SymbolGenerator) -> Lexer<'a> {
+                   s: &'a mut parser::SymbolGenerator) -> Lexer<'a> {
         let input = io::BufferedReader::new(input);
 
         let mut keywords = HashMap::new();
