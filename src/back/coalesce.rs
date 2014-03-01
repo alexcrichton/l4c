@@ -57,13 +57,14 @@ use collections::{SmallIntMap, PriorityQueue};
 use middle::{ir, liveness, ssa};
 use middle::temp::{Temp, TempSet};
 use back::{assem, arch, alloc};
-use utils::{profile, set, PrettyPrint};
+use utils::{profile, PrettyPrint};
 use utils::graph::{NodeSet, NodeId};
+use utils::fnv;
 
 type Location = (NodeId, int);
-type Affinities = HashMap<Temp, ~HashMap<Temp, uint>>;
-type UseMap = HashMap<Temp, ~HashSet<Location>>;
-type DefMap = HashMap<Temp, Location>;
+type Affinities = HashMap<Temp, ~HashMap<Temp, uint, fnv::Hasher>, fnv::Hasher>;
+type UseMap = HashMap<Temp, ~HashSet<Location, fnv::Hasher>, fnv::Hasher>;
+type DefMap = HashMap<Temp, Location, fnv::Hasher>;
 struct Affinity(Temp, Temp, uint);
 struct Chunk(TempSet, uint);
 
@@ -92,14 +93,14 @@ struct Coalescer<'a, I> {
     /* find_interferences is an incredibly slow method, and this is a
        precomputation of the input to a more efficient format to be used in that
        method (more information on the method itself) */
-    liveness_map: &'a HashMap<NodeId, ~[bitv::Bitv]>,
+    liveness_map: &'a HashMap<NodeId, ~[bitv::Bitv], fnv::Hasher>,
 
     /* This algorithm requires a lot of information about the interference graph
        and associated components, and because interference information is very
        costly to generate, there are a number of caches which store the results of
        this computation to facilitate usage later on */
-    interference: HashMap<Temp, Rc<TempSet>>,
-    dominates: HashMap<(NodeId, NodeId), bool>,
+    interference: HashMap<Temp, Rc<TempSet>, fnv::Hasher>,
+    dominates: HashMap<(NodeId, NodeId), bool, fnv::Hasher>,
 
     f: &'a assem::Function,
     live: &'a liveness::Analysis,
@@ -130,25 +131,27 @@ pub fn optimize<I: ssa::Statement<assem::Instruction>>(
     }
     /* TODO(#5884): this is silly */
     let fixed = bitv::Bitv::new(max_temp, false);
-    let affinities = HashMap::new();
+    let affinities = HashMap::with_hasher(fnv::Hasher);
     let old_color = SmallIntMap::new();
-    let mut c = Coalescer { fixed: fixed,
-    affinities: affinities,
-    colors: colors,
-    old_color: old_color,
-    precolored: pre,
-    constraints: constraints,
-    liveness_map: &lm,
-    interference: HashMap::new(),
-    dominates: HashMap::new(),
-    defs: &defs,
-    uses: &uses,
-    f: f,
-    live: live,
-    info: info,
-    consider_pcopy: pcopy,
-    max_temp: max_temp,
-    max_color: max_color, };
+    let mut c = Coalescer {
+        fixed: fixed,
+        affinities: affinities,
+        colors: colors,
+        old_color: old_color,
+        precolored: pre,
+        constraints: constraints,
+        liveness_map: &lm,
+        interference: HashMap::with_hasher(fnv::Hasher),
+        dominates: HashMap::with_hasher(fnv::Hasher),
+        defs: &defs,
+        uses: &uses,
+        f: f,
+        live: live,
+        info: info,
+        consider_pcopy: pcopy,
+        max_temp: max_temp,
+        max_color: max_color,
+    };
     c.coalesce();
 }
 
@@ -158,9 +161,9 @@ pub fn optimize<I: ssa::Statement<assem::Instruction>>(
  */
 fn liveness_map<I: ssa::Statement<assem::Instruction>>(
     cfg: &assem::CFG, info: &I, live: &liveness::Analysis, max: uint
-    ) -> HashMap<NodeId, ~[bitv::Bitv]>
+    ) -> HashMap<NodeId, ~[bitv::Bitv], fnv::Hasher>
 {
-    let mut ret = HashMap::new();
+    let mut ret = HashMap::with_hasher(fnv::Hasher);
     for (id, stms) in cfg.nodes() {
         let mut vec = ~[];
         let mut set = HashSet::new();
@@ -191,8 +194,8 @@ fn liveness_map<I: ssa::Statement<assem::Instruction>>(
 fn use_def_maps<I: ssa::Statement<assem::Instruction>>(
     cfg: &assem::CFG, info: &I) -> (UseMap, DefMap)
 {
-    let mut uses = HashMap::new();
-    let mut defs = HashMap::new();
+    let mut uses = HashMap::with_hasher(fnv::Hasher);
+    let mut defs = HashMap::with_hasher(fnv::Hasher);
 
     profile::dbg("building use/def", || {
         for (id, ins) in cfg.nodes() {
@@ -229,7 +232,9 @@ fn use_def_maps<I: ssa::Statement<assem::Instruction>>(
             Some(s) => { s.insert(loc); return; }
             None => {}
         }
-        uses.insert(tmp, ~set::singleton(loc));
+        let mut s = ~HashSet::with_hasher(fnv::Hasher);
+        s.insert(loc);
+        uses.insert(tmp, s);
     }
 
 }
@@ -643,7 +648,7 @@ impl<'a, I: ssa::Statement<assem::Instruction>> Coalescer<'a, I> {
             Some(m) => { m.insert(a, weight); return; }
             None => ()
         }
-        let mut m = ~HashMap::new();
+        let mut m = ~HashMap::with_hasher(fnv::Hasher);
         m.insert(b, weight);
         self.affinities.insert(a, m);
     }

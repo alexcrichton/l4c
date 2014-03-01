@@ -1,4 +1,4 @@
-#[feature(macro_rules, globs)];
+#[feature(macro_rules, globs, default_type_params)];
 
 extern crate getopts;
 extern crate collections;
@@ -18,6 +18,7 @@ mod utils {
     pub mod set;
     pub mod graph;
     pub mod profile;
+    pub mod fnv;
 
     pub trait PrettyPrint {
         fn pp(&self) -> ~str;

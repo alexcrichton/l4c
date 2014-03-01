@@ -4,9 +4,10 @@ use collections::{SmallIntMap, TreeSet};
 use middle::temp::{Temp, TempSet};
 use middle::ssa::{CFG, Statement};
 use utils::graph::NodeId;
+use utils::fnv;
 
-pub type LiveMap = HashMap<NodeId, TempSet>;
-pub type DeltaMap = HashMap<NodeId, ~[Delta]>;
+pub type LiveMap = HashMap<NodeId, TempSet, fnv::Hasher>;
+pub type DeltaMap = HashMap<NodeId, ~[Delta], fnv::Hasher>;
 pub type Delta = ~[DeltaOp];
 #[deriving(Eq)]
 pub enum DeltaOp {
@@ -28,8 +29,11 @@ struct Liveness<'a, T, S> {
 }
 
 pub fn Analysis() -> Analysis {
-  Analysis { in_: HashMap::new(), out: HashMap::new(),
-             deltas: HashMap::new() }
+    Analysis {
+        in_: HashMap::with_hasher(fnv::Hasher),
+        out: HashMap::with_hasher(fnv::Hasher),
+        deltas: HashMap::with_hasher(fnv::Hasher),
+    }
 }
 
 pub fn calculate<T, S: Statement<T>>(cfg: &CFG<T>, root: NodeId,
