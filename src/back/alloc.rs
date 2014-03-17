@@ -5,11 +5,11 @@ use collections::bitv;
 use collections::SmallIntMap;
 
 use middle::{ir, liveness};
-use middle::temp::Temp;
+use middle::temp::{Temp, TempSet};
 use back::arch;
 use back::assem::*;
 use back::coalesce;
-use utils::{profile, graph, PrettyPrint};
+use utils::{profile, graph, PrettyPrint, fnv};
 
 type RegisterSet = bitv::Bitv;
 pub type ColorMap = SmallIntMap<uint>;
@@ -27,7 +27,7 @@ struct Allocator {
   callee_saved: ~[uint],
 
   /* data needed for coalescing */
-  precolored: HashSet<Temp>,
+  precolored: TempSet,
   constraints: ConstraintMap,
 }
 
@@ -39,7 +39,7 @@ pub fn color(p: &mut Program) {
     liveness::calculate(&f.cfg, f.root, &mut live_stack, &StackInfo);
 
     let mut a = Allocator{ colors: SmallIntMap::new(),
-                           precolored: HashSet::new(),
+                           precolored: HashSet::with_hasher(fnv::Hasher),
                            constraints: SmallIntMap::new(),
                            slots: SmallIntMap::new(),
                            max_slot: 1,
@@ -61,7 +61,8 @@ pub fn color(p: &mut Program) {
       info!("stack slots");
       /* no precolored slots or constraints, yay! */
       let max = a.slots.len();
-      coalesce::optimize(f, &live_stack, &mut a.slots, &HashSet::new(),
+      coalesce::optimize(f, &live_stack, &mut a.slots,
+                         &HashSet::with_hasher(fnv::Hasher),
                          &SmallIntMap::new(), &StackInfo, false, max);
     });
 
@@ -95,13 +96,13 @@ impl Allocator {
   fn color(&mut self, f: &Function, live: &liveness::Analysis,
            n: graph::NodeId) {
     debug!("coloring {:?}", n);
-    let mut tmplive = HashSet::new();
+    let mut tmplive = HashSet::with_hasher(fnv::Hasher);
     let mut registers = RegisterSet();
     for &t in live.in_.get(&n).iter() {
       tmplive.insert(t);
       registers.set(*self.colors.get(&t), true);
     }
-    debug!("{}", tmplive.pp())
+    debug!("{}", tmplive);
 
     let mut pcopy = None;
     for (i, ins) in f.cfg.node(n).iter().enumerate() {
@@ -110,7 +111,7 @@ impl Allocator {
         let delta = &live.deltas.get(&n)[i];
         debug!("{}", ins.pp());
         debug!("deltas {:?}", delta);
-        debug!("before {} {}", tmplive.pp(), registers.pp());
+        debug!("before {} {}", tmplive, registers.pp());
         liveness::apply(&mut tmplive, delta);
       }
 
@@ -277,7 +278,7 @@ impl Allocator {
           }
         });
       }
-      debug!("after {} {}", tmplive.pp(), registers.pp());
+      debug!("after {} {}", tmplive, registers.pp());
     }
 
     for &id in f.ssa.idominated.get(&n).iter() {
@@ -627,10 +628,10 @@ fn resolve_perm(result: &[uint], incoming: &[uint], f: |Resolution|) {
       let nxt = *dst_src.get(&cur);
       f(Copy(cur, nxt));
       dst_src.remove(&cur);
-      let L = src_dst.pop(&nxt).unwrap().move_iter()
-                     .filter(|&x| x != cur).collect::<~[uint]>();
-      if L.len() > 0 {
-        src_dst.insert(nxt, L);
+      let arr = src_dst.pop(&nxt).unwrap().move_iter()
+                       .filter(|&x| x != cur).collect::<~[uint]>();
+      if arr.len() > 0 {
+        src_dst.insert(nxt, arr);
       }
       cur = nxt;
       if src_dst.contains_key(&cur) { break }
@@ -645,12 +646,12 @@ fn resolve_perm(result: &[uint], incoming: &[uint], f: |Resolution|) {
     /* Exchange everything through the 'dst' register to resolve the chain */
     let mut cur = dst;
     while src_dst.contains_key(&cur) {
-      let L = src_dst.pop(&cur).unwrap().move_iter().filter(|&x| {
+      let arr = src_dst.pop(&cur).unwrap().move_iter().filter(|&x| {
         dst_src.contains_key(&x)
       }).collect::<~[uint]>();
-      debug!("{:?}", L);
-      assert!(L.len() == 1);
-      let nxt = L[0];
+      debug!("{}", arr);
+      assert!(arr.len() == 1);
+      let nxt = arr[0];
       if nxt == dst { break }
       f(Xchg(dst, nxt));
       cur = nxt;

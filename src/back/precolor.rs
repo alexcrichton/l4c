@@ -5,6 +5,7 @@ use back::assem::*;
 use middle::{liveness, temp};
 use middle::temp::Temp;
 use back::arch;
+use utils::fnv;
 
 pub fn constrain(p: &mut Program) {
     for f in p.funs.mut_iter() {
@@ -28,8 +29,8 @@ fn constrain_block(live: &temp::TempSet, delta: &[liveness::Delta],
                    ins: ~[~Instruction]) -> ~[~Instruction] {
   let mut new = ~[];
   let mut synthetic = ~[];
-  let mut live_in = HashSet::new();
-  let mut live_out = HashSet::new();
+  let mut live_in = HashSet::with_hasher(fnv::Hasher);
+  let mut live_out = HashSet::with_hasher(fnv::Hasher);
   for &t in live.iter() {
     live_in.insert(t);
     live_out.insert(t);

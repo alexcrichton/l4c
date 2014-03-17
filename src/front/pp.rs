@@ -55,7 +55,7 @@ impl PrettyPrintAST for Type {
       Array(ref t)   => t.pp(p) + "[]",
       Struct(s)      => ~"struct " + p.str(s),
       Nullp          => ~"(null)",
-      Fun(ref t, ref L) => t.pp(p) + "(" + L.map(|x| x.pp(p)).connect(", ")
+      Fun(ref t, ref l) => t.pp(p) + "(" + l.map(|x| x.pp(p)).connect(", ")
     }
   }
 }
@@ -74,8 +74,8 @@ impl PrettyPrintAST for Expression {
       Null                      => ~"NULL",
       AllocArray(ref t, ref e) =>
         ~"alloc_array(" + t.pp(p) + ", " + e.pp(p) + ")",
-      Call(ref e, ref E, _) =>
-        e.pp(p) + "(" + E.map(|e| e.pp(p)).connect(", ") + ")",
+      Call(ref e, ref args, _) =>
+        e.pp(p) + "(" + args.map(|e| e.pp(p)).connect(", ") + ")",
       BinaryOp(o, ref e1, ref e2) =>
         ~"(" + e1.pp(p) + " " + o.pp() + " " + e2.pp(p) + ")",
       Ternary(ref e1, ref e2, ref e3, _) =>
@@ -136,9 +136,9 @@ impl PrettyPrintAST for GDecl {
     match self.node {
       Typedef(s, ref t) => ~"typedef " + t.pp(p) + " " + p.str(s),
       StructDecl(s) => ~"struct " + p.str(s),
-      StructDef(s, ref L) =>
+      StructDef(s, ref l) =>
         ~"struct " + p.str(s) + "{\n" +
-          tab(L.map(|t| ppair(p, t)).connect("\n")) + "\n}",
+          tab(l.map(|t| ppair(p, t)).connect("\n")) + "\n}",
       FunIDecl(ref t, s, ref args) => pfun(p, t, s, *args),
       FunEDecl(ref t, s, ref args) => ~"extern " + pfun(p, t, s, *args),
       Function(ref t, s, ref args, ref body) =>

@@ -295,8 +295,8 @@ impl<'a> Elaborator<'a> {
             Ternary(e1, e2, e3, _) =>
                 Ternary(self.elaborate_exp(e1), self.elaborate_exp(e2),
                         self.elaborate_exp(e3), RefCell::new(None)),
-            Call(id, L, _) =>
-                Call(id, L.move_iter().map(|x| self.elaborate_exp(x)).collect(),
+            Call(id, l, _) =>
+                Call(id, l.move_iter().map(|x| self.elaborate_exp(x)).collect(),
                      RefCell::new(None)),
             Deref(e, _) => Deref(self.elaborate_exp(e), RefCell::new(None)),
             Field(e, id, _) => Field(self.elaborate_exp(e), id,
@@ -331,8 +331,8 @@ impl<'a> Elaborator<'a> {
                     t
                 }
             },
-            Fun(t1, L) => Fun(~self.resolve(m, *t1),
-                              L.move_iter().map(|t| self.resolve(m, t)).collect())
+            Fun(t1, l) => Fun(~self.resolve(m, *t1),
+                              l.move_iter().map(|t| self.resolve(m, t)).collect())
         }
     }
 
@@ -372,9 +372,9 @@ impl cmp::Eq for Type {
             (&Pointer(ref t1), &Pointer(ref t2)) => t1.eq(t2),
             (&Array(ref t1), &Array(ref t2)) => t1.eq(t2),
             (&Struct(ref s1), &Struct(ref s2)) => s1.eq(s2),
-            (&Fun(ref t1, ref L1), &Fun(ref t2, ref L2)) =>
-                t1 == t2 && L1.len() == L2.len() &&
-                L1.iter().zip(L2.iter()).all(|(a, b)| a == b),
+            (&Fun(ref t1, ref l1), &Fun(ref t2, ref l2)) =>
+                t1 == t2 && l1.len() == l2.len() &&
+                l1.iter().zip(l2.iter()).all(|(a, b)| a == b),
             _ => false
         }
     }

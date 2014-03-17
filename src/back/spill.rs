@@ -32,6 +32,7 @@ use middle::temp::{Temp, TempSet};
 use middle::{ir, ssa, opt};
 use utils::PrettyPrint;
 use utils::graph::*;
+use utils::fnv;
 
 static LOOP_OUT_WEIGHT: uint = 100000;
 
@@ -264,7 +265,7 @@ impl Spiller {
       }
       None => ()
     }
-    debug!("next_use: {}", bottom.pp());
+    debug!("next_use: {}", bottom);
     debug!("deltas: {:?}", deltas);
 
     /* If we did update something, then update it and return so */
@@ -288,8 +289,8 @@ impl Spiller {
     let spill_entry = self.connect_pred(f, n, &regs_entry);
 
     /* Set up the sets which will become {regs,spill}_exit */
-    let mut regs = HashSet::new();
-    let mut spill = HashSet::new();
+    let mut regs = HashSet::with_hasher(fnv::Hasher);
+    let mut spill = HashSet::with_hasher(fnv::Hasher);
     for &t in regs_entry.iter() { regs.insert(t); }
     for &t in spill_entry.iter() { spill.insert(t); }
 
@@ -313,12 +314,12 @@ impl Spiller {
 
     /* Limit the amount of variables in registers by spilling those which are
        used the farthest away */
-    fn limit(max: uint, regs: &mut HashSet<Temp>, spill: &mut HashSet<Temp>,
+    fn limit(max: uint, regs: &mut TempSet, spill: &mut TempSet,
              next_use: &mut HashMap<Temp, uint>,
              block: &mut ~[~Instruction]) {
       if regs.len() >= max {
         let sorted = sort(regs, next_use);
-        debug!("{:?} {}", sorted, next_use.pp());
+        debug!("{:?} {}", sorted, *next_use);
         for &tmp in sorted.slice(max, sorted.len()).iter() {
           if !spill.contains(&tmp) && next_use.contains_key(&tmp) {
             debug!("spilling {:?}", tmp);
@@ -346,11 +347,11 @@ impl Spiller {
       }
     };
 
-    debug!("{}", next_use.pp());
+    debug!("{}", next_use);
     let mut i = 0;
     let node = f.cfg.pop_node(n);
     for (ins, delta) in node.move_iter().zip(self.deltas.get(&n).iter()) {
-      debug!("{:2} {:30}  {} {}", i, ins.pp(), next_use.pp(),
+      debug!("{:2} {:30}  {} {}", i, ins.pp(), next_use,
              delta.map(|a| format!("{:?}", a)).connect(", "));
 
       match ins {
@@ -422,7 +423,7 @@ impl Spiller {
       i += 1;
     }
 
-    debug!("node {:?} exit regs:{} spill:{}", n, regs.pp(), spill.pp());
+    debug!("node {:?} exit regs:{} spill:{}", n, regs, spill);
     f.cfg.update_node(n, block);
     self.regs_end.insert(n, regs);
     self.spill_exit.insert(n, spill);
@@ -437,9 +438,9 @@ impl Spiller {
 
   fn init_usual(&self, f: &Function, n: NodeId) -> TempSet {
     debug!("init_usual: {:?}", n);
-    let mut freq = HashMap::new();
-    let mut take = HashSet::new();
-    let mut cand = HashSet::new();
+    let mut freq = HashMap::with_hasher(fnv::Hasher);
+    let mut take = HashSet::with_hasher(fnv::Hasher);
+    let mut cand = HashSet::with_hasher(fnv::Hasher);
     for pred in f.cfg.preds(n) {
       debug!("pred {:?}", pred);
       assert!(self.regs_end.contains_key(&pred));
@@ -450,7 +451,7 @@ impl Spiller {
         });
       }
     }
-    debug!("frequencies: {}", freq.pp());
+    debug!("frequencies: {}", freq);
     let preds = f.cfg.num_pred(n);
     for (&tmp, &n) in freq.iter() {
       if n == preds {
@@ -475,7 +476,7 @@ impl Spiller {
                n: NodeId, body: NodeId, end: NodeId) -> TempSet {
     debug!("init_loop {:?} {:?} {:?}", n, body, end);
     /* cand = (phis | live_in) & used_in_loop */
-    let mut cand = HashSet::new();
+    let mut cand = HashSet::with_hasher(fnv::Hasher);
     /* If a variable is used in the loop, then its next_use as viewed from the
        body of the loop would be less than LOOP_OUT_WEIGHT */
     for (&tmp, &n) in self.next_use.get(&n).iter() {
@@ -483,10 +484,10 @@ impl Spiller {
         cand.insert(tmp);
       }
     }
-    debug!("loop candidates: {}", cand.pp());
+    debug!("loop candidates: {}", cand);
     if cand.len() < arch::num_regs {
       /* live_through = (phis | live_in) - cand */
-      let mut live_through = HashSet::new();
+      let mut live_through = HashSet::with_hasher(fnv::Hasher);
       for (&tmp, _) in self.next_use.get(&n).iter() {
         if !cand.contains(&tmp) { live_through.insert(tmp); }
       }
@@ -499,7 +500,7 @@ impl Spiller {
       visited.insert(end); /* don't go outside the loop */
       let free = (arch::num_regs -
                   self.max_pressure(f, body, &mut visited)) as int;
-      debug!("live through loop: {} {:?}", live_through.pp(), free);
+      debug!("live through loop: {} {:?}", live_through, free);
       if free > 0 {
         let sorted = sort(&live_through, self.next_use.get(&n));
         debug!("{:?}", sorted);
@@ -531,7 +532,7 @@ impl Spiller {
   fn connect_pred(&self, f: &Function, n: NodeId, entry: &TempSet) -> TempSet {
     debug!("connecting preds: {:?}", n);
     /* Build up our list of required spilled registers */
-    let mut spill = HashSet::new();
+    let mut spill = HashSet::with_hasher(fnv::Hasher);
     for pred in f.cfg.preds(n) {
       if !self.spill_exit.contains_key(&pred) { continue }
       /* Be sure we're using the right name for each temp spilled on the exit of
@@ -549,7 +550,7 @@ impl Spiller {
     for (k, _) in self.phis.get(&n).iter() {
       spill.remove(k);
     }
-    debug!("node {:?} entry regs:{} spill:{}", n, entry.pp(), spill.pp());
+    debug!("node {:?} entry regs:{} spill:{}", n, entry, spill);
     return spill;
   }
 

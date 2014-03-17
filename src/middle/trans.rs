@@ -562,10 +562,10 @@ impl<'a> Translator<'a> {
   fn constp(&self, c: i32) -> ~ir::Expression { ~ir::Const(c, ir::Pointer) }
 
   fn commit_with(&mut self, next: graph::NodeId) -> graph::NodeId {
-    let mut L = ~[];
-    swap(&mut L, &mut self.stms); /* swap a new block into place */
+    let mut ins = ~[];
+    swap(&mut ins, &mut self.stms); /* swap a new block into place */
     let id = replace(&mut self.cur_id, next);
-    self.f.cfg.add_node(id, L);
+    self.f.cfg.add_node(id, ins);
     return id;
   }
 

@@ -1,8 +1,9 @@
 use collections::HashSet;
 use utils::PrettyPrint;
+use utils::fnv;
 
 pub type Temp = uint;
-pub type TempSet = HashSet<Temp>;
+pub type TempSet = HashSet<Temp, fnv::Hasher>;
 
 pub struct Allocator {
   priv next: uint

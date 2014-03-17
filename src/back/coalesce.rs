@@ -57,7 +57,7 @@ use collections::{SmallIntMap, PriorityQueue};
 use middle::{ir, liveness, ssa};
 use middle::temp::{Temp, TempSet};
 use back::{assem, arch, alloc};
-use utils::{profile, PrettyPrint};
+use utils::profile;
 use utils::graph::{NodeSet, NodeId};
 use utils::fnv;
 
@@ -166,7 +166,7 @@ fn liveness_map<I: ssa::Statement<assem::Instruction>>(
     let mut ret = HashMap::with_hasher(fnv::Hasher);
     for (id, stms) in cfg.nodes() {
         let mut vec = ~[];
-        let mut set = HashSet::new();
+        let mut set = HashSet::with_hasher(fnv::Hasher);
         for &t in live.in_.get(&id).iter() { set.insert(t); }
 
         for (i, stm) in stms.iter().enumerate() {
@@ -264,10 +264,10 @@ impl<'a, I: ssa::Statement<assem::Instruction>> Coalescer<'a, I> {
                      pq: &mut PriorityQueue<Chunk>) {
         let mut tmps = tmps;
         debug!("-------------------------------------------------------------");
-        info!("coloring chunk {} {:?}", tmps.pp(), cost);
+        info!("coloring chunk {} {:?}", tmps, cost);
         let mut best_cost = 0;
         let mut best_color = -1;
-        let mut best_set = HashSet::new();
+        let mut best_set = HashSet::with_hasher(fnv::Hasher);
         macro_rules! docolor(
             ($set:expr, $color:expr) =>
             ({
@@ -291,24 +291,24 @@ impl<'a, I: ssa::Statement<assem::Instruction>> Coalescer<'a, I> {
             docolor!(tmps, r);
             match self.best_subset(&tmps, r) {
                 None => (),
-                Some((M, mcost)) => {
+                Some((m, mcost)) => {
                     if mcost > best_cost {
                         best_color = r;
                         best_cost = mcost;
-                        best_set = M;
+                        best_set = m;
                     }
                 }
             }
         }
         if best_color == -1 {
-            info!("utterly impossible {}", best_set.pp());
+            info!("utterly impossible {}", best_set);
             return;
         }
 
         /* If we found a good set, then fix everything to that color and perhaps
            push the remaining temps in the chunk back into the priority queue */
         debug!("-------------------------------------------------------------");
-        info!("selected {:?} for {}", best_color, best_set.pp());
+        info!("selected {:?} for {}", best_color, best_set);
         docolor!(best_set, best_color);
         for t in best_set.iter() {
             tmps.remove(t);
@@ -338,18 +338,18 @@ impl<'a, I: ssa::Statement<assem::Instruction>> Coalescer<'a, I> {
 
         /* Left is a set of temps that haven't yet been processed, and it's
            initially the subset of 's' of all temps with color 'c' */
-        let mut left = HashSet::new();
+        let mut left = HashSet::with_hasher(fnv::Hasher);
         for &tmp in s.iter() {
             if *self.colors.get(&tmp) == c {
                 left.insert(tmp);
             }
         }
-        debug!("best of {} in {} for {:?}", left.pp(), s.pp(), c);
+        debug!("best of {} in {} for {:?}", left, s, c);
 
         /* Iterate over the set of temps and partition as we go */
         loop {
             if left.len() == 0 { break; }
-            let mut subset = HashSet::new();
+            let mut subset = HashSet::with_hasher(fnv::Hasher);
             let mut qweight = 1;
 
             /* Start with the first temp in 'left', and then iteratively build up
@@ -372,7 +372,7 @@ impl<'a, I: ssa::Statement<assem::Instruction>> Coalescer<'a, I> {
                 }
             }
 
-            debug!("found {} {:?}", subset.pp(), qweight);
+            debug!("found {} {:?}", subset, qweight);
             if qweight > maxweight {
                 maxweight = qweight;
                 maxset = Some(subset);
@@ -383,7 +383,7 @@ impl<'a, I: ssa::Statement<assem::Instruction>> Coalescer<'a, I> {
             return None;
         }
         let maxset = maxset.unwrap();
-        debug!("found {} {:?}", maxset.pp(), maxweight);
+        debug!("found {} {:?}", maxset, maxweight);
         return Some((maxset, maxweight));
     }
 
@@ -408,7 +408,7 @@ impl<'a, I: ssa::Statement<assem::Instruction>> Coalescer<'a, I> {
         self.set_color(t, c, &mut changed);
         debug!("recoloring {:?} to {:?}", t, c);
 
-        for &tmp in self.interferences(t).borrow().iter() {
+        for &tmp in self.interferences(t).iter() {
             debug!("recoloring {:?} interfering with {:?}", tmp, t);
             if !self.avoid_color(tmp, c, &mut changed) {
                 /* rollback */
@@ -452,7 +452,7 @@ impl<'a, I: ssa::Statement<assem::Instruction>> Coalescer<'a, I> {
             self.min_color(t, c)
         };
         self.set_color(t, color, changed);
-        for &tmp in self.interferences(t).borrow().iter() {
+        for &tmp in self.interferences(t).iter() {
             if !self.avoid_color(tmp, color, changed) {
                 debug!("failed to avoid on interference {:?}", tmp);
                 return false;
@@ -476,7 +476,7 @@ impl<'a, I: ssa::Statement<assem::Instruction>> Coalescer<'a, I> {
         }
 
         /* Iterate over our interferences and bump counts for their colors */
-        for &tmp in self.interferences(t).borrow().iter() {
+        for &tmp in self.interferences(t).iter() {
             let idx = *self.colors.get(&tmp) - 1;
             if cnts[idx] != uint::MAX {
                 cnts[idx] += 1;
@@ -520,10 +520,10 @@ impl<'a, I: ssa::Statement<assem::Instruction>> Coalescer<'a, I> {
     fn build_chunks(&mut self) -> PriorityQueue<Chunk> {
         /* Algorithm 4.5 */
         let mut pq = self.find_affinities();
-        let mut chunks = HashMap::new();
-        let mut temp_chunks = HashMap::new();
+        let mut chunks = HashMap::with_hasher(fnv::Hasher);
+        let mut temp_chunks = HashMap::with_hasher(fnv::Hasher);
         let mut next_chunk = 1;
-        chunks.insert(0, Chunk(HashSet::new(), 0));
+        chunks.insert(0, Chunk(HashSet::with_hasher(fnv::Hasher), 0));
 
         /* Process the highest cost affine temps first. For the affinity edge (x, y)
            there are two chunks. We attempt to merge x's chunk with y's chunk which
@@ -552,7 +552,7 @@ impl<'a, I: ssa::Statement<assem::Instruction>> Coalescer<'a, I> {
                 if !cont { continue }
 
                 /* no element of the two chunks interfere, merge the chunks */
-                merge = HashSet::new();
+                merge = HashSet::with_hasher(fnv::Hasher);
                 merge.insert(x);
                 merge.insert(y);
                 for &x in xs.iter() { merge.insert(x); }
@@ -733,14 +733,14 @@ impl<'a, I: ssa::Statement<assem::Instruction>> Coalescer<'a, I> {
                 self.find_interferences(t, block, &mut bitv, &mut visited);
             }
         }
-        let mut set = HashSet::new();
+        let mut set = HashSet::with_hasher(fnv::Hasher);
         bitv.ones(|x| {
             if x != t {
                 set.insert(x);
             }
             true
         });
-        debug!("{:?} interferencs: {}", t, set.pp());
+        debug!("{:?} interferencs: {}", t, set);
         let ret = Rc::new(set);
         self.interference.insert(t, ret.clone());
         return ret;
@@ -826,20 +826,24 @@ impl<'a, I: ssa::Statement<assem::Instruction>> Coalescer<'a, I> {
     }
 }
 
+impl cmp::Eq for Affinity {
+    fn eq(&self, other: &Affinity) -> bool {
+        match (self, other) { (&Affinity(_, _, a), &Affinity(_, _, b)) => a == b }
+    }
+}
 impl cmp::Ord for Affinity {
     fn lt(&self, other: &Affinity) -> bool {
         match (self, other) { (&Affinity(_, _, a), &Affinity(_, _, b)) => a < b }
     }
-    fn le(&self, other: &Affinity) -> bool { !other.lt(self) }
-    fn gt(&self, other: &Affinity) -> bool { !self.le(other) }
-    fn ge(&self, other: &Affinity) -> bool { !self.lt(other) }
 }
 
+impl cmp::Eq for Chunk {
+    fn eq(&self, other: &Chunk) -> bool {
+        match (self, other) { (&Chunk(_, a), &Chunk(_, b)) => a == b }
+    }
+}
 impl cmp::Ord for Chunk {
     fn lt(&self, other: &Chunk) -> bool {
         match (self, other) { (&Chunk(_, a), &Chunk(_, b)) => a < b }
     }
-    fn le(&self, other: &Chunk) -> bool { !other.lt(self) }
-    fn gt(&self, other: &Chunk) -> bool { !self.le(other) }
-    fn ge(&self, other: &Chunk) -> bool { !self.lt(other) }
 }

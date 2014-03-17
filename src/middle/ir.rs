@@ -203,9 +203,9 @@ impl PrettyPrint for Statement {
       Condition(ref e) => ~"cond " + e.pp(),
       Return(ref e) => ~"return " + e.pp(),
       Die(ref e) => ~"die if " + e.pp(),
-      Call(t, ref e, ref E) =>
+      Call(t, ref e, ref args) =>
         format!("{} <- {}({})", t.pp(), e.pp(),
-                E.map(|e| e.pp()).connect(", ")),
+                args.map(|e| e.pp()).connect(", ")),
       Phi(tmp, ref map) => {
         let mut s = tmp.pp() + " <- phi(";
         for (&id, &tmp) in map.iter() {

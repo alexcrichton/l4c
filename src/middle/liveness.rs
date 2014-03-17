@@ -77,7 +77,7 @@ impl<'a, T, S: Statement<T>> Liveness<'a, T, S> {
   }
 
   fn liveness(&mut self, n: NodeId) -> bool {
-    let mut live = HashSet::new();
+    let mut live = HashSet::with_hasher(fnv::Hasher);
     for &t in self.phi_out.get(&n).iter() {
       live.insert(t);
     }
@@ -89,7 +89,7 @@ impl<'a, T, S: Statement<T>> Liveness<'a, T, S> {
         None => ()
       }
     }
-    let mut live_out = HashSet::new();
+    let mut live_out = HashSet::with_hasher(fnv::Hasher);
     for &t in live.iter() { live_out.insert(t); }
     self.a.out.insert(n, live_out);
     let mut my_deltas = ~[];

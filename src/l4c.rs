@@ -1,5 +1,8 @@
-#[feature(macro_rules, globs, default_type_params)];
+#[feature(macro_rules, globs, default_type_params, phase)];
+#[allow(deprecated_owned_vector)];
 
+#[phase(syntax, link)]
+extern crate log;
 extern crate getopts;
 extern crate collections;
 extern crate time;
