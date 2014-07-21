@@ -1,5 +1,5 @@
 #[deriving(Clone)]
-pub struct Coords(Span, ~str);
+pub struct Coords(Span, String);
 pub type Mark = uint;
 pub type Span = ((uint, uint), (uint, uint));
 
@@ -22,9 +22,7 @@ impl<T> Marked<T> {
         Marked{ node: t, span: m }
     }
 
-    pub fn unwrap(~self) -> T {
-        match self {
-            ~Marked { node, .. } => return node,
-        }
+    pub fn unwrap(self: Box<Marked<T>>) -> T {
+        self.node
     }
 }

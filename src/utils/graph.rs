@@ -9,10 +9,10 @@ pub type NodeId = uint;
 pub type NodeSet = hm::HashSet<NodeId>;
 
 pub struct Graph<N, E> {
-    priv nodes: sm::SmallIntMap<N>,
-    priv succ:  sm::SmallIntMap<~hm::HashMap<NodeId, E>>,
-    priv pred:  sm::SmallIntMap<~NodeSet>,
-    priv next:  NodeId
+    nodes: sm::SmallIntMap<N>,
+    succ:  sm::SmallIntMap<Box<hm::HashMap<NodeId, E>>>,
+    pred:  sm::SmallIntMap<Box<NodeSet>>,
+    next:  NodeId
 }
 
 pub fn Graph<N, E>() -> Graph<N, E>{
@@ -34,8 +34,8 @@ impl<N, E> Graph<N, E> {
     pub fn new_id(&mut self) -> NodeId {
         let ret = self.next;
         self.next += 1;
-        self.succ.insert(ret, ~hm::HashMap::new());
-        self.pred.insert(ret, ~hm::HashSet::new());
+        self.succ.insert(ret, box hm::HashMap::new());
+        self.pred.insert(ret, box hm::HashSet::new());
         ret
     }
 
@@ -130,7 +130,7 @@ impl<N, E> Graph<N, E> {
     }
 
     pub fn map_nodes(&mut self, f: |NodeId, N| -> N) {
-        let mut keys = ~[];
+        let mut keys = Vec::new();
         for (k, _) in self.nodes.iter() { keys.push(k); }
         for k in keys.move_iter() {
             self.map_consume_node(k, |n| f(k, n));
@@ -152,7 +152,7 @@ impl<N, E> Graph<N, E> {
         }
         mem::swap(&mut this.pred, &mut g2.pred);
         for (k, v) in this.succ.move_iter() {
-            let mut map = ~hm::HashMap::new();
+            let mut map = box hm::HashMap::new();
             for (k, v) in v.move_iter() {
                 map.insert(k, e(v));
             }
@@ -162,9 +162,9 @@ impl<N, E> Graph<N, E> {
     }
 
     pub fn dot(&self, out: &mut io::Writer,
-               nid: |NodeId| -> ~str,
-               node: |NodeId, &N| -> ~str,
-               edge: |&E| -> ~str) -> io::IoResult<()> {
+               nid: |NodeId| -> String,
+               node: |NodeId, &N| -> String,
+               edge: |&E| -> String) -> io::IoResult<()> {
         for (id, n) in self.nodes.iter() {
             try!(out.write_str(nid(id)));
             try!(out.write_str(" ["));
@@ -184,13 +184,13 @@ impl<N, E> Graph<N, E> {
         Ok(())
     }
 
-    pub fn postorder(&self, root: NodeId) -> (~[NodeId], sm::SmallIntMap<int>) {
+    pub fn postorder(&self, root: NodeId) -> (Vec<NodeId>, sm::SmallIntMap<int>) {
         let mut ordering = sm::SmallIntMap::new();
         self.traverse(&mut ordering, root, 0);
-        let mut v = ~[];
+        let mut v = Vec::new();
         v.grow(ordering.len(), &root);
         for (id, &pos) in ordering.iter() {
-            v[pos] = id;
+            v[pos as uint] = id;
         }
         return (v, ordering);
     }
@@ -214,9 +214,9 @@ impl<N, E> Graph<N, E> {
 // Iterators for the graph
 
 pub struct EdgeIterator<'a, N, E> {
-    priv g: &'a Graph<N, E>,
-    priv iter: sm::Entries<'a, ~hm::HashMap<NodeId, E>>,
-    priv cur: Option<(NodeId, hm::Entries<'a, NodeId, E>)>,
+    g: &'a Graph<N, E>,
+    iter: sm::Entries<'a, Box<hm::HashMap<NodeId, E>>>,
+    cur: Option<(NodeId, hm::Entries<'a, NodeId, E>)>,
 }
 
 impl<'a, N, E> Iterator<(NodeId, NodeId)> for EdgeIterator<'a, N, E> {
@@ -250,9 +250,9 @@ type SuccEdgeIterator<'a, E> =
               hm::Entries<'a, NodeId, E>>;
 
 pub struct PredEdgeIterator<'a, N, E> {
-    priv g: &'a Graph<N, E>,
-    priv src: NodeId,
-    priv iter: hm::SetItems<'a, NodeId>
+    g: &'a Graph<N, E>,
+    src: NodeId,
+    iter: hm::SetItems<'a, NodeId>
 }
 
 impl<'a, N, E> Iterator<(NodeId, &'a E)> for PredEdgeIterator<'a, N, E> {
@@ -280,7 +280,7 @@ fn test_basic() {
         } else if id == n2 {
             assert!(n == 2);
         } else {
-            fail!(~"bad id provided");
+            fail!("bad id provided");
         }
     }
 }

@@ -1,4 +1,4 @@
-#[allow(non_uppercase_statics, dead_code)];
+#![allow(non_uppercase_statics, dead_code)]
 
 use back::assem::*;
 

@@ -1,5 +1,5 @@
-#[feature(macro_rules, globs, default_type_params, phase)];
-#[allow(deprecated_owned_vector)];
+#![feature(macro_rules, globs, default_type_params, phase)]
+#![allow(deprecated_owned_vector)]
 
 #[phase(syntax, link)]
 extern crate log;
@@ -9,12 +9,11 @@ extern crate time;
 
 use std::io;
 use std::result;
-use std::vec;
+use std::slice;
 use std::os;
 use std::task;
 
 use utils::profile;
-use utils::PrettyPrint;
 use utils::Graphable;
 
 mod utils {
@@ -23,9 +22,6 @@ mod utils {
     pub mod profile;
     pub mod fnv;
 
-    pub trait PrettyPrint {
-        fn pp(&self) -> ~str;
-    }
     pub trait Graphable {
         fn dot(&self, &mut ::std::io::Writer) -> ::std::io::IoResult<()>;
     }
@@ -124,7 +120,7 @@ fn run_compiler(m: &getopts::Matches) {
         let header = m.opt_str("l").or(m.opt_str("header"));
         let files = match header {
             None => m.free.clone(),
-            Some(file) => vec::append(~[file], m.free)
+            Some(file) => slice::append(~[file], m.free)
         };
         match front::parser::parse_files(files, m.free[0]) {
             Ok(ast) => ast,

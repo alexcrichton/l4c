@@ -10,10 +10,10 @@ use front::mark::Marked;
 use utils::PrettyPrint;
 
 pub struct Program {
-    decls: ~[~GDecl],
-    priv symbols: ~[~str],
-    priv positions: ~[mark::Coords],
-    priv errored: Cell<bool>,
+    decls: Vec<Box<GDecl>>,
+    symbols: Vec<String>,
+    positions: Vec<mark::Coords>,
+    errored: Cell<bool>,
     mainid: Ident,
 }
 
@@ -25,7 +25,7 @@ struct Elaborator<'a> {
     program: &'a mut Program,
 }
 
-#[deriving(Hash, Clone, Eq)]
+#[deriving(Hash, Clone, Eq, TotalEq)]
 pub struct Ident(uint);
 
 pub type GDecl = Marked<gdecl>;
@@ -34,11 +34,11 @@ pub type GDecl = Marked<gdecl>;
 #[allow(non_camel_case_types)]
 pub enum gdecl {
     Typedef(Ident, Type),
-    StructDef(Ident, ~[(Ident, Type)]),
+    StructDef(Ident, Vec<(Ident, Type)>),
     StructDecl(Ident),
-    Function(Type, Ident, ~[(Ident, Type)], ~Statement),
-    FunIDecl(Type, Ident, ~[(Ident, Type)]),
-    FunEDecl(Type, Ident, ~[(Ident, Type)])
+    Function(Type, Ident, Vec<(Ident, Type)>, Box<Statement>),
+    FunIDecl(Type, Ident, Vec<(Ident, Type)>),
+    FunEDecl(Type, Ident, Vec<(Ident, Type)>)
 }
 
 pub type Statement = Marked<stmt>;
@@ -46,17 +46,17 @@ pub type Statement = Marked<stmt>;
 #[deriving(Eq, Clone)]
 #[allow(non_camel_case_types)]
 pub enum stmt {
-    Assign(~Expression, Option<Binop>, ~Expression),
-    If(~Expression, ~Statement, ~Statement),
-    While(~Expression, ~Statement),
-    For(~Statement, ~Expression, ~Statement, ~Statement),
-    Express(~Expression),
+    Assign(Box<Expression>, Option<Binop>, Box<Expression>),
+    If(Box<Expression>, Box<Statement>, Box<Statement>),
+    While(Box<Expression>, Box<Statement>),
+    For(Box<Statement>, Box<Expression>, Box<Statement>, Box<Statement>),
+    Express(Box<Expression>),
     Continue,
     Break,
     Nop,
-    Return(~Expression),
-    Seq(~Statement, ~Statement),
-    Declare(Ident, Type, Option<~Expression>, ~Statement),
+    Return(Box<Expression>),
+    Seq(Box<Statement>, Box<Statement>),
+    Declare(Ident, Type, Option<Box<Expression>>, Box<Statement>),
 }
 
 pub type Expression = Marked<expr>;
@@ -67,22 +67,22 @@ pub enum expr {
     Var(Ident),
     Boolean(bool),
     Const(i32),
-    BinaryOp(Binop, ~Expression, ~Expression),
-    UnaryOp(Unop, ~Expression),
-    Ternary(~Expression, ~Expression, ~Expression, RefCell<Option<Type>>),
-    Call(~Expression, ~[~Expression], RefCell<Option<Type>>),
-    Deref(~Expression, RefCell<Option<Type>>),
-    Field(~Expression, Ident, RefCell<Option<Ident>>),
-    ArrSub(~Expression, ~Expression, RefCell<Option<Type>>),
+    BinaryOp(Binop, Box<Expression>, Box<Expression>),
+    UnaryOp(Unop, Box<Expression>),
+    Ternary(Box<Expression>, Box<Expression>, Box<Expression>, RefCell<Option<Type>>),
+    Call(Box<Expression>, Vec<Box<Expression>>, RefCell<Option<Type>>),
+    Deref(Box<Expression>, RefCell<Option<Type>>),
+    Field(Box<Expression>, Ident, RefCell<Option<Ident>>),
+    ArrSub(Box<Expression>, Box<Expression>, RefCell<Option<Type>>),
     Alloc(Type),
-    AllocArray(Type, ~Expression),
+    AllocArray(Type, Box<Expression>),
     Null,
 }
 
 #[deriving(Clone)]
 pub enum Type {
-    Int, Bool, Alias(Ident), Pointer(~Type), Array(~Type), Struct(Ident), Nullp,
-    Fun(~Type, ~[Type])
+    Int, Bool, Alias(Ident), Pointer(Box<Type>), Array(Box<Type>),
+    Struct(Ident), Nullp, Fun(Box<Type>, Vec<Type>)
 }
 
 #[deriving(Eq, Clone)]
@@ -97,13 +97,13 @@ pub enum Unop {
 }
 
 impl Program {
-    pub fn new(decls: ~[~GDecl], mut syms: ~[~str],
-               p: ~[mark::Coords]) -> Program {
-        let main = &~"main";
+    pub fn new(decls: Vec<Box<GDecl>>, mut syms: Vec<String>,
+               p: Vec<mark::Coords>) -> Program {
+        let main = &"main".to_string();
         let mainid = match syms.iter().position(|s| s.eq(main)) {
             Some(i) => Ident(i),
             None => {
-                syms.push(~"main");
+                syms.push("main".to_string());
                 Ident(syms.len() - 1)
             }
         };
@@ -112,7 +112,7 @@ impl Program {
     }
 
     pub fn elaborate(&mut self) {
-        let prev = mem::replace(&mut self.decls, ~[]);
+        let prev = mem::replace(&mut self.decls, Vec::new());
         let decls;
         {
             let mut e = Elaborator{ efuns:   HashSet::new(),
@@ -125,9 +125,9 @@ impl Program {
         self.decls = decls;
     }
 
-    pub fn str(&self, id: Ident) -> ~str {
+    pub fn str<'a>(&'a self, id: Ident) -> &'a str {
         let Ident(n) = id;
-        self.symbols[n].clone()
+        self.symbols[n].as_slice()
     }
 
     pub fn error(&self, m: mark::Mark, msg: &str) {
@@ -160,23 +160,25 @@ impl Program {
 
 impl Eq for Program {
     fn eq(&self, other: &Program) -> bool { self.decls == other.decls }
-    fn ne(&self, other: &Program) -> bool { !self.eq(other) }
 }
 
-impl PrettyPrint for Program {
-    fn pp(&self) -> ~str {
-        use front::pp::PrettyPrintAST;
-        self.decls.map(|d| d.pp(self)).connect("\n")
+impl fmt::Show for Program {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use front::pp::WithAST;
+        for decl in self.decls.iter() {
+            try!(write!("{}\n", WithAST(decl, self)));
+        }
+        Ok(())
     }
 }
 
 impl<'a> Elaborator<'a> {
-    fn run(&mut self, decls: ~[~GDecl]) -> ~[~GDecl] {
+    fn run(&mut self, decls: Vec<Box<GDecl>>) -> Vec<Box<GDecl>> {
         let decls = decls.move_iter().map(|x| self.elaborate(x)).collect();
         self.program.check();
         return decls;
     }
-    fn elaborate(&mut self, g: ~GDecl) -> ~GDecl {
+    fn elaborate(&mut self, g: Box<GDecl>) -> Box<GDecl> {
         /* TODO(#4653): in this macro, it should be $id instead of 'id' */
         macro_rules! check_set (
             ($set:expr, $id:expr, $name:expr, $span:expr) => {
@@ -224,10 +226,10 @@ impl<'a> Elaborator<'a> {
             }
             StructDecl(id) => StructDecl(id),
         };
-        return ~Marked::new(node, span);
+        return box Marked::new(node, span);
     }
 
-    fn elaborate_stm(&mut self, s: ~Statement) -> ~Statement {
+    fn elaborate_stm(&mut self, s: Box<Statement>) -> Box<Statement> {
         let span = s.span;
         let node = match s.unwrap() {
             Continue => Continue,
@@ -237,15 +239,15 @@ impl<'a> Elaborator<'a> {
                 let rest = self.elaborate_stm(rest);
                 self.declare(id, span, typ, init, rest)
             }
-            For(~Marked{ node: Declare(id, typ, init, s1), span: dspan},
+            For(box Marked{ node: Declare(id, typ, init, s1), span: dspan},
                 e1, s2, s3) => {
-                let f = ~Marked::new(For(s1, e1, s2, s3), span);
-                let d = ~Marked::new(Declare(id, typ, init, f), dspan);
+                let f = box Marked::new(For(s1, e1, s2, s3), span);
+                let d = box Marked::new(Declare(id, typ, init, f), dspan);
                 return self.elaborate_stm(d);
             }
             For(s1, e1, s2, s3) => {
                 match s2 {
-                    ~Marked{ node: Declare(..), span } => {
+                    box Marked{ node: Declare(..), span } => {
                         self.program.error(span, "declarations not allowed in \
                                                   for-loop steps")
                     }
@@ -261,27 +263,27 @@ impl<'a> Elaborator<'a> {
             Return(e) => Return(self.elaborate_exp(e)),
             Express(e) => Express(self.elaborate_exp(e)),
             Seq(s1, s2) => Seq(self.elaborate_stm(s1), self.elaborate_stm(s2)),
-            Assign(~Marked{ node: Var(id), span: e1span }, Some(o), e2) => {
+            Assign(box Marked{ node: Var(id), span: e1span }, Some(o), e2) => {
                 let e2span = e2.span;
-                let v = ~Marked::new(Var(id), e1span);
-                let b = ~Marked::new(BinaryOp(o, v.clone(), e2), e2span);
-                let e = ~Marked::new(Assign(v, None, b), span);
+                let v = box Marked::new(Var(id), e1span);
+                let b = box Marked::new(BinaryOp(o, v.clone(), e2), e2span);
+                let e = box Marked::new(Assign(v, None, b), span);
                 return self.elaborate_stm(e);
             }
             Assign(e1, o, e2) =>
                 Assign(self.elaborate_exp(e1), o, self.elaborate_exp(e2)),
         };
-        return ~Marked::new(node, span);
+        return box Marked::new(node, span);
     }
 
     fn declare(&mut self, id: Ident, m: mark::Mark, typ: Type,
-               init: Option<~Expression>, rest: ~Statement) -> stmt {
+               init: Option<Box<Expression>>, rest: Box<Statement>) -> stmt {
         self.check_id(m, id);
         Declare(id, self.resolve(m, typ),
         init.map(|x| self.elaborate_exp(x)), rest)
     }
 
-    fn elaborate_exp(&mut self, e: ~Expression) -> ~Expression {
+    fn elaborate_exp(&mut self, e: Box<Expression>) -> Box<Expression> {
         let span = e.span;
         let node = match e.unwrap() {
             Var(id) => Var(id),
@@ -308,7 +310,7 @@ impl<'a> Elaborator<'a> {
             AllocArray(t, e) => AllocArray(self.resolve(span, t),
                                            self.elaborate_exp(e))
         };
-        return ~Marked::new(node, span);
+        return box Marked::new(node, span);
     }
 
     fn check_id(&mut self, m: mark::Mark, s: Ident) {
@@ -321,8 +323,8 @@ impl<'a> Elaborator<'a> {
     fn resolve(&mut self, m: mark::Mark, t: Type) -> Type {
         match t {
             Int | Bool | Nullp | Struct(_) => t,
-            Pointer(t) => Pointer(~self.resolve(m, *t)),
-            Array(t) => Array(~self.resolve(m, *t)),
+            Pointer(t) => Pointer(box self.resolve(m, *t)),
+            Array(t) => Array(box self.resolve(m, *t)),
             Alias(sym) => match self.types.find(&sym) {
                 Some(t) => t.clone(),
                 None    => {
@@ -331,13 +333,13 @@ impl<'a> Elaborator<'a> {
                     t
                 }
             },
-            Fun(t1, l) => Fun(~self.resolve(m, *t1),
+            Fun(t1, l) => Fun(box self.resolve(m, *t1),
                               l.move_iter().map(|t| self.resolve(m, t)).collect())
         }
     }
 
     fn resolve_pairs(&mut self, m: mark::Mark,
-                     pairs: ~[(Ident, Type)]) -> ~[(Ident, Type)] {
+                     pairs: Vec<(Ident, Type)>) -> Vec<(Ident, Type)> {
         pairs.move_iter().map(|(id, typ)| (id, self.resolve(m, typ)))
              .collect()
     }

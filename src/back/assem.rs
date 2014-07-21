@@ -338,8 +338,8 @@ impl PrettyPrint for Instruction {
                   binop.pp(), s1.pp(), dest.pp(), s2.pp()),
       },
       Call(dst, ref e, ref args) =>
-        format!("call {} // {} <- {}", e.pp(), dst.pp(),
-             ~"(" + args.map(|a| a.pp()).connect(", ") + ")"),
+        format!("call {} // {} <- ({})", e.pp(), dst.pp(),
+             ~"(" + args.iter().map(|a| a.pp()).connect(", ") + ")"),
       Phi(tmp, ref map) => {
         let mut s = ~"//" + tmp.pp() + " <- phi(";
         for (&id, &tmp) in map.iter() {

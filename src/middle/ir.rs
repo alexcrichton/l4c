@@ -76,7 +76,7 @@ impl Graphable for Program {
       try!(f.cfg.dot(out,
         |id| format!("{}_n{}", f.name, id as int),
         |id, stms|
-          "label=\"" + stms.map(|s| s.pp()).connect("\\n") +
+          "label=\"" + stms.iter().map(|s| s.pp()).connect("\\n").collect() +
           format!("\n[node={}]\" shape=box", id as int),
         |&edge| format!("label={:?}", edge)
       ));
@@ -205,7 +205,7 @@ impl PrettyPrint for Statement {
       Die(ref e) => ~"die if " + e.pp(),
       Call(t, ref e, ref args) =>
         format!("{} <- {}({})", t.pp(), e.pp(),
-                args.map(|e| e.pp()).connect(", ")),
+                args.iter().map(|e| e.pp()).collect::<~[~str]>().connect(", ")),
       Phi(tmp, ref map) => {
         let mut s = tmp.pp() + " <- phi(";
         for (&id, &tmp) in map.iter() {
@@ -214,7 +214,8 @@ impl PrettyPrint for Statement {
         s + ")"
       }
       Arguments(ref tmps) =>
-        format!("args {}", tmps.map(|&t| t.pp()).connect(", ")),
+        format!("args {}", tmps.iter().map(|&t| t.pp())
+                               .collect::<~[~str]>().connect(", ")),
     }
   }
 }

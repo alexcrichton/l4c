@@ -7,8 +7,8 @@ use time;
 local_data_key!(levels_key: uint)
 
 pub struct Guard {
-    priv enabled: bool,
-    priv start: f64,
+    enabled: bool,
+    start: f64,
 }
 
 impl Drop for Guard {

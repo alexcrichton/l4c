@@ -9,7 +9,7 @@ use middle::temp::{Temp, TempSet};
 use back::arch;
 use back::assem::*;
 use back::coalesce;
-use utils::{profile, graph, PrettyPrint, fnv};
+use utils::{profile, graph, fnv};
 
 type RegisterSet = bitv::Bitv;
 pub type ColorMap = SmallIntMap<uint>;
@@ -579,22 +579,22 @@ impl Allocator {
   }
 }
 
-impl PrettyPrint for bitv::Bitv {
-  fn pp(&self) -> ~str {
-    let mut s = ~"{";
-    let mut first = true;
-    self.ones(|i| {
-      if first {
-        first = false;
-      } else {
-        s.push_str(", ");
-      }
-      s.push_str(i.to_str());
-      true
-    });
-    return s + "}";
-  }
-}
+// impl fmt::Show for bitv::Bitv {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         let mut s = ~"{";
+//         let mut first = true;
+//         self.ones(|i| {
+//             if first {
+//                 first = false;
+//             } else {
+//                 s.push_str(", ");
+//             }
+//             s.push_str(i.to_str());
+//             true
+//         });
+//         return s + "}";
+//     }
+// }
 
 /**
  * Perform the actual resolution of moves/exchanges to get from incoming to the

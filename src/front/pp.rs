@@ -1,148 +1,234 @@
+use std::fmt::Show;
+use std::fmt;
+use std::io::IoResult;
+
 use front::ast::*;
 use front::mark::Marked;
-use utils::PrettyPrint;
 
-pub trait PrettyPrintAST {
-  fn pp(&self, p: &Program) -> ~str;
+pub trait ShowAST {
+    fn fmt(&self, p: &Program, f: &mut fmt::Formatter) -> fmt::Result;
 }
 
-fn tab(s: ~str) -> ~str {
-  ~"  " + s.replace("\n", "\n  ")
-}
+pub struct WithAST<'a, T>(&'a T, &'a Program);
 
-impl PrettyPrint for Unop {
-  fn pp(&self) -> ~str {
-    match *self {
-      Negative => ~"-",
-      Invert   => ~"~",
-      Bang     => ~"!"
+struct Tabber<'a, W> { f: &'a mut W }
+
+impl<'a, T: ShowAST> fmt::Show for WithAST<'a, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result{
+        let WithAST(obj, p) = *self;
+        obj.fmt(p, f)
     }
-  }
 }
 
-impl PrettyPrint for Binop {
-  fn pp(&self) -> ~str {
-    match *self {
-      Plus      => ~"+",
-      Minus     => ~"-",
-      Times     => ~"*",
-      Divide    => ~"/",
-      Modulo    => ~"%",
-      Less      => ~"<",
-      LessEq    => ~"<=",
-      Greater   => ~">",
-      GreaterEq => ~">=",
-      Equals    => ~"==",
-      NEquals   => ~"!=",
-      LAnd      => ~"&&",
-      LOr       => ~"||",
-      BAnd      => ~"&",
-      BOr       => ~"|",
-      Xor       => ~"^",
-      LShift    => ~"<<",
-      RShift    => ~">>"
+impl<'a, W: Writer> Writer for Tabber<'a, W> {
+    fn write(&mut self, bytes: &[u8]) -> IoResult<()> {
+        for part in bytes.split(|b| *b == b'\n') {
+            try!(self.f.write(part));
+            try!(self.f.write(b"\n  "));
+        }
     }
-  }
 }
 
-impl PrettyPrintAST for Type {
-  fn pp(&self, p: &Program) -> ~str {
-    match *self {
-      Int            => ~"int",
-      Bool           => ~"bool",
-      Alias(s)       => p.str(s),
-      Pointer(ref t) => t.pp(p) + "*",
-      Array(ref t)   => t.pp(p) + "[]",
-      Struct(s)      => ~"struct " + p.str(s),
-      Nullp          => ~"(null)",
-      Fun(ref t, ref l) => t.pp(p) + "(" + l.map(|x| x.pp(p)).connect(", ")
+fn tab<'a, W>(f: &'a mut W) -> Tabber<'a, W> {
+    Tabber { f: f }
+}
+
+impl fmt::Show for Unop {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Negative => "-".fmt(f),
+            Invert   => "~".fmt(f),
+            Bang     => "!".fmt(f),
+        }
     }
-  }
 }
 
-impl PrettyPrintAST for Expression {
-  fn pp(&self, p: &Program) -> ~str {
-    match self.node {
-      Var(s)                    => p.str(s),
-      Boolean(b)                => b.to_str(),
-      Const(i)                  => i.to_str(),
-      UnaryOp(o, ref e)         => o.pp() + "(" + e.pp(p) + ")",
-      Deref(ref e, _)           => ~"*(" + e.pp(p) + ")",
-      Field(ref e, f, _)        => e.pp(p) + "." + p.str(f),
-      ArrSub(ref e1, ref e2, _) => e1.pp(p) + "[" + e2.pp(p) + "]",
-      Alloc(ref t)              => ~"alloc(" + t.pp(p) + ")",
-      Null                      => ~"NULL",
-      AllocArray(ref t, ref e) =>
-        ~"alloc_array(" + t.pp(p) + ", " + e.pp(p) + ")",
-      Call(ref e, ref args, _) =>
-        e.pp(p) + "(" + args.map(|e| e.pp(p)).connect(", ") + ")",
-      BinaryOp(o, ref e1, ref e2) =>
-        ~"(" + e1.pp(p) + " " + o.pp() + " " + e2.pp(p) + ")",
-      Ternary(ref e1, ref e2, ref e3, _) =>
-        ~"((" + e1.pp(p) + ") ? (" + e2.pp(p) +
-        "): (" + e3.pp(p) + "))"
+impl fmt::Show for Binop {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Plus      => "+".fmt(f),
+            Minus     => "-".fmt(f),
+            Times     => "*".fmt(f),
+            Divide    => "/".fmt(f),
+            Modulo    => "%".fmt(f),
+            Less      => "<".fmt(f),
+            LessEq    => "<=".fmt(f),
+            Greater   => ">".fmt(f),
+            GreaterEq => ">=".fmt(f),
+            Equals    => "==".fmt(f),
+            NEquals   => "!=".fmt(f),
+            LAnd      => "&&".fmt(f),
+            LOr       => "||".fmt(f),
+            BAnd      => "&".fmt(f),
+            BOr       => "|".fmt(f),
+            Xor       => "^".fmt(f),
+            LShift    => "<<".fmt(f),
+            RShift    => ">>".fmt(f),
+        }
     }
-  }
 }
 
-impl PrettyPrintAST for Statement {
-  fn pp(&self, p: &Program) -> ~str {
-    match self.node {
-      Continue => ~"continue",
-      Break => ~"break",
-      Nop => ~"",
-      Return(ref e) => ~"return " + e.pp(p),
-      Express(ref e) => e.pp(p),
-      Declare(v, ref t, ref init, ref s) =>
-        t.pp(p) + " " + p.str(v) + pp_opt(p, init) + "\n" + tab(s.pp(p)),
-      While(ref e, ref s) =>
-        ~"while (" + e.pp(p) + ") {\n" + tab(s.pp(p)) + "\n}",
-      If(ref e, ref s1, ref s2) =>
-        ~"if(" + e.pp(p) + ") {\n" + tab(s1.pp(p)) +
-        "\n} else {\n" + tab(s2.pp(p)) + "\n}",
-      For(ref s1, ref e, ref s2, ref s3) =>
-        ~"for (" + s1.pp(p) + "; " + e.pp(p) + "; " + s2.pp(p) +
-        ") {\n" + tab(s3.pp(p)) + "\n}",
-      Assign(ref e1, ref o, ref e2) =>
-        e1.pp(p) +
-        match *o { None => ~" = ", Some(o) => ~" " + o.pp() + "= " } +
-        e2.pp(p),
-      Seq(~Marked{ node: Nop, .. }, ~Marked{ node: Nop, .. }) => ~"",
-      Seq(ref s, ~Marked{ node: Nop, .. }) => s.pp(p),
-      Seq(~Marked{ node: Nop, .. }, ref s) => s.pp(p),
-      Seq(ref s1, ref s2) => s1.pp(p) + "\n" + s2.pp(p)
+impl<'a, T: ShowAST> ShowAST for &'a [T] {
+    fn fmt(&self, p: &Program, f: &mut fmt::Formatter) -> fmt::Result {
+        for (i, e) in self.iter().enumerate() {
+            if i > 0 { try!(write!(f, ", ")); }
+            try!(write!(f, "{}", WithAST(&**e, p)));
+        }
+        Ok(())
     }
-  }
 }
 
-fn pp_opt(p: &Program, o: &Option<~Expression>) -> ~str {
-  match *o {
-    Some(ref e) => ~" = " + e.pp(p),
-    None => ~""
-  }
-}
-
-fn ppair(prog: &Program, p: &(Ident, Type)) -> ~str {
-  match *p { (id, ref typ) => typ.pp(prog) + " " + prog.str(id) }
-}
-
-fn pfun(prog: &Program, t: &Type, i: Ident, p: &[(Ident, Type)]) -> ~str {
-  t.pp(prog) + " " + prog.str(i) + "(" +
-    p.map(|p| ppair(prog, p)).connect(", ") + ")"
-}
-
-impl PrettyPrintAST for GDecl {
-  fn pp(&self, p: &Program) -> ~str {
-    match self.node {
-      Typedef(s, ref t) => ~"typedef " + t.pp(p) + " " + p.str(s),
-      StructDecl(s) => ~"struct " + p.str(s),
-      StructDef(s, ref l) =>
-        ~"struct " + p.str(s) + "{\n" +
-          tab(l.map(|t| ppair(p, t)).connect("\n")) + "\n}",
-      FunIDecl(ref t, s, ref args) => pfun(p, t, s, *args),
-      FunEDecl(ref t, s, ref args) => ~"extern " + pfun(p, t, s, *args),
-      Function(ref t, s, ref args, ref body) =>
-        pfun(p, t, s, *args) + " {\n" + tab(body.pp(p)) + "\n}"
+impl<'a, T: ShowAST> ShowAST for Box<T> {
+    fn fmt(&self, p: &Program, f: &mut fmt::Formatter) -> fmt::Result {
+        WithAST(&**self, p).fmt(f)
     }
-  }
+}
+
+impl ShowAST for Type {
+    fn fmt(&self, p: &Program, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Int            => "int".fmt(f),
+            Bool           => "bool".fmt(f),
+            Alias(s)       => p.str(s).fmt(f),
+            Pointer(ref t) => { try!(t.fmt(p, f)); write!(f.buf, "*") }
+            Array(ref t)   => { try!(t.fmt(p, f)); write!(f.buf, "[]") }
+            Struct(s)      => write!(f.buf, "struct {}", p.str(s)),
+            Nullp          => "(null)".fmt(f),
+            Fun(ref t, ref l) => write!(f.buf, "{}({})",
+                                        WithAST(t, p),
+                                        WithAST(l.as_slice(), p))
+        }
+    }
+}
+
+impl ShowAST for Expression {
+    fn fmt(&self, p: &Program, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.node {
+            Var(s) => write!(f, "{}", p.str(s)),
+            Boolean(b) => write!(f, "{}", b),
+            Const(i) => write!(f, "{}", i),
+            UnaryOp(o, ref e) => {
+                write!(f, "{}({})", WithAST(o, p), WithAST(e, p))
+            }
+            Deref(ref e, _) => {
+                write!(f, "*({})", WithAST(e, p)),
+            }
+            Field(ref e, f, _) => {
+                write!(f, "{}.{}", WithAST(e, p), WithAST(f, p))
+            }
+            ArrSub(ref e1, ref e2, _) => {
+                write!(f, "{}[{}]", WithAST(e1, p), WithAST(e2, p))
+            }
+            Alloc(ref t) => write!(f, "alloc({})", WithAST(t, p)),
+            Null => write!(f, "NULL"),
+            AllocArray(ref t, ref e) => {
+                write!(f, "alloc_array({}, {})",
+                       WithAST(t, p), WithAST(e, p))
+            }
+            Call(ref e, ref args, _) => {
+                write!(f, "{}({:#})", WithAST(e, p),
+                       WithAST(args.as_slice(), p))
+            }
+            BinaryOp(o, ref e1, ref e2) => {
+                write!(f, "({} {} {})", WithAST(e1, p), o, WithAST(e2, p))
+            }
+            Ternary(ref e1, ref e2, ref e3, _) => {
+                write!(f, "(({}) ? ({}) : ({}))", WithAST(e1, p),
+                       WithAST(e2, p), WithAST(e3, p))
+            }
+        }
+    }
+}
+
+impl ShowAST for Statement {
+    fn fmt(&self, p: &Program, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.node {
+            Continue => write!(f, "continue"),
+            Break => write!(f, "break"),
+            Nop => Ok(()),
+            Return(ref e) => write!(f, "return {}", WithAST(e, p)),
+            Express(ref e) => write!(f, "{}", WithAST(e, p)),
+            Declare(v, ref t, ref init, ref s) => {
+                try!(write!(f, "{} {}", WithAST(t, p), p.str(v)));
+                match *init {
+                    Some(ref e) => try!(write!(f, " = {}", WithAST(e, p))),
+                    None => {}
+                }
+                try!(write!(f, "\n"));
+                write!(&mut tab(f), "{}", WithAST(s, p))
+            }
+            While(ref e, ref s) => {
+                try!(write!(f, "while ({}) {{\n", WithAST(e, p)));
+                try!(write!(&mut tab(f), "{}", WithAST(s, p)));
+                write!(f, "\n}}")
+            }
+            If(ref e, ref s1, ref s2) => {
+                try!(write!(f, "if ({}) {{\n", WithAST(e, p)));
+                try!(write!(&mut tab(f), "{}", WithAST(s1, p)));
+                try!(write!(f, "}} else {{\n"));
+                try!(write!(&mut tab(f), "{}", WithAST(s2, p)));
+                write!(f, "\n}}")
+            }
+            For(ref s1, ref e, ref s2, ref s3) => {
+                try!(write!(f, "for ({}; {}; {}) {{\n", WithAST(s1, p),
+                            WithAST(e, p), WithAST(s2, p)));
+                try!(write!(&mut tab(f), "{}", WithAST(s3, p)));
+                write!(f, "\n}}")
+            }
+            Assign(ref e1, ref o, ref e2) => {
+                try!(write!(f, "{} ", WithAST(e1, p)));
+                match *o {
+                    Some(o) => try!(write!(f, " {}= ", o)),
+                    None => try!(write!(f, " = ")),
+                }
+                write!(f, "{}", WithAST(e2, p))
+            }
+            Seq(box Marked{ node: Nop, .. }, box Marked{ node: Nop, .. }) => Ok(()),
+            Seq(ref s, box Marked{ node: Nop, .. }) |
+            Seq(box Marked{ node: Nop, .. }, ref s) => WithAST(s, p).fmt(f),
+            Seq(ref s1, ref s2) => {
+                write!(f, "{}\n{}", WithAST(s1, p), WithAST(s2, p))
+            }
+        }
+    }
+}
+
+fn pfun(f: &mut fmt::Formatter, prog: &Program, t: &Type, i: Ident,
+        p: &[(Ident, Type)]) -> fmt::Result {
+    try!(write!(f, "{} {} (", WithAST(t, prog), prog.str(i)));
+    for (i, (id, ref ty)) in p.iter().enumerate() {
+        if i > 0 { try!(write!(f, ", ")); }
+        try!(write!(f, "{} {}", WithAST(ty, prog), prog.str(id)));
+
+    }
+    write!(f, ")")
+}
+
+impl ShowAST for GDecl {
+    fn fmt(&self, p: &Program, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.node {
+            Typedef(s, ref t) => {
+                write!(f, "typedef {} {}", WithAST(t, p), p.str(s))
+            }
+            StructDecl(s) => write!("struct {}", p.str(s)),
+            StructDef(s, ref l) => {
+                try!(write!(f, "struct {} {{\n", p.str(s)));
+                for (id, ref ty) in l.iter() {
+                    try!(write!(f, "  {} {}", WithAST(ty, p), p.str(id)));
+                }
+                write!(f, "\n}}")
+            }
+            FunIDecl(ref t, s, ref args) => pfun(f, p, t, s, args.as_slice()),
+            FunEDecl(ref t, s, ref args) => {
+                try!(write!(f, "extern "));
+                pfun(f, p, t, s, args.as_slice())
+            }
+            Function(ref t, s, ref args, ref body) => {
+                try!(pfun(f, p, t, s, args.as_slice()));
+                try!(write!(f, " {{\n"));
+                try!(write!(&mut tab(f), WithAST(body, p)));
+                write!(f, "\n}}")
+            }
+        }
+    }
 }

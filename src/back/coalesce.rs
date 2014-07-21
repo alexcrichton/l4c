@@ -49,7 +49,7 @@ use collections::{HashMap, HashSet};
 use std::int;
 use std::rc::Rc;
 use std::uint;
-use std::vec;
+use std::slice;
 
 use collections::bitv;
 use collections::{SmallIntMap, PriorityQueue};
@@ -468,7 +468,7 @@ impl<'a, I: ssa::Statement<assem::Instruction>> Coalescer<'a, I> {
      */
     fn min_color(&mut self, t: Temp, ignore: uint) -> uint {
         /* cnts[i] = inft  =>  i can't be used for 't' */
-        let mut cnts = vec::from_elem(self.max_color, uint::MAX);
+        let mut cnts = slice::from_elem(self.max_color, uint::MAX);
         for r in range(1u, self.max_color + 1) {
             if r != ignore && self.admissible(t, r) {
                 cnts[r - 1] = 0;
