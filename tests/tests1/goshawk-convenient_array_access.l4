@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 //"convieniently" access a vaild address by accident
 
 int main()

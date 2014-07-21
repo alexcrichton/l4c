@@ -16,14 +16,14 @@ pub fn check(a: &Program) {
 impl<'a> Initchecker<'a> {
     fn run(&mut self) {
         for x in self.program.decls.iter() {
-            self.check_gdecl(*x);
+            self.check_gdecl(&**x);
         }
         self.program.check();
     }
 
     fn check_gdecl(&mut self, g: &GDecl) {
         match g.node {
-            Function(_, _, _, ref body) => self.analyze(*body),
+            Function(_, _, _, ref body) => self.analyze(&**body),
             _ => ()
         }
     }
@@ -31,18 +31,18 @@ impl<'a> Initchecker<'a> {
     fn analyze(&mut self, s: &Statement) {
         match s.node {
             If(_, ref s1, ref s2) | Seq(ref s1, ref s2) => {
-                self.analyze(*s1); self.analyze(*s2);
+                self.analyze(&**s1); self.analyze(&**s2);
             }
-            While(_, ref s) => self.analyze(*s),
+            While(_, ref s) => self.analyze(&**s),
             Declare(id, _, None, ref s) => if self.live(id, &s.node) {
                 self.program.error(s.span,
                                    format!("Uninitialized variable: '{}'",
-                                           self.program.str(id)));
+                                           self.program.str(id)).as_slice());
             } else {
-                self.analyze(*s);
+                self.analyze(&**s);
             },
-            Declare(_, _, _, ref s) => self.analyze(*s),
-            For(_, _, _, ref body) => self.analyze(*body),
+            Declare(_, _, _, ref s) => self.analyze(&**s),
+            For(_, _, _, ref body) => self.analyze(&**body),
             _ => ()
         }
     }
@@ -52,14 +52,14 @@ impl<'a> Initchecker<'a> {
             Declare(id, _, ref init, ref s) =>
                 id != sym && (self.live(sym, &s.node) || self.uses_opt(sym, init)),
             Assign(ref e1, Some(_), ref e2) =>
-                self.uses(sym, *e1) || self.uses(sym, *e2),
-            Assign(_, _, ref e2) => self.uses(sym, *e2),
+                self.uses(sym, &**e1) || self.uses(sym, &**e2),
+            Assign(_, _, ref e2) => self.uses(sym, &**e2),
             If(ref e, ref s1, ref s2) =>
-                self.uses(sym, *e) || self.live(sym, &s1.node) ||
+                self.uses(sym, &**e) || self.live(sym, &s1.node) ||
                     self.live(sym, &s2.node),
             While(ref e, ref s) => {
                 let prev = replace(&mut self.step, Nop);
-                let ret = self.uses(sym, *e) || self.live(sym, &s.node);
+                let ret = self.uses(sym, &**e) || self.live(sym, &s.node);
                 self.step = prev;
                 ret
             }
@@ -69,13 +69,14 @@ impl<'a> Initchecker<'a> {
                 let step = self.step.clone();
                 self.live(sym, &step)
             }
-            Express(ref e) | Return(ref e) => self.uses(sym, *e),
+            Express(ref e) | Return(ref e) => self.uses(sym, &**e),
             Seq(ref s1, ref s2) => self.seq_live(sym, &s1.node, &s2.node),
             For(ref s1, ref e, ref s2, ref s3) => {
                 /* TODO: remove clone and use 'with' */
                 let prev = replace(&mut self.step, s2.node.clone());
                 let ret = self.live(sym, &s1.node) ||
-                    ((self.uses(sym, *e) || self.seq_live(sym, &s3.node, &s2.node)) &&
+                    ((self.uses(sym, &**e) ||
+                      self.seq_live(sym, &s3.node, &s2.node)) &&
                      !self.defines(sym, &s1.node));
                 self.step = prev;
                 ret
@@ -91,20 +92,21 @@ impl<'a> Initchecker<'a> {
         match e.node {
             Var(id) => id == sym,
             UnaryOp(_, ref e) | Field(ref e, _, _) |
-            Deref(ref e, _) | AllocArray(_, ref e) => self.uses(sym, *e),
+            Deref(ref e, _) | AllocArray(_, ref e) => self.uses(sym, &**e),
             BinaryOp(_, ref e1, ref e2) | ArrSub(ref e1, ref e2, _) =>
-                self.uses(sym, *e1) || self.uses(sym, *e2),
+                self.uses(sym, &**e1) || self.uses(sym, &**e2),
             Ternary(ref e1, ref e2, ref e3, _) =>
-                self.uses(sym, *e1) || self.uses(sym, *e2) || self.uses(sym, *e3),
-            Call(_, ref args, _) => args.iter().any(|x| self.uses(sym, *x)),
+                self.uses(sym, &**e1) || self.uses(sym, &**e2) ||
+                self.uses(sym, &**e3),
+            Call(_, ref args, _) => args.iter().any(|x| self.uses(sym, &**x)),
             _ => false
         }
     }
 
-    fn uses_opt(&self, sym: Ident, e: &Option<~Expression>) -> bool {
+    fn uses_opt(&self, sym: Ident, e: &Option<Box<Expression>>) -> bool {
         match *e {
             None => false,
-            Some(ref e) => self.uses(sym, *e)
+            Some(ref e) => self.uses(sym, &**e)
         }
     }
 
@@ -112,7 +114,7 @@ impl<'a> Initchecker<'a> {
         match *s {
             Declare(id, _, Some(_), ref s) => sym == id || self.defines(sym, &s.node),
             Declare(_, _, _, ref s) => self.defines(sym, &s.node),
-            Assign(~mark::Marked{ node: Var(id), .. }, _, _) => id == sym,
+            Assign(box mark::Marked{ node: Var(id), .. }, _, _) => id == sym,
             If(_, ref s1, ref s2) =>
                 self.defines(sym, &s1.node) && self.defines(sym, &s2.node),
             While(_, _) | Assign(_, _, _) | Nop | Express(_) => false,

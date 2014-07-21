@@ -1,20 +1,19 @@
 use std::cell::{RefCell, Cell};
-use std::cmp;
-use collections::{HashSet, HashMap};
+use std::collections::{HashSet, HashMap};
+use std::fmt;
 use std::io;
 use std::mem;
 
 use front::die;
 use front::mark;
 use front::mark::Marked;
-use utils::PrettyPrint;
 
 pub struct Program {
-    decls: Vec<Box<GDecl>>,
+    pub decls: Vec<Box<GDecl>>,
+    pub mainid: Ident,
     symbols: Vec<String>,
     positions: Vec<mark::Coords>,
     errored: Cell<bool>,
-    mainid: Ident,
 }
 
 struct Elaborator<'a> {
@@ -25,12 +24,12 @@ struct Elaborator<'a> {
     program: &'a mut Program,
 }
 
-#[deriving(Hash, Clone, Eq, TotalEq)]
-pub struct Ident(uint);
+#[deriving(Hash, Clone, Eq, PartialEq, Show)]
+pub struct Ident(pub uint);
 
 pub type GDecl = Marked<gdecl>;
 
-#[deriving(Eq)]
+#[deriving(PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum gdecl {
     Typedef(Ident, Type),
@@ -43,7 +42,7 @@ pub enum gdecl {
 
 pub type Statement = Marked<stmt>;
 
-#[deriving(Eq, Clone)]
+#[deriving(Clone, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum stmt {
     Assign(Box<Expression>, Option<Binop>, Box<Expression>),
@@ -61,7 +60,7 @@ pub enum stmt {
 
 pub type Expression = Marked<expr>;
 
-#[deriving(Eq, Clone)]
+#[deriving(Clone, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum expr {
     Var(Ident),
@@ -79,19 +78,19 @@ pub enum expr {
     Null,
 }
 
-#[deriving(Clone)]
+#[deriving(Clone, Eq, Show)]
 pub enum Type {
     Int, Bool, Alias(Ident), Pointer(Box<Type>), Array(Box<Type>),
     Struct(Ident), Nullp, Fun(Box<Type>, Vec<Type>)
 }
 
-#[deriving(Eq, Clone)]
+#[deriving(PartialEq, Eq, Clone)]
 pub enum Binop {
     Plus, Minus, Times, Divide, Modulo, Less, LessEq, Greater, GreaterEq,
     Equals, NEquals, LAnd, LOr, BAnd, BOr, Xor, LShift, RShift
 }
 
-#[deriving(Eq, Clone)]
+#[deriving(PartialEq, Eq, Clone)]
 pub enum Unop {
     Negative, Invert, Bang
 }
@@ -130,23 +129,23 @@ impl Program {
         self.symbols[n].as_slice()
     }
 
-    pub fn error(&self, m: mark::Mark, msg: &str) {
+    pub fn error<T: Str>(&self, m: mark::Mark, msg: T) {
         let mut out = io::stderr();
         if m == mark::dummy {
-            out.write_str(format!("error: {}\n", msg)).unwrap();
+            out.write_str(format!("error: {}\n", msg.as_slice()).as_slice()).unwrap();
         } else {
             match self.positions[m] {
                 mark::Coords(((l1, c1), (l2, c2)), ref file) => {
                     out.write_str(format!("{}:{}.{}-{}.{}:error: {}\n",
                                           *file, l1, c1, l2,
-                                          c2, msg)).unwrap();
+                                          c2, msg.as_slice()).as_slice()).unwrap();
                 }
             }
         }
         self.errored.set(true);
     }
 
-    pub fn die(&self, m: mark::Mark, msg: &str) -> ! {
+    pub fn die<T: Str>(&self, m: mark::Mark, msg: T) -> ! {
         self.error(m, msg);
         die()
     }
@@ -158,7 +157,7 @@ impl Program {
     }
 }
 
-impl Eq for Program {
+impl PartialEq for Program {
     fn eq(&self, other: &Program) -> bool { self.decls == other.decls }
 }
 
@@ -166,7 +165,7 @@ impl fmt::Show for Program {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use front::pp::WithAST;
         for decl in self.decls.iter() {
-            try!(write!("{}\n", WithAST(decl, self)));
+            try!(write!(f, "{}\n", WithAST(decl, self)));
         }
         Ok(())
     }
@@ -182,9 +181,10 @@ impl<'a> Elaborator<'a> {
         /* TODO(#4653): in this macro, it should be $id instead of 'id' */
         macro_rules! check_set (
             ($set:expr, $id:expr, $name:expr, $span:expr) => {
-                if $set.contains(&id) {
+                if $set.contains(&$id) {
                     self.program.error($span, format!("'{}' already a {}",
-                    self.program.str(id), $name));
+                                                      self.program.str($id),
+                                                      $name).as_slice());
                 }
             }
         );
@@ -203,9 +203,9 @@ impl<'a> Elaborator<'a> {
             }
             Typedef(id, typ) => {
                 self.check_id(span, id);
-                check_set!(self.efuns, *id, "function", span);
-                check_set!(self.efuns, *id, "function", span);
-                check_set!(self.funs, *id, "function", span);
+                check_set!(self.efuns, id, "function", span);
+                check_set!(self.efuns, id, "function", span);
+                check_set!(self.funs, id, "function", span);
                 let typ = self.resolve(span, typ);
                 self.types.insert(id, typ.clone());
                 Typedef(id, typ)
@@ -316,7 +316,7 @@ impl<'a> Elaborator<'a> {
     fn check_id(&mut self, m: mark::Mark, s: Ident) {
         if self.types.contains_key(&s) {
             self.program.error(m, format!("'{}' already a type",
-                                          self.program.str(s)));
+                                          self.program.str(s)).as_slice());
         }
     }
 
@@ -329,7 +329,8 @@ impl<'a> Elaborator<'a> {
                 Some(t) => t.clone(),
                 None    => {
                     self.program.error(m, format!("'{}' is undefined",
-                    self.program.str(sym)));
+                                                  self.program.str(sym))
+                                            .as_slice());
                     t
                 }
             },
@@ -366,7 +367,7 @@ impl Type {
     }
 }
 
-impl cmp::Eq for Type {
+impl PartialEq for Type {
     fn eq(&self, other: &Type) -> bool {
         match (self, other) {
             (&Bool, &Bool) | (&Int, &Int) | (&Nullp, &Nullp) => true,

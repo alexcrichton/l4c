@@ -1,20 +1,20 @@
 use std::cmp;
-use collections::HashSet;
+use std::collections::HashSet;
 
 use back::assem::*;
 use middle::{liveness, temp};
-use middle::temp::Temp;
 use back::arch;
 use utils::fnv;
 
 pub fn constrain(p: &mut Program) {
     for f in p.funs.mut_iter() {
-        let mut live = liveness::Analysis();
+        let mut live = liveness::Analysis::new();
         liveness::calculate(&f.cfg, f.root, &mut live, &RegisterInfo);
         let mut temps = temp::new_init(f.temps);
         let sizes = &mut f.sizes;
         f.cfg.map_nodes(|id, stms| {
-            constrain_block(live.in_.get(&id), *live.deltas.get(&id), |t| {
+            constrain_block(live.in_.get(&id),
+                            live.deltas.get(&id).as_slice(), |t| {
                 let tmp = temps.new();
                 let size = sizes.get_copy(&t);
                 sizes.insert(tmp, size);
@@ -25,132 +25,128 @@ pub fn constrain(p: &mut Program) {
 }
 
 fn constrain_block(live: &temp::TempSet, delta: &[liveness::Delta],
-                   tmpclone: |Temp| -> Temp,
-                   ins: ~[~Instruction]) -> ~[~Instruction] {
-  let mut new = ~[];
-  let mut synthetic = ~[];
-  let mut live_in = HashSet::with_hasher(fnv::Hasher);
-  let mut live_out = HashSet::with_hasher(fnv::Hasher);
-  for &t in live.iter() {
-    live_in.insert(t);
-    live_out.insert(t);
-  }
-
-  /* SSA will deal with these renamings later */
-  fn pcopy(live: &temp::TempSet) -> ~Instruction {
-    let mut copies = ~[];
-    for &tmp in live.iter() {
-      copies.push((tmp, tmp));
+                   tmpclone: |temp::Temp| -> temp::Temp,
+                   ins: Vec<Box<Instruction>>) -> Vec<Box<Instruction>> {
+    let mut new = Vec::new();
+    let mut synthetic = Vec::new();
+    let mut live_in = HashSet::with_hasher(fnv::Hasher);
+    let mut live_out = HashSet::with_hasher(fnv::Hasher);
+    for &t in live.iter() {
+        live_in.insert(t);
+        live_out.insert(t);
     }
-    ~PCopy(copies)
-  }
 
-  /* If a constrained use is also always clobbered as a result of an
-     instruction, then it needs to be moved into a temporary before the
-     instruction runs to not destroy the actual value. We push this move
-     before the PCopy as well for ease later on */
-  macro_rules! constrain_clobber(
-    ($op:expr) =>
-    (
-      match $op {
-        ~Temp(t) if live_out.contains(&t) => {
-          let dup = tmpclone(t);
-          let dst = ~Temp(dup);
-          new.push(~Move(dst.clone(), ~Temp(t)));
-          assert!(live_in.insert(dup));
-          synthetic.push(dup);
-          dst
-        }
-        o => o
-      }
-    )
-  );
+    /* SSA will deal with these renamings later */
+    fn pcopy(live: &temp::TempSet) -> Box<Instruction> {
+        box PCopy(live.iter().map(|tmp| (*tmp, *tmp)).collect())
+    }
 
-  for (i, ins) in ins.move_iter().enumerate() {
-    liveness::apply(&mut live_out, &delta[i]);
-
-    match ins {
-      ~BinaryOp(op, dest, o1, o2) => {
-        match (op, o2) {
-          /* x86 shifts must have the operand in the %cl register unless the
-             argument is an immediate */
-          (Lsh, ~Temp(t)) | (Rsh, ~Temp(t)) => {
-            new.push(pcopy(&live_in));
-            new.push(~BinaryOp(op, dest, o1, ~Temp(t)));
-            new.push(~Use(t));
-          }
-
-          /* div/mod both use and define edx/eax */
-          (Div, o2) | (Mod, o2) => {
-            let o1 = constrain_clobber!(o1);
-            new.push(pcopy(&live_in));
-            new.push(~BinaryOp(op, dest, o1, o2));
-          }
-
-          /* Because x86 has two-operand form, all non-commutative operations
-             need to have their second argument in interference with the
-             destination because otherwise when moving the first argument to the
-             destination the second argument could get clobbered. This is fixed
-             with a pseudo-use of the second operand right after the
-             instruction */
-          (op, ~Temp(t)) if !op.commutative() => {
-            new.push(~BinaryOp(op, dest, o1, ~Temp(t)));
-            new.push(~Use(t));
-          }
-
-          /* otherwise we're unconstrained! */
-          (_, o2) => { new.push(~BinaryOp(op, dest, o1, o2)); }
-        }
-      }
-
-      /* calling conventions dictate that we must save all caller-saved
-         registers and we will have to put our first few arguments in very
-         specific registers. This throws in a lot of complications, so here we
-         throw in a PCopy for live-range splitting, and we also move all the
-         arguments to the stack that need to be on the stack  */
-      ~Call(dst, fun, args) => {
-        let mut newargs = ~[];
-        let mut tempregs = HashSet::new();
-        for t in args.slice(0, cmp::min(arch::arg_regs, args.len())).iter() {
-          match *t {
-            ~Temp(t) => { tempregs.insert(t); }
-            _ => ()
-          }
-        }
-        for (i, arg) in args.move_iter().enumerate() {
-          /* the first few arguments in registers need to be copied because all
-             argument registers are caller-saved registers */
-          if i < arch::arg_regs {
-            newargs.push(constrain_clobber!(arg));
-          } else {
-            match arg {
-              ~Temp(ref t) if !live_out.contains(t) && !tempregs.contains(t) => {
-                live_in.remove(t);
-              }
-              _ => ()
+    /* If a constrained use is also always clobbered as a result of an
+       instruction, then it needs to be moved into a temporary before the
+       instruction runs to not destroy the actual value. We push this move
+       before the PCopy as well for ease later on */
+    macro_rules! constrain_clobber(
+        ($op:expr) =>
+        (
+            match $op {
+                box Temp(t) if live_out.contains(&t) => {
+                    let dup = tmpclone(t);
+                    let dst = box Temp(dup);
+                    new.push(box Move(dst.clone(), box Temp(t)));
+                    assert!(live_in.insert(dup));
+                    synthetic.push(dup);
+                    dst
+                }
+                o => o
             }
-            new.push(~Store(~Stack((i - arch::arg_regs) * arch::ptrsize), arg));
-          }
+        )
+        );
+
+    for (i, ins) in ins.move_iter().enumerate() {
+        liveness::apply(&mut live_out, &delta[i]);
+
+        match ins {
+            box BinaryOp(op, dest, o1, o2) => {
+                match (op, o2) {
+                    /* x86 shifts must have the operand in the %cl register unless the
+                       argument is an immediate */
+                    (Lsh, box Temp(t)) | (Rsh, box Temp(t)) => {
+                        new.push(pcopy(&live_in));
+                        new.push(box BinaryOp(op, dest, o1, box Temp(t)));
+                        new.push(box Use(t));
+                    }
+
+                    /* div/mod both use and define edx/eax */
+                    (Div, o2) | (Mod, o2) => {
+                        let o1 = constrain_clobber!(o1);
+                        new.push(pcopy(&live_in));
+                        new.push(box BinaryOp(op, dest, o1, o2));
+                    }
+
+                    /* Because x86 has two-operand form, all non-commutative operations
+                       need to have their second argument in interference with the
+                       destination because otherwise when moving the first argument to the
+                       destination the second argument could get clobbered. This is fixed
+                       with a pseudo-use of the second operand right after the
+                       instruction */
+                    (op, box Temp(t)) if !op.commutative() => {
+                        new.push(box BinaryOp(op, dest, o1, box Temp(t)));
+                        new.push(box Use(t));
+                    }
+
+                    /* otherwise we're unconstrained! */
+                    (_, o2) => { new.push(box BinaryOp(op, dest, o1, o2)); }
+                }
+            }
+
+            /* calling conventions dictate that we must save all caller-saved
+               registers and we will have to put our first few arguments in very
+               specific registers. This throws in a lot of complications, so here we
+               throw in a PCopy for live-range splitting, and we also move all the
+               arguments to the stack that need to be on the stack  */
+            box Call(dst, fun, args) => {
+                let mut newargs = Vec::new();
+                let mut tempregs = HashSet::new();
+                for t in args.slice(0, cmp::min(arch::arg_regs, args.len())).iter() {
+                    match *t {
+                        box Temp(t) => { tempregs.insert(t); }
+                        _ => ()
+                    }
+                }
+                for (i, arg) in args.move_iter().enumerate() {
+                    /* the first few arguments in registers need to be copied because all
+                       argument registers are caller-saved registers */
+                    if i < arch::arg_regs {
+                        newargs.push(constrain_clobber!(arg));
+                    } else {
+                        match arg {
+                            box Temp(ref t) if !live_out.contains(t) && !tempregs.contains(t) => {
+                                live_in.remove(t);
+                            }
+                            _ => ()
+                        }
+                        new.push(box Store(box Stack((i - arch::arg_regs) * arch::ptrsize), arg));
+                    }
+                }
+
+                new.push(pcopy(&live_in));
+                new.push(box Call(dst, fun, newargs));
+            }
+
+            /* x86 forces the return register to be %eax */
+            box Return(o) => {
+                new.push(pcopy(&live_in));
+                new.push(box Return(o));
+            }
+
+            ins => new.push(ins)
         }
 
-        new.push(pcopy(&live_in));
-        new.push(~Call(dst, fun, newargs));
-      }
-
-      /* x86 forces the return register to be %eax */
-      ~Return(o) => {
-        new.push(pcopy(&live_in));
-        new.push(~Return(o));
-      }
-
-      ins => new.push(ins)
+        liveness::apply(&mut live_in, &delta[i]);
+        for tmp in synthetic.iter() {
+            live_in.remove(tmp);
+        }
+        synthetic.truncate(0);
     }
-
-    liveness::apply(&mut live_in, &delta[i]);
-    for tmp in synthetic.iter() {
-      live_in.remove(tmp);
-    }
-    synthetic.truncate(0);
-  }
-  return new;
+    return new;
 }

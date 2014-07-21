@@ -16,7 +16,7 @@ pub fn optimize(p: &mut Program) {
     }
 }
 
-fn peep(ins: ~[~Instruction]) -> ~[~Instruction] {
+fn peep(ins: Vec<Box<Instruction>>) -> Vec<Box<Instruction>> {
     use BO  = back::assem::BinaryOp;
     use Imm = back::assem::Immediate;
 
@@ -24,19 +24,19 @@ fn peep(ins: ~[~Instruction]) -> ~[~Instruction] {
     ins.move_iter().map(|i| {
         match i {
             /* shifting has constraints, so add if we can */
-            ~BO(Mul, d, ~Imm(2, _), t) | ~BO(Mul, d, t, ~Imm(2, _)) =>
-                ~BO(Add, d, t.clone(), t),
+            box BO(Mul, d, box Imm(2, _), t) | box BO(Mul, d, t, box Imm(2, _)) =>
+                box BO(Add, d, t.clone(), t),
             /* Multiplying by a power of 2 is equivalent by shifting by the log */
-            ~BO(Mul, d, ~Imm(c, s), t) | ~BO(Mul, d, t, ~Imm(c, s)) => {
+            box BO(Mul, d, box Imm(c, s), t) | box BO(Mul, d, t, box Imm(c, s)) => {
                 let (op, c) = if pow2(c) { (Lsh, log2(c)) } else { (Mul, c) };
-                ~BO(op, d, t, ~Imm(c, s))
+                box BO(op, d, t, box Imm(c, s))
             }
             /* dividing/mod by a power of 2 can also be simplified. */
-            ~BO(op, d, t, ~Imm(c, s)) => {
+            box BO(op, d, t, box Imm(c, s)) => {
                 match (op, pow2(c)) {
-                    (Div, true) => ~BO(Rsh, d, t, ~Imm(log2(c), s)),
-                    (Mod, true) => ~BO(And, d, t, ~Imm(c - 1, s)),
-                    _           => ~BO(op, d, t, ~Imm(c, s)),
+                    (Div, true) => box BO(Rsh, d, t, box Imm(log2(c), s)),
+                    (Mod, true) => box BO(And, d, t, box Imm(c - 1, s)),
+                    _           => box BO(op, d, t, box Imm(c, s)),
                 }
             }
             i => i

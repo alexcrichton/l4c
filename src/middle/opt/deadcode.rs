@@ -16,105 +16,107 @@ use middle::ir::*;
 
 struct Eliminator {
   used: bitv::Bitv,
-  stms: ~[~Statement],
+  stms: Vec<Box<Statement>>,
 }
 
 pub fn optimize(p: &mut Program) {
-  for f in p.funs.mut_iter() {
-    let mut opt = Eliminator { stms: ~[],
-                               used: bitv::Bitv::new(f.types.len(), false) };
-    /* TODO: surely this is easier on SSA form? */
-    while opt.run(f) {}
-  }
+    for f in p.funs.mut_iter() {
+        let mut opt = Eliminator {
+            stms: Vec::new(),
+            used: bitv::Bitv::with_capacity(f.types.len(), false),
+        };
+        /* TODO: surely this is easier on SSA form? */
+        while opt.run(f) {}
+    }
 }
 
 impl Eliminator {
-  fn run(&mut self, f: &mut Function) -> bool {
-    assert!(self.stms.len() == 0);
-    debug!("running");
-    self.used.clear();
-    /* Mark all phi function arguments as used before we go anywhere */
-    for (_, stms) in f.cfg.nodes() {
-      for s in stms.iter() {
-        match *s {
-          ~Phi(_, ref m) => {
-            for (_, &t) in m.iter() {
-              self.used.set(t, true);
+    fn run(&mut self, f: &mut Function) -> bool {
+        assert!(self.stms.len() == 0);
+        debug!("running");
+        self.used.clear();
+        /* Mark all phi function arguments as used before we go anywhere */
+        for (_, stms) in f.cfg.nodes() {
+            for s in stms.iter() {
+                match *s {
+                    box Phi(_, ref m) => {
+                        for (_, &t) in m.iter() {
+                            self.used.set(*t, true);
+                        }
+                    }
+                    _ => ()
+                }
             }
-          }
-          _ => ()
         }
-      }
-    }
 
-    /* Be sure to start at the top of the graph to visit definitions first */
-    let (order, _) = f.cfg.postorder(f.root);
-    let mut changed = false;
-    for &n in order.iter() {
-      let orig = f.cfg.node(n).len();
-      let node = f.cfg.pop_node(n);
-      node.move_rev_iter().advance(|stm| self.stm(stm));
-      let mut block = replace(&mut self.stms, ~[]);
-      block.reverse();
+        /* Be sure to start at the top of the graph to visit definitions first */
+        let (order, _) = f.cfg.postorder(f.root);
+        let mut changed = false;
+        for &n in order.iter() {
+            let orig = f.cfg.node(n).len();
+            let node = f.cfg.pop_node(n);
+            node.move_iter().rev().all(|stm| self.stm(stm));
+            let mut block = replace(&mut self.stms, Vec::new());
+            block.reverse();
 
-      let end = self.first_impossible(block);
-      block.truncate(end);
-      changed = changed || orig != block.len();
+            let end = self.first_impossible(block.as_slice());
+            block.truncate(end);
+            changed = changed || orig != block.len();
 
-      f.cfg.update_node(n, block);
-    }
-    return changed;
-  }
-
-  fn stm(&mut self, s: ~Statement) -> bool {
-    let s = match s {
-      /* Keep all argument statements */
-      ~Arguments(a) => { self.stms.push(~Arguments(a)); return true; }
-      /* Impossible death doesn't need to be pushed back */
-      ~Die(~Const(0, _)) => { return true; }
-      s => s
-    };
-    let mut def = None;
-    s.each_def(|t| {
-      assert!(def.is_none());
-      def = Some(t);
-    });
-
-    /* If the definition was never used, and we're a pure statement (no side
-       effects) then we can definitely remove this code */
-    match def {
-      Some(def) => {
-        if !self.used.get(def) && self.ispure(s) {
-          return true;
+            f.cfg.update_node(n, block);
         }
-      }
-      /* No definitions? Kinda hard to eliminate... */
-      None => ()
+        return changed;
     }
-    /* otherwise, mark all our uses as 'used', and continue on */
-    s.each_use(|t| {
-      self.used.set(t, true);
-    });
-    self.stms.push(s);
-    return true;
-  }
 
-  fn ispure(&self, s: &Statement) -> bool {
-    match *s {
-      Call(..) | Load(..) |
-        Move(_, ~BinaryOp(Div, _, _)) | Move(_, ~BinaryOp(Mod, _, _)) => false,
-      _ => true
-    }
-  }
+    fn stm(&mut self, s: Box<Statement>) -> bool {
+        let s = match s {
+            /* Keep all argument statements */
+            box Arguments(a) => { self.stms.push(box Arguments(a)); return true; }
+            /* Impossible death doesn't need to be pushed back */
+            box Die(box Const(0, _)) => { return true; }
+            s => s
+        };
+        let mut def = None;
+        s.each_def(|t| {
+            assert!(def.is_none());
+            def = Some(t);
+        });
 
-  fn first_impossible(&self, b: &[~Statement]) -> uint {
-    for (i, stm) in b.iter().enumerate() {
-      match *stm {
-        ~Die(~Const(c, _)) if c != 0 => return i + 1,
-        ~Return(..) => return i + 1,
-        _ => ()
-      }
+        /* If the definition was never used, and we're a pure statement (no side
+           effects) then we can definitely remove this code */
+        match def {
+            Some(def) => {
+                if !self.used.get(*def) && self.ispure(&*s) {
+                    return true;
+                }
+            }
+            /* No definitions? Kinda hard to eliminate... */
+            None => ()
+        }
+        /* otherwise, mark all our uses as 'used', and continue on */
+        s.each_use(|t| {
+            self.used.set(*t, true);
+        });
+        self.stms.push(s);
+        return true;
     }
-    return b.len();
-  }
+
+    fn ispure(&self, s: &Statement) -> bool {
+        match *s {
+            Call(..) | Load(..) |
+                Move(_, box BinaryOp(Div, _, _)) | Move(_, box BinaryOp(Mod, _, _)) => false,
+                _ => true
+        }
+    }
+
+    fn first_impossible(&self, b: &[Box<Statement>]) -> uint {
+        for (i, stm) in b.iter().enumerate() {
+            match *stm {
+                box Die(box Const(c, _)) if c != 0 => return i + 1,
+                box Return(..) => return i + 1,
+                _ => ()
+            }
+        }
+        return b.len();
+    }
 }

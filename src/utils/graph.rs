@@ -2,8 +2,8 @@ use std::iter;
 use std::io;
 use std::mem;
 
-use hm = collections::hashmap;
-use sm = collections::smallintmap;
+use hm = std::collections::hashmap;
+use sm = std::collections::smallintmap;
 
 pub type NodeId = uint;
 pub type NodeSet = hm::HashSet<NodeId>;
@@ -15,14 +15,16 @@ pub struct Graph<N, E> {
     next:  NodeId
 }
 
-pub fn Graph<N, E>() -> Graph<N, E>{
-    Graph { nodes: sm::SmallIntMap::new(),
+impl<N, E> Graph<N, E> {
+    pub fn new() -> Graph<N, E>{
+        Graph {
+            nodes: sm::SmallIntMap::new(),
             succ:  sm::SmallIntMap::new(),
             pred:  sm::SmallIntMap::new(),
-            next:  0, }
-}
+            next:  0,
+        }
+    }
 
-impl<N, E> Graph<N, E> {
     pub fn num_pred(&self, n: NodeId) -> uint {
         self.pred.get(&n).len()
     }
@@ -101,7 +103,7 @@ impl<N, E> Graph<N, E> {
     }
 
     pub fn edges<'a>(&'a self) -> EdgeIterator<'a, N, E> {
-        EdgeIterator { g: self, iter: self.succ.iter(), cur: None }
+        EdgeIterator { iter: self.succ.iter(), cur: None }
     }
 
     pub fn nodes<'a>(&'a self) -> sm::Entries<'a, N> {
@@ -145,7 +147,7 @@ impl<N, E> Graph<N, E> {
     pub fn map<N2, E2>(self, n: |NodeId, N| -> N2,
                        e: |E| -> E2) -> Graph<N2, E2> {
         let mut this = self;
-        let mut g2 = Graph();
+        let mut g2 = Graph::new();
         g2.next = this.next;
         for (k, v) in this.nodes.move_iter() {
             g2.nodes.insert(k, n(k, v));
@@ -166,18 +168,18 @@ impl<N, E> Graph<N, E> {
                node: |NodeId, &N| -> String,
                edge: |&E| -> String) -> io::IoResult<()> {
         for (id, n) in self.nodes.iter() {
-            try!(out.write_str(nid(id)));
+            try!(out.write_str(nid(id).as_slice()));
             try!(out.write_str(" ["));
-            try!(out.write_str(node(id, n)));
+            try!(out.write_str(node(id, n).as_slice()));
             try!(out.write_str("];\n"));
         }
         for (id1, neighbors) in self.succ.iter() {
             for (&id2, e) in neighbors.iter() {
-                try!(out.write_str(nid(id1)));
+                try!(out.write_str(nid(id1).as_slice()));
                 try!(out.write_str(" -> "));
-                try!(out.write_str(nid(id2)));
+                try!(out.write_str(nid(id2).as_slice()));
                 try!(out.write_str(" ["));
-                try!(out.write_str(edge(e)));
+                try!(out.write_str(edge(e).as_slice()));
                 try!(out.write_str("];\n"));
             }
         }
@@ -190,7 +192,7 @@ impl<N, E> Graph<N, E> {
         let mut v = Vec::new();
         v.grow(ordering.len(), &root);
         for (id, &pos) in ordering.iter() {
-            v[pos as uint] = id;
+            *v.get_mut(pos as uint) = id;
         }
         return (v, ordering);
     }
@@ -214,7 +216,6 @@ impl<N, E> Graph<N, E> {
 // Iterators for the graph
 
 pub struct EdgeIterator<'a, N, E> {
-    g: &'a Graph<N, E>,
     iter: sm::Entries<'a, Box<hm::HashMap<NodeId, E>>>,
     cur: Option<(NodeId, hm::Entries<'a, NodeId, E>)>,
 }

@@ -1,5 +1,4 @@
 use std::hash;
-use std::io;
 
 pub struct Hasher;
 struct State(u64);
@@ -13,14 +12,13 @@ impl hash::Hasher<State> for Hasher {
     }
 }
 
-impl Writer for State {
-    fn write(&mut self, bytes: &[u8]) -> io::IoResult<()> {
+impl hash::Writer for State {
+    fn write(&mut self, bytes: &[u8]) {
         let State(mut hash) = *self;
         for byte in bytes.iter() {
             hash = hash * 0x100000001b3;
             hash = hash ^ (*byte as u64);
         }
         *self = State(hash);
-        Ok(())
     }
 }

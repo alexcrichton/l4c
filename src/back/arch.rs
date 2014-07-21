@@ -44,7 +44,7 @@ pub fn reg_num(r: Register) -> uint {
     R14D => 13,
     R15D => 14,
     EBP  => 15,
-    _    => fail!("no num assigned {:?}", r)
+    _    => fail!("no num assigned {}", r)
   }
 }
 

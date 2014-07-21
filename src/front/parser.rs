@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use collections::HashMap;
+use std::collections::HashMap;
 use std::io;
 use std::mem;
 
@@ -10,18 +10,18 @@ use front::mark::{Marked, Mark, Span, Coords};
 use front::lexer::*;
 
 struct PositionGenerator {
-    spans: ~[Coords],
+    spans: Vec<Coords>,
     map: HashMap<Span, uint>,
-    file: ~str,
+    file: String,
 }
 
 pub struct SymbolGenerator {
-    symbols: ~[~str],
-    table: HashMap<~str, uint>,
+    symbols: Vec<String>,
+    table: HashMap<String, uint>,
 }
 
 // Listed in order of ascending precedence
-#[deriving(Ord, Eq)]
+#[deriving(Ord, Eq, PartialEq, PartialOrd, Show)]
 pub enum Precedence {
     Default,
     PAssign,
@@ -49,8 +49,8 @@ impl Precedence {
     }
 }
 
-pub fn parse_files(f: &[~str], main: &str) -> Result<Program, ~str> {
-    let mut decls = ~[];
+pub fn parse_files(f: &[String], main: &str) -> Result<Program, String> {
+    let mut decls = Vec::new();
     let mut symgen = SymbolGenerator::new();
     let mut posgen = PositionGenerator::new();
 
@@ -61,7 +61,7 @@ pub fn parse_files(f: &[~str], main: &str) -> Result<Program, ~str> {
         };
         let mut rdr = io::MemReader::new(input);
 
-        posgen.file = f.to_owned();
+        posgen.file = f.to_string();
         let mut lexer = Lexer::new(posgen.file.clone(), &mut rdr, &mut symgen);
         let mut parser = Parser::new(&mut lexer, &mut posgen, main);
 
@@ -77,10 +77,10 @@ pub fn parse_files(f: &[~str], main: &str) -> Result<Program, ~str> {
 
 impl SymbolGenerator {
     pub fn new() -> SymbolGenerator {
-        SymbolGenerator{ table: HashMap::new(), symbols: ~[] }
+        SymbolGenerator{ table: HashMap::new(), symbols: Vec::new() }
     }
 
-    pub fn intern(&mut self, s: &~str) -> ast::Ident {
+    pub fn intern(&mut self, s: &String) -> ast::Ident {
         let s = match self.table.find(s) {
             Some(&i) => { return ast::Ident(i) }
             None => s.clone()
@@ -91,14 +91,14 @@ impl SymbolGenerator {
         return ast::Ident(ret);
     }
 
-    pub fn unwrap(self) -> ~[~str] {
+    pub fn unwrap(self) -> Vec<String> {
         match self { SymbolGenerator{ symbols, .. } => symbols }
     }
 }
 
 impl PositionGenerator {
     fn new() -> PositionGenerator {
-        PositionGenerator{ spans: ~[], map: HashMap::new(), file: ~"" }
+        PositionGenerator{ spans: Vec::new(), map: HashMap::new(), file: String::new() }
     }
 
     fn gen(&mut self, sp: Span) -> Mark {
@@ -116,7 +116,7 @@ impl PositionGenerator {
         match self.spans[m] { Coords(sp, _) => sp }
     }
 
-    fn unwrap(self) -> ~[Coords] {
+    fn unwrap(self) -> Vec<Coords> {
         match self { PositionGenerator{ spans, .. } => spans }
     }
 }
@@ -128,20 +128,22 @@ struct Parser<'a> {
 
     cur: Token,
     span: Span,
-    pending: ~[(Token, Span)],
+    pending: Vec<(Token, Span)>,
 }
 
 impl<'a> Parser<'a> {
     fn new<'a>(l: &'a mut Lexer<'a>, p: &'a mut PositionGenerator,
                target: &'a str) -> Parser<'a> {
-        let mut p = Parser{ lexer: l, cur: EOF, span: ((0, 0), (0, 0)),
-        pending: ~[], posgen: p, target: target };
+        let mut p = Parser {
+            lexer: l, cur: EOF, span: ((0, 0), (0, 0)),
+            pending: Vec::new(), posgen: p, target: target
+        };
         p.shift();
         p
     }
 
     // Parses one global declaration
-    fn parse_gdecl(&mut self) -> ~GDecl {
+    fn parse_gdecl(&mut self) -> Box<GDecl> {
         match self.cur {
             TYPEDEF => {
                 let start = self.shift().val1();
@@ -186,8 +188,8 @@ impl<'a> Parser<'a> {
     }
 
     // Parse a struct-like list of fields
-    fn parse_field_list(&mut self) -> ~[(Ident, Type)] {
-        let mut fields = ~[];
+    fn parse_field_list(&mut self) -> Vec<(Ident, Type)> {
+        let mut fields = Vec::new();
         while self.cur != RBRACE {
             let typ = self.parse_type();
             let id = self.parse_ident_or_type();
@@ -198,7 +200,7 @@ impl<'a> Parser<'a> {
     }
 
     // Parse a function declaration or body
-    fn parse_fdecl(&mut self) -> ~GDecl {
+    fn parse_fdecl(&mut self) -> Box<GDecl> {
         let start = self.span;
         let ret = self.parse_type();
         let name = self.parse_ident();
@@ -212,7 +214,7 @@ impl<'a> Parser<'a> {
 
         if self.cur == SEMI {
             self.shift();
-            if self.target == self.posgen.file {
+            if self.target == self.posgen.file.as_slice() {
                 return self.mark(FunIDecl(ret, name, args), start, end);
             }
             return self.mark(FunEDecl(ret, name, args), start, end);
@@ -221,7 +223,8 @@ impl<'a> Parser<'a> {
         // Ensure that parse_stmt will try to parse a block of statements by
         // ensuring that there's a '{' token
         if self.cur != LBRACE {
-            self.err(self.span, "expected a '{' token");
+            let span = self.span;
+            self.err(span, "expected a '{' token");
         }
         let end = self.span;
         let body = self.parse_stmt();
@@ -229,21 +232,21 @@ impl<'a> Parser<'a> {
     }
 
     // Parse one statement
-    fn parse_stmt(&mut self) -> ~Statement {
+    fn parse_stmt(&mut self) -> Box<Statement> {
         let start = self.span;
         match self.cur {
             // Blocks can have multiple statements.
             LBRACE => {
                 self.shift();
-                let mut stmts = ~[];
+                let mut stmts = Vec::new();
                 while self.cur != RBRACE {
                     stmts.push((self.cur == LBRACE, self.parse_stmt()));
                 }
                 let end = self.expect(RBRACE);
                 let mut cur = Some(self.mark(Nop, start, end));
-                for s in stmts.move_rev_iter() {
+                for s in stmts.move_iter().rev() {
                     match s {
-                        (false, ~Marked{ node: Declare(id, typ, init, _), span }) => {
+                        (false, box Marked{ node: Declare(id, typ, init, _), span }) => {
                             let sp = self.posgen.to_span(span);
                             cur = Some(self.mark(Declare(id, typ, init,
                                                          cur.take_unwrap()),
@@ -290,7 +293,8 @@ impl<'a> Parser<'a> {
                 self.shift();
                 self.expect(LPAREN);
                 let init = if self.cur == SEMI {
-                    self.mark(Nop, self.span, self.span)
+                    let span = self.span;
+                    self.mark(Nop, span, span)
                 } else {
                     self.parse_simp()
                 };
@@ -317,7 +321,8 @@ impl<'a> Parser<'a> {
                     self.shift();
                     self.parse_stmt()
                 } else {
-                    self.mark(Nop, self.span, self.span)
+                    let span = self.span;
+                    self.mark(Nop, span, span)
                 };
 
                 return self.mark(If(cond, t, f), start, end);
@@ -332,7 +337,7 @@ impl<'a> Parser<'a> {
     }
 
     // Parses a simple statement (a subset of statements)
-    fn parse_simp(&mut self) -> ~Statement {
+    fn parse_simp(&mut self) -> Box<Statement> {
         let start = self.span;
         match self.cur {
             // Declaration of a variable
@@ -374,8 +379,8 @@ impl<'a> Parser<'a> {
 
     // Parse one expression, using no precedences lower than the given
     // precedence.
-    fn parse_exp(&mut self, precedence: Precedence) -> ~Expression {
-        debug!("exp({:?}) starting on {:?}", precedence, self.cur);
+    fn parse_exp(&mut self, precedence: Precedence) -> Box<Expression> {
+        debug!("exp({}) starting on {}", precedence, self.cur);
         let start = self.span;
         // Start with the lhs of an expression. It may have a rhs (to be determined
         // later on)
@@ -406,7 +411,8 @@ impl<'a> Parser<'a> {
                 let e = self.parse_exp(PUnary);
                 let end = self.posgen.to_span(e.span);
                 if self.cur == PLUSPLUS || self.cur == MINUSMINUS {
-                    self.err(self.span, "invalid expression for C0");
+                    let span = self.span;
+                    self.err(span, "invalid expression for C0");
                 }
                 self.mark(Deref(e, RefCell::new(None)), start, end)
             }
@@ -427,12 +433,11 @@ impl<'a> Parser<'a> {
             (NULL, sp)  => { self.mark(Null, sp, sp) }
             (TRUE, sp)  => { self.mark(Boolean(true), sp, sp) }
             (FALSE, sp) => { self.mark(Boolean(false), sp, sp) }
-            (t, sp) => self.err(sp, format!("unimpl {:?}", t))
+            (t, sp) => self.err(sp, format!("unimpl {}", t).as_slice())
         };
 
         // while we can conume more tokens (as determined by precedences), do so
         loop {
-            debug!("expanding expression {:?}", base);
             let prec = self.cur.precedence();
             if precedence > prec || (precedence == prec && !prec.right()) {
                 break;
@@ -494,8 +499,8 @@ impl<'a> Parser<'a> {
     }
 
     // Parse a list of arguments to a function
-    fn parse_list<T>(&mut self, f: |&mut Parser| -> T) -> ~[T] {
-        let mut fields = ~[];
+    fn parse_list<T>(&mut self, f: |&mut Parser| -> T) -> Vec<T> {
+        let mut fields = Vec::new();
         let mut first = true;
         while self.cur != RPAREN {
             if first {
@@ -533,12 +538,12 @@ impl<'a> Parser<'a> {
             match self.cur {
                 STAR => {
                     self.shift();
-                    cur = Pointer(~cur);
+                    cur = Pointer(box cur);
                 }
                 LBRACKET => {
                     self.shift();
                     self.expect(RBRACKET);
-                    cur = Array(~cur);
+                    cur = Array(box cur);
                 }
                 _ => { return cur; }
             }
@@ -594,14 +599,18 @@ impl<'a> Parser<'a> {
             BANG => Bang,
             TILDE => Invert,
             MINUS => Negative,
-            _ => self.err(self.span, "expected unary operation")
+            _ => {
+                let span = self.span;
+                self.err(span, "expected unary operation")
+            }
         }
     }
 
     // Expect the token to be in 'cur', and then advance
     fn expect(&mut self, t: Token) -> Span {
         if self.cur != t {
-            self.err(self.span, format!("expected {:?}", t));
+            let span = self.span;
+            self.err(span, format!("expected {}", t).as_slice());
         }
         self.shift().val1()
     }
@@ -640,8 +649,8 @@ impl<'a> Parser<'a> {
         return self.pending[amt].val0();
     }
 
-    fn mark<T>(&mut self, t: T, start: Span, end: Span) -> ~Marked<T> {
-        return ~Marked::new(t, self.posgen.gen((start.val0(), end.val1())));
+    fn mark<T>(&mut self, t: T, start: Span, end: Span) -> Box<Marked<T>> {
+        box Marked::new(t, self.posgen.gen((start.val0(), end.val1())))
     }
 
     // Abort parsing with the given error

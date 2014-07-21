@@ -1,4 +1,5 @@
 //test exception 11
+//safe
 // The Linux kernel loads the program at 0x00400000 (4 MB) so we can read that
 // address for the first instruction in the program. Anything below 0x00400000
 // is read protected kernel memory.

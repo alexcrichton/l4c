@@ -1,36 +1,38 @@
-use collections::{HashMap, HashSet};
 use std::cell::RefCell;
-use collections::SmallIntMap;
+use std::collections::SmallIntMap;
+use std::collections::{HashMap, HashSet};
+use std::fmt;
 
 use middle::{temp, liveness, ir, opt};
 use middle::temp::Temp;
-use utils::{graph, set, profile, PrettyPrint};
+use utils::{graph, set, profile};
 
 pub struct Analysis {
     /* idoms[a] = b => all elements of b are immeidately dominated by a */
-    idominated: Idominated,
+    pub idominated: Idominated,
     /* idoms[a] = b => immediate dominator of a is b */
-    idominator: Idominators,
+    pub idominator: Idominators,
 }
 
 pub trait Statement<T> {
-    fn phi(&self, Temp, PhiMap) -> ~T;
+    fn phi(&self, Temp, PhiMap) -> Box<T>;
     fn each_def(&self, ins: &T, |Temp|);
     fn each_use(&self, ins: &T, |Temp|);
-    fn map_temps(&self, ins: ~T, u: |Temp| -> Temp, d: |Temp| -> Temp) -> ~T;
+    fn map_temps(&self, ins: Box<T>, u: |Temp| -> Temp,
+                 d: |Temp| -> Temp) -> Box<T>;
     fn phi_info<'a>(&self, me: &'a T) -> Option<(Temp, &'a PhiMap)>;
-    fn phi_unwrap(&self, me: ~T) -> Result<(Temp, PhiMap), ~T>;
+    fn phi_unwrap(&self, me: Box<T>) -> Result<(Temp, PhiMap), Box<T>>;
 }
 
 type TempMap = HashMap<Temp, Temp>;
-type DomFrontiers = HashMap<graph::NodeId, ~graph::NodeSet>;
-type Definitions = HashMap<Temp, ~graph::NodeSet>;
-type PhiLocations = HashMap<graph::NodeId, ~HashSet<Temp>>;
-type PhiMappings = HashMap<graph::NodeId, ~TempMap>;
+type DomFrontiers = HashMap<graph::NodeId, Box<graph::NodeSet>>;
+type Definitions = HashMap<Temp, Box<graph::NodeSet>>;
+type PhiLocations = HashMap<graph::NodeId, Box<HashSet<Temp>>>;
+type PhiMappings = HashMap<graph::NodeId, Box<TempMap>>;
 pub type Idominators = SmallIntMap<graph::NodeId>;
-pub type Idominated = SmallIntMap<~HashSet<graph::NodeId>>;
+pub type Idominated = SmallIntMap<Box<HashSet<graph::NodeId>>>;
 pub type PhiMap = HashMap<graph::NodeId, Temp>;
-pub type CFG<T> = graph::Graph<~[~T], ir::Edge>;
+pub type CFG<T> = graph::Graph<Vec<Box<T>>, ir::Edge>;
 
 struct Converter<'a, T, S> {
     cfg: &'a mut CFG<T>,
@@ -52,17 +54,19 @@ struct Converter<'a, T, S> {
     liveness: liveness::Analysis,
 }
 
-pub fn Analysis() -> Analysis {
-    Analysis { idominated: SmallIntMap::new(), idominator: SmallIntMap::new() }
+impl Analysis {
+    pub fn new() -> Analysis {
+        Analysis { idominated: SmallIntMap::new(), idominator: SmallIntMap::new() }
+    }
 }
 
-pub fn convert<T: PrettyPrint, S: Statement<T>>(
+pub fn convert<T: fmt::Show, S: Statement<T>>(
     cfg: &mut CFG<T>,
     root: graph::NodeId,
     results: &mut Analysis,
     info: &S) -> HashMap<Temp, Temp>
 {
-    let mut live = liveness::Analysis();
+    let mut live = liveness::Analysis::new();
 
     profile::dbg("pruning", || opt::cfg::prune(cfg, root));
     profile::dbg("liveness", || liveness::calculate(cfg, root, &mut live, info));
@@ -87,7 +91,7 @@ pub fn convert<T: PrettyPrint, S: Statement<T>>(
     return remapping;
 }
 
-impl<'a, T: PrettyPrint, S: Statement<T>> Converter<'a, T, S> {
+impl<'a, T: fmt::Show, S: Statement<T>> Converter<'a, T, S> {
     fn convert(&mut self) -> uint {
         /* First, find where all the phi functions need to be */
         let defs = self.find_defs();
@@ -99,15 +103,15 @@ impl<'a, T: PrettyPrint, S: Statement<T>> Converter<'a, T, S> {
             let map = HashMap::new();
             self.versions.insert(self.root, map);
             let (ord, _) = self.cfg.postorder(self.root);
-            for &id in ord.rev_iter() {
-                profile::dbg(format!("node {:?}", id), || {
+            for &id in ord.iter().rev() {
+                profile::dbg(format!("node {}", id).as_slice(), || {
                     self.map_temps(id, &phis, &mut phi_temps);
                 });
             }
         });
         /* If the graph already has phi functions, those are treated specially */
         profile::dbg("mapping phis", || {
-            let nodes = self.cfg.nodes().map(|(id, _)| id).to_owned_vec();
+            let nodes = self.cfg.nodes().map(|(id, _)| id).collect::<Vec<_>>();
             for &id in nodes.iter() {
                 self.map_phi_temps(id);
             }
@@ -116,7 +120,7 @@ impl<'a, T: PrettyPrint, S: Statement<T>> Converter<'a, T, S> {
         /* Finally place our new phi nodes */
         profile::dbg("placing phis", || {
             for (&k, v) in phi_temps.iter() {
-                self.place_phis(k, *v);
+                self.place_phis(k, &**v);
             }
         });
         info!("ssa finished");
@@ -125,12 +129,12 @@ impl<'a, T: PrettyPrint, S: Statement<T>> Converter<'a, T, S> {
 
     /* Build up the 'defs' map */
     fn find_defs(&mut self) -> Definitions {
-        let mut defs: HashMap<Temp, ~HashSet<graph::NodeId>> = HashMap::new();
+        let mut defs: HashMap<Temp, Box<HashSet<graph::NodeId>>> = HashMap::new();
         for (id, stms) in self.cfg.nodes() {
             for s in stms.iter() {
-                let s: &T = *s;
+                let s: &T = &**s;
                 self.info.each_def(s, |tmp| {
-                    let set = defs.find_or_insert_with(tmp, |_| ~HashSet::new());
+                    let set = defs.find_or_insert_with(tmp, |_| box HashSet::new());
                     set.insert(id);
                 });
             }
@@ -145,12 +149,12 @@ impl<'a, T: PrettyPrint, S: Statement<T>> Converter<'a, T, S> {
            http://symbolaris.com/course/Compilers12/11-ssa.pdf
            to determine the optimal placement of phi functions */
 
-        let mut phis: HashMap<Temp, ~HashSet<Temp>> = HashMap::new();
+        let mut phis: PhiLocations = HashMap::new();
 
         for (tmp, defs) in defs.move_iter() {
             /* with one definition we can't possibly need a phi node */
             if defs.len() > 1 {
-                debug!("idf for tmp: {}", tmp.pp());
+                debug!("idf for tmp: {}", tmp);
                 let locs = self.idf(defs);
                 for n in locs.iter() {
                     if !self.liveness.in_.get(n).contains(&tmp) { continue }
@@ -158,7 +162,7 @@ impl<'a, T: PrettyPrint, S: Statement<T>> Converter<'a, T, S> {
                         Some(s) => { s.insert(tmp); continue; }
                         None => {}
                     }
-                    phis.insert(*n, ~set::singleton(tmp));
+                    phis.insert(*n, box set::singleton(tmp));
                 }
             }
         }
@@ -167,7 +171,7 @@ impl<'a, T: PrettyPrint, S: Statement<T>> Converter<'a, T, S> {
     }
 
     /* Calculate the iterated dominance frontier on a set of nodes */
-    fn idf(&mut self, set: ~graph::NodeSet) -> graph::NodeSet {
+    fn idf(&mut self, set: Box<graph::NodeSet>) -> graph::NodeSet {
         let mut ret = HashSet::new();
         for &v in set.iter() {
             ret.insert(v);
@@ -217,7 +221,7 @@ impl<'a, T: PrettyPrint, S: Statement<T>> Converter<'a, T, S> {
             Some(ref temps) => {
                 /* Keep track of what we changed our temps to so the phi
                    functions can be placed correctly in the next step */
-                let mut mapping = ~HashMap::new();
+                let mut mapping = box HashMap::new();
                 for &tmp in temps.iter() {
                     mapping.insert(tmp, self.bump(&mut map, tmp));
                 }
@@ -230,10 +234,10 @@ impl<'a, T: PrettyPrint, S: Statement<T>> Converter<'a, T, S> {
         debug!("mapping statements at {}", n as int);
         let stms = self.cfg.pop_node(n);
         let stms = stms.move_iter().map(|s| {
-            debug!("{}", s.pp());
+            debug!("{}", s);
             self.info.map_temps(s,
-                                |usage| *map.borrow().get().get(&usage),
-                                |def|   self.bump(map.borrow_mut().get(), def))
+                                |usage| *map.borrow().get(&usage),
+                                |def|   self.bump(&mut *map.borrow_mut(), def))
         }).collect();
         self.versions.insert(n, map.unwrap());
         self.cfg.add_node(n, stms);
@@ -274,10 +278,10 @@ impl<'a, T: PrettyPrint, S: Statement<T>> Converter<'a, T, S> {
      * functions in place
      */
     fn place_phis(&mut self, n: graph::NodeId, temps: &HashMap<Temp, Temp>) {
-        debug!("generating {:?} phis at {:?}", temps.len(), n);
-        let mut block = ~[];
+        debug!("generating {} phis at {}", temps.len(), n);
+        let mut block = Vec::new();
         for (tmp_before, &tmp_after) in temps.iter() {
-            debug!("placing phi for {:?} at {:?}", tmp_before, n);
+            debug!("placing phi for {} at {}", tmp_before, n);
             let mut preds = HashMap::new();
             /* Our phi function operates on the last known ssa-temp for this node's
                non-ssa temp at each of our predecessors */
@@ -303,7 +307,7 @@ fn analyze<T>(cfg: &CFG<T>, root: graph::NodeId, analysis: &mut Analysis) {
     debug!("calculating idoms");
     let idoms = &mut analysis.idominator;
     let (order, postorder) = cfg.postorder(root);
-    debug!("{:?}", order);
+    debug!("{}", order);
     idoms.insert(root, root);
 
     /* This code is an implementation of the algorithm found in this paper:
@@ -312,7 +316,7 @@ fn analyze<T>(cfg: &CFG<T>, root: graph::NodeId, analysis: &mut Analysis) {
     let mut changed = true;
     while changed {
         changed = false;
-        for &b in order.rev_iter() {
+        for &b in order.iter().rev() {
             if b == root { continue }
             let mut new_idom = -1;
 
@@ -351,7 +355,7 @@ fn analyze<T>(cfg: &CFG<T>, root: graph::NodeId, analysis: &mut Analysis) {
     /* Afterwards, calculate the set of nodes that each node immediately dominates
      * up front so it doesn't have to be done again */
     for (a, _) in idoms.iter() {
-        analysis.idominated.insert(a, ~HashSet::new());
+        analysis.idominated.insert(a, box HashSet::new());
     }
     for (a, &b) in idoms.iter() {
         if a != b {
@@ -373,7 +377,7 @@ fn dom_frontiers<T>(cfg: &CFG<T>, root: graph::NodeId,
        for calculating the dominance frontier of a node */
     let mut frontiers: DomFrontiers = HashMap::new(); /* TODO: remove type? */
     cfg.each_postorder(root, |&a| {
-        let mut frontier = ~HashSet::new();
+        let mut frontier = box HashSet::new();
 
         /* df_local[a] */
         debug!("df_local[{}]...", a as int);

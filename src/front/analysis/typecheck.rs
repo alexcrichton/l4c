@@ -1,12 +1,12 @@
-use collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 
 use front::mark::Mark;
 use front::ast::*;
-use front::pp::PrettyPrintAST;
+use front::pp::WithAST;
 
 struct Typechecker<'a> {
     program: &'a Program,
-    funs:    HashMap<Ident, (Type, ~[Type])>,
+    funs:    HashMap<Ident, (Type, Vec<Type>)>,
     structs: HashMap<Ident, Option<HashMap<Ident, Type>>>,
     vars:    HashMap<Ident, Type>,
     loops:   int,
@@ -27,7 +27,7 @@ pub fn check(a: &Program) {
 impl<'a> Typechecker<'a> {
     fn run(&mut self) {
         for x in self.program.decls.iter() {
-            self.tc_gdecl(*x)
+            self.tc_gdecl(&**x)
         }
         self.program.check();
     }
@@ -40,21 +40,22 @@ impl<'a> Typechecker<'a> {
                     self.structs.insert(id, None);
                 }
             }
-            StructDef(id, ref fields) => self.bind_struct(id, g.span, *fields),
+            StructDef(id, ref fields) => self.bind_struct(id, g.span,
+                                                          fields.as_slice()),
             FunIDecl(ref ret, id, ref args) => {
-                self.bind_fun(id, g.span, ret, *args);
+                self.bind_fun(id, g.span, ret, args.as_slice());
             }
             FunEDecl(ref ret, id, ref args) => {
-                self.bind_fun(id, g.span, ret, *args);
+                self.bind_fun(id, g.span, ret, args.as_slice());
             }
             Function(ref ret, id, ref args, ref body) => {
-                if self.bind_fun(id, g.span, ret, *args) {
+                if self.bind_fun(id, g.span, ret, args.as_slice()) {
                     self.vars.clear();
                     for &(id, ref typ) in args.iter() {
                         self.vars.insert(id, typ.clone());
                     }
                     self.ret = ret.clone();
-                    self.tc_stm(*body);
+                    self.tc_stm(&**body);
                 }
             }
         }
@@ -67,55 +68,55 @@ impl<'a> Typechecker<'a> {
                 if self.loops == 0 {
                     self.program.error(span, format!("'{}' outside of loops \
                                                       isn't allowed",
-                                                     s.pp(self.program)));
+                                                     WithAST(s, self.program)));
                 }
             },
             Nop => (),
-            Seq(ref s1, ref s2) => { self.tc_stm(*s1); self.tc_stm(*s2) },
-            Express(ref e) => { self.tc_exp(*e); },
+            Seq(ref s1, ref s2) => { self.tc_stm(&**s1); self.tc_stm(&**s2) },
+            Express(ref e) => { self.tc_exp(&**e); },
             Return(ref e) => {
                 let t = self.ret.clone();
-                self.tc_ensure(*e, &t);
+                self.tc_ensure(&**e, &t);
             }
             While(ref e, ref s) => {
-                self.tc_ensure(*e, &Bool);
+                self.tc_ensure(&**e, &Bool);
                 self.loops += 1;
-                self.tc_stm(*s);
+                self.tc_stm(&**s);
                 self.loops -= 1;
             },
             If(ref e, ref s1, ref s2) => {
-                self.tc_ensure(*e, &Bool);
-                self.tc_stm(*s1);
-                self.tc_stm(*s2);
+                self.tc_ensure(&**e, &Bool);
+                self.tc_stm(&**s1);
+                self.tc_stm(&**s2);
             },
             For(ref s1, ref e, ref s2, ref s3) => {
-                self.tc_ensure(*e, &Bool);
-                self.tc_stm(*s1);
+                self.tc_ensure(&**e, &Bool);
+                self.tc_stm(&**s1);
 
                 self.loops += 1;
-                self.tc_stm(*s2);
-                self.tc_stm(*s3);
+                self.tc_stm(&**s2);
+                self.tc_stm(&**s3);
                 self.loops -= 1;
             },
             Assign(ref e1, _, ref e2) => {
-                let t1 = self.tc_exp(*e1);
+                let t1 = self.tc_exp(&**e1);
                 if !e1.node.lvalue() {
                     self.program.error(span, "not an lvalue");
                 } else if self.tc_small(span, &t1) {
-                    self.tc_ensure(*e2, &t1);
+                    self.tc_ensure(&**e2, &t1);
                 }
             },
             Declare(id, ref typ, ref init, ref stm) => {
                 self.tc_small(span, typ);
                 for x in init.iter() {
-                    self.tc_ensure(*x, typ);
+                    self.tc_ensure(&**x, typ);
                 }
                 if self.vars.contains_key(&id) {
                     self.program.error(s.span, format!("Redeclared var '{}'",
-                    self.program.str(id)));
+                                                       self.program.str(id)));
                 } else {
                     self.vars.insert(id, typ.clone());
-                    self.tc_stm(*stm);
+                    self.tc_stm(&**stm);
                     self.vars.remove(&id);
                 }
             }
@@ -132,85 +133,85 @@ impl<'a> Typechecker<'a> {
                 Some(t) => t.clone(),
                 None => match self.funs.find(&id) {
                     Some(&(ref ret, ref args)) =>
-                        Pointer(~Fun(~ret.clone(), args.clone())),
+                        Pointer(box Fun(box ret.clone(), args.clone())),
                     None => {
                         self.program.die(e.span, format!("Unknown variable '{}'",
                                                          self.program.str(id)));
                     }
                 }
             },
-            Alloc(ref t) => { self.tc_defined(span, t); Pointer(~t.clone()) },
+            Alloc(ref t) => { self.tc_defined(span, t); Pointer(box t.clone()) },
             AllocArray(ref t, ref e) => {
                 self.tc_defined(span, t);
-                self.tc_ensure(*e, &Int);
-                Array(~t.clone())
+                self.tc_ensure(&**e, &Int);
+                Array(box t.clone())
             },
             BinaryOp(op, ref e1, ref e2) => match op {
                 Less | LessEq | Greater | GreaterEq => {
-                    self.tc_ensure(*e1, &Int);
-                    self.tc_ensure(*e2, &Int);
+                    self.tc_ensure(&**e1, &Int);
+                    self.tc_ensure(&**e2, &Int);
                     Bool
                 },
                 Equals | NEquals => {
-                    let t1 = self.tc_exp(*e1);
+                    let t1 = self.tc_exp(&**e1);
                     self.tc_small(e1.span, &t1);
-                    self.tc_ensure(*e2, &t1);
+                    self.tc_ensure(&**e2, &t1);
                     Bool
                 },
                 LAnd | LOr => {
-                    self.tc_ensure(*e1, &Bool);
-                    self.tc_ensure(*e2, &Bool);
+                    self.tc_ensure(&**e1, &Bool);
+                    self.tc_ensure(&**e2, &Bool);
                     Bool
                 },
                 _ => {
-                    self.tc_ensure(*e1, &Int);
-                    self.tc_ensure(*e2, &Int);
+                    self.tc_ensure(&**e1, &Int);
+                    self.tc_ensure(&**e2, &Int);
                     Int
                 }
             },
             UnaryOp(op, ref e) => match op {
-                Bang => { self.tc_ensure(*e, &Bool); Bool },
-                _    => { self.tc_ensure(*e, &Int); Int }
+                Bang => { self.tc_ensure(&**e, &Bool); Bool },
+                _    => { self.tc_ensure(&**e, &Int); Int }
             },
             Ternary(ref e1, ref e2, ref e3, ref r) => {
-                self.tc_ensure(*e1, &Bool);
-                let t = self.tc_exp(*e2);
-                self.tc_ensure(*e3, &t);
-                *r.borrow_mut().get() = Some(t.clone());
+                self.tc_ensure(&**e1, &Bool);
+                let t = self.tc_exp(&**e2);
+                self.tc_ensure(&**e3, &t);
+                *r.borrow_mut() = Some(t.clone());
                 t
             },
-            Deref(ref e, ref r) => match self.tc_exp(*e) {
-                Pointer(t) => { *r.borrow_mut().get() = Some((*t).clone()); *t },
+            Deref(ref e, ref r) => match self.tc_exp(&**e) {
+                Pointer(t) => { *r.borrow_mut() = Some((*t).clone()); *t },
                 _ => self.program.die(span, "must be a pointer type")
             },
-            ArrSub(ref e1, ref e2, ref r) => match self.tc_exp(*e1) {
+            ArrSub(ref e1, ref e2, ref r) => match self.tc_exp(&**e1) {
                 Array(t) => {
-                    self.tc_ensure(*e2, &Int);
-                    *r.borrow_mut().get() = Some((*t).clone());
+                    self.tc_ensure(&**e2, &Int);
+                    *r.borrow_mut() = Some((*t).clone());
                     *t
                 },
                 _ => self.program.die(span, "must be an array type")
             },
-            Call(ref e, ref args, ref r) => match self.tc_exp(*e) {
-                Pointer(~Fun(ret, argtyps)) => {
+            Call(ref e, ref args, ref r) => match self.tc_exp(&**e) {
+                Pointer(box Fun(ret, argtyps)) => {
                     if argtyps.len() != args.len() {
                         self.program.error(span,
                                            "mismatched number of arguments");
                     } else {
                         for (e, t2) in args.iter().zip(argtyps.iter()) {
-                            self.tc_ensure(*e, t2);
+                            self.tc_ensure(&**e, t2);
                         }
                     }
-                    *r.borrow_mut().get() = Some((*ret).clone());
+                    *r.borrow_mut() = Some((*ret).clone());
                     *ret
                 },
                 _ => self.program.die(span,
                                       "expected a pointer to a function type")
             },
             Field(ref e, id, ref r) => {
-                let err = match self.tc_exp(*e) {
+                let err = match self.tc_exp(&**e) {
                     Struct(s) => {
-                        *r.borrow_mut().get() = Some(s);
+                        *r.borrow_mut() = Some(s);
                         match self.structs.find(&s) {
                             Some(&Some(ref t)) => match t.find(&id) {
                                 Some(t) => { return t.clone(); }
@@ -242,7 +243,7 @@ impl<'a> Typechecker<'a> {
         for &(ref field, ref typ) in fields.iter() {
             if table.contains_key(field) {
                 self.program.error(span, format!("Duplicate field: '{}'",
-                self.program.str(*field)));
+                                                 self.program.str(*field)));
                 continue;
             }
             /* Make sure structs are all defined and not recursive */
@@ -269,7 +270,7 @@ impl<'a> Typechecker<'a> {
         for &(name, ref typ) in args.iter() {
             if !names.insert(name) {
                 self.program.error(span, format!("Duplicate argument: {}",
-                self.program.str(name)));
+                                                 self.program.str(name)));
                 good = false;
             }
             good = self.tc_small(span, typ) && good;
@@ -294,7 +295,9 @@ impl<'a> Typechecker<'a> {
         }
 
         if good {
-            self.funs.insert(id, (ret.clone(), args.map(|x| x.ref1().clone())));
+            self.funs.insert(id, (ret.clone(), args.iter().map(|x| {
+                x.ref1().clone()
+            }).collect()));
         }
         return good;
     }
@@ -323,7 +326,8 @@ impl<'a> Typechecker<'a> {
     fn tc_equal(&mut self, m: Mark, t1: &Type, t2: &Type) -> bool {
         if t1 != t2 {
             self.program.error(m, format!("Type mismatch: expected {}, got {}",
-            t1.pp(self.program), t2.pp(self.program)));
+                                          WithAST(t1, self.program),
+                                          WithAST(t2, self.program)));
             return false;
         }
         return true;
@@ -332,7 +336,7 @@ impl<'a> Typechecker<'a> {
     fn tc_small(&mut self, m: Mark, t: &Type) -> bool {
         if !t.small() {
             self.program.error(m, format!("Type must be small: '{}'",
-            t.pp(self.program)));
+                                          WithAST(t, self.program)));
             return false;
         }
         return true;

@@ -1,4 +1,4 @@
-use collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::i32;
 use std::io;
 use std::num;
@@ -9,7 +9,7 @@ use front::ast;
 use front::mark::Span;
 use front::parser;
 
-#[deriving(Eq, Clone)]
+#[deriving(Eq, PartialEq, Clone, Show)]
 pub enum Token {
     EOF, SEMI, TRUE, FALSE, NULL, ALLOC, ALLOCARR, INT, BOOL, STRUCT, PLUS,
     MINUS, STAR, SLASH, PERCENT, PLUSPLUS, MINUSMINUS, AND, PIPE, BANG, CARET,
@@ -39,58 +39,58 @@ enum State {
 }
 
 pub struct Lexer<'a> {
-    priv input: io::BufferedReader<&'a mut io::Reader>,
-    priv keywords: HashMap<~str, Token>,
-    priv bad_keywords: HashSet<~str>,
-    priv symgen: &'a mut parser::SymbolGenerator,
-    priv types: HashSet<ast::Ident>,
-    priv file: ~str,
+    input: io::BufferedReader<&'a mut io::Reader>,
+    keywords: HashMap<String, Token>,
+    bad_keywords: HashSet<String>,
+    symgen: &'a mut parser::SymbolGenerator,
+    types: HashSet<ast::Ident>,
+    file: String,
 
-    priv state: State,
-    priv cur: ~str,
-    priv next: Option<char>,
+    state: State,
+    cur: String,
+    next: Option<char>,
 
-    priv startrow: uint,
-    priv startcol: uint,
-    priv endrow: uint,
-    priv endcol: uint,
+    startrow: uint,
+    startcol: uint,
+    endrow: uint,
+    endcol: uint,
 
-    priv commdepth: int,
-    priv commslash: bool,
-    priv commstar: bool,
+    commdepth: int,
+    commslash: bool,
+    commstar: bool,
 }
 
 impl<'a> Lexer<'a> {
-    pub fn new<'a>(file: ~str, input: &'a mut io::Reader,
+    pub fn new<'a>(file: String, input: &'a mut io::Reader,
                    s: &'a mut parser::SymbolGenerator) -> Lexer<'a> {
         let input = io::BufferedReader::new(input);
 
         let mut keywords = HashMap::new();
-        keywords.insert(~"return", RETURN);
-        keywords.insert(~"while", WHILE);
-        keywords.insert(~"if", IF);
-        keywords.insert(~"else", ELSE);
-        keywords.insert(~"break", BREAK);
-        keywords.insert(~"continue", CONTINUE);
-        keywords.insert(~"for", FOR);
-        keywords.insert(~"int", INT);
-        keywords.insert(~"bool", BOOL);
-        keywords.insert(~"true", TRUE);
-        keywords.insert(~"false", FALSE);
-        keywords.insert(~"NULL", NULL);
-        keywords.insert(~"struct", STRUCT);
-        keywords.insert(~"alloc", ALLOC);
-        keywords.insert(~"alloc_array", ALLOCARR);
-        keywords.insert(~"typedef", TYPEDEF);
-        keywords.insert(~"static", STATIC);
+        keywords.insert("return".to_string(), RETURN);
+        keywords.insert("while".to_string(), WHILE);
+        keywords.insert("if".to_string(), IF);
+        keywords.insert("else".to_string(), ELSE);
+        keywords.insert("break".to_string(), BREAK);
+        keywords.insert("continue".to_string(), CONTINUE);
+        keywords.insert("for".to_string(), FOR);
+        keywords.insert("int".to_string(), INT);
+        keywords.insert("bool".to_string(), BOOL);
+        keywords.insert("true".to_string(), TRUE);
+        keywords.insert("false".to_string(), FALSE);
+        keywords.insert("NULL".to_string(), NULL);
+        keywords.insert("struct".to_string(), STRUCT);
+        keywords.insert("alloc".to_string(), ALLOC);
+        keywords.insert("alloc_array".to_string(), ALLOCARR);
+        keywords.insert("typedef".to_string(), TYPEDEF);
+        keywords.insert("static".to_string(), STATIC);
 
         let mut bad_keywords = HashSet::new();
-        bad_keywords.insert(~"char");
-        bad_keywords.insert(~"string");
-        bad_keywords.insert(~"void");
+        bad_keywords.insert("char".to_string());
+        bad_keywords.insert("string".to_string());
+        bad_keywords.insert("void".to_string());
 
         Lexer {
-            input: input, cur: ~"", state: Start, commdepth: 0,
+            input: input, cur: "".to_string(), state: Start, commdepth: 0,
             next: None, keywords: keywords, symgen: s,
             commslash: false, commstar: false, startrow: 1, startcol: 1,
             endrow: 1, endcol: 1, types: HashSet::new(), file: file,
@@ -176,7 +176,7 @@ impl<'a> Lexer<'a> {
                     '!' => { self.state = OneBang; }
                     '%' => { self.state = OnePercent; }
 
-                    _ => self.err(format!("unexpected character `{}`", c))
+                    _ => self.err(format!("unexpected character `{}`", c).as_slice())
                 }
             }
 
@@ -318,7 +318,7 @@ impl<'a> Lexer<'a> {
 
                     c => {
                         let tok = self.ident();
-                        unsafe { self.cur.set_len(0); }
+                        self.cur.truncate(0);
                         return self.reset_back(c, tok);
                     }
                 }
@@ -364,10 +364,10 @@ impl<'a> Lexer<'a> {
     }
 
     fn parse_num(&mut self, base: uint) -> i32 {
-        match num::from_str_radix::<u64>(self.cur, base) {
+        match num::from_str_radix::<u64>(self.cur.as_slice(), base) {
             Some(n) if (base == 10 && n <= i32::MAX as u64 + 1) ||
                 (base == 16 && n <= u32::MAX as u64) => {
-                    unsafe { self.cur.set_len(0); }
+                    self.cur.truncate(0);
                     return n as i32;
                 }
             _ => self.err("invalid numerical literal (too large)")

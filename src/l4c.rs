@@ -1,17 +1,16 @@
 #![feature(macro_rules, globs, default_type_params, phase)]
-#![allow(deprecated_owned_vector)]
 
-#[phase(syntax, link)]
+#[phase(plugin, link)]
 extern crate log;
 extern crate getopts;
 extern crate collections;
 extern crate time;
+extern crate libc;
 
 use std::io;
 use std::result;
-use std::slice;
 use std::os;
-use std::task;
+use std::task::TaskBuilder;
 
 use utils::profile;
 use utils::Graphable;
@@ -42,7 +41,7 @@ mod front {
     }
 
     pub fn die() -> ! {
-        use std::libc;
+        use libc;
         unsafe { libc::exit(1) }
     }
 }
@@ -77,7 +76,7 @@ mod back {
 fn main() {
     use getopts::{optflag, optopt, getopts};
 
-    let flags = ~[
+    let flags = [
         optflag("h", "help", "print this help message"),
         optflag("v", "verbose", "verbose messages"),
         optflag("", "dump-ast", "pretty print the AST"),
@@ -106,12 +105,12 @@ fn main() {
     };
     if m.free.len() == 0 || m.opt_present("h") {
         let msg = format!("usage: {} [OPTION...] SOURCEFILE", os::args()[0]);
-        return println!("{}", getopts::usage(msg, flags));
+        return println!("{}", getopts::usage(msg.as_slice(), flags));
     }
 
-    let mut t = task::task();
-    t.opts.stack_size = Some(64 * 1024 * 1024);
-    t.spawn(proc() { run_compiler(&m); });
+    TaskBuilder::new().stack_size(64 * 1024 * 1024).spawn(proc() {
+        run_compiler(&m);
+    });
 }
 
 fn run_compiler(m: &getopts::Matches) {
@@ -120,16 +119,17 @@ fn run_compiler(m: &getopts::Matches) {
         let header = m.opt_str("l").or(m.opt_str("header"));
         let files = match header {
             None => m.free.clone(),
-            Some(file) => slice::append(~[file], m.free)
+            Some(file) => vec![file].append(m.free.as_slice())
         };
-        match front::parser::parse_files(files, m.free[0]) {
+        match front::parser::parse_files(files.as_slice(),
+                                         m.free[0].as_slice()) {
             Ok(ast) => ast,
             Err(e) => fail!(e)
         }
     });
     prof(m, "elaboration", || ast.elaborate());
     if m.opt_present("dump-ast") {
-        io::println(ast.pp());
+        println!("{}", ast);
     }
     prof(m, "typecheck",   || front::analysis::typecheck::check(&ast));
     prof(m, "returncheck", || front::analysis::returncheck::check(&ast));

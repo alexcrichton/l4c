@@ -2,7 +2,7 @@
  * TODO: dox;
  */
 
-use collections::{HashSet, HashMap};
+use std::collections::{HashSet, HashMap};
 use std::mem::replace;
 
 use middle::ssa::{CFG, Statement};
@@ -15,7 +15,7 @@ pub fn simplify(p: &mut ir::Program) {
         while map.contains_key(&id) {
             id = *map.get(&id);
         }
-        debug!("resolved {:?} to {:?}", orig, id);
+        debug!("resolved {} to {}", orig, id);
         return id;
     }
 
@@ -64,7 +64,7 @@ pub fn prune<T>(cfg: &mut CFG<T>, root: NodeId) {
     }
     let mut visited = HashSet::new();
     visit(cfg, root, &mut visited);
-    let mut to_delete = ~[];
+    let mut to_delete = Vec::new();
     for (id, _) in cfg.nodes() {
         if !visited.contains(&id) {
             to_delete.push(id);
@@ -83,7 +83,7 @@ pub fn prune<T>(cfg: &mut CFG<T>, root: NodeId) {
  */
 pub fn eliminate_critical<T, S: Statement<T>>(cfg: &mut CFG<T>, info: &S) {
     /* can't modify the graph during traversal */
-    let mut critical = ~[];
+    let mut critical = Vec::new();
     for (n1, n2) in cfg.edges() {
         /* critical edges are defined as those whose source has multiple out edges
            and whose target has multiple in edges */
@@ -92,10 +92,10 @@ pub fn eliminate_critical<T, S: Statement<T>>(cfg: &mut CFG<T>, info: &S) {
         }
     }
     for &(n1, n2) in critical.iter() {
-        debug!("splitting critical edge {:?} {:?}", n1, n2);
+        debug!("splitting critical edge {} {}", n1, n2);
         let edge = cfg.remove_edge(n1, n2);
         let new = cfg.new_id();
-        cfg.add_node(new, ~[]);
+        cfg.add_node(new, Vec::new());
         cfg.add_edge(n1, new, edge);
         cfg.add_edge(new, n2, ir::Always);
 
@@ -127,7 +127,7 @@ root: NodeId) -> (NodeId, HashMap<NodeId, NodeId>) {
                   mut root: NodeId,
                   n: NodeId) -> NodeId {
         visited.insert(n);
-        let mut preds = 0;
+        let mut preds = 0u;
         let mut pred = 0;
         for p in cfg.preds(n) {
             preds += 1;
@@ -135,10 +135,10 @@ root: NodeId) -> (NodeId, HashMap<NodeId, NodeId>) {
         }
         /* Try to merge n's predecessor into it */
         if preds == 1 && cfg.num_succ(pred) == 1 {
-            debug!("merging {:?} down into {:?}", pred, n);
+            debug!("merging {} down into {}", pred, n);
 
             /* Add all of pred's incoming edges as incoming edges to n */
-            let mut edges = ~[];
+            let mut edges = Vec::new();
             for (pred, &edge) in cfg.pred_edges(pred) { edges.push((pred, edge)); }
             for &(pred, edge) in edges.iter() { cfg.add_edge(pred, n, edge); }
 
@@ -152,7 +152,7 @@ root: NodeId) -> (NodeId, HashMap<NodeId, NodeId>) {
                 root = n
             }
         }
-        let mut succ = ~[];
+        let mut succ = Vec::new();
         for s in cfg.succ(n) {
             succ.push(s);
         }
@@ -177,10 +177,10 @@ root: NodeId) -> (NodeId, HashMap<NodeId, NodeId>) {
  */
 fn eliminate_dead(cfg: &mut ir::CFG) {
     /* figure out which nodes are constant, modifying them if necessary */
-    let mut constant = ~[];
+    let mut constant = Vec::new();
     cfg.map_nodes(|n, mut stms| {
         let pop = match stms.last() {
-            Some(&~ir::Condition(~ir::Const(c, _))) => {
+            Some(&box ir::Condition(box ir::Const(c, _))) => {
                 constant.push((n, c));
                 true
             }
@@ -191,8 +191,8 @@ fn eliminate_dead(cfg: &mut ir::CFG) {
     });
 
     /* figure out what to do with each constant node */
-    let mut to_remove = ~[];
-    let mut to_add = ~[];
+    let mut to_remove = Vec::new();
+    let mut to_add = Vec::new();
     for &(node, c) in constant.iter() {
         for (succ, edge) in cfg.succ_edges(node) {
             let to_update = match *edge {
@@ -201,7 +201,7 @@ fn eliminate_dead(cfg: &mut ir::CFG) {
                 ir::True if c != 0 => ir::Always,
                 ir::TBranch if c != 0 => ir::Branch,
                 _ => {
-                    debug!("removing edge {:?} {:?}", node, succ);
+                    debug!("removing edge {} {}", node, succ);
                     to_remove.push((node, succ));
                     continue
                 }
@@ -223,7 +223,7 @@ fn eliminate_dead(cfg: &mut ir::CFG) {
  */
 fn fix_phis(cfg: &mut ir::CFG) {
     /* need cfg to be immutable inside, so we can't use map_nodes */
-    let mut ids = ~[];
+    let mut ids = Vec::new();
     for (n, _) in cfg.nodes() { ids.push(n); }
 
     for n in ids.move_iter() {
@@ -231,7 +231,7 @@ fn fix_phis(cfg: &mut ir::CFG) {
 
         let stms = stms.move_iter().map(|s| {
             match s {
-                ~ir::Phi(def, ref map) => {
+                box ir::Phi(def, ref map) => {
                     /* TODO: shouldn't have to make a dup */
                     let mut dup = HashMap::new();
                     let mut predtmp = def;
@@ -242,9 +242,9 @@ fn fix_phis(cfg: &mut ir::CFG) {
                         }
                     }
                     if dup.len() == 1 {
-                        ~ir::Move(def, ~ir::Temp(predtmp))
+                        box ir::Move(def, box ir::Temp(predtmp))
                     } else {
-                        ~ir::Phi(def, dup)
+                        box ir::Phi(def, dup)
                     }
                 }
                 _ => s

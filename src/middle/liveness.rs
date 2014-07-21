@@ -1,5 +1,5 @@
-use collections::{HashMap, HashSet};
-use collections::{SmallIntMap, TreeSet};
+use std::collections::{HashMap, HashSet};
+use std::collections::{SmallIntMap, TreeSet};
 
 use middle::temp::{Temp, TempSet};
 use middle::ssa::{CFG, Statement};
@@ -7,127 +7,130 @@ use utils::graph::NodeId;
 use utils::fnv;
 
 pub type LiveMap = HashMap<NodeId, TempSet, fnv::Hasher>;
-pub type DeltaMap = HashMap<NodeId, ~[Delta], fnv::Hasher>;
-pub type Delta = ~[DeltaOp];
-#[deriving(Eq)]
+pub type DeltaMap = HashMap<NodeId, Vec<Delta>, fnv::Hasher>;
+pub type Delta = Vec<DeltaOp>;
+
+#[deriving(Eq, PartialEq, Show)]
 pub enum DeltaOp {
     Remove(Temp),
     Add(Temp),
 }
 
 pub struct Analysis {
-  in_: LiveMap,
-  out: LiveMap,
-  deltas: DeltaMap,
+    pub in_: LiveMap,
+    pub out: LiveMap,
+    pub deltas: DeltaMap,
 }
 
 struct Liveness<'a, T, S> {
-  a: &'a mut Analysis,
-  info: &'a S,
-  cfg: &'a CFG<T>,
-  phi_out: SmallIntMap<TreeSet<Temp>>,
+    a: &'a mut Analysis,
+    info: &'a S,
+    cfg: &'a CFG<T>,
+    phi_out: SmallIntMap<TreeSet<Temp>>,
 }
 
-pub fn Analysis() -> Analysis {
-    Analysis {
-        in_: HashMap::with_hasher(fnv::Hasher),
-        out: HashMap::with_hasher(fnv::Hasher),
-        deltas: HashMap::with_hasher(fnv::Hasher),
+impl Analysis {
+    pub fn new() -> Analysis {
+        Analysis {
+            in_: HashMap::with_hasher(fnv::Hasher),
+            out: HashMap::with_hasher(fnv::Hasher),
+            deltas: HashMap::with_hasher(fnv::Hasher),
+        }
     }
 }
 
 pub fn calculate<T, S: Statement<T>>(cfg: &CFG<T>, root: NodeId,
                                      result: &mut Analysis,
                                      info: &S) {
-  debug!("calculating liveness");
-  let mut l = Liveness { a: result, phi_out: SmallIntMap::new(), cfg: cfg,
-                         info: info };
+    debug!("calculating liveness");
+    let mut l = Liveness { a: result, phi_out: SmallIntMap::new(), cfg: cfg,
+                           info: info };
 
-  for (id, _) in cfg.nodes() {
-    l.phi_out.insert(id, TreeSet::new());
-  }
-  for (id, _) in cfg.nodes() {
-    l.lookup_phis(id);
-  }
+    for (id, _) in cfg.nodes() {
+        l.phi_out.insert(id, TreeSet::new());
+    }
+    for (id, _) in cfg.nodes() {
+        l.lookup_phis(id);
+    }
 
-  /* perform liveness analysis until nothing changes */
-  let mut changed = true;
-  while changed {
-    changed = false;
-    cfg.each_postorder(root, |&id| {
-      changed = l.liveness(id) || changed;
-    })
-  }
+    /* perform liveness analysis until nothing changes */
+    let mut changed = true;
+    while changed {
+        changed = false;
+        cfg.each_postorder(root, |&id| {
+            changed = l.liveness(id) || changed;
+        })
+    }
 }
 
 impl<'a, T, S: Statement<T>> Liveness<'a, T, S> {
-  fn lookup_phis(&mut self, n: NodeId) {
-    for stm in self.cfg.node(n).iter() {
-      debug!("phi map");
-      match self.info.phi_info(*stm) {
-        Some((_, map)) => {
-          for (&pred, &tmp) in map.iter() {
-            self.phi_out.find_mut(&pred).unwrap().insert(tmp);
-          }
+    fn lookup_phis(&mut self, n: NodeId) {
+        for stm in self.cfg.node(n).iter() {
+            debug!("phi map");
+            match self.info.phi_info(&**stm) {
+                Some((_, map)) => {
+                    for (&pred, &tmp) in map.iter() {
+                        self.phi_out.find_mut(&pred).unwrap().insert(tmp);
+                    }
+                }
+                None => ()
+            }
+            debug!("phi mapdone");
         }
-        None => ()
-      }
-      debug!("phi mapdone");
     }
-  }
 
-  fn liveness(&mut self, n: NodeId) -> bool {
-    let mut live = HashSet::with_hasher(fnv::Hasher);
-    for &t in self.phi_out.get(&n).iter() {
-      live.insert(t);
-    }
-    for succ in self.cfg.succ(n) {
-      match self.a.in_.find(&succ) {
-        Some(ref s) => {
-          for &t in s.iter() { live.insert(t); }
+    fn liveness(&mut self, n: NodeId) -> bool {
+        let mut live = HashSet::with_hasher(fnv::Hasher);
+        for &t in self.phi_out.get(&n).iter() {
+            live.insert(t);
         }
-        None => ()
-      }
-    }
-    let mut live_out = HashSet::with_hasher(fnv::Hasher);
-    for &t in live.iter() { live_out.insert(t); }
-    self.a.out.insert(n, live_out);
-    let mut my_deltas = ~[];
-    for ins in self.cfg.node(n).rev_iter() {
-      let mut delta = ~[];
-      self.info.each_def(*ins, |def| {
-        if live.remove(&def) {
-          delta.push(Add(def));
+        for succ in self.cfg.succ(n) {
+            match self.a.in_.find(&succ) {
+                Some(ref s) => {
+                    for &t in s.iter() { live.insert(t); }
+                }
+                None => ()
+            }
         }
-      });
-      self.info.each_use(*ins, |tmp| {
-        if live.insert(tmp) {
-          delta.push(Remove(tmp));
+        let mut live_out = HashSet::with_hasher(fnv::Hasher);
+        for &t in live.iter() { live_out.insert(t); }
+        self.a.out.insert(n, live_out);
+        let mut my_deltas = Vec::new();
+        for ins in self.cfg.node(n).iter().rev() {
+            let mut delta = Vec::new();
+            self.info.each_def(&**ins, |def| {
+                if live.remove(&def) {
+                    delta.push(Add(def));
+                }
+            });
+            self.info.each_use(&**ins, |tmp| {
+                if live.insert(tmp) {
+                    delta.push(Remove(tmp));
+                }
+            });
+            my_deltas.push(delta);
         }
-      });
-      my_deltas.push(delta);
-    }
-    /* only return true if something has changed from before */
-    my_deltas.reverse();
-    match self.a.in_.find(&n) {
-      None    => (),
-      Some(s) => {
-        if &live == s && &my_deltas == self.a.deltas.get(&n) {
-          return false;
+        /* only return true if something has changed from before */
+        my_deltas.reverse();
+        match self.a.in_.find(&n) {
+            Some(s) => {
+                if &live == s && &my_deltas == self.a.deltas.get(&n) {
+                    return false;
+                }
+            }
+            None => (),
         }
-      }
+        self.a.in_.insert(n, live);
+        self.a.deltas.insert(n, my_deltas);
+        return true;
     }
-    self.a.in_.insert(n, live);
-    self.a.deltas.insert(n, my_deltas);
-    return true;
-  }
 }
 
 pub fn apply(set: &mut TempSet, delta: &Delta) {
-  for &e in delta.iter() {
-    match e {
-      Remove(tmp) => { set.remove(&tmp); }
-      Add(tmp)  => { set.insert(tmp); }
+    for &e in delta.iter() {
+        match e {
+            Remove(tmp) => { set.remove(&tmp); }
+            Add(tmp)  => { set.insert(tmp); }
+        }
     }
-  }
 }
