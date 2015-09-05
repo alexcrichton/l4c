@@ -1,15 +1,15 @@
 use std::collections::{HashMap, HashSet};
 use std::i32;
-use std::io;
-use std::num;
+use std::str;
 use std::u32;
 
-use front::die;
 use front::ast;
-use front::mark::Span;
-use front::parser;
+use front::lexer::Token::*;
+use front::lexer::State::*;
+use front::parser::Precedence;
+use utils::{Errors, SymbolGenerator, Mark, DUMMY_MARK};
 
-#[deriving(Eq, PartialEq, Clone, Show)]
+#[derive(Eq, PartialEq, Clone, Copy, Debug)]
 pub enum Token {
     EOF, SEMI, TRUE, FALSE, NULL, ALLOC, ALLOCARR, INT, BOOL, STRUCT, PLUS,
     MINUS, STAR, SLASH, PERCENT, PLUSPLUS, MINUSMINUS, AND, PIPE, BANG, CARET,
@@ -17,7 +17,7 @@ pub enum Token {
     MINUSEQ, STAREQ, SLASHEQ, PERCENTEQ, XOREQ, ANDEQ, OREQ, LSHIFTEQ, RSHIFTEQ,
     LESS, LESSEQ, GREATER, GREATEREQ, LBRACE, RBRACE, LPAREN, RPAREN, COMMA,
     PERIOD, ARROW, LBRACKET, RBRACKET, IF, ELSE, WHILE, FOR, CONTINUE, BREAK,
-    RETURN, TYPEDEF, STATIC, QUESTION, COLON, ASNOP, NEWLINE,
+    RETURN, TYPEDEF, STATIC, QUESTION, COLON, NEWLINE,
 
     COMMENT,
 
@@ -39,32 +39,27 @@ enum State {
 }
 
 pub struct Lexer<'a> {
-    input: io::BufferedReader<&'a mut io::Reader>,
+    input: str::CharIndices<'a>,
     keywords: HashMap<String, Token>,
     bad_keywords: HashSet<String>,
-    symgen: &'a mut parser::SymbolGenerator,
+    symgen: &'a mut SymbolGenerator,
+    errors: &'a Errors,
+    file: u32,
     types: HashSet<ast::Ident>,
-    file: String,
 
     state: State,
     cur: String,
-    next: Option<char>,
+    cur_mark: Mark,
+    next: Option<(usize, char)>,
 
-    startrow: uint,
-    startcol: uint,
-    endrow: uint,
-    endcol: uint,
-
-    commdepth: int,
+    commdepth: u32,
     commslash: bool,
     commstar: bool,
 }
 
 impl<'a> Lexer<'a> {
-    pub fn new<'a>(file: String, input: &'a mut io::Reader,
-                   s: &'a mut parser::SymbolGenerator) -> Lexer<'a> {
-        let input = io::BufferedReader::new(input);
-
+    pub fn new(errors: &'a Errors, file: u32,
+               s: &'a mut SymbolGenerator) -> Lexer<'a> {
         let mut keywords = HashMap::new();
         keywords.insert("return".to_string(), RETURN);
         keywords.insert("while".to_string(), WHILE);
@@ -90,62 +85,61 @@ impl<'a> Lexer<'a> {
         bad_keywords.insert("void".to_string());
 
         Lexer {
-            input: input, cur: "".to_string(), state: Start, commdepth: 0,
-            next: None, keywords: keywords, symgen: s,
-            commslash: false, commstar: false, startrow: 1, startcol: 1,
-            endrow: 1, endcol: 1, types: HashSet::new(), file: file,
-            bad_keywords: bad_keywords
+            input: errors.codemap().code(file).char_indices(),
+            cur: String::new(),
+            state: Start,
+            commdepth: 0,
+            next: None,
+            keywords: keywords,
+            symgen: s,
+            commslash: false,
+            commstar: false,
+            types: HashSet::new(),
+            cur_mark: DUMMY_MARK,
+            bad_keywords: bad_keywords,
+            errors: errors,
+            file: file,
         }
     }
 
-    pub fn next(&mut self) -> (Token, Span) {
+    pub fn next(&mut self) -> (Token, Mark) {
+        let mut start = None;
         loop {
-            let c = match self.next {
-                Some(c) => { self.next = None; c }
-                None => match self.input.read_char() {
-                    Ok(c) => c,
-                    Err(..) => return (EOF, ((-1, -1), (-1, -1)))
-                }
+            let (off, c) = match self.next.take().or_else(|| self.input.next()) {
+                Some(pair) => pair,
+                None => return (EOF, DUMMY_MARK),
             };
-            match self.consume(c) {
-                Some(tok) => {
-                    let start = (self.startrow, self.startcol);
-                    let end = (self.endrow, self.endcol);
-                    self.startrow = self.endrow;
-                    self.startcol = self.endcol;
-                    return (tok, (start, end));
-                }
-                None => {}
+            let start = match start {
+                Some(s) => s,
+                None => { start = Some(off); off }
+            };
+            let end = off + c.len_utf8();
+            let mark = self.errors.codemap().mark(self.file, start, end);
+            self.cur_mark = mark;
+            if let Some(tok) = self.consume(c) {
+                self.cur_mark = DUMMY_MARK;
+                return (tok, mark)
             }
         }
     }
 
     fn consume(&mut self, c: char) -> Option<Token> {
-        self.endcol += 1;
         match self.state {
             Start => {
                 match c {
                     // whitespace skips
-                    '\t' | ' ' | '\x0b' | '\x0c' | '\x0d' => {
-                        self.startcol = self.endcol;
-                    }
-                    '\n' => {
-                        self.endrow += 1;
-                        self.endcol = 1;
-                        self.startrow = self.endrow;
-                        self.startcol = 1;
-                        return Some(NEWLINE);
-                    }
+                    '\t' | ' ' | '\x0b' | '\x0c' | '\x0d' => {}
+                    '\n' => return Some(NEWLINE),
 
                     // idents
-                    'a' .. 'z' | 'A' .. 'Z' | '_' => {
+                    'a' ... 'z' | 'A' ... 'Z' | '_' => {
                         self.state = Ident;
-                        self.cur.push_char(c);
+                        self.cur.push(c);
                     }
 
                     // numbers
-                    '0' =>        { self.state = OneZero; }
-                    '1' .. '9' => { self.state = Number;  self.cur.push_char(c); }
+                    '0' =>         { self.state = OneZero; }
+                    '1' ... '9' => { self.state = Number;  self.cur.push(c); }
 
                     // Easy 1-character tokens
                     '(' => { return Some(LPAREN); }
@@ -176,7 +170,7 @@ impl<'a> Lexer<'a> {
                     '!' => { self.state = OneBang; }
                     '%' => { self.state = OnePercent; }
 
-                    _ => self.err(format!("unexpected character `{}`", c).as_slice())
+                    _ => self.err(&format!("unexpected character `{}`", c))
                 }
             }
 
@@ -282,8 +276,6 @@ impl<'a> Lexer<'a> {
 
             CommentLine => {
                 if c == '\n' {
-                    self.endrow += 1;
-                    self.endcol = 0;
                     return self.reset(COMMENT);
                 }
             }
@@ -312,8 +304,8 @@ impl<'a> Lexer<'a> {
 
             Ident => {
                 match c {
-                    'a' .. 'z' | 'A' .. 'Z' | '_' | '0' .. '9' => {
-                        self.cur.push_char(c);
+                    'a' ... 'z' | 'A' ... 'Z' | '_' | '0' ... '9' => {
+                        self.cur.push(c);
                     }
 
                     c => {
@@ -327,7 +319,7 @@ impl<'a> Lexer<'a> {
             OneZero => {
                 match c {
                     'x' | 'X' => { self.state = Hex; }
-                    '1' .. '9' => {
+                    '1' ... '9' => {
                         self.err("invalid numerical literal (leading zero)")
                     }
                     c => { return self.reset_back(c, INTCONST(0)); }
@@ -336,8 +328,8 @@ impl<'a> Lexer<'a> {
 
             Hex => {
                 match c {
-                    '0' .. '9' | 'a' .. 'f' | 'A' .. 'F' => {
-                        self.cur.push_char(c);
+                    '0' ... '9' | 'a' ... 'f' | 'A' ... 'F' => {
+                        self.cur.push(c);
                     }
                     c => {
                         if self.cur.len() == 0 {
@@ -351,7 +343,7 @@ impl<'a> Lexer<'a> {
 
             Number => {
                 match c {
-                    '0' .. '9' => { self.cur.push_char(c); }
+                    '0' ... '9' => { self.cur.push(c); }
                     c => {
                         let n = self.parse_num(10);
                         return self.reset_back(c, INTCONST(n));
@@ -363,9 +355,9 @@ impl<'a> Lexer<'a> {
         return None;
     }
 
-    fn parse_num(&mut self, base: uint) -> i32 {
-        match num::from_str_radix::<u64>(self.cur.as_slice(), base) {
-            Some(n) if (base == 10 && n <= i32::MAX as u64 + 1) ||
+    fn parse_num(&mut self, base: u32) -> i32 {
+        match u64::from_str_radix(&self.cur, base) {
+            Ok(n) if (base == 10 && n <= i32::MAX as u64 + 1) ||
                 (base == 16 && n <= u32::MAX as u64) => {
                     self.cur.truncate(0);
                     return n as i32;
@@ -374,24 +366,20 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    #[inline(always)]
     fn reset(&mut self, t: Token) -> Option<Token> {
         self.state = Start;
         return Some(t);
     }
 
-    #[inline(always)]
     fn reset_back(&mut self, c: char, t: Token) -> Option<Token> {
         assert!(self.next.is_none());
-        self.endcol -= 1;
-        self.next = Some(c);
+        self.next = Some((self.cur_mark.hi as usize - c.len_utf8(), c));
         return self.reset(t);
     }
 
     fn ident(&mut self) -> Token {
-        match self.keywords.find(&self.cur) {
-            Some(tok) => { return *tok; }
-            None => {}
+        if let Some(tok) = self.keywords.get(&self.cur) {
+            return *tok
         }
         if self.bad_keywords.contains(&self.cur) {
             self.err("reserved keyword");
@@ -409,30 +397,28 @@ impl<'a> Lexer<'a> {
 
     // Abort lexing with the given error
     fn err(&mut self, s: &str) -> ! {
-        println!("{}: {}:{}-{}:{} {}", self.file,
-        self.startrow, self.startcol, self.endrow, self.endcol, s);
-        die()
+        self.errors.die(self.cur_mark, s)
     }
 }
 
 impl Token {
-    pub fn precedence(&self) -> parser::Precedence {
+    pub fn precedence(&self) -> Precedence {
         match *self {
-            ASSIGN                              => parser::PAssign,
-            QUESTION | COLON                    => parser::PTernary,
-            PIPEPIPE                            => parser::PLor,
-            ANDAND                              => parser::PLand,
-            PIPE                                => parser::PBor,
-            CARET                               => parser::PXor,
-            AND                                 => parser::PBand,
-            EQUALS | NEQUALS                    => parser::PEquals,
-            LESS | GREATER | LESSEQ | GREATEREQ => parser::PCmp,
-            LSHIFT | RSHIFT                     => parser::PShift,
-            PLUS | MINUS                        => parser::PAdd,
-            STAR | PERCENT | SLASH              => parser::PTimes,
-            BANG | TILDE                        => parser::PUnary,
-            ARROW | PERIOD | LBRACKET | LPAREN  => parser::PHighest,
-            _ => parser::Default,
+            ASSIGN                              => Precedence::PAssign,
+            QUESTION | COLON                    => Precedence::PTernary,
+            PIPEPIPE                            => Precedence::PLor,
+            ANDAND                              => Precedence::PLand,
+            PIPE                                => Precedence::PBor,
+            CARET                               => Precedence::PXor,
+            AND                                 => Precedence::PBand,
+            EQUALS | NEQUALS                    => Precedence::PEquals,
+            LESS | GREATER | LESSEQ | GREATEREQ => Precedence::PCmp,
+            LSHIFT | RSHIFT                     => Precedence::PShift,
+            PLUS | MINUS                        => Precedence::PAdd,
+            STAR | PERCENT | SLASH              => Precedence::PTimes,
+            BANG | TILDE                        => Precedence::PUnary,
+            ARROW | PERIOD | LBRACKET | LPAREN  => Precedence::PHighest,
+            _ => Precedence::Default,
         }
     }
 }

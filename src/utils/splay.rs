@@ -298,9 +298,9 @@ impl<T: TotalOrd> Set<T> for SplaySet<T> {
     #[inline(always)]
     fn contains(&self, t: &T) -> bool { self.map.contains_key(t) }
 
-    fn is_disjoint(&self, _: &SplaySet<T>) -> bool { fail!(); }
-    fn is_subset(&self, _: &SplaySet<T>) -> bool { fail!(); }
-    fn is_superset(&self, _: &SplaySet<T>) -> bool { fail!(); }
+    fn is_disjoint(&self, _: &SplaySet<T>) -> bool { panic!(); }
+    fn is_subset(&self, _: &SplaySet<T>) -> bool { panic!(); }
+    fn is_superset(&self, _: &SplaySet<T>) -> bool { panic!(); }
 }
 
 impl<T: TotalOrd> MutableSet<T> for SplaySet<T> {

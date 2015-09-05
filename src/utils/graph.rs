@@ -1,43 +1,42 @@
-use std::iter;
+use std::collections::{HashMap, HashSet, hash_map, hash_set};
 use std::io;
 use std::mem;
 
-use hm = std::collections::hashmap;
-use sm = std::collections::smallintmap;
+use vec_map::{self, VecMap};
 
-pub type NodeId = uint;
-pub type NodeSet = hm::HashSet<NodeId>;
+pub type NodeId = usize;
+pub type NodeSet = HashSet<NodeId>;
 
 pub struct Graph<N, E> {
-    nodes: sm::SmallIntMap<N>,
-    succ:  sm::SmallIntMap<Box<hm::HashMap<NodeId, E>>>,
-    pred:  sm::SmallIntMap<Box<NodeSet>>,
+    nodes: VecMap<N>,
+    succ:  VecMap<HashMap<NodeId, E>>,
+    pred:  VecMap<NodeSet>,
     next:  NodeId
 }
 
 impl<N, E> Graph<N, E> {
     pub fn new() -> Graph<N, E>{
         Graph {
-            nodes: sm::SmallIntMap::new(),
-            succ:  sm::SmallIntMap::new(),
-            pred:  sm::SmallIntMap::new(),
-            next:  0,
+            nodes: VecMap::new(),
+            succ: VecMap::new(),
+            pred: VecMap::new(),
+            next: 0,
         }
     }
 
-    pub fn num_pred(&self, n: NodeId) -> uint {
-        self.pred.get(&n).len()
+    pub fn num_pred(&self, n: NodeId) -> usize {
+        self.pred[&n].len()
     }
 
-    pub fn num_succ(&self, n: NodeId) -> uint {
-        self.succ.get(&n).len()
+    pub fn num_succ(&self, n: NodeId) -> usize {
+        self.succ[&n].len()
     }
 
     pub fn new_id(&mut self) -> NodeId {
         let ret = self.next;
         self.next += 1;
-        self.succ.insert(ret, box hm::HashMap::new());
-        self.pred.insert(ret, box hm::HashSet::new());
+        self.succ.insert(ret, HashMap::new());
+        self.pred.insert(ret, HashSet::new());
         ret
     }
 
@@ -46,19 +45,22 @@ impl<N, E> Graph<N, E> {
     }
 
     pub fn contains_edge(&self, a: NodeId, b: NodeId) -> bool {
-        match self.succ.find(&a) { Some(m) => m.contains_key(&b), None => false }
+        match self.succ.get(&a) {
+            Some(m) => m.contains_key(&b),
+            None => false,
+        }
     }
 
-    pub fn node<'a>(&'a self, id: NodeId) -> &'a N {
-        self.nodes.get(&id)
+    pub fn node(&self, id: NodeId) -> &N {
+        &self.nodes[&id]
     }
 
-    pub fn node_mut<'a>(&'a mut self, id: NodeId) -> &'a mut N {
-        self.nodes.find_mut(&id).unwrap()
+    pub fn node_mut(&mut self, id: NodeId) -> &mut N {
+        self.nodes.get_mut(&id).unwrap()
     }
 
-    pub fn edge<'a>(&'a self, a: NodeId, b: NodeId) -> &'a E {
-        self.succ.get(&a).get(&b)
+    pub fn edge(&self, a: NodeId, b: NodeId) -> &E {
+        &self.succ[&a][&b]
     }
 
     pub fn add_node(&mut self, id: NodeId, n: N) {
@@ -74,88 +76,91 @@ impl<N, E> Graph<N, E> {
     }
 
     pub fn pop_node(&mut self, n: NodeId) -> N {
-        self.nodes.pop(&n).unwrap()
+        self.nodes.remove(&n).unwrap()
     }
 
     pub fn remove_node(&mut self, n: NodeId) -> N {
-        let ret = self.nodes.pop(&n);
+        let ret = self.nodes.remove(&n);
         assert!(ret.is_some());
         let ret = ret.unwrap();
-        let succ = self.succ.pop(&n).unwrap();
-        let pred = self.pred.pop(&n).unwrap();
+        let succ = self.succ.remove(&n).unwrap();
+        let pred = self.pred.remove(&n).unwrap();
         for (k, _) in succ.iter() {
-            self.pred.find_mut(k).unwrap().remove(&n);
+            self.pred.get_mut(k).unwrap().remove(&n);
         }
         for k in pred.iter() {
-            self.succ.find_mut(k).unwrap().remove(&n);
+            self.succ.get_mut(k).unwrap().remove(&n);
         }
         return ret;
     }
 
     pub fn remove_edge(&mut self, n1: NodeId, n2: NodeId) -> E {
-        self.pred.find_mut(&n2).unwrap().remove(&n1);
-        return self.succ.find_mut(&n1).unwrap().pop(&n2).unwrap();
+        self.pred.get_mut(&n2).unwrap().remove(&n1);
+        self.succ.get_mut(&n1).unwrap().remove(&n2).unwrap()
     }
 
     pub fn add_edge(&mut self, n1: NodeId, n2: NodeId, e: E) {
-        self.succ.find_mut(&n1).unwrap().insert(n2, e);
-        self.pred.find_mut(&n2).unwrap().insert(n1);
+        self.succ.get_mut(&n1).unwrap().insert(n2, e);
+        self.pred.get_mut(&n2).unwrap().insert(n1);
     }
 
-    pub fn edges<'a>(&'a self) -> EdgeIterator<'a, N, E> {
-        EdgeIterator { iter: self.succ.iter(), cur: None }
+    pub fn edges(&self) -> Edges<N, E> {
+        Edges { _g: self, iter: self.succ.iter(), cur: None }
     }
 
-    pub fn nodes<'a>(&'a self) -> sm::Entries<'a, N> {
-        self.nodes.iter()
+    pub fn nodes(&self) -> Nodes<N, E> {
+        Nodes { _g: self, iter: self.nodes.iter() }
     }
 
-    pub fn preds<'a>(&'a self, n: NodeId) -> PredIterator<'a> {
-        self.pred.get(&n).iter().map(|&k| k)
+    pub fn preds(&self, n: NodeId) -> Preds<N, E> {
+        Preds { _g: self, iter: self.pred[&n].iter() }
     }
 
-    pub fn pred_edges<'a>(&'a self, n: NodeId) -> PredEdgeIterator<'a, N, E> {
-        PredEdgeIterator { g: self, src: n, iter: self.pred.get(&n).iter() }
+    pub fn pred_edges(&self, n: NodeId) -> PredEdges<N, E> {
+        PredEdges { g: self, src: n, iter: self.pred[&n].iter() }
     }
 
-    pub fn succ<'a>(&'a self, n: NodeId) -> SuccIterator<'a, E> {
-        self.succ.get(&n).iter().map(|(&k, _)| k)
+    pub fn succ(&self, n: NodeId) -> Succ<N, E> {
+        Succ { _g: self, iter: self.succ[&n].iter() }
     }
 
-    pub fn succ_edges<'a>(&'a self, n: NodeId) -> SuccEdgeIterator<'a, E> {
-        self.succ.get(&n).iter().map(|(&n, e)| (n, e))
+    pub fn succ_edges(&self, n: NodeId) -> SuccEdges<N, E> {
+        SuccEdges { _g: self, iter: self.succ[&n].iter() }
     }
 
-    pub fn each_postorder(&self, root: NodeId, f: |&NodeId|) {
+    pub fn each_postorder(&self, root: NodeId, f: &mut FnMut(&NodeId)) {
         let (order, _) = self.postorder(root);
         for n in order.iter() { f(n) }
     }
 
-    pub fn map_nodes(&mut self, f: |NodeId, N| -> N) {
+    pub fn map_nodes(&mut self, f: &mut FnMut(NodeId, N) -> N) {
         let mut keys = Vec::new();
-        for (k, _) in self.nodes.iter() { keys.push(k); }
-        for k in keys.move_iter() {
-            self.map_consume_node(k, |n| f(k, n));
+        for (k, _) in self.nodes.iter() {
+            keys.push(k as NodeId);
+        }
+        for k in keys {
+            self.map_consume_node(k, &mut |n| f(k, n));
         }
     }
 
-    pub fn map_consume_node(&mut self, id: NodeId, f: |N| -> N) {
-        let node = self.nodes.pop(&id).unwrap();
+    pub fn map_consume_node(&mut self, id: NodeId, f: &mut FnMut(N) -> N) {
+        let node = self.nodes.remove(&id).unwrap();
         self.nodes.insert(id, f(node));
     }
 
-    pub fn map<N2, E2>(self, n: |NodeId, N| -> N2,
-                       e: |E| -> E2) -> Graph<N2, E2> {
+    pub fn map<N2, E2>(self,
+                       n: &mut FnMut(NodeId, N) -> N2,
+                       e: &mut FnMut(E) -> E2) -> Graph<N2, E2> {
         let mut this = self;
         let mut g2 = Graph::new();
         g2.next = this.next;
-        for (k, v) in this.nodes.move_iter() {
-            g2.nodes.insert(k, n(k, v));
+        for (k, v) in this.nodes {
+            g2.nodes.insert(k, n(k as NodeId, v));
         }
         mem::swap(&mut this.pred, &mut g2.pred);
-        for (k, v) in this.succ.move_iter() {
-            let mut map = box hm::HashMap::new();
-            for (k, v) in v.move_iter() {
+        for (k, v) in this.succ {
+            let mut map = HashMap::new();
+            for (k, v) in v {
                 map.insert(k, e(v));
             }
             g2.succ.insert(k, map);
@@ -163,49 +168,48 @@ impl<N, E> Graph<N, E> {
         return g2;
     }
 
-    pub fn dot(&self, out: &mut io::Writer,
-               nid: |NodeId| -> String,
-               node: |NodeId, &N| -> String,
-               edge: |&E| -> String) -> io::IoResult<()> {
+    pub fn dot(&self, out: &mut io::Write,
+               nid: &mut FnMut(NodeId) -> String,
+               node: &mut FnMut(NodeId, &N) -> String,
+               edge: &mut FnMut(&E) -> String) -> io::Result<()> {
         for (id, n) in self.nodes.iter() {
-            try!(out.write_str(nid(id).as_slice()));
-            try!(out.write_str(" ["));
-            try!(out.write_str(node(id, n).as_slice()));
-            try!(out.write_str("];\n"));
+            try!(out.write_all(nid(id as NodeId).as_bytes()));
+            try!(out.write_all(b" ["));
+            try!(out.write_all(node(id as NodeId, n).as_bytes()));
+            try!(out.write_all(b"];\n"));
         }
         for (id1, neighbors) in self.succ.iter() {
             for (&id2, e) in neighbors.iter() {
-                try!(out.write_str(nid(id1).as_slice()));
-                try!(out.write_str(" -> "));
-                try!(out.write_str(nid(id2).as_slice()));
-                try!(out.write_str(" ["));
-                try!(out.write_str(edge(e).as_slice()));
-                try!(out.write_str("];\n"));
+                try!(out.write_all(nid(id1 as NodeId).as_bytes()));
+                try!(out.write_all(b" -> "));
+                try!(out.write_all(nid(id2).as_bytes()));
+                try!(out.write_all(b" ["));
+                try!(out.write_all(edge(e).as_bytes()));
+                try!(out.write_all(b"];\n"));
             }
         }
         Ok(())
     }
 
-    pub fn postorder(&self, root: NodeId) -> (Vec<NodeId>, sm::SmallIntMap<int>) {
-        let mut ordering = sm::SmallIntMap::new();
+    pub fn postorder(&self, root: NodeId) -> (Vec<NodeId>, VecMap<i32>) {
+        let mut ordering = VecMap::new();
         self.traverse(&mut ordering, root, 0);
-        let mut v = Vec::new();
-        v.grow(ordering.len(), &root);
+        let mut v = vec![root; ordering.len()];
         for (id, &pos) in ordering.iter() {
-            *v.get_mut(pos as uint) = id;
+            v[pos as usize] = id as NodeId;
         }
         return (v, ordering);
     }
 
-    fn traverse(&self, o: &mut sm::SmallIntMap<int>,
-                n: NodeId, i: int) -> int {
-        match o.find(&n) {
+    fn traverse(&self, o: &mut VecMap<i32>,
+                n: NodeId, i: i32) -> i32 {
+        match o.get(&n) {
             Some(_) => return i,
             None => ()
         }
         o.insert(n, -1);
         let mut next = i;
-        for (&id, _) in self.succ.get(&n).iter() {
+        for (&id, _) in self.succ[&n].iter() {
             next = self.traverse(o, id, next);
         }
         o.insert(n, next);
@@ -215,12 +219,27 @@ impl<N, E> Graph<N, E> {
 
 // Iterators for the graph
 
-pub struct EdgeIterator<'a, N, E> {
-    iter: sm::Entries<'a, Box<hm::HashMap<NodeId, E>>>,
-    cur: Option<(NodeId, hm::Entries<'a, NodeId, E>)>,
+pub struct Nodes<'a, N: 'a, E: 'a> {
+    _g: &'a Graph<N, E>,
+    iter: vec_map::Iter<'a, N>,
 }
 
-impl<'a, N, E> Iterator<(NodeId, NodeId)> for EdgeIterator<'a, N, E> {
+impl<'a, N, E> Iterator for Nodes<'a, N, E> {
+    type Item = (NodeId, &'a N);
+
+    fn next(&mut self) -> Option<(NodeId, &'a N)> {
+        self.iter.next().map(|(a, b)| (a as NodeId, b))
+    }
+}
+
+pub struct Edges<'a, N: 'a, E: 'a> {
+    _g: &'a Graph<N, E>,
+    iter: vec_map::Iter<'a, HashMap<NodeId, E>>,
+    cur: Option<(NodeId, hash_map::Iter<'a, NodeId, E>)>,
+}
+
+impl<'a, N, E> Iterator for Edges<'a, N, E> {
+    type Item = (NodeId, NodeId);
     fn next(&mut self) -> Option<(NodeId, NodeId)> {
         loop {
             match self.cur {
@@ -234,29 +253,60 @@ impl<'a, N, E> Iterator<(NodeId, NodeId)> for EdgeIterator<'a, N, E> {
             }
 
             match self.iter.next() {
-                Some((a, b)) => { self.cur = Some((a, b.iter())); }
+                Some((a, b)) => { self.cur = Some((a as NodeId, b.iter())); }
                 None => { return None; }
             }
         }
     }
 }
 
-type PredIterator<'a> =
-    iter::Map<'a, &'a NodeId, NodeId, hm::SetItems<'a, NodeId>>;
-type SuccIterator<'a, E> =
-    iter::Map<'a, (&'a NodeId, &'a E), NodeId,
-              hm::Entries<'a, NodeId, E>>;
-type SuccEdgeIterator<'a, E> =
-    iter::Map<'a, (&'a NodeId, &'a E), (NodeId, &'a E),
-              hm::Entries<'a, NodeId, E>>;
-
-pub struct PredEdgeIterator<'a, N, E> {
-    g: &'a Graph<N, E>,
-    src: NodeId,
-    iter: hm::SetItems<'a, NodeId>
+pub struct Preds<'a, N: 'a, E: 'a> {
+    _g: &'a Graph<N, E>,
+    iter: hash_set::Iter<'a, NodeId>,
 }
 
-impl<'a, N, E> Iterator<(NodeId, &'a E)> for PredEdgeIterator<'a, N, E> {
+impl<'a, N, E> Iterator for Preds<'a, N, E> {
+    type Item = NodeId;
+
+    fn next(&mut self) -> Option<NodeId> {
+        self.iter.next().map(|&k| k)
+    }
+}
+
+pub struct Succ<'a, N: 'a, E: 'a> {
+    _g: &'a Graph<N, E>,
+    iter: hash_map::Iter<'a, NodeId, E>,
+}
+
+impl<'a, N, E> Iterator for Succ<'a, N, E> {
+    type Item = NodeId;
+
+    fn next(&mut self) -> Option<NodeId> {
+        self.iter.next().map(|(&k, _)| k)
+    }
+}
+
+pub struct SuccEdges<'a, N: 'a, E: 'a> {
+    _g: &'a Graph<N, E>,
+    iter: hash_map::Iter<'a, NodeId, E>,
+}
+
+impl<'a, N, E> Iterator for SuccEdges<'a, N, E> {
+    type Item = (NodeId, &'a E);
+
+    fn next(&mut self) -> Option<(NodeId, &'a E)> {
+        self.iter.next().map(|(&n, e)| (n, e))
+    }
+}
+
+pub struct PredEdges<'a, N: 'a, E: 'a> {
+    g: &'a Graph<N, E>,
+    src: NodeId,
+    iter: hash_set::Iter<'a, NodeId>
+}
+
+impl<'a, N, E> Iterator for PredEdges<'a, N, E> {
+    type Item = (NodeId, &'a E);
     fn next(&mut self) -> Option<(NodeId, &'a E)> {
         match self.iter.next() {
             Some(&k) => Some((k, self.g.edge(k, self.src))),
@@ -281,22 +331,22 @@ fn test_basic() {
         } else if id == n2 {
             assert!(n == 2);
         } else {
-            fail!("bad id provided");
+            panic!("bad id provided");
         }
     }
 }
 
 #[test]
-#[should_fail]
+#[should_panic]
 fn test_random_id_fail() {
-    let mut g = Graph::<int, int>();
+    let mut g = Graph::<i32, i32>();
     g.add_node(1, 1);
 }
 
 #[test]
-#[should_fail]
+#[should_panic]
 fn test_same_id_fail() {
-    let mut g = Graph::<int, int>();
+    let mut g = Graph::<i32, i32>();
     let id = g.new_id();
     g.add_node(id, 1);
     g.add_node(id, 1);

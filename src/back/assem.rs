@@ -2,91 +2,94 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::io;
 
+use front::pp::CommaSep;
 use back::arch;
+use middle::ir::Type;
+use middle::label;
 use middle::ssa;
-use middle::temp;
-use middle::{label, ir};
-use utils::{graph, Graphable};
+use utils::{Temp, Graphable, Symbol};
+use utils::graph::NodeId;
 
-pub type Label = label::Label;
-pub type Edge = ir::Edge;
-pub type Size = ir::Type;
-pub type Tag = temp::Temp;
-pub type CFG = ssa::CFG<Instruction>;
+pub use middle::label::Label;
+pub use middle::ir::Edge;
+pub type Size = Type;
+pub type Tag = Temp;
+pub type CFG = ssa::CFG<Inst>;
 
 pub struct Program {
     pub funs: Vec<Function>,
 }
 
 pub struct Function {
-    pub name: String,
-    pub root: graph::NodeId,
+    pub name: Symbol,
+    pub root: NodeId,
     pub cfg: CFG,
-    pub sizes: HashMap<temp::Temp, Size>,
-    pub temps: uint,
+    pub sizes: HashMap<Temp, Size>,
+    pub temps: u32,
     pub ssa: ssa::Analysis,
 
-    pub loops: HashMap<graph::NodeId, (graph::NodeId, graph::NodeId)>,
+    pub loops: HashMap<NodeId, (NodeId, NodeId)>,
 }
 
-pub enum Instruction {
-    BinaryOp(Binop, Box<Operand>, Box<Operand>, Box<Operand>),
-    Move(Box<Operand>, Box<Operand>),
-    Load(Box<Operand>, Box<Address>),
-    Store(Box<Address>, Box<Operand>),
-    Condition(Cond, Box<Operand>, Box<Operand>),
-    Die(Cond, Box<Operand>, Box<Operand>),
-    Return(Box<Operand>),
-    Call(temp::Temp, Box<Operand>, Vec<Box<Operand>>),
+pub enum Inst {
+    BinaryOp(Binop, Operand, Operand, Operand),
+    Move(Operand, Operand),
+    Load(Operand, Address),
+    Store(Address, Operand),
+    Condition(Cond, Operand, Operand),
+    Die(Cond, Operand, Operand),
+    Return(Operand),
+    Call(Temp, Operand, Vec<Operand>),
     Raw(String),
 
-    /* pseudo-instructions that are just use for analysis/coloring/spilling */
-    Phi(temp::Temp, ssa::PhiMap),
+    // pseudo-instructions that are just use for analysis/coloring/spilling
+    Phi(Temp, ssa::PhiMap),
     MemPhi(Tag, ssa::PhiMap),
-    Reload(temp::Temp, Tag),
-    Spill(temp::Temp, Tag),
-    Use(temp::Temp),              /* used when constraining non-commutative ops */
-    PCopy(Vec<(temp::Temp, temp::Temp)>), /* parallel copy of temps */
-    Arg(temp::Temp, uint),        /* nth argument is wired to this temp */
+    Reload(Temp, Tag),
+    Spill(Temp, Tag),
+    Use(Temp),                // used when constraining non-commutative ops
+    PCopy(Vec<(Temp, Temp)>), // parallel copy of temps
+    Arg(Temp, u32),           // nth argument is wired to this temp
 }
 
-#[deriving(Clone)]
+#[derive(Clone, Copy)]
 pub enum Operand {
-    Immediate(i32, Size),
-    Register(Register, Size),
-    Temp(temp::Temp),
-    LabelOp(Label)
+    Imm(i32, Size),
+    Reg(Register, Size),
+    Temp(Temp),
+    Label(Label)
 }
 
-#[deriving(Clone)]
+#[derive(Clone, Copy)]
 pub enum Address {
-    /*   base      offset         multplier reg    multiplier size */
-    MOp(Box<Operand>, Option<uint>, Option<(Box<Operand>, Multiplier)>),
-    Stack(uint),
-    StackArg(uint),
+    //   base      offset         multplier reg    multiplier size
+    MOp(Operand, Option<u32>, Option<(Operand, Multiplier)>),
+    Stack(u32),
+    StackArg(u32),
 }
 
-#[deriving(Clone)]
+#[derive(Clone, Copy)]
 pub enum Multiplier {
     One, Two, Four, Eight
 }
 
-#[deriving(Eq, PartialEq, Clone)]
+#[derive(Eq, PartialEq, Clone, Copy)]
 pub enum Binop {
     Add, Sub, Mul, Div, Mod, Cmp(Cond), And, Or, Xor, Lsh, Rsh
 }
 
-#[deriving(Eq, PartialEq, Clone)]
+#[derive(Eq, PartialEq, Clone, Copy)]
 pub enum Cond {
     Lt, Lte, Gt, Gte, Eq, Neq
 }
 
-#[deriving(Eq, PartialEq, Clone, Show)]
+#[derive(Eq, PartialEq, Clone, Copy, Debug)]
 pub enum Register {
     EAX, EBX, ECX, EDX, EDI, ESI, ESP, EBP,
     R8D, R9D, R10D, R11D, R12D, R13D, R14D, R15D
 }
 
+#[derive(Copy, Clone)]
 pub enum Constraint { Caller, Idiv }
 
 // These two structures are used to parameterize the reconstruction of SSA form
@@ -96,273 +99,305 @@ pub struct RegisterInfo;
 pub struct StackInfo;
 
 impl Constraint {
-    pub fn allows(self, r: Register) -> bool{
-        match (self, r) {
-            (Idiv, EAX) | (Idiv, EDX) => false,
-            (Idiv, _) => true,
-            (Caller, _) => arch::callee_reg(r),
+    pub fn allows(&self, r: Register) -> bool{
+        match (*self, r) {
+            (Constraint::Idiv, Register::EAX) |
+            (Constraint::Idiv, Register::EDX) => false,
+            (Constraint::Idiv, _) => true,
+            (Constraint::Caller, _) => arch::callee_reg(r),
         }
     }
 }
 
-impl Instruction {
-    #[inline(always)]
-    pub fn each_def(&self, f: |temp::Temp|) {
+impl Inst {
+    pub fn each_def<F: FnMut(Temp)>(&self, mut f: F) {
         match *self {
-            BinaryOp(_, box Temp(t), _, _) |
-            Move(box Temp(t), _) |
-            Phi(t, _) |
-            Load(box Temp(t), _) |
-            Call(t, _, _) |
-            Reload(t, _) |
-            Arg(t, _)
-                => { f(t) }
+            Inst::BinaryOp(_, Operand::Temp(t), _, _) |
+            Inst::Move(Operand::Temp(t), _) |
+            Inst::Phi(t, _) |
+            Inst::Load(Operand::Temp(t), _) |
+            Inst::Call(t, _, _) |
+            Inst::Reload(t, _) |
+            Inst::Arg(t, _) => f(t),
 
-            PCopy(ref copies) => for &(def, _) in copies.iter() { f(def) },
+            Inst::PCopy(ref copies) => {
+                for &(def, _) in copies.iter() {
+                    f(def)
+                }
+            }
 
             _ => ()
         }
     }
 
-  #[inline(always)]
-    pub fn each_use(&self, f: |temp::Temp|) {
+    pub fn each_use<F: FnMut(Temp)>(&self, mut f: F) {
         match *self {
-            Condition(_, box Temp(t1), box Temp(t2)) |
-            Die(_, box Temp(t1), box Temp(t2)) |
-            BinaryOp(_, _, box Temp(t1), box Temp(t2))
-                => { f(t1); f(t2) }
-
-            Condition(_, box Temp(t), _) |
-            Condition(_, _, box Temp(t)) |
-            Die(_, box Temp(t), _) |
-            Die(_, _, box Temp(t)) |
-            BinaryOp(_, _, box Temp(t), _) |
-            BinaryOp(_, _, _, box Temp(t)) |
-            Move(_, box Temp(t)) |
-            Spill(t, _) |
-            Use(t) |
-            Return(box Temp(t))
-                => { f(t) }
-
-            Store(ref addr, ref src) => {
-                addr.each_temp(|x| f(x));
-                src.each_temp(f);
+            Inst::Condition(_, Operand::Temp(t1), Operand::Temp(t2)) |
+            Inst::Die(_, Operand::Temp(t1), Operand::Temp(t2)) |
+            Inst::BinaryOp(_, _, Operand::Temp(t1), Operand::Temp(t2)) => {
+                f(t1);
+                f(t2);
             }
-            Load(_, ref addr) => { addr.each_temp(f) }
 
-            Call(_, ref fun, ref args) => {
-                match *fun {
-                    box Temp(t) => { f(t) }
-                    _ => ()
-                };
+            Inst::Condition(_, Operand::Temp(t), _) |
+            Inst::Condition(_, _, Operand::Temp(t)) |
+            Inst::Die(_, Operand::Temp(t), _) |
+            Inst::Die(_, _, Operand::Temp(t)) |
+            Inst::BinaryOp(_, _, Operand::Temp(t), _) |
+            Inst::BinaryOp(_, _, _, Operand::Temp(t)) |
+            Inst::Move(_, Operand::Temp(t)) |
+            Inst::Spill(t, _) |
+            Inst::Use(t) |
+            Inst::Return(Operand::Temp(t)) => f(t),
+
+            Inst::Store(ref addr, ref src) => {
+                addr.each_temp(&mut f);
+                src.each_temp(&mut f);
+            }
+            Inst::Load(_, ref addr) => addr.each_temp(&mut f),
+
+            Inst::Call(_, ref fun, ref args) => {
+                if let Operand::Temp(t) = *fun {
+                    f(t);
+                }
                 for arg in args.iter() {
-                    match *arg {
-                        box Temp(t) => { f(t) }
-                        _ => ()
+                    if let Operand::Temp(t) = *arg {
+                        f(t);
                     }
                 }
             }
 
-            PCopy(ref copies) => for &(_, t) in copies.iter() { f(t) },
+            Inst::PCopy(ref copies) => {
+                for &(_, t) in copies.iter() {
+                    f(t)
+                }
+            }
 
             _ => ()
         }
     }
 
-    pub fn phi_info<'a>(&'a self) -> Option<(temp::Temp, &'a ssa::PhiMap)> {
-        match *self {
-            Phi(d, ref m) => Some((d, m)),
-            _ => None
-        }
+    pub fn is_phi(&self) -> bool {
+        match *self { Inst::Phi(..) => true, _ => false }
     }
-
-    pub fn is_phi(&self) -> bool { match *self { Phi(..) => true, _ => false } }
 }
 
-impl ssa::Statement<Instruction> for RegisterInfo {
-    fn phi(&self, t: temp::Temp, map: ssa::PhiMap) -> Box<Instruction> {
-        box Phi(t, map)
-    }
-
-    fn each_def(&self, i: &Instruction, f: |temp::Temp|) {
+impl ssa::Statement<Inst> for RegisterInfo {
+    fn each_def(&self, i: &Inst, f: &mut FnMut(Temp)) {
         i.each_def(f)
     }
-    fn each_use(&self, i: &Instruction, f: |temp::Temp|) {
+    fn each_use(&self, i: &Inst, f: &mut FnMut(Temp)) {
         i.each_use(f)
     }
-    fn phi_info<'r>(&self, me: &'r Instruction)
-                    -> Option<(temp::Temp, &'r ssa::PhiMap)>
-    {
-        me.phi_info()
-    }
-    fn phi_unwrap(&self, me: Box<Instruction>)
-                  -> Result<(temp::Temp, ssa::PhiMap), Box<Instruction>> {
-        match me {
-            box Phi(d, m) => Ok((d, m)),
-            i          => Err(i)
-        }
+
+    fn new_phi(&self, t: Temp, map: ssa::PhiMap) -> Inst {
+        Inst::Phi(t, map)
     }
 
-    fn map_temps(&self, i: Box<Instruction>, uses: |temp::Temp| -> temp::Temp,
-                 defs: |temp::Temp| -> temp::Temp) -> Box<Instruction> {
-        box match *i {
-            BinaryOp(op, o1, o2, o3) => {
-                let (o2, o3) = (o2.map_temps(|x| uses(x)), o3.map_temps(uses));
-                BinaryOp(op, o1.map_temps(defs), o2, o3)
-            }
-            Move(dest, src) => {
-                let src = src.map_temps(uses);
-                Move(dest.map_temps(defs), src)
-            }
-            Load(dest, src) => {
-                let src = src.map_temps(uses);
-                Load(dest.map_temps(defs), src)
-            }
-            Store(dest, src) => Store(dest.map_temps(|x| uses(x)),
-                                      src.map_temps(|x| uses(x))),
-            Die(c, o1, o2) => Die(c, o1.map_temps(|x| uses(x)),
-                                  o2.map_temps(|x| uses(x))),
-            Condition(c, o1, o2) =>
-                Condition(c, o1.map_temps(|x| uses(x)), o2.map_temps(|x| uses(x))),
-            Spill(t, tag) => Spill(uses(t), tag),
-            Reload(dest, tag) => Reload(defs(dest), tag),
-            Phi(t, map) => Phi(defs(t), map),
-            Call(dst, fun, args) => {
-                let fun = fun.map_temps(|x| uses(x));
-                let args = args.move_iter().map(|arg|
-                                                arg.map_temps(|x| uses(x))
-                                               ).collect();
-                Call(defs(dst), fun, args)
-            }
-            Use(t) => Use(uses(t)),
-            Return(t) => Return(t.map_temps(uses)),
-            Arg(t, n) => Arg(defs(t), n),
-            PCopy(copies) => {
-                PCopy(copies.move_iter().map(|(dst, src)| {
-                    let src = uses(src);
-                    (defs(dst), src)
-                }).collect())
-            }
-            s => s
-        }
-    }
-}
-
-impl ssa::Statement<Instruction> for StackInfo {
-    fn phi(&self, t: temp::Temp, map: ssa::PhiMap) -> Box<Instruction> {
-        box MemPhi(t, map)
-    }
-
-    fn each_def(&self, i: &Instruction, f: |temp::Temp|) {
-        match *i {
-            Spill(_, t) | MemPhi(t, _) => f(t),
-            _ => ()
-        }
-    }
-    fn each_use(&self, i: &Instruction, f: |temp::Temp|) {
-        match *i {
-            Reload(_, t) => f(t),
-            _ => ()
-        }
-    }
-    fn phi_info<'r>(&self, me: &'r Instruction)
-                    -> Option<(temp::Temp, &'r ssa::PhiMap)>
-    {
+    fn phi<'r>(&self, me: &'r Inst) -> Option<(Temp, &'r ssa::PhiMap)> {
         match *me {
-            MemPhi(t, ref m) => Some((t, m)),
+            Inst::Phi(d, ref m) => Some((d, m)),
             _ => None
         }
     }
-    fn phi_unwrap(&self, me: Box<Instruction>)
-        -> Result<(temp::Temp, ssa::PhiMap), Box<Instruction>> {
-            match me {
-                box MemPhi(d, m) => Ok((d, m)),
-                i => Err(i)
-            }
+    fn phi_mut<'r>(&self, me: &'r mut Inst)
+                   -> Option<(Temp, &'r mut ssa::PhiMap)> {
+        match *me {
+            Inst::Phi(d, ref mut m) => Some((d, m)),
+            _ => None
         }
+    }
+    fn into_phi(&self, me: Inst) -> Result<(Temp, ssa::PhiMap), Inst> {
+        match me {
+            Inst::Phi(d, m) => Ok((d, m)),
+            i => Err(i)
+        }
+    }
 
-    fn map_temps(&self, i: Box<Instruction>, uses: |temp::Temp| -> temp::Temp,
-                 defs: |temp::Temp| -> temp::Temp) -> Box<Instruction> {
-        box match *i {
-            MemPhi(t, map) => MemPhi(defs(t), map),
-            Spill(r, t) => Spill(r, defs(t)),
-            Reload(r, t) => Reload(r, uses(t)),
-            i => i,
+    fn map_temps(&self, i: &mut Inst,
+                 uses: &mut FnMut(Temp) -> Temp,
+                 defs: &mut FnMut(Temp) -> Temp) {
+        match *i {
+            Inst::BinaryOp(_, ref mut o1, ref mut o2, ref mut o3) => {
+                o2.map_temps(uses);
+                o3.map_temps(uses);
+                o1.map_temps(defs);
+            }
+            Inst::Move(ref mut dst, ref mut src) => {
+                dst.map_temps(uses);
+                src.map_temps(defs);
+            }
+            Inst::Load(ref mut op, ref mut addr) |
+            Inst::Store(ref mut addr, ref mut op) => {
+                op.map_temps(uses);
+                addr.map_temps(defs);
+            }
+            Inst::Die(_, ref mut o1, ref mut o2) |
+            Inst::Condition(_, ref mut o1, ref mut o2) => {
+                o1.map_temps(uses);
+                o2.map_temps(uses);
+            }
+            Inst::Spill(ref mut t, _) => *t = uses(*t),
+            Inst::Reload(ref mut dst, _) => *dst = defs(*dst),
+            Inst::Phi(ref mut t, _) => *t = defs(*t),
+            Inst::Call(ref mut dst, ref mut fun, ref mut args) => {
+                fun.map_temps(uses);
+                for arg in args {
+                    arg.map_temps(uses);
+                }
+                *dst = defs(*dst);
+            }
+            Inst::Use(ref mut t) => *t = uses(*t),
+            Inst::Return(ref mut t) => t.map_temps(uses),
+            Inst::Arg(ref mut t, _) => *t = defs(*t),
+            Inst::PCopy(ref mut copies) => {
+                for &mut (ref mut dst, ref mut src) in copies {
+                    *src = uses(*src);
+                    *dst = defs(*dst);
+                }
+            }
+            _ => {}
         }
     }
 }
 
-impl fmt::Show for Instruction {
+impl ssa::Statement<Inst> for StackInfo {
+    fn each_def(&self, i: &Inst, f: &mut FnMut(Temp)) {
+        match *i {
+            Inst::Spill(_, t) |
+            Inst::MemPhi(t, _) => f(t),
+            _ => ()
+        }
+    }
+    fn each_use(&self, i: &Inst, f: &mut FnMut(Temp)) {
+        match *i {
+            Inst::Reload(_, t) => f(t),
+            _ => ()
+        }
+    }
+
+    fn new_phi(&self, t: Temp, map: ssa::PhiMap) -> Inst {
+        Inst::MemPhi(t, map)
+    }
+
+    fn phi<'r>(&self, me: &'r Inst) -> Option<(Temp, &'r ssa::PhiMap)> {
+        match *me {
+            Inst::MemPhi(t, ref m) => Some((t, m)),
+            _ => None
+        }
+    }
+    fn phi_mut<'r>(&self, me: &'r mut Inst)
+                   -> Option<(Temp, &'r mut ssa::PhiMap)> {
+        match *me {
+            Inst::MemPhi(t, ref mut m) => Some((t, m)),
+            _ => None
+        }
+    }
+    fn into_phi(&self, me: Inst) -> Result<(Temp, ssa::PhiMap), Inst> {
+        match me {
+            Inst::MemPhi(d, m) => Ok((d, m)),
+            i => Err(i)
+        }
+    }
+
+    fn map_temps(&self, i: &mut Inst,
+                 uses: &mut FnMut(Temp) -> Temp,
+                 defs: &mut FnMut(Temp) -> Temp) {
+        match *i {
+            Inst::MemPhi(ref mut t, _) => *t = defs(*t),
+            Inst::Spill(_, ref mut t) => *t = defs(*t),
+            Inst::Reload(_, ref mut t) => *t = uses(*t),
+            _ => {}
+        }
+    }
+}
+
+impl fmt::Display for Inst {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Raw(ref s) => write!(f, "{}", s),
-            Arg(t, i) => write!(f, "{} = arg[{}]", t, i),
-            Return(ref t) => write!(f, "ret # {}", t),
-            Use(t) => write!(f, "use {}", t),
-            Die(c, ref o1, ref o2) =>
-                write!(f, "cmp {}, {}; j{} {}raise_segv",
-                       o2, o1,
-                       c.suffix(), label::prefix()),
-            Condition(c, ref o1, ref o2) =>
-                write!(f, "cmp {}, {} # {}", o2, o1, c.suffix()),
-            Load(ref dst, ref addr) =>
-                write!(f, "mov {}, {}", addr, dst),
-            Store(ref addr, ref src) => match **src {
-                Immediate(_, ir::Pointer) => write!(f, "movq {}, {}", src, addr),
-                Immediate(_, ir::Int)     => write!(f, "movl {}, {}", src, addr),
-                _                         => write!(f, "mov {}, {}", src, addr),
-            },
-            Move(ref o1, ref o2) =>
+            Inst::Raw(ref s) => write!(f, "{}", s),
+            Inst::Arg(t, i) => write!(f, "# {} = arg[{}]", t, i),
+            Inst::Return(ref t) => write!(f, "ret # {}", t),
+            Inst::Use(t) => write!(f, "# use {}", t),
+            Inst::Die(c, ref o1, ref o2) => {
+                write!(f, "cmp {}, {}; j{} {}raise_segv", o2, o1,
+                       c.suffix(), label::prefix())
+            }
+            Inst::Condition(c, ref o1, ref o2) => {
+                write!(f, "cmp {}, {} # {}", o2, o1, c.suffix())
+            }
+            Inst::Load(ref dst, ref addr) => {
+                write!(f, "mov {}, {}", addr, dst)
+            }
+            Inst::Store(ref addr, ref src) => {
+                match *src {
+                    Operand::Imm(_, Type::Pointer) => {
+                        write!(f, "movq {}, {}", src, addr)
+                    }
+                    Operand::Imm(_, Type::Int) => {
+                        write!(f, "movl {}, {}", src, addr)
+                    }
+                    _ => write!(f, "mov {}, {}", src, addr),
+                }
+            }
+            Inst::Move(ref o1, ref o2) => {
                 if o1.size() != o2.size() && !o2.imm() {
                     write!(f, "movslq {}, {}", o2, o1)
                 } else {
                     write!(f, "mov {}, {}", o2, o1)
-                },
-            BinaryOp(binop, ref dest, ref s1, ref s2) => match binop {
-                /* multiplications can have third operand if it's an immediate */
-                Mul if s2.imm() && !s1.imm() => {
-                    write!(f, "imul {}, {}, {}", s2, s1, dest)
                 }
-                /* division/mod are both weird */
-                Div | Mod => write!(f, "cltd; idiv {} # {} <- {} {} {}", s2, dest,
-                                    s1, binop, s2),
+            }
+            Inst::BinaryOp(binop, ref dst, ref s1, ref s2) => match binop {
+                // multiplications can have third operand if it's an immediate
+                Binop::Mul if s2.imm() && !s1.imm() => {
+                    write!(f, "imul {}, {}, {}", s2, s1, dst)
+                }
+                // division/mod are both weird
+                Binop::Div |
+                Binop::Mod => {
+                    write!(f, "cltd; idiv {} # {} <- {} {} {}", s2, dst,
+                           s1, binop, s2)
+                }
 
-                /* Shifting by immediates can only use lower 5 bits */
-                Lsh | Rsh if s1.imm() =>
-                    write!(f, "{} {}, {}", binop, s1.mask(0x1f), dest),
-                Lsh | Rsh if s1.reg() =>
-                    write!(f, "{} %cl, {}", binop, dest),
+                // Shifting by immediates can only use lower 5 bits
+                Binop::Lsh | Binop::Rsh if s1.imm() => {
+                    write!(f, "{} {}, {}", binop, s1.mask(0x1f), dst)
+                }
+                Binop::Lsh | Binop::Rsh if s1.reg() => {
+                    write!(f, "{} %cl, {}", binop, dst)
+                }
 
-                Cmp(cond) => {
-                    let dstsmall = match **dest {
-                        Register(r, _) => r.byte().to_string(),
-                        _ => dest.to_string(),
+                Binop::Cmp(cond) => {
+                    let dstsmall = match *dst {
+                        Operand::Reg(r, _) => r.byte().to_string(),
+                        _ => dst.to_string(),
                     };
                     write!(f, "cmp {}, {}; set{} {}; movzbl {}, {}",
-                           s2, s1, cond.suffix(), dstsmall, dstsmall, dest)
+                           s2, s1, cond.suffix(), dstsmall, dstsmall, dst)
                 }
 
-                _ => write!(f, "{} {}, {} # {}", binop, s1, dest, s2),
+                _ => write!(f, "{} {}, {} # {}", binop, s1, dst, s2),
             },
-            Call(dst, ref e, ref args) =>
-                write!(f, "call {} # {} <- ({:#})", e, dst, args),
-            Phi(tmp, ref map) => {
+            Inst::Call(dst, ref e, ref args) => {
+                write!(f, "call {} # {} <- ({})", e, dst, CommaSep(args))
+            }
+            Inst::Phi(tmp, ref map) => {
                 try!(write!(f, "# {} <- phi(", tmp));
                 for (&id, &tmp) in map.iter() {
                     try!(write!(f, " [ {} - n{} ] ", tmp, id));
                 }
                 write!(f, ")")
             }
-            MemPhi(tag, ref map) => {
+            Inst::MemPhi(tag, ref map) => {
                 try!(write!(f, "# m{} <- phi(", tag));
                 for (&id, &tag) in map.iter() {
                     try!(write!(f, " [ m{} - n{} ] ", tag, id));
                 }
                 write!(f, ")")
             }
-            Spill(t, tag) => write!(f, "SPILL {} -> {}", t, tag),
-            Reload(t, tag) => write!(f, "RELOAD {} <= {}", t, tag),
-            PCopy(ref copies) => {
+            Inst::Spill(t, tag) => write!(f, "SPILL {} -> {}", t, tag),
+            Inst::Reload(t, tag) => write!(f, "RELOAD {} <= {}", t, tag),
+            Inst::PCopy(ref copies) => {
                 try!(write!(f, "{{"));
                 for &(k, v) in copies.iter() {
                     try!(write!(f, "({} <= {}) ", k, v));
@@ -374,46 +409,51 @@ impl fmt::Show for Instruction {
 }
 
 impl Operand {
-    pub fn imm(&self) -> bool { match *self { Immediate(..) => true, _ => false } }
-    pub fn reg(&self) -> bool { match *self { Register(..) => true, _ => false } }
+    pub fn imm(&self) -> bool {
+        match *self { Operand::Imm(..) => true, _ => false }
+    }
 
-    fn mask(&self, mask: i32) -> Box<Operand> {
+    pub fn reg(&self) -> bool {
+        match *self { Operand::Reg(..) => true, _ => false }
+    }
+
+    fn mask(&self, mask: i32) -> Operand {
         match *self {
-            Immediate(n, s) => box Immediate(n & mask, s),
-            _ => fail!("can't mask non-immediate")
+            Operand::Imm(n, s) => Operand::Imm(n & mask, s),
+            _ => panic!("can't mask non-immediate")
         }
     }
 
     pub fn size(&self) -> Size {
         match *self {
-            Immediate(_, s) | Register(_, s) => s,
-            LabelOp(..) => ir::Pointer,
-            Temp(..) => ir::Int
+            Operand::Imm(_, s) | Operand::Reg(_, s) => s,
+            Operand::Label(..) => Type::Pointer,
+            Operand::Temp(..) => Type::Int
         }
     }
 
-    pub fn each_temp(&self, f: |temp::Temp|) {
+    pub fn each_temp(&self, f: &mut FnMut(Temp)) {
         match *self {
-            Temp(t) => { f(t) }
+            Operand::Temp(t) => { f(t) }
             _ => ()
         }
     }
 
-    pub fn map_temps(self, f: |temp::Temp| -> temp::Temp) -> Box<Operand> {
-        match self {
-            Temp(t) => box Temp(f(t)),
-            o => box o
+    pub fn map_temps(&mut self, f: &mut FnMut(Temp) -> Temp) {
+        match *self {
+            Operand::Temp(ref mut t) => *t = f(*t),
+            _ => {}
         }
     }
 }
 
-impl fmt::Show for Operand {
+impl fmt::Display for Operand {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Immediate(c, _) => write!(f, "${}", c as int),
-            Register(reg, s) => write!(f, "{}", reg.size(s)),
-            Temp(t) => write!(f, "{}", t),
-            LabelOp(ref l) => write!(f, "{}", l),
+            Operand::Imm(c, _) => write!(f, "${}", c),
+            Operand::Reg(reg, s) => write!(f, "{}", reg.size(s)),
+            Operand::Temp(t) => write!(f, "{}", t),
+            Operand::Label(ref l) => write!(f, "{}", l),
         }
     }
 }
@@ -421,40 +461,44 @@ impl fmt::Show for Operand {
 impl PartialEq for Operand {
     fn eq(&self, other: &Operand) -> bool {
         match (self, other) {
-            (&Register(a, _), &Register(b, _)) => a == b,
-            (&Temp(a), &Temp(b)) => a == b,
+            (&Operand::Reg(a, _), &Operand::Reg(b, _)) => a == b,
+            (&Operand::Temp(a), &Operand::Temp(b)) => a == b,
             _ => false
         }
     }
 }
 
 impl Address {
-    fn map_temps(self, f: |temp::Temp| -> temp::Temp) -> Box<Address> {
-        match self {
-            MOp(t, disp, off) =>
-                box MOp(t.map_temps(|x| f(x)), disp,
-                        off.map(|(x, m)| (x.map_temps(|x| f(x)), m))),
-            a => box a
+    fn map_temps(&mut self, f: &mut FnMut(Temp) -> Temp) {
+        match *self {
+            Address::MOp(ref mut t, _, ref mut off) => {
+                t.map_temps(f);
+                if let Some((ref mut x, _)) = *off {
+                    x.map_temps(f);
+                }
+            }
+            _ => {}
         }
     }
 
-    fn each_temp(&self, f: |temp::Temp|) {
+    fn each_temp(&self, f: &mut FnMut(Temp)) {
         match *self {
-            MOp(ref o, _, ref off) => {
-                o.each_temp(|x| f(x));
+            Address::MOp(ref o, _, ref off) => {
+                o.each_temp(f);
                 for &(ref x, _) in off.iter() {
-                    x.each_temp(|x| f(x))
+                    x.each_temp(f);
                 }
             }
-            Stack(..) | StackArg(..) => ()
+            Address::Stack(..) |
+            Address::StackArg(..) => ()
         }
     }
 }
 
-impl fmt::Show for Address {
+impl fmt::Display for Address {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            MOp(ref o, disp, ref off) => {
+            Address::MOp(ref o, disp, ref off) => {
                 for &d in disp.iter() {
                     try!(write!(f, "{}", d));
                 }
@@ -467,8 +511,8 @@ impl fmt::Show for Address {
                 }
                 write!(f, ")")
             }
-            Stack(i) => write!(f, "{}(%rsp)", i),
-            StackArg(i) => write!(f, "arg[{}]", i),
+            Address::Stack(i) => write!(f, "{}(%rsp)", i),
+            Address::StackArg(i) => write!(f, "arg[{}]", i),
         }
     }
 }
@@ -476,60 +520,73 @@ impl fmt::Show for Address {
 impl Cond {
     pub fn flip(&self) -> Cond {
         match *self {
-            Lt  => Gt,
-            Lte => Gte,
-            Gt  => Lt,
-            Gte => Lte,
-            Eq  => Eq,
-            Neq => Neq
+            Cond::Lt  => Cond::Gt,
+            Cond::Lte => Cond::Gte,
+            Cond::Gt  => Cond::Lt,
+            Cond::Gte => Cond::Lte,
+            Cond::Eq  => Cond::Eq,
+            Cond::Neq => Cond::Neq
         }
     }
     pub fn negate(&self) -> Cond {
         match *self {
-            Lt  => Gte,
-            Lte => Gt,
-            Gt  => Lte,
-            Gte => Lt,
-            Eq  => Neq,
-            Neq => Eq
+            Cond::Lt  => Cond::Gte,
+            Cond::Lte => Cond::Gt,
+            Cond::Gt  => Cond::Lte,
+            Cond::Gte => Cond::Lt,
+            Cond::Eq  => Cond::Neq,
+            Cond::Neq => Cond::Eq
         }
     }
     pub fn suffix(&self) -> &'static str {
         match *self {
-            Lt  => "l",
-            Lte => "le",
-            Gt  => "g",
-            Gte => "ge",
-            Eq  => "e",
-            Neq => "ne"
+            Cond::Lt  => "l",
+            Cond::Lte => "le",
+            Cond::Gt  => "g",
+            Cond::Gte => "ge",
+            Cond::Eq  => "e",
+            Cond::Neq => "ne"
         }
     }
 }
 
 impl Binop {
     pub fn commutative(&self) -> bool {
-        match *self { Add | Mul | And | Or | Xor => true, _ => false }
+        match *self {
+            Binop::Add |
+            Binop::Mul |
+            Binop::And |
+            Binop::Or |
+            Binop::Xor => true,
+            _ => false,
+        }
     }
 
     pub fn constrained(&self) -> bool {
-        match *self { Div | Mod | Lsh | Rsh => true, _ => false }
+        match *self {
+            Binop::Div |
+            Binop::Mod |
+            Binop::Lsh |
+            Binop::Rsh => true,
+            _ => false,
+        }
     }
 }
 
-impl fmt::Show for Binop {
+impl fmt::Display for Binop {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Add => "add".fmt(f),
-            Sub => "sub".fmt(f),
-            Mul => "imul".fmt(f),
-            Div => "div".fmt(f),
-            Mod => "mod".fmt(f),
-            And => "and".fmt(f),
-            Or  => "or".fmt(f),
-            Xor => "xor".fmt(f),
-            Lsh => "sal".fmt(f),
-            Rsh => "sar".fmt(f),
-            Cmp(_) => "cmp".fmt(f),
+            Binop::Add => "add".fmt(f),
+            Binop::Sub => "sub".fmt(f),
+            Binop::Mul => "imul".fmt(f),
+            Binop::Div => "div".fmt(f),
+            Binop::Mod => "mod".fmt(f),
+            Binop::And => "and".fmt(f),
+            Binop::Or  => "or".fmt(f),
+            Binop::Xor => "xor".fmt(f),
+            Binop::Lsh => "sal".fmt(f),
+            Binop::Rsh => "sar".fmt(f),
+            Binop::Cmp(_) => "cmp".fmt(f),
         }
     }
 }
@@ -537,59 +594,59 @@ impl fmt::Show for Binop {
 impl Register {
     pub fn byte(&self) -> &'static str {
         match *self {
-            EAX  => "%al",
-            EBX  => "%bl",
-            ECX  => "%cl",
-            EDX  => "%dl",
-            ESI  => "%sil",
-            EDI  => "%dil",
-            ESP  => "%spl",
-            EBP  => "%bpl",
-            R8D  => "%r8b",
-            R9D  => "%r9b",
-            R10D => "%r10b",
-            R11D => "%r11b",
-            R12D => "%r12b",
-            R13D => "%r13b",
-            R14D => "%r14b",
-            R15D => "%r15b",
+            Register::EAX  => "%al",
+            Register::EBX  => "%bl",
+            Register::ECX  => "%cl",
+            Register::EDX  => "%dl",
+            Register::ESI  => "%sil",
+            Register::EDI  => "%dil",
+            Register::ESP  => "%spl",
+            Register::EBP  => "%bpl",
+            Register::R8D  => "%r8b",
+            Register::R9D  => "%r9b",
+            Register::R10D => "%r10b",
+            Register::R11D => "%r11b",
+            Register::R12D => "%r12b",
+            Register::R13D => "%r13b",
+            Register::R14D => "%r14b",
+            Register::R15D => "%r15b",
         }
     }
 
     pub fn size(&self, t: Size) -> &'static str {
         match (*self, t) {
-            (EAX, ir::Int)      => "%eax",
-            (EAX, ir::Pointer)  => "%rax",
-            (EBX, ir::Int)      => "%ebx",
-            (EBX, ir::Pointer)  => "%rbx",
-            (ECX, ir::Int)      => "%ecx",
-            (ECX, ir::Pointer)  => "%rcx",
-            (EDX, ir::Int)      => "%edx",
-            (EDX, ir::Pointer)  => "%rdx",
-            (EDI, ir::Int)      => "%edi",
-            (EDI, ir::Pointer)  => "%rdi",
-            (ESI, ir::Int)      => "%esi",
-            (ESI, ir::Pointer)  => "%rsi",
-            (ESP, ir::Int)      => "%esp",
-            (ESP, ir::Pointer)  => "%rsp",
-            (EBP, ir::Int)      => "%ebp",
-            (EBP, ir::Pointer)  => "%rbp",
-            (R8D, ir::Int)      => "%r8d",
-            (R8D, ir::Pointer)  => "%r8",
-            (R9D, ir::Int)      => "%r9d",
-            (R9D, ir::Pointer)  => "%r9",
-            (R10D, ir::Int)     => "%r10d",
-            (R10D, ir::Pointer) => "%r10",
-            (R11D, ir::Int)     => "%r11d",
-            (R11D, ir::Pointer) => "%r11",
-            (R12D, ir::Int)     => "%r12d",
-            (R12D, ir::Pointer) => "%r12",
-            (R13D, ir::Int)     => "%r13d",
-            (R13D, ir::Pointer) => "%r13",
-            (R14D, ir::Int)     => "%r14d",
-            (R14D, ir::Pointer) => "%r14",
-            (R15D, ir::Int)     => "%r15d",
-            (R15D, ir::Pointer) => "%r15",
+            (Register::EAX, Type::Int)      => "%eax",
+            (Register::EAX, Type::Pointer)  => "%rax",
+            (Register::EBX, Type::Int)      => "%ebx",
+            (Register::EBX, Type::Pointer)  => "%rbx",
+            (Register::ECX, Type::Int)      => "%ecx",
+            (Register::ECX, Type::Pointer)  => "%rcx",
+            (Register::EDX, Type::Int)      => "%edx",
+            (Register::EDX, Type::Pointer)  => "%rdx",
+            (Register::EDI, Type::Int)      => "%edi",
+            (Register::EDI, Type::Pointer)  => "%rdi",
+            (Register::ESI, Type::Int)      => "%esi",
+            (Register::ESI, Type::Pointer)  => "%rsi",
+            (Register::ESP, Type::Int)      => "%esp",
+            (Register::ESP, Type::Pointer)  => "%rsp",
+            (Register::EBP, Type::Int)      => "%ebp",
+            (Register::EBP, Type::Pointer)  => "%rbp",
+            (Register::R8D, Type::Int)      => "%r8d",
+            (Register::R8D, Type::Pointer)  => "%r8",
+            (Register::R9D, Type::Int)      => "%r9d",
+            (Register::R9D, Type::Pointer)  => "%r9",
+            (Register::R10D, Type::Int)     => "%r10d",
+            (Register::R10D, Type::Pointer) => "%r10",
+            (Register::R11D, Type::Int)     => "%r11d",
+            (Register::R11D, Type::Pointer) => "%r11",
+            (Register::R12D, Type::Int)     => "%r12d",
+            (Register::R12D, Type::Pointer) => "%r12",
+            (Register::R13D, Type::Int)     => "%r13d",
+            (Register::R13D, Type::Pointer) => "%r13",
+            (Register::R14D, Type::Int)     => "%r14d",
+            (Register::R14D, Type::Pointer) => "%r14",
+            (Register::R15D, Type::Int)     => "%r15d",
+            (Register::R15D, Type::Pointer) => "%r15",
         }
     }
 }
@@ -601,44 +658,47 @@ impl Multiplier {
 
     pub fn from_int(i: i32) -> Multiplier {
         match i {
-            1 => One, 2 => Two, 4 => Four, 8 => Eight,
-            _ => fail!("can't make multiplier for {}", i)
+            1 => Multiplier::One,
+            2 => Multiplier::Two,
+            4 => Multiplier::Four,
+            8 => Multiplier::Eight,
+            _ => panic!("can't make multiplier for {}", i)
         }
     }
 }
 
-impl fmt::Show for Multiplier {
+impl fmt::Display for Multiplier {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            One => "1".fmt(f),
-            Two => "2".fmt(f),
-            Four => "4".fmt(f),
-            Eight => "8".fmt(f),
+            Multiplier::One => "1".fmt(f),
+            Multiplier::Two => "2".fmt(f),
+            Multiplier::Four => "4".fmt(f),
+            Multiplier::Eight => "8".fmt(f),
         }
     }
 }
 
 impl Graphable for Program {
-    fn dot(&self, out: &mut io::Writer) -> io::IoResult<()> {
-        try!(out.write_str("digraph {\n"));
+    fn dot(&self, out: &mut io::Write) -> io::Result<()> {
+        try!(out.write_all(b"digraph {\n"));
         for f in self.funs.iter() {
             try!(f.cfg.dot(out,
-                           |id| format!("{}_n{}", f.name, id as int),
-                           |id, ins|
-                           "label=\"".to_string() +
-                                ins.iter().map(|s| s.to_string())
-                                   .collect::<Vec<String>>().connect("\\n").as_slice() +
-                                format!("\n[node={}]\" shape=box", id as int)
-                                    .as_slice(),
-                           |&edge| format!("label={}", edge)
+                           &mut |id| format!("{}_n{}", f.name, id),
+                           &mut |id, ins| {
+                                format!("label=\"{}\n[node={}\" shape=box",
+                                        ins.iter().map(|s| s.to_string())
+                                           .collect::<Vec<_>>().join("\\n"),
+                                        id)
+                           },
+                           &mut |&edge| format!("label={:?}", edge)
                           ));
         }
-        out.write_str("\n}")
+        out.write_all(b"\n}")
     }
 }
 
 impl Program {
-    pub fn output(&self, out: &mut io::Writer) -> io::IoResult<()> {
+    pub fn output(&self, out: &mut io::Write) -> io::Result<()> {
         for f in self.funs.iter() {
             try!(f.output(out));
         }
@@ -647,18 +707,16 @@ impl Program {
 }
 
 impl Function {
-    /**
-     * Traverses the cfg and outputs a stream of instructions which can be
-     * assembled to the actual program
-     */
-    fn output(&self, out: &mut io::Writer) -> io::IoResult<()> {
-        let base = label::Internal(self.name.clone());
-        /* entry label */
+    /// Traverses the cfg and outputs a stream of instructions which can be
+    /// assembled to the actual program
+    fn output(&self, out: &mut io::Write) -> io::Result<()> {
+        let base = Label::Internal(self.name.clone());
+        // entry label
         try!(write!(out, ".globl {}\n", base));
         try!(write!(out, "{}:\n", base));
-        let lbl = |n: graph::NodeId| format!("{}_bb_{}", base, n as int);
+        let lbl = |n: NodeId| format!("{}_bb_{}", base, n);
 
-        /* skipped is a stack of nodes that we have yet to visit */
+        // skipped is a stack of nodes that we have yet to visit
         let mut skipped = vec![self.root];
         let mut visited = HashSet::new();
 
@@ -666,65 +724,69 @@ impl Function {
             let block = match skipped.pop() { Some(a) => a, None => break };
             if visited.contains(&block) { continue }
 
-            /* Each block has its own label (so it can be jumped to) */
+            // Each block has its own label (so it can be jumped to)
             visited.insert(block);
             try!(write!(out, "L{}:\n", lbl(block)));
 
-            /* output the actual block */
+            // output the actual block
             let instructions = self.cfg.node(block);
             for ins in instructions.iter() {
                 try!(write!(out, "  {}\n", ins));
             }
 
-            /* Collect information about the edges */
+            // Collect information about the edges
             let mut always = None;
             let mut tedge = None;
             let mut fedge = None;
             for (id, &typ) in self.cfg.succ_edges(block) {
-                debug!("out of {} ({} - {})", block, id, typ);
+                debug!("out of {} ({} - {:?})", block, id, typ);
                 match typ {
-                    ir::Always | ir::Branch | ir::LoopOut => {
+                    Edge::Always | Edge::Branch | Edge::LoopOut => {
                         assert!(tedge.is_none() && fedge.is_none() && always.is_none());
                         always = Some((typ, id));
                     }
-                    ir::True | ir::TBranch => {
+                    Edge::True | Edge::TBranch => {
                         assert!(tedge.is_none() && always.is_none());
                         tedge = Some((typ, id));
                     }
-                    ir::False | ir::FBranch | ir::FLoopOut => {
+                    Edge::False | Edge::FBranch | Edge::FLoopOut => {
                         assert!(fedge.is_none() && always.is_none());
                         fedge = Some((typ, id));
                     }
                 }
             }
 
-            /* Emit jumps and alter our stack of nodes to visit */
+            // Emit jumps and alter our stack of nodes to visit
             match always {
-                /* Always branches to unvisited blocks can just fall through */
-                Some((ir::Always, id)) if !visited.contains(&id) =>
-                { skipped.push(id); }
-                /* Otherwise always branches or edges to visited blocks are jumps */
+                // Always branches to unvisited blocks can just fall through
+                Some((Edge::Always, id)) if !visited.contains(&id) => {
+                    skipped.push(id);
+                }
+                // Otherwise always branches or edges to visited blocks are jumps
                 Some((_, id)) => {
-                    skipped.unshift(id);
+                    skipped.insert(0, id);
                     try!(write!(out, "  jmp L{}\n", lbl(id)));
                 }
 
                 None => {
                     match (tedge, fedge) {
-                        /* If everything is none, then we've reached a termination */
+                        // If everything is none, then we've reached a
+                        // termination
                         (None, None) => (),
 
                         (Some((tedge, tid)), Some((fedge, fid))) => {
-                            /* On a conditional branch, the last ins must be Condition */
+                            // On a conditional branch, the last ins must be
+                            // Condition
                             let cond = match instructions.last() {
-                                Some(&box Condition(c, _, _)) => c,
-                                _ => fail!("Need a condition with true/false edges")
+                                Some(&Inst::Condition(c, _, _)) => c,
+                                _ => panic!("Need a condition with true/false edges")
                             };
 
                             match (tedge, fedge) {
-                                /* If we fall through to the true block, then negate the
-                                   condition to jump to the false block and push traversal */
-                                (ir::True, _) => {
+                                // If we fall through to the true block, then
+                                // negate the condition to jump to the false
+                                // block and push traversal
+                                (Edge::True, _) => {
                                     skipped.push(fid);
                                     skipped.push(tid);
                                     try!(write!(out, "  j{} L{}\n",
@@ -732,9 +794,9 @@ impl Function {
                                                 lbl(fid)));
                                 }
 
-                                /* Otherwise we can use the condition as is and we update the
-                                   nodes to visit */
-                                (_, ir::False) => {
+                                // Otherwise we can use the condition as is and
+                                // we update the nodes to visit
+                                (_, Edge::False) => {
                                     skipped.push(tid);
                                     skipped.push(fid);
                                     try!(write!(out, "  j{} L{}\n",
@@ -742,15 +804,15 @@ impl Function {
                                                 lbl(tid)));
                                 }
 
-                                _ => fail!("invalidly specified edges")
+                                _ => panic!("invalidly specified edges")
                             }
                         }
-                        _ => fail!("invalid edges")
+                        _ => panic!("invalid edges")
                     }
                 }
             }
 
-            /* and finally, the basic block is done with its emission! */
+            // and finally, the basic block is done with its emission!
         }
         Ok(())
     }

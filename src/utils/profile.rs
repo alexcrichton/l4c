@@ -1,6 +1,9 @@
+use std::cell::Cell;
+use std::iter;
+
 use time;
 
-local_data_key!(levels_key: uint)
+thread_local!(static LEVELS_KEY: Cell<usize> = Cell::new(0));
 
 pub struct Guard {
     enabled: bool,
@@ -10,7 +13,7 @@ pub struct Guard {
 impl Drop for Guard {
     fn drop(&mut self) {
         if self.enabled {
-            println!("{:.2f}s", time::precise_time_s() - self.start);
+            println!("{:.2}s", time::precise_time_s() - self.start);
         }
     }
 }
@@ -18,31 +21,31 @@ impl Drop for Guard {
 impl Guard {
     pub fn new(print: bool, name: &str) -> Guard {
         if print {
-            print!("{:20s} ", name);
+            print!("{:20} ", name);
         }
         Guard { enabled: print, start: time::precise_time_s() }
     }
 }
 
-pub fn run<U>(f: || -> U, name: &str) -> U {
+pub fn run<U, F: FnOnce() -> U>(f: F, name: &str) -> U {
     let start = time::precise_time_s();
-    print!("{:20s} ", name);
+    print!("{:20} ", name);
     let ret = f();
-    println!("{:.2f}s", time::precise_time_s() - start);
+    println!("{:.2}s", time::precise_time_s() - start);
     return ret;
 }
 
-pub fn dbg<U>(name: &str, f: || -> U) -> U {
+pub fn dbg<U, F: FnOnce() -> U>(name: &str, f: F) -> U {
     /* apparently local_data_{get,set} are unsafe... */
-    let lvls = levels_key.replace(None).unwrap_or(0);
-    levels_key.replace(Some(lvls + 1));
+    let lvls = LEVELS_KEY.with(|l| l.get());
+    LEVELS_KEY.with(|l| l.set(lvls + 1));
     let start = time::precise_time_s();
     let ret = f();
     let val = time::precise_time_s() - start;
     if val > 0.001 {
-        debug!("{}{} {:.8f}s", "  ".repeat(lvls), name,
-        time::precise_time_s() - start);
+        debug!("{}{} {:.8}s", iter::repeat("  ").take(lvls).collect::<String>(),
+               name, time::precise_time_s() - start);
     }
-    levels_key.replace(Some(lvls));
+    LEVELS_KEY.with(|l| l.set(lvls));
     return ret;
 }

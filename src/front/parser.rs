@@ -1,27 +1,15 @@
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::io;
 use std::mem;
+use std::path::Path;
 
-use front::die;
-use front::ast;
-use front::ast::*;
-use front::mark::{Marked, Mark, Span, Coords};
-use front::lexer::*;
-
-struct PositionGenerator {
-    spans: Vec<Coords>,
-    map: HashMap<Span, uint>,
-    file: String,
-}
-
-pub struct SymbolGenerator {
-    symbols: Vec<String>,
-    table: HashMap<String, uint>,
-}
+use front::ast::{self, Unop, Binop, Type, Expr_, Stmt_, Item_};
+use front::lexer::{Lexer, Token};
+use front::lexer::Token::*;
+use utils::{Marked, Mark, Errors, CodeMap, SymbolGenerator, DUMMY_MARK};
 
 // Listed in order of ascending precedence
-#[deriving(Ord, Eq, PartialEq, PartialOrd, Show)]
+#[derive(Ord, Eq, PartialEq, PartialOrd, Debug, Copy, Clone)]
 pub enum Precedence {
     Default,
     PAssign,
@@ -43,144 +31,101 @@ pub enum Precedence {
 impl Precedence {
     fn right(&self) -> bool {
         match *self {
-            PTernary | PAssign | PUnary => true,
+            Precedence::PTernary |
+            Precedence::PAssign |
+            Precedence::PUnary => true,
             _ => false
         }
     }
 }
 
-pub fn parse_files(f: &[String], main: &str) -> Result<Program, String> {
+pub fn parse_files(f: &[String], main: &str) -> io::Result<ast::Program> {
     let mut decls = Vec::new();
     let mut symgen = SymbolGenerator::new();
-    let mut posgen = PositionGenerator::new();
+    let mut errors = Errors::new(CodeMap::new());
 
     for f in f.iter() {
-        let input = match io::File::open(&Path::new(f.as_slice())).read_to_end() {
-            Ok(i) => i,
-            Err(e) => { return Err(format!("{}", e)); }
-        };
-        let mut rdr = io::MemReader::new(input);
-
-        posgen.file = f.to_string();
-        let mut lexer = Lexer::new(posgen.file.clone(), &mut rdr, &mut symgen);
-        let mut parser = Parser::new(&mut lexer, &mut posgen, main);
+        let file = try!(errors.codemap_mut().add(Path::new(f)));
+        let mut lexer = Lexer::new(&errors, file, &mut symgen);
+        let mut parser = Parser::new(&mut lexer, &errors, f != main);
 
         while parser.cur != EOF {
             decls.push(parser.parse_gdecl());
         }
     }
 
-    let syms = symgen.unwrap();
-    let spans = posgen.unwrap();
-    return Ok(Program::new(decls, syms, spans));
-}
-
-impl SymbolGenerator {
-    pub fn new() -> SymbolGenerator {
-        SymbolGenerator{ table: HashMap::new(), symbols: Vec::new() }
-    }
-
-    pub fn intern(&mut self, s: &String) -> ast::Ident {
-        let s = match self.table.find(s) {
-            Some(&i) => { return ast::Ident(i) }
-            None => s.clone()
-        };
-        let ret = self.symbols.len();
-        self.table.insert(s.clone(), ret);
-        self.symbols.push(s);
-        return ast::Ident(ret);
-    }
-
-    pub fn unwrap(self) -> Vec<String> {
-        match self { SymbolGenerator{ symbols, .. } => symbols }
-    }
-}
-
-impl PositionGenerator {
-    fn new() -> PositionGenerator {
-        PositionGenerator{ spans: Vec::new(), map: HashMap::new(), file: String::new() }
-    }
-
-    fn gen(&mut self, sp: Span) -> Mark {
-        match self.map.find(&sp) {
-            Some(&id) => { return id; }
-            None => {}
-        }
-        let ret = self.spans.len();
-        self.spans.push(Coords(sp, self.file.clone()));
-        self.map.insert(sp, ret);
-        return ret;
-    }
-
-    fn to_span(&self, m: Mark) -> Span {
-        match self.spans[m] { Coords(sp, _) => sp }
-    }
-
-    fn unwrap(self) -> Vec<Coords> {
-        match self { PositionGenerator{ spans, .. } => spans }
-    }
+    symgen.store();
+    Ok(ast::Program::new(decls, errors))
 }
 
 struct Parser<'a> {
     lexer: &'a mut Lexer<'a>,
-    posgen: &'a mut PositionGenerator,
-    target: &'a str,
+    errors: &'a Errors,
+    header: bool,
 
     cur: Token,
-    span: Span,
-    pending: Vec<(Token, Span)>,
+    mark: Mark,
+    pending: Vec<(Token, Mark)>,
 }
 
 impl<'a> Parser<'a> {
-    fn new<'a>(l: &'a mut Lexer<'a>, p: &'a mut PositionGenerator,
-               target: &'a str) -> Parser<'a> {
+    fn new(l: &'a mut Lexer<'a>, errors: &'a Errors,
+           header: bool) -> Parser<'a> {
         let mut p = Parser {
-            lexer: l, cur: EOF, span: ((0, 0), (0, 0)),
-            pending: Vec::new(), posgen: p, target: target
+            lexer: l,
+            cur: EOF,
+            mark: DUMMY_MARK,
+            pending: Vec::new(),
+            errors: errors,
+            header: header,
         };
         p.shift();
         p
     }
 
     // Parses one global declaration
-    fn parse_gdecl(&mut self) -> Box<GDecl> {
+    fn parse_gdecl(&mut self) -> ast::Item {
         match self.cur {
             TYPEDEF => {
-                let start = self.shift().val1();
+                let start = self.shift().1;
                 let typ = self.parse_type();
                 let id = self.parse_ident();
                 self.lexer.add_type(id); // must be before expectation
                 let end = self.expect(SEMI);
-                return self.mark(Typedef(id, typ), start, end);
+                self.mark(Item_::Typedef(id, typ), start, end)
             }
 
-            // Struct declarations
-            STRUCT if self.peek(2) == SEMI => {
-                let start = self.expect(STRUCT);
-                let end = self.span;
-                let name = self.parse_ident_or_type();
-                self.expect(SEMI);
-                return self.mark(StructDecl(name), start, end);
+            STRUCT => {
+                // Struct declarations
+                if self.peek(2) == SEMI {
+                    let start = self.expect(STRUCT);
+                    let end = self.mark;
+                    let name = self.parse_ident_or_type();
+                    self.expect(SEMI);
+                    return self.mark(Item_::StructDecl(name), start, end)
+                }
+
+                // Struct definitions
+                if self.peek(2) == LBRACE {
+                    let start = self.expect(STRUCT);
+                    let name = self.parse_ident_or_type();
+                    self.expect(LBRACE);
+                    let fields = self.parse_field_list();
+                    let end = self.expect(RBRACE);
+                    self.expect(SEMI);
+
+                    return self.mark(Item_::StructDef(name, fields), start, end)
+                }
+
+                self.parse_fdecl()
             }
 
-            // Struct definitions
-            STRUCT if self.peek(2) == LBRACE => {
-                let start = self.expect(STRUCT);
-                let name = self.parse_ident_or_type();
-                self.expect(LBRACE);
-                let fields = self.parse_field_list();
-                let end = self.expect(RBRACE);
-                self.expect(SEMI);
-
-                return self.mark(StructDef(name, fields), start, end);
-            }
-
-            _ => { self.parse_fdecl() }
+            _ => self.parse_fdecl(),
         }
     }
 
     // Parse a struct name (which could be an ident or a type)
-    fn parse_ident_or_type(&mut self) -> Ident {
+    fn parse_ident_or_type(&mut self) -> ast::Ident {
         match self.shift() {
             (IDENT(id), _) | (TYPE(id), _) => id,
             (_, sp) => self.err(sp, "expected struct name")
@@ -188,7 +133,7 @@ impl<'a> Parser<'a> {
     }
 
     // Parse a struct-like list of fields
-    fn parse_field_list(&mut self) -> Vec<(Ident, Type)> {
+    fn parse_field_list(&mut self) -> Vec<(ast::Ident, Type)> {
         let mut fields = Vec::new();
         while self.cur != RBRACE {
             let typ = self.parse_type();
@@ -200,12 +145,12 @@ impl<'a> Parser<'a> {
     }
 
     // Parse a function declaration or body
-    fn parse_fdecl(&mut self) -> Box<GDecl> {
-        let start = self.span;
+    fn parse_fdecl(&mut self) -> ast::Item {
+        let start = self.mark;
         let ret = self.parse_type();
         let name = self.parse_ident();
         self.expect(LPAREN);
-        let args = self.parse_list(|p| {
+        let args = self.parse_list(&mut |p| {
             let t = p.parse_type();
             let i = p.parse_ident();
             (i, t)
@@ -214,26 +159,26 @@ impl<'a> Parser<'a> {
 
         if self.cur == SEMI {
             self.shift();
-            if self.target == self.posgen.file.as_slice() {
-                return self.mark(FunIDecl(ret, name, args), start, end);
+            if self.header {
+                return self.mark(Item_::FunEDecl(ret, name, args), start, end);
             }
-            return self.mark(FunEDecl(ret, name, args), start, end);
+            return self.mark(Item_::FunIDecl(ret, name, args), start, end);
         }
 
         // Ensure that parse_stmt will try to parse a block of statements by
         // ensuring that there's a '{' token
         if self.cur != LBRACE {
-            let span = self.span;
-            self.err(span, "expected a '{' token");
+            let mark = self.mark;
+            self.err(mark, "expected a '{' token");
         }
-        let end = self.span;
+        let end = self.mark;
         let body = self.parse_stmt();
-        return self.mark(Function(ret, name, args, body), start, end);
+        self.mark(Item_::Function(ret, name, args, body), start, end)
     }
 
     // Parse one statement
-    fn parse_stmt(&mut self) -> Box<Statement> {
-        let start = self.span;
+    fn parse_stmt(&mut self) -> ast::Stmt {
+        let start = self.mark;
         match self.cur {
             // Blocks can have multiple statements.
             LBRACE => {
@@ -243,102 +188,99 @@ impl<'a> Parser<'a> {
                     stmts.push((self.cur == LBRACE, self.parse_stmt()));
                 }
                 let end = self.expect(RBRACE);
-                let mut cur = Some(self.mark(Nop, start, end));
-                for s in stmts.move_iter().rev() {
-                    match s {
-                        (false, box Marked{ node: Declare(id, typ, init, _), span }) => {
-                            let sp = self.posgen.to_span(span);
-                            cur = Some(self.mark(Declare(id, typ, init,
-                                                         cur.take_unwrap()),
-                            sp, sp));
-                        }
-                        (_, s) => {
-                            cur = Some(self.mark(Seq(s, cur.take_unwrap()),
-                                                 start, end));
+                let mut cur = self.mark(Stmt_::Nop, start, end);
+                for (is_lbrace, stmt) in stmts.into_iter().rev() {
+                    if !is_lbrace {
+                        if let Stmt_::Declare(id, typ, init, _) = stmt.node {
+                            let rest = Box::new(cur);
+                            cur = self.mark(Stmt_::Declare(id, typ, init, rest),
+                                            stmt.mark, stmt.mark);
+                            continue
                         }
                     }
+                    cur = self.mark(Stmt_::Seq(Box::new(stmt),
+                                               Box::new(cur)), start, end);
                 }
-                return cur.unwrap();
+                return cur
             }
 
             RETURN => {
                 self.shift();
-                let e = self.parse_exp(Default);
+                let e = self.parse_exp(Precedence::Default);
                 let end = self.expect(SEMI);
-                return self.mark(Return(e), start, end);
+                self.mark(Stmt_::Return(e), start, end)
             }
 
             CONTINUE => {
                 self.shift();
                 let end = self.expect(SEMI);
-                return self.mark(Continue, start, end);
+                self.mark(Stmt_::Continue, start, end)
             }
 
             BREAK => {
                 self.shift();
                 let end = self.expect(SEMI);
-                return self.mark(Break, start, end);
+                self.mark(Stmt_::Break, start, end)
             }
 
             WHILE => {
                 self.shift();
                 self.expect(LPAREN);
-                let cond = self.parse_exp(Default);
+                let cond = self.parse_exp(Precedence::Default);
                 let end = self.expect(RPAREN);
-                let body = self.parse_stmt();
-                return self.mark(While(cond, body), start, end);
+                let body = Box::new(self.parse_stmt());
+                self.mark(Stmt_::While(cond, body), start, end)
             }
 
             FOR => {
                 self.shift();
                 self.expect(LPAREN);
-                let init = if self.cur == SEMI {
-                    let span = self.span;
-                    self.mark(Nop, span, span)
+                let init = Box::new(if self.cur == SEMI {
+                    self.mark(Stmt_::Nop, self.mark, self.mark)
                 } else {
                     self.parse_simp()
-                };
+                });
                 self.expect(SEMI);
-                let cond = self.parse_exp(Default);
+                let cond = self.parse_exp(Precedence::Default);
                 self.expect(SEMI);
-                let step = if self.cur == RPAREN {
-                    self.mark(Nop, start, start)
+                let step = Box::new(if self.cur == RPAREN {
+                    self.mark(Stmt_::Nop, start, start)
                 } else {
                     self.parse_simp()
-                };
+                });
                 let end = self.expect(RPAREN);
-                let body = self.parse_stmt();
-                return self.mark(For(init, cond, step, body), start, end);
+                let body = Box::new(self.parse_stmt());
+                self.mark(Stmt_::For(init, cond, step, body), start, end)
             }
 
             IF => {
                 self.shift();
                 self.expect(LPAREN);
-                let cond = self.parse_exp(Default);
+                let cond = self.parse_exp(Precedence::Default);
                 let end = self.expect(RPAREN);
-                let t = self.parse_stmt();
-                let f = if self.cur == ELSE {
+                let t = Box::new(self.parse_stmt());
+                let f = Box::new(if self.cur == ELSE {
                     self.shift();
                     self.parse_stmt()
                 } else {
-                    let span = self.span;
-                    self.mark(Nop, span, span)
-                };
+                    let mark = self.mark;
+                    self.mark(Stmt_::Nop, mark, mark)
+                });
 
-                return self.mark(If(cond, t, f), start, end);
+                self.mark(Stmt_::If(cond, t, f), start, end)
             }
 
             _ => {
                 let s = self.parse_simp();
                 self.expect(SEMI);
-                return s;
+                return s
             }
         }
     }
 
     // Parses a simple statement (a subset of statements)
-    fn parse_simp(&mut self) -> Box<Statement> {
-        let start = self.span;
+    fn parse_simp(&mut self) -> ast::Stmt {
+        let start = self.mark;
         match self.cur {
             // Declaration of a variable
             STRUCT | INT | BOOL | TYPE(..) => {
@@ -346,32 +288,31 @@ impl<'a> Parser<'a> {
                 let name = self.parse_ident();
                 let init = if self.cur == SEMI { None } else {
                     self.expect(ASSIGN);
-                    Some(self.parse_exp(Default))
+                    Some(self.parse_exp(Precedence::Default))
                 };
-                let end = self.span;
-                let rest = self.mark(Nop, start, start);
-                return self.mark(Declare(name, typ, init, rest), start, end);
+                let end = self.mark;
+                let rest = Box::new(self.mark(Stmt_::Nop, start, start));
+                self.mark(Stmt_::Declare(name, typ, init, rest), start, end)
             }
 
             // Generic assignments or expressions
             _ => {
-                let e = self.parse_exp(Default);
+                let e = self.parse_exp(Precedence::Default);
                 if self.cur == SEMI || self.cur == RPAREN {
-                    let end = self.span;
-                    return self.mark(Express(e), start, end);
-                } if self.cur == PLUSPLUS || self.cur == MINUSMINUS {
+                    self.mark(Stmt_::Express(e), start, self.mark)
+                } else if self.cur == PLUSPLUS || self.cur == MINUSMINUS {
                     let (op, end) = match self.shift() {
-                        (PLUSPLUS, s) => (Plus, s),
-                        (MINUSMINUS, s) => (Minus, s),
+                        (PLUSPLUS, s) => (Binop::Plus, s),
+                        (MINUSMINUS, s) => (Binop::Minus, s),
                         (_, s) => self.err(s, "expected ++ or --")
                     };
-                    let c = self.mark(Const(1), end, end);
-                    return self.mark(Assign(e, Some(op), c), start, end);
+                    let c = self.mark(Expr_::Const(1), end, end);
+                    self.mark(Stmt_::Assign(e, Some(op), c), start, end)
                 } else {
-                    let end = self.span;
+                    let end = self.mark;
                     let op = self.parse_asnop();
-                    let e2 = self.parse_exp(Default);
-                    return self.mark(Assign(e, op, e2), start, end);
+                    let e2 = self.parse_exp(Precedence::Default);
+                    self.mark(Stmt_::Assign(e, op, e2), start, end)
                 }
             }
         }
@@ -379,61 +320,62 @@ impl<'a> Parser<'a> {
 
     // Parse one expression, using no precedences lower than the given
     // precedence.
-    fn parse_exp(&mut self, precedence: Precedence) -> Box<Expression> {
-        debug!("exp({}) starting on {}", precedence, self.cur);
-        let start = self.span;
+    fn parse_exp(&mut self, precedence: Precedence) -> ast::Expr {
+        debug!("exp({:?}) starting on {:?}", precedence, self.cur);
+        let start = self.mark;
         // Start with the lhs of an expression. It may have a rhs (to be determined
         // later on)
         let mut base = match self.shift() {
             // function calls
             (IDENT(id), sp) if self.cur == LPAREN => {
                 self.expect(LPAREN);
-                let args = self.parse_list(|p| p.parse_exp(Default));
+                let args = self.parse_list(&mut |p| {
+                    p.parse_exp(Precedence::Default)
+                });
                 let end = self.expect(RPAREN);
-                let e = self.mark(Var(id), sp, sp);
-                self.mark(Call(e, args, RefCell::new(None)), start, end)
+                let e = Box::new(self.mark(Expr_::Var(id), sp, sp));
+                self.mark(Expr_::Call(e, args, rcn()), start, end)
             }
 
-            (IDENT(id), sp) => { self.mark(Var(id), sp, sp) }
-            (INTCONST(i), sp) => { self.mark(Const(i), sp, sp) }
+            (IDENT(id), sp) => self.mark(Expr_::Var(id), sp, sp),
+            (INTCONST(i), sp) => self.mark(Expr_::Const(i), sp, sp),
             (LPAREN, _) => {
-                let e = self.parse_exp(Default);
+                let e = self.parse_exp(Precedence::Default);
                 self.expect(RPAREN);
                 e
             }
             (unop, start) if unop == MINUS || unop == BANG || unop == TILDE => {
                 let unop = self.parse_unop(unop);
-                let e = self.parse_exp(PUnary);
-                let end = self.posgen.to_span(e.span);
-                self.mark(UnaryOp(unop, e), start, end)
+                let e = Box::new(self.parse_exp(Precedence::PUnary));
+                let end = e.mark;
+                self.mark(Expr_::UnaryOp(unop, e), start, end)
             }
             (STAR, start) => {
-                let e = self.parse_exp(PUnary);
-                let end = self.posgen.to_span(e.span);
+                let e = Box::new(self.parse_exp(Precedence::PUnary));
                 if self.cur == PLUSPLUS || self.cur == MINUSMINUS {
-                    let span = self.span;
-                    self.err(span, "invalid expression for C0");
+                    self.err(self.mark, "invalid expression for C0");
                 }
-                self.mark(Deref(e, RefCell::new(None)), start, end)
+                let end = e.mark;
+                self.mark(Expr_::Deref(e, rcn()), start, end)
             }
             (ALLOC, start) => {
                 self.expect(LPAREN);
                 let typ = self.parse_type();
                 let end = self.expect(RPAREN);
-                self.mark(Alloc(typ), start, end)
+                self.mark(Expr_::Alloc(typ), start, end)
             }
             (ALLOCARR, start) => {
                 self.expect(LPAREN);
                 let typ = self.parse_type();
                 self.expect(COMMA);
-                let size = self.parse_exp(Default);
+                let size = Box::new(self.parse_exp(Precedence::Default));
                 let end = self.expect(RPAREN);
-                self.mark(AllocArray(typ, size), start, end)
+                self.mark(Expr_::AllocArray(typ, size), start, end)
             }
-            (NULL, sp)  => { self.mark(Null, sp, sp) }
-            (TRUE, sp)  => { self.mark(Boolean(true), sp, sp) }
-            (FALSE, sp) => { self.mark(Boolean(false), sp, sp) }
-            (t, sp) => self.err(sp, format!("unimpl {}", t).as_slice())
+            (NULL, sp)  => self.mark(Expr_::Null, sp, sp),
+            (TRUE, sp)  => self.mark(Expr_::Boolean(true), sp, sp),
+            (FALSE, sp) => self.mark(Expr_::Boolean(false), sp, sp),
+            (t, sp) => self.err(sp, &format!("unimpl {:?}", t)),
         };
 
         // while we can conume more tokens (as determined by precedences), do so
@@ -446,9 +388,9 @@ impl<'a> Parser<'a> {
             match self.cur {
                 PERIOD => {
                     self.shift();
-                    let end = self.span;
+                    let end = self.mark;
                     let field = self.parse_ident_or_type();
-                    base = self.mark(Field(base, field, RefCell::new(None)),
+                    base = self.mark(Expr_::Field(Box::new(base), field, rcn()),
                                      start, end);
                 }
 
@@ -456,10 +398,11 @@ impl<'a> Parser<'a> {
                 // simply expand that to doing so here.
                 ARROW => {
                     self.shift();
-                    let end = self.span;
+                    let end = self.mark;
                     let field = self.parse_ident_or_type();
-                    base = self.mark(Deref(base, RefCell::new(None)), end, end);
-                    base = self.mark(Field(base, field, RefCell::new(None)),
+                    base = self.mark(Expr_::Deref(Box::new(base), rcn()),
+                                     end, end);
+                    base = self.mark(Expr_::Field(Box::new(base), field, rcn()),
                                      start, end);
                 }
 
@@ -468,27 +411,27 @@ impl<'a> Parser<'a> {
                 PLUS | STAR | PERCENT | AND | PIPE | PIPEPIPE | CARET |
                 ANDAND | NEQUALS | LSHIFT | RSHIFT => {
                     let op = self.parse_binop();
-                    let next = self.parse_exp(prec);
-                    let start = self.posgen.to_span(base.span);
-                    let end = self.posgen.to_span(next.span);
-                    base = self.mark(BinaryOp(op, base, next), start, end);
+                    let next = Box::new(self.parse_exp(prec));
+                    let (start, end) = (base.mark, next.mark);
+                    base = self.mark(Expr_::BinaryOp(op, Box::new(base), next),
+                                     start, end);
                 }
 
                 LBRACKET => {
                     self.shift();
-                    let idx = self.parse_exp(Default);
+                    let idx = Box::new(self.parse_exp(Precedence::Default));
                     let end = self.expect(RBRACKET);
-                    base = self.mark(ArrSub(base, idx, RefCell::new(None)),
+                    base = self.mark(Expr_::ArrSub(Box::new(base), idx, rcn()),
                                      start, end);
                 }
 
                 QUESTION => {
                     self.shift();
-                    let t = self.parse_exp(prec);
+                    let t = Box::new(self.parse_exp(prec));
                     self.expect(COLON);
-                    let f = self.parse_exp(prec);
-                    let end = self.posgen.to_span(f.span);
-                    base = self.mark(Ternary(base, t, f, RefCell::new(None)),
+                    let f = Box::new(self.parse_exp(prec));
+                    let end = f.mark;
+                    base = self.mark(Expr_::Ternary(Box::new(base), t, f, rcn()),
                                      start, end);
                 }
 
@@ -499,7 +442,7 @@ impl<'a> Parser<'a> {
     }
 
     // Parse a list of arguments to a function
-    fn parse_list<T>(&mut self, f: |&mut Parser| -> T) -> Vec<T> {
+    fn parse_list<T>(&mut self, f: &mut FnMut(&mut Parser) -> T) -> Vec<T> {
         let mut fields = Vec::new();
         let mut first = true;
         while self.cur != RPAREN {
@@ -514,7 +457,7 @@ impl<'a> Parser<'a> {
     }
 
     // Parse an IDENT
-    fn parse_ident(&mut self) -> Ident {
+    fn parse_ident(&mut self) -> ast::Ident {
         match self.shift() {
             (IDENT(id), _) => id,
             (_, sp) => self.err(sp, "expected an ident")
@@ -525,11 +468,11 @@ impl<'a> Parser<'a> {
     fn parse_type(&mut self) -> Type {
         // First, get the base type
         let mut cur = match self.shift() {
-            (BOOL, _)     => Bool,
-            (INT, _)      => Int,
-            (TYPE(id), _) => Alias(id),
-            (STRUCT, _)   => { Struct(self.parse_ident_or_type()) }
-            (NULL, _)     => Nullp,
+            (BOOL, _)     => Type::Bool,
+            (INT, _)      => Type::Int,
+            (TYPE(id), _) => Type::Alias(id),
+            (STRUCT, _)   => Type::Struct(self.parse_ident_or_type()),
+            (NULL, _)     => Type::Nullp,
             (_, sp)       => self.err(sp, "expected a type")
         };
 
@@ -538,12 +481,12 @@ impl<'a> Parser<'a> {
             match self.cur {
                 STAR => {
                     self.shift();
-                    cur = Pointer(box cur);
+                    cur = Type::Pointer(Box::new(cur));
                 }
                 LBRACKET => {
                     self.shift();
                     self.expect(RBRACKET);
-                    cur = Array(box cur);
+                    cur = Type::Array(Box::new(cur));
                 }
                 _ => { return cur; }
             }
@@ -554,16 +497,16 @@ impl<'a> Parser<'a> {
     fn parse_asnop(&mut self) -> Option<Binop> {
         match self.shift() {
             (ASSIGN, _)    => None,
-            (PLUSEQ, _)    => Some(Plus),
-            (MINUSEQ, _)   => Some(Minus),
-            (STAREQ, _)    => Some(Times),
-            (SLASHEQ, _)   => Some(Divide),
-            (PERCENTEQ, _) => Some(Modulo),
-            (ANDEQ, _)     => Some(BAnd),
-            (OREQ, _)      => Some(BOr),
-            (XOREQ, _)     => Some(Xor),
-            (LSHIFTEQ, _)  => Some(LShift),
-            (RSHIFTEQ, _)  => Some(RShift),
+            (PLUSEQ, _)    => Some(Binop::Plus),
+            (MINUSEQ, _)   => Some(Binop::Minus),
+            (STAREQ, _)    => Some(Binop::Times),
+            (SLASHEQ, _)   => Some(Binop::Divide),
+            (PERCENTEQ, _) => Some(Binop::Modulo),
+            (ANDEQ, _)     => Some(Binop::BAnd),
+            (OREQ, _)      => Some(Binop::BOr),
+            (XOREQ, _)     => Some(Binop::Xor),
+            (LSHIFTEQ, _)  => Some(Binop::LShift),
+            (RSHIFTEQ, _)  => Some(Binop::RShift),
             (_, sp) => self.err(sp, "expected assignment or semicolon")
         }
     }
@@ -571,24 +514,24 @@ impl<'a> Parser<'a> {
     // Parse one binary operation
     fn parse_binop(&mut self) -> Binop {
         match self.shift() {
-            (PLUS, _)      => Plus,
-            (MINUS, _)     => Minus,
-            (STAR, _)      => Times,
-            (SLASH, _)     => Divide,
-            (PERCENT, _)   => Modulo,
-            (AND, _)       => BAnd,
-            (PIPE, _)      => BOr,
-            (CARET, _)     => Xor,
-            (LSHIFT, _)    => LShift,
-            (RSHIFT, _)    => RShift,
-            (LESSEQ, _)    => LessEq,
-            (LESS, _)      => ast::Less,
-            (GREATER, _)   => ast::Greater,
-            (GREATEREQ, _) => GreaterEq,
-            (EQUALS, _)    => Equals,
-            (NEQUALS, _)   => NEquals,
-            (ANDAND, _)    => LAnd,
-            (PIPEPIPE, _)  => LOr,
+            (PLUS, _)      => Binop::Plus,
+            (MINUS, _)     => Binop::Minus,
+            (STAR, _)      => Binop::Times,
+            (SLASH, _)     => Binop::Divide,
+            (PERCENT, _)   => Binop::Modulo,
+            (AND, _)       => Binop::BAnd,
+            (PIPE, _)      => Binop::BOr,
+            (CARET, _)     => Binop::Xor,
+            (LSHIFT, _)    => Binop::LShift,
+            (RSHIFT, _)    => Binop::RShift,
+            (LESSEQ, _)    => Binop::LessEq,
+            (LESS, _)      => Binop::Less,
+            (GREATER, _)   => Binop::Greater,
+            (GREATEREQ, _) => Binop::GreaterEq,
+            (EQUALS, _)    => Binop::Equals,
+            (NEQUALS, _)   => Binop::NEquals,
+            (ANDAND, _)    => Binop::LAnd,
+            (PIPEPIPE, _)  => Binop::LOr,
             (_, sp)        => self.err(sp, "expected binary operation")
         }
     }
@@ -596,34 +539,34 @@ impl<'a> Parser<'a> {
     // Parse one unary operation (token given)
     fn parse_unop(&mut self, unop: Token) -> Unop {
         match unop {
-            BANG => Bang,
-            TILDE => Invert,
-            MINUS => Negative,
+            BANG => Unop::Bang,
+            TILDE => Unop::Invert,
+            MINUS => Unop::Negative,
             _ => {
-                let span = self.span;
-                self.err(span, "expected unary operation")
+                let mark = self.mark;
+                self.err(mark, "expected unary operation")
             }
         }
     }
 
     // Expect the token to be in 'cur', and then advance
-    fn expect(&mut self, t: Token) -> Span {
+    fn expect(&mut self, t: Token) -> Mark {
         if self.cur != t {
-            let span = self.span;
-            self.err(span, format!("expected {}", t).as_slice());
+            self.err(self.mark, &format!("expected {:?}", t));
         }
-        self.shift().val1()
+        self.shift().1
     }
 
     // Move one token down
-    fn shift(&mut self) -> (Token, Span) {
-        fn pop(p: &mut Parser) -> (Token, Span) {
-            let (next, nsp) = match p.pending.shift() {
-                Some(p) => p,
-                None => p.lexer.next()
+    fn shift(&mut self) -> (Token, Mark) {
+        fn pop(p: &mut Parser) -> (Token, Mark) {
+            let (next, nsp) = if p.pending.len() > 0 {
+                p.pending.remove(0)
+            } else {
+                p.lexer.next()
             };
             let prev = mem::replace(&mut p.cur, next);
-            let psp = mem::replace(&mut p.span, nsp);
+            let psp = mem::replace(&mut p.mark, nsp);
             (prev, psp)
         }
 
@@ -637,7 +580,7 @@ impl<'a> Parser<'a> {
     }
 
     // Peek ahead in the input stream to look at a token
-    fn peek(&mut self, amt: uint) -> Token {
+    fn peek(&mut self, amt: usize) -> Token {
         assert!(amt > 0);
         let amt = amt - 1;
         while amt >= self.pending.len() {
@@ -646,17 +589,17 @@ impl<'a> Parser<'a> {
                 tok => { self.pending.push(tok); }
             }
         }
-        return self.pending[amt].val0();
+        return self.pending[amt].0
     }
 
-    fn mark<T>(&mut self, t: T, start: Span, end: Span) -> Box<Marked<T>> {
-        box Marked::new(t, self.posgen.gen((start.val0(), end.val1())))
+    fn mark<T>(&self, t: T, lo: Mark, hi: Mark) -> Marked<T> {
+        Marked::new(t, Mark { lo: lo.lo, hi: hi.hi })
     }
 
     // Abort parsing with the given error
-    fn err(&mut self, sp: Span, s: &str) -> ! {
-        let ((a, b), (c, d)) = sp;
-        println!("{}: {}:{}-{}:{} {}", self.posgen.file, a, b, c, d, s);
-        die();
+    fn err(&self, mark: Mark, s: &str) -> ! {
+        self.errors.die(mark, s)
     }
 }
+
+fn rcn<T>() -> RefCell<Option<T>> { RefCell::new(None) }

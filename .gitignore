@@ -3,3 +3,4 @@ bin/*
 *.dot
 *.svg
 log
+target

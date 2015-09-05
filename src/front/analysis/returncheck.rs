@@ -1,31 +1,27 @@
-use front::ast::*;
+use front::ast::{self, Item_, Stmt_};
 
-pub fn check(p: &Program) {
+pub fn check(p: &ast::Program) {
     debug!("returnchecking");
     for x in p.decls.iter() {
-        rc_gdecl(p, &**x);
+        rc_item(p, x);
     }
-    p.check();
+    p.errors().check();
 }
 
-fn rc_gdecl(p: &Program, g: &GDecl) {
-    match g.node {
-        Function(_, id, _, ref body) => {
-            if !returns(&**body) {
-                p.error(g.span, format!("Function '{}' does not return",
-                                        p.str(id)).as_slice());
-            }
+fn rc_item(p: &ast::Program, g: &ast::Item) {
+    if let Item_::Function(_, id, _, ref body) = g.node {
+        if !returns(body) {
+            p.errors().add(g.mark, &format!("Function '{}' does not return", id));
         }
-        _ => ()
     }
 }
 
-fn returns(s: &Statement) -> bool {
+fn returns(s: &ast::Stmt) -> bool {
     match s.node {
-        If(_, ref s1, ref s2)   => returns(&**s1) && returns(&**s2),
-        Seq(ref s1, ref s2)     => returns(&**s1) || returns(&**s2),
-        Declare(_, _, _, ref s) => returns(&**s),
-        Return(_)               => true,
-        _                       => false
+        Stmt_::If(_, ref s1, ref s2)   => returns(s1) && returns(s2),
+        Stmt_::Seq(ref s1, ref s2)     => returns(s1) || returns(s2),
+        Stmt_::Declare(_, _, _, ref s) => returns(s),
+        Stmt_::Return(_) => true,
+        _ => false
     }
 }

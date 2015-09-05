@@ -1,19 +1,13 @@
-use std::cell::{RefCell, Cell};
+use std::cell::RefCell;
 use std::collections::{HashSet, HashMap};
 use std::fmt;
-use std::io;
 use std::mem;
 
-use front::die;
-use front::mark;
-use front::mark::Marked;
+use utils::{Marked, Mark, Symbol, Errors};
 
 pub struct Program {
-    pub decls: Vec<Box<GDecl>>,
-    pub mainid: Ident,
-    symbols: Vec<String>,
-    positions: Vec<mark::Coords>,
-    errored: Cell<bool>,
+    pub decls: Vec<Item>,
+    errors: Errors,
 }
 
 struct Elaborator<'a> {
@@ -21,338 +15,312 @@ struct Elaborator<'a> {
     funs:    HashSet<Ident>,
     structs: HashSet<Ident>,
     types:   HashMap<Ident, Type>,
-    program: &'a mut Program,
+    errors: &'a Errors,
 }
 
-#[deriving(Hash, Clone, Eq, PartialEq, Show)]
-pub struct Ident(pub uint);
+pub type Ident = Symbol;
 
-pub type GDecl = Marked<gdecl>;
+pub type Item = Marked<Item_>;
 
-#[deriving(PartialEq)]
-#[allow(non_camel_case_types)]
-pub enum gdecl {
+#[derive(PartialEq)]
+pub enum Item_ {
     Typedef(Ident, Type),
     StructDef(Ident, Vec<(Ident, Type)>),
     StructDecl(Ident),
-    Function(Type, Ident, Vec<(Ident, Type)>, Box<Statement>),
+    Function(Type, Ident, Vec<(Ident, Type)>, Stmt),
     FunIDecl(Type, Ident, Vec<(Ident, Type)>),
     FunEDecl(Type, Ident, Vec<(Ident, Type)>)
 }
 
-pub type Statement = Marked<stmt>;
+pub type Stmt = Marked<Stmt_>;
 
-#[deriving(Clone, PartialEq)]
-#[allow(non_camel_case_types)]
-pub enum stmt {
-    Assign(Box<Expression>, Option<Binop>, Box<Expression>),
-    If(Box<Expression>, Box<Statement>, Box<Statement>),
-    While(Box<Expression>, Box<Statement>),
-    For(Box<Statement>, Box<Expression>, Box<Statement>, Box<Statement>),
-    Express(Box<Expression>),
+#[derive(Clone, PartialEq)]
+pub enum Stmt_ {
+    Assign(Expr, Option<Binop>, Expr),
+    If(Expr, Box<Stmt>, Box<Stmt>),
+    While(Expr, Box<Stmt>),
+    For(Box<Stmt>, Expr, Box<Stmt>, Box<Stmt>),
+    Express(Expr),
     Continue,
     Break,
     Nop,
-    Return(Box<Expression>),
-    Seq(Box<Statement>, Box<Statement>),
-    Declare(Ident, Type, Option<Box<Expression>>, Box<Statement>),
+    Return(Expr),
+    Seq(Box<Stmt>, Box<Stmt>),
+    Declare(Ident, Type, Option<Expr>, Box<Stmt>),
 }
 
-pub type Expression = Marked<expr>;
+pub type Expr = Marked<Expr_>;
 
-#[deriving(Clone, PartialEq)]
-#[allow(non_camel_case_types)]
-pub enum expr {
+#[derive(Clone, PartialEq)]
+pub enum Expr_ {
     Var(Ident),
     Boolean(bool),
     Const(i32),
-    BinaryOp(Binop, Box<Expression>, Box<Expression>),
-    UnaryOp(Unop, Box<Expression>),
-    Ternary(Box<Expression>, Box<Expression>, Box<Expression>, RefCell<Option<Type>>),
-    Call(Box<Expression>, Vec<Box<Expression>>, RefCell<Option<Type>>),
-    Deref(Box<Expression>, RefCell<Option<Type>>),
-    Field(Box<Expression>, Ident, RefCell<Option<Ident>>),
-    ArrSub(Box<Expression>, Box<Expression>, RefCell<Option<Type>>),
+    BinaryOp(Binop, Box<Expr>, Box<Expr>),
+    UnaryOp(Unop, Box<Expr>),
+    Ternary(Box<Expr>, Box<Expr>, Box<Expr>, RefCell<Option<Type>>),
+    Call(Box<Expr>, Vec<Expr>, RefCell<Option<Type>>),
+    Deref(Box<Expr>, RefCell<Option<Type>>),
+    Field(Box<Expr>, Ident, RefCell<Option<Ident>>),
+    ArrSub(Box<Expr>, Box<Expr>, RefCell<Option<Type>>),
     Alloc(Type),
-    AllocArray(Type, Box<Expression>),
+    AllocArray(Type, Box<Expr>),
     Null,
 }
 
-#[deriving(Clone, Eq, Show)]
+#[derive(Clone, Eq, Debug)]
 pub enum Type {
     Int, Bool, Alias(Ident), Pointer(Box<Type>), Array(Box<Type>),
     Struct(Ident), Nullp, Fun(Box<Type>, Vec<Type>)
 }
 
-#[deriving(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub enum Binop {
     Plus, Minus, Times, Divide, Modulo, Less, LessEq, Greater, GreaterEq,
     Equals, NEquals, LAnd, LOr, BAnd, BOr, Xor, LShift, RShift
 }
 
-#[deriving(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub enum Unop {
     Negative, Invert, Bang
 }
 
 impl Program {
-    pub fn new(decls: Vec<Box<GDecl>>, mut syms: Vec<String>,
-               p: Vec<mark::Coords>) -> Program {
-        let main = &"main".to_string();
-        let mainid = match syms.iter().position(|s| s.eq(main)) {
-            Some(i) => Ident(i),
-            None => {
-                syms.push("main".to_string());
-                Ident(syms.len() - 1)
-            }
-        };
-        Program{ decls: decls, symbols: syms, mainid: mainid, positions: p,
-        errored: Cell::new(false) }
+    pub fn new(decls: Vec<Item>, errors: Errors) -> Program {
+        Program { decls: decls, errors: errors }
     }
 
     pub fn elaborate(&mut self) {
-        let prev = mem::replace(&mut self.decls, Vec::new());
-        let decls;
-        {
-            let mut e = Elaborator{ efuns:   HashSet::new(),
-            funs:    HashSet::new(),
+        let mut e = Elaborator {
+            efuns: HashSet::new(),
+            funs: HashSet::new(),
             structs: HashSet::new(),
-            types:   HashMap::new(),
-            program: self };
-            decls = e.run(prev);
-        }
-        self.decls = decls;
+            types: HashMap::new(),
+            errors: &self.errors,
+        };
+        e.run(&mut self.decls);
     }
 
-    pub fn str<'a>(&'a self, id: Ident) -> &'a str {
-        let Ident(n) = id;
-        self.symbols[n].as_slice()
-    }
-
-    pub fn error<T: Str>(&self, m: mark::Mark, msg: T) {
-        let mut out = io::stderr();
-        if m == mark::dummy {
-            out.write_str(format!("error: {}\n", msg.as_slice()).as_slice()).unwrap();
-        } else {
-            match self.positions[m] {
-                mark::Coords(((l1, c1), (l2, c2)), ref file) => {
-                    out.write_str(format!("{}:{}.{}-{}.{}:error: {}\n",
-                                          *file, l1, c1, l2,
-                                          c2, msg.as_slice()).as_slice()).unwrap();
-                }
-            }
-        }
-        self.errored.set(true);
-    }
-
-    pub fn die<T: Str>(&self, m: mark::Mark, msg: T) -> ! {
-        self.error(m, msg);
-        die()
-    }
-
-    pub fn check(&self) {
-        if self.errored.get() {
-            die()
-        }
-    }
+    pub fn errors(&self) -> &Errors { &self.errors }
 }
 
 impl PartialEq for Program {
     fn eq(&self, other: &Program) -> bool { self.decls == other.decls }
 }
 
-impl fmt::Show for Program {
+impl fmt::Display for Program {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use front::pp::WithAST;
         for decl in self.decls.iter() {
-            try!(write!(f, "{}\n", WithAST(decl, self)));
+            try!(write!(f, "{}\n", decl));
         }
         Ok(())
     }
 }
 
 impl<'a> Elaborator<'a> {
-    fn run(&mut self, decls: Vec<Box<GDecl>>) -> Vec<Box<GDecl>> {
-        let decls = decls.move_iter().map(|x| self.elaborate(x)).collect();
-        self.program.check();
-        return decls;
+    fn run(&mut self, decls: &mut [Item]) {
+        for decl in decls {
+            self.elaborate(decl);
+        }
+        self.errors.check();
     }
-    fn elaborate(&mut self, g: Box<GDecl>) -> Box<GDecl> {
-        /* TODO(#4653): in this macro, it should be $id instead of 'id' */
+
+    fn elaborate(&mut self, g: &mut Item) {
         macro_rules! check_set (
-            ($set:expr, $id:expr, $name:expr, $span:expr) => {
+            ($set:expr, $id:expr, $name:expr, $mark:expr) => {
                 if $set.contains(&$id) {
-                    self.program.error($span, format!("'{}' already a {}",
-                                                      self.program.str($id),
-                                                      $name).as_slice());
+                    self.errors.add($mark, &format!("'{}' already a {}",
+                                                    $id, $name));
                 }
             }
         );
-        let span = g.span;
-        let node = match g.unwrap() {
-            FunEDecl(typ, id, args) => {
-                self.check_id(span, id);
+        match g.node {
+            Item_::FunEDecl(ref mut typ, id, ref mut args) => {
+                self.check_id(g.mark, id);
                 self.efuns.insert(id);
-                FunEDecl(self.resolve(span, typ), id,
-                         self.resolve_pairs(span, args))
+                self.resolve(g.mark, typ);
+                self.resolve_pairs(g.mark, args);
             }
-            FunIDecl(typ, id, args) => {
-                self.check_id(span, id);
-                FunIDecl(self.resolve(span, typ), id,
-                         self.resolve_pairs(span, args))
+            Item_::FunIDecl(ref mut typ, id, ref mut args) => {
+                self.check_id(g.mark, id);
+                self.resolve(g.mark, typ);
+                self.resolve_pairs(g.mark, args);
             }
-            Typedef(id, typ) => {
-                self.check_id(span, id);
-                check_set!(self.efuns, id, "function", span);
-                check_set!(self.efuns, id, "function", span);
-                check_set!(self.funs, id, "function", span);
-                let typ = self.resolve(span, typ);
+            Item_::Typedef(id, ref mut typ) => {
+                self.check_id(g.mark, id);
+                check_set!(self.efuns, id, "function", g.mark);
+                check_set!(self.efuns, id, "function", g.mark);
+                check_set!(self.funs, id, "function", g.mark);
+                self.resolve(g.mark, typ);
                 self.types.insert(id, typ.clone());
-                Typedef(id, typ)
             }
-            StructDef(id, fields) => {
-                check_set!(self.structs, id, "struct", span);
+            Item_::StructDef(id, ref mut fields) => {
+                check_set!(self.structs, id, "struct", g.mark);
                 self.structs.insert(id);
-                StructDef(id, self.resolve_pairs(span, fields))
+                self.resolve_pairs(g.mark, fields);
             }
-            Function(ret, id, args, body) => {
-                self.check_id(span, id);
-                check_set!(self.efuns, id, "function", span);
-                check_set!(self.funs, id, "function", span);
+            Item_::Function(ref mut ret, id, ref mut args, ref mut body) => {
+                self.check_id(g.mark, id);
+                check_set!(self.efuns, id, "function", g.mark);
+                check_set!(self.funs, id, "function", g.mark);
                 self.funs.insert(id);
-                Function(self.resolve(span, ret), id,
-                         self.resolve_pairs(span, args),
-                         self.elaborate_stm(body))
+                self.resolve(g.mark, ret);
+                self.resolve_pairs(g.mark, args);
+                self.elaborate_stm(body);
             }
-            StructDecl(id) => StructDecl(id),
-        };
-        return box Marked::new(node, span);
-    }
-
-    fn elaborate_stm(&mut self, s: Box<Statement>) -> Box<Statement> {
-        let span = s.span;
-        let node = match s.unwrap() {
-            Continue => Continue,
-            Break => Break,
-            Nop => Nop,
-            Declare(id, typ, init, rest) => {
-                let rest = self.elaborate_stm(rest);
-                self.declare(id, span, typ, init, rest)
-            }
-            For(box Marked{ node: Declare(id, typ, init, s1), span: dspan},
-                e1, s2, s3) => {
-                let f = box Marked::new(For(s1, e1, s2, s3), span);
-                let d = box Marked::new(Declare(id, typ, init, f), dspan);
-                return self.elaborate_stm(d);
-            }
-            For(s1, e1, s2, s3) => {
-                match s2 {
-                    box Marked{ node: Declare(..), span } => {
-                        self.program.error(span, "declarations not allowed in \
-                                                  for-loop steps")
-                    }
-                    _ => {}
-                }
-                For(self.elaborate_stm(s1), self.elaborate_exp(e1),
-                    self.elaborate_stm(s2), self.elaborate_stm(s3))
-            }
-            If(e, s1, s2) =>
-                If(self.elaborate_exp(e), self.elaborate_stm(s1),
-                    self.elaborate_stm(s2)),
-            While(e, s) => While(self.elaborate_exp(e), self.elaborate_stm(s)),
-            Return(e) => Return(self.elaborate_exp(e)),
-            Express(e) => Express(self.elaborate_exp(e)),
-            Seq(s1, s2) => Seq(self.elaborate_stm(s1), self.elaborate_stm(s2)),
-            Assign(box Marked{ node: Var(id), span: e1span }, Some(o), e2) => {
-                let e2span = e2.span;
-                let v = box Marked::new(Var(id), e1span);
-                let b = box Marked::new(BinaryOp(o, v.clone(), e2), e2span);
-                let e = box Marked::new(Assign(v, None, b), span);
-                return self.elaborate_stm(e);
-            }
-            Assign(e1, o, e2) =>
-                Assign(self.elaborate_exp(e1), o, self.elaborate_exp(e2)),
-        };
-        return box Marked::new(node, span);
-    }
-
-    fn declare(&mut self, id: Ident, m: mark::Mark, typ: Type,
-               init: Option<Box<Expression>>, rest: Box<Statement>) -> stmt {
-        self.check_id(m, id);
-        Declare(id, self.resolve(m, typ),
-        init.map(|x| self.elaborate_exp(x)), rest)
-    }
-
-    fn elaborate_exp(&mut self, e: Box<Expression>) -> Box<Expression> {
-        let span = e.span;
-        let node = match e.unwrap() {
-            Var(id) => Var(id),
-            Boolean(b) => Boolean(b),
-            Const(c) => Const(c),
-            Null => Null,
-            UnaryOp(o, e) =>
-                UnaryOp(o, self.elaborate_exp(e)),
-            BinaryOp(o, e1, e2) =>
-                BinaryOp(o, self.elaborate_exp(e1), self.elaborate_exp(e2)),
-            Ternary(e1, e2, e3, _) =>
-                Ternary(self.elaborate_exp(e1), self.elaborate_exp(e2),
-                        self.elaborate_exp(e3), RefCell::new(None)),
-            Call(id, l, _) =>
-                Call(id, l.move_iter().map(|x| self.elaborate_exp(x)).collect(),
-                     RefCell::new(None)),
-            Deref(e, _) => Deref(self.elaborate_exp(e), RefCell::new(None)),
-            Field(e, id, _) => Field(self.elaborate_exp(e), id,
-                                     RefCell::new(None)),
-            ArrSub(e1, e2, _) =>
-                ArrSub(self.elaborate_exp(e1), self.elaborate_exp(e2),
-                       RefCell::new(None)),
-            Alloc(t) => Alloc(self.resolve(span, t)),
-            AllocArray(t, e) => AllocArray(self.resolve(span, t),
-                                           self.elaborate_exp(e))
-        };
-        return box Marked::new(node, span);
-    }
-
-    fn check_id(&mut self, m: mark::Mark, s: Ident) {
-        if self.types.contains_key(&s) {
-            self.program.error(m, format!("'{}' already a type",
-                                          self.program.str(s)).as_slice());
+            Item_::StructDecl(..) => {}
         }
     }
 
-    fn resolve(&mut self, m: mark::Mark, t: Type) -> Type {
-        match t {
-            Int | Bool | Nullp | Struct(_) => t,
-            Pointer(t) => Pointer(box self.resolve(m, *t)),
-            Array(t) => Array(box self.resolve(m, *t)),
-            Alias(sym) => match self.types.find(&sym) {
-                Some(t) => t.clone(),
-                None    => {
-                    self.program.error(m, format!("'{}' is undefined",
-                                                  self.program.str(sym))
-                                            .as_slice());
-                    t
+    fn elaborate_stm(&mut self, s: &mut Stmt) {
+        match s.node {
+            Stmt_::Continue |
+            Stmt_::Break |
+            Stmt_::Nop => {}
+            Stmt_::Declare(id, ref mut typ, ref mut init, ref mut rest) => {
+                self.elaborate_stm(rest);
+                self.check_id(s.mark, id);
+                self.resolve(s.mark, typ);
+                if let Some(ref mut e) = *init {
+                    self.elaborate_exp(e);
+                }
+            }
+            Stmt_::For(..) => {
+                let parts = match mem::replace(&mut s.node, Stmt_::Nop) {
+                    Stmt_::For(a, b, c, d) => (a, b, c, d),
+                    _ => panic!(),
+                };
+                let (mut s1, mut e1, mut s2, mut s3) = parts;
+                self.elaborate_stm(&mut s1);
+                self.elaborate_exp(&mut e1);
+                self.elaborate_stm(&mut s2);
+                self.elaborate_stm(&mut s3);
+                if let Stmt_::Declare(..) = s2.node {
+                    self.errors.add(s2.mark, "declarations not allowed \
+                                              in for-loop steps")
+                }
+                s.node = match mem::replace(&mut s1.node, Stmt_::Nop) {
+                    Stmt_::Declare(id, typ, init, s1_new) => {
+                        s1.node = Stmt_::For(s1_new, e1, s2, s3);
+                        Stmt_::Declare(id, typ, init, s1)
+                    }
+                    other => {
+                        s1.node = other;
+                        Stmt_::For(s1, e1, s2, s3)
+                    }
+                };
+            }
+            Stmt_::If(ref mut e, ref mut s1, ref mut s2) => {
+                self.elaborate_exp(e);
+                self.elaborate_stm(s1);
+                self.elaborate_stm(s2);
+            }
+            Stmt_::While(ref mut e, ref mut s) => {
+                self.elaborate_exp(e);
+                self.elaborate_stm(s);
+            }
+            Stmt_::Express(ref mut e) |
+            Stmt_::Return(ref mut e) => self.elaborate_exp(e),
+            Stmt_::Seq(ref mut s1, ref mut s2) => {
+                self.elaborate_stm(s1);
+                self.elaborate_stm(s2);
+            }
+            Stmt_::Assign(ref mut e1, ref mut o, ref mut e2) => {
+                self.elaborate_exp(e1);
+                self.elaborate_exp(e2);
+                if let Expr_::Var(..) = e1.node {
+                    if let Some(op) = mem::replace(o, None) {
+                        let left = Box::new(e1.clone());
+                        let right = mem::replace(&mut e2.node, Expr_::Null);
+                        let right = Box::new(Marked::new(right, e2.mark));
+                        e2.node = Expr_::BinaryOp(op, left, right);
+                    }
+                }
+            }
+        }
+    }
+
+    fn elaborate_exp(&mut self, e: &mut Expr) {
+        match e.node {
+            Expr_::Var(..) |
+            Expr_::Boolean(..) |
+            Expr_::Const(..) |
+            Expr_::Null => {}
+
+            Expr_::Deref(ref mut e, _) |
+            Expr_::Field(ref mut e, _, _) |
+            Expr_::UnaryOp(_, ref mut e) => {
+                self.elaborate_exp(e);
+            }
+
+            Expr_::ArrSub(ref mut e1, ref mut e2, _) |
+            Expr_::BinaryOp(_, ref mut e1, ref mut e2) => {
+                self.elaborate_exp(e1);
+                self.elaborate_exp(e2);
+            }
+
+            Expr_::Ternary(ref mut e1, ref mut e2, ref mut e3, _) => {
+                self.elaborate_exp(e1);
+                self.elaborate_exp(e2);
+                self.elaborate_exp(e3);
+            }
+
+            Expr_::Call(_, ref mut l, _) => {
+                for slot in l {
+                    self.elaborate_exp(slot);
+                }
+            }
+            Expr_::Alloc(ref mut t) => self.resolve(e.mark, t),
+            Expr_::AllocArray(ref mut t, ref mut e) => {
+                self.resolve(e.mark, t);
+                self.elaborate_exp(e);
+            }
+        }
+    }
+
+    fn check_id(&mut self, m: Mark, s: Ident) {
+        if self.types.contains_key(&s) {
+            self.errors.add(m, &format!("'{}' already a type", s));
+        }
+    }
+
+    fn resolve(&mut self, m: Mark, t: &mut Type) {
+        match *t {
+            Type::Int |
+            Type::Bool |
+            Type::Nullp |
+            Type::Struct(_) => {}
+            Type::Pointer(ref mut t) => self.resolve(m, t),
+            Type::Array(ref mut t) => self.resolve(m, t),
+            Type::Alias(sym) => match self.types.get(&sym) {
+                Some(resolved) => *t = resolved.clone(),
+                None => {
+                    self.errors.add(m, &format!("'{}' is undefined", sym));
                 }
             },
-            Fun(t1, l) => Fun(box self.resolve(m, *t1),
-                              l.move_iter().map(|t| self.resolve(m, t)).collect())
+            Type::Fun(ref mut t1, ref mut l) => {
+                self.resolve(m, t1);
+                for slot in l {
+                    self.resolve(m, slot);
+                }
+            }
         }
     }
 
-    fn resolve_pairs(&mut self, m: mark::Mark,
-                     pairs: Vec<(Ident, Type)>) -> Vec<(Ident, Type)> {
-        pairs.move_iter().map(|(id, typ)| (id, self.resolve(m, typ)))
-             .collect()
+    fn resolve_pairs(&mut self, m: Mark, pairs: &mut [(Ident, Type)]) {
+        for &mut (_, ref mut typ) in pairs {
+            self.resolve(m, typ);
+        }
     }
 }
 
-impl expr {
+impl Expr_ {
     pub fn lvalue(&self) -> bool {
         match *self {
-            Var(_)              => true,
-            Field(ref e, _, _)  => e.node.lvalue(),
-            Deref(ref e, _)     => e.node.lvalue(),
-            ArrSub(ref e, _, _) => e.node.lvalue(),
+            Expr_::Var(_)              => true,
+            Expr_::Field(ref e, _, _)  => e.node.lvalue(),
+            Expr_::Deref(ref e, _)     => e.node.lvalue(),
+            Expr_::ArrSub(ref e, _, _) => e.node.lvalue(),
             _                   => false
         }
     }
@@ -361,7 +329,7 @@ impl expr {
 impl Type {
     pub fn small(&self) -> bool {
         match *self {
-            Struct(_) => false,
+            Type::Struct(_) => false,
             _ => true
         }
     }
@@ -370,14 +338,17 @@ impl Type {
 impl PartialEq for Type {
     fn eq(&self, other: &Type) -> bool {
         match (self, other) {
-            (&Bool, &Bool) | (&Int, &Int) | (&Nullp, &Nullp) => true,
-            (&Nullp, &Pointer(_)) | (&Pointer(_), &Nullp) => true,
-            (&Pointer(ref t1), &Pointer(ref t2)) => t1.eq(t2),
-            (&Array(ref t1), &Array(ref t2)) => t1.eq(t2),
-            (&Struct(ref s1), &Struct(ref s2)) => s1.eq(s2),
-            (&Fun(ref t1, ref l1), &Fun(ref t2, ref l2)) =>
-                t1 == t2 && l1.len() == l2.len() &&
-                l1.iter().zip(l2.iter()).all(|(a, b)| a == b),
+            (&Type::Bool, &Type::Bool) |
+            (&Type::Int, &Type::Int) |
+            (&Type::Nullp, &Type::Nullp) => true,
+            (&Type::Nullp, &Type::Pointer(_)) |
+            (&Type::Pointer(_), &Type::Nullp) => true,
+            (&Type::Pointer(ref t1), &Type::Pointer(ref t2)) => t1 == t2,
+            (&Type::Array(ref t1), &Type::Array(ref t2)) => t1 == t2,
+            (&Type::Struct(ref s1), &Type::Struct(ref s2)) => s1 == s2,
+            (&Type::Fun(ref t1, ref l1), &Type::Fun(ref t2, ref l2)) => {
+                t1 == t2 && l1 == l2
+            }
             _ => false
         }
     }

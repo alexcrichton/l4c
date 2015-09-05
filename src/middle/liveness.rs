@@ -1,16 +1,16 @@
-use std::collections::{HashMap, HashSet};
-use std::collections::{SmallIntMap, TreeSet};
+use std::collections::{HashMap, HashSet, BTreeSet};
 
-use middle::temp::{Temp, TempSet};
+use vec_map::VecMap;
+
 use middle::ssa::{CFG, Statement};
+use utils::{Temp, TempSet, FnvState};
 use utils::graph::NodeId;
-use utils::fnv;
 
-pub type LiveMap = HashMap<NodeId, TempSet, fnv::Hasher>;
-pub type DeltaMap = HashMap<NodeId, Vec<Delta>, fnv::Hasher>;
+pub type LiveMap = HashMap<NodeId, TempSet, FnvState>;
+pub type DeltaMap = HashMap<NodeId, Vec<Delta>, FnvState>;
 pub type Delta = Vec<DeltaOp>;
 
-#[deriving(Eq, PartialEq, Show)]
+#[derive(Eq, PartialEq, Debug, Copy, Clone)]
 pub enum DeltaOp {
     Remove(Temp),
     Add(Temp),
@@ -22,19 +22,19 @@ pub struct Analysis {
     pub deltas: DeltaMap,
 }
 
-struct Liveness<'a, T, S> {
+struct Liveness<'a, T: 'a, S: 'a> {
     a: &'a mut Analysis,
     info: &'a S,
     cfg: &'a CFG<T>,
-    phi_out: SmallIntMap<TreeSet<Temp>>,
+    phi_out: VecMap<BTreeSet<Temp>>,
 }
 
 impl Analysis {
     pub fn new() -> Analysis {
         Analysis {
-            in_: HashMap::with_hasher(fnv::Hasher),
-            out: HashMap::with_hasher(fnv::Hasher),
-            deltas: HashMap::with_hasher(fnv::Hasher),
+            in_: HashMap::with_hash_state(FnvState),
+            out: HashMap::with_hash_state(FnvState),
+            deltas: HashMap::with_hash_state(FnvState),
         }
     }
 }
@@ -43,11 +43,15 @@ pub fn calculate<T, S: Statement<T>>(cfg: &CFG<T>, root: NodeId,
                                      result: &mut Analysis,
                                      info: &S) {
     debug!("calculating liveness");
-    let mut l = Liveness { a: result, phi_out: SmallIntMap::new(), cfg: cfg,
-                           info: info };
+    let mut l = Liveness {
+        a: result,
+        phi_out: VecMap::new(),
+        cfg: cfg,
+        info: info,
+    };
 
     for (id, _) in cfg.nodes() {
-        l.phi_out.insert(id, TreeSet::new());
+        l.phi_out.insert(id, BTreeSet::new());
     }
     for (id, _) in cfg.nodes() {
         l.lookup_phis(id);
@@ -57,7 +61,7 @@ pub fn calculate<T, S: Statement<T>>(cfg: &CFG<T>, root: NodeId,
     let mut changed = true;
     while changed {
         changed = false;
-        cfg.each_postorder(root, |&id| {
+        cfg.each_postorder(root, &mut |&id| {
             changed = l.liveness(id) || changed;
         })
     }
@@ -67,58 +71,47 @@ impl<'a, T, S: Statement<T>> Liveness<'a, T, S> {
     fn lookup_phis(&mut self, n: NodeId) {
         for stm in self.cfg.node(n).iter() {
             debug!("phi map");
-            match self.info.phi_info(&**stm) {
-                Some((_, map)) => {
-                    for (&pred, &tmp) in map.iter() {
-                        self.phi_out.find_mut(&pred).unwrap().insert(tmp);
-                    }
+            if let Some((_, map)) = self.info.phi(stm) {
+                for (pred, &tmp) in map {
+                    self.phi_out.get_mut(pred).unwrap().insert(tmp);
                 }
-                None => ()
             }
             debug!("phi mapdone");
         }
     }
 
     fn liveness(&mut self, n: NodeId) -> bool {
-        let mut live = HashSet::with_hasher(fnv::Hasher);
-        for &t in self.phi_out.get(&n).iter() {
-            live.insert(t);
-        }
+        let mut live = HashSet::with_hash_state(FnvState);
+        live.extend(&self.phi_out[&n]);
         for succ in self.cfg.succ(n) {
-            match self.a.in_.find(&succ) {
-                Some(ref s) => {
-                    for &t in s.iter() { live.insert(t); }
-                }
-                None => ()
+            if let Some(s) = self.a.in_.get(&succ) {
+                live.extend(s);
             }
         }
-        let mut live_out = HashSet::with_hasher(fnv::Hasher);
+        let mut live_out = HashSet::with_hash_state(FnvState);
         for &t in live.iter() { live_out.insert(t); }
         self.a.out.insert(n, live_out);
         let mut my_deltas = Vec::new();
         for ins in self.cfg.node(n).iter().rev() {
             let mut delta = Vec::new();
-            self.info.each_def(&**ins, |def| {
+            self.info.each_def(ins, &mut |def| {
                 if live.remove(&def) {
-                    delta.push(Add(def));
+                    delta.push(DeltaOp::Add(def));
                 }
             });
-            self.info.each_use(&**ins, |tmp| {
+            self.info.each_use(ins, &mut |tmp| {
                 if live.insert(tmp) {
-                    delta.push(Remove(tmp));
+                    delta.push(DeltaOp::Remove(tmp));
                 }
             });
             my_deltas.push(delta);
         }
         /* only return true if something has changed from before */
         my_deltas.reverse();
-        match self.a.in_.find(&n) {
-            Some(s) => {
-                if &live == s && &my_deltas == self.a.deltas.get(&n) {
-                    return false;
-                }
+        if let Some(s) = self.a.in_.get(&n) {
+            if &live == s && my_deltas == self.a.deltas[&n] {
+                return false;
             }
-            None => (),
         }
         self.a.in_.insert(n, live);
         self.a.deltas.insert(n, my_deltas);
@@ -129,8 +122,8 @@ impl<'a, T, S: Statement<T>> Liveness<'a, T, S> {
 pub fn apply(set: &mut TempSet, delta: &Delta) {
     for &e in delta.iter() {
         match e {
-            Remove(tmp) => { set.remove(&tmp); }
-            Add(tmp)  => { set.insert(tmp); }
+            DeltaOp::Remove(tmp) => { set.remove(&tmp); }
+            DeltaOp::Add(tmp)  => { set.insert(tmp); }
         }
     }
 }
