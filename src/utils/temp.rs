@@ -3,13 +3,12 @@
 use std::cell::Cell;
 use std::collections::HashSet;
 use std::fmt;
-use std::iter;
 use std::ops::Index;
 
-use bit_vec::{self, BitVec};
 use vec_map::{self, VecMap};
 
 use utils::FnvState;
+use utils::{BitVec, BitVecIter};
 
 /// A temporary in the IR.
 ///
@@ -32,7 +31,7 @@ pub struct TempVecMapIter<'a, T: 'a> {
 }
 
 pub struct TempBitVecIter<'a> {
-    iter: iter::Enumerate<bit_vec::Iter<'a, u32>>,
+    iter: BitVecIter<'a>,
 }
 
 /// An allocator of Temporaries, used during translation.
@@ -81,27 +80,27 @@ impl TempBitVec {
     }
 
     pub fn insert(&mut self, temp: Temp) {
-        self.inner.set(temp.0 as usize, true)
+        self.inner.insert(temp.0 as usize);
     }
 
     pub fn remove(&mut self, temp: Temp) {
-        self.inner.set(temp.0 as usize, false)
+        self.inner.remove(temp.0 as usize);
     }
 
     pub fn contains(&self, temp: Temp) -> bool {
-        self.inner.get(temp.0 as usize).unwrap_or(false)
+        self.inner.contains(temp.0 as usize)
     }
 
     pub fn clear(&mut self) {
         self.inner.clear()
     }
 
-    pub fn union(&mut self, other: &TempBitVec) -> bool {
+    pub fn union(&mut self, other: &TempBitVec) {
         self.inner.union(&other.inner)
     }
 
     pub fn iter(&self) -> TempBitVecIter {
-        TempBitVecIter { iter: self.inner.iter().enumerate() }
+        TempBitVecIter { iter: self.inner.iter() }
     }
 }
 
@@ -109,12 +108,7 @@ impl<'a> Iterator for TempBitVecIter<'a> {
     type Item = Temp;
 
     fn next(&mut self) -> Option<Temp> {
-        while let Some((idx, flag)) = self.iter.next() {
-            if flag {
-                return Some(Temp(idx as u32))
-            }
-        }
-        None
+        self.iter.next().map(|t| Temp(t as u32))
     }
 }
 

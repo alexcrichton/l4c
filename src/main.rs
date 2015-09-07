@@ -1,6 +1,6 @@
 #![feature(hashmap_hasher)]
 
-extern crate bit_vec;
+extern crate env_logger;
 extern crate fnv;
 extern crate getopts;
 extern crate libc;
@@ -11,8 +11,11 @@ extern crate vec_map;
 
 use std::env;
 use std::fs::File;
-use std::io::{self, BufWriter};
-use std::path::Path;
+use std::io::{self, BufWriter, Write};
+use std::path::PathBuf;
+use std::thread;
+
+use getopts::Options;
 
 use utils::profile;
 use utils::Graphable;
@@ -23,7 +26,7 @@ mod back;
 mod utils;
 
 fn main() {
-    use getopts::Options;
+    env_logger::init().unwrap();
 
     let mut opts = Options::new();
     opts.optflag("h", "help", "print this help message")
@@ -31,6 +34,7 @@ fn main() {
         .optflag("", "dump-ast", "pretty print the AST")
         .optflag("p", "profile", "profile the compiler")
         .optopt("l", "header", "header file for the program", "HEADER")
+        .optopt("o", "output", "where to place output", "FILE")
         .optflag("", "dot-ir", "dot IR after ast translation")
         .optflag("", "dot-ssa", "dot IR after SSA")
         .optflag("", "dot-cfold", "dot IR after constant folding")
@@ -55,9 +59,13 @@ fn main() {
         return println!("{}", opts.usage(&msg));
     }
 
-    std::thread::Builder::new().stack_size(64 * 1024 * 1024).spawn(move || {
+    let r = thread::Builder::new().stack_size(64 * 1024 * 1024).spawn(move || {
         run_compiler(&m);
-    }).unwrap().join().unwrap();
+    }).unwrap().join();
+    std::process::exit(match r {
+        Ok(()) => 0,
+        Err(..) => 2,
+    });
 }
 
 fn run_compiler(m: &getopts::Matches) {
@@ -108,7 +116,10 @@ fn run_compiler(m: &getopts::Matches) {
     pass(back::ressa::convert,      &mut assem, m, "dot-ressa");
     pass(back::alloc::color,        &mut assem, m, "dot-colored");
 
-    let output = Path::new(&m.free[0]).with_extension("s");
+    let output = match m.opt_str("o") {
+        Some(path) => PathBuf::from(path),
+        None => PathBuf::from(&m.free[0]).with_extension("s"),
+    };
 
     File::create(&output).and_then(|f| {
         assem.output(&mut BufWriter::new(f))
@@ -123,7 +134,9 @@ fn pass<T, U, F>(f: F, p: &mut T, m: &getopts::Matches, s: &str) -> U
 {
     let ret = prof(m, s, || f(p));
     if m.opt_present(s) {
-        p.dot(&mut io::stdout()).unwrap();
+        let mut out = io::stdout();
+        p.dot(&mut out).unwrap();
+        out.flush().unwrap();
     }
     return ret;
 }

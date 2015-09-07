@@ -224,13 +224,16 @@ impl ssa::Statement<Inst> for RegisterInfo {
                 o1.map_temps(defs);
             }
             Inst::Move(ref mut dst, ref mut src) => {
-                dst.map_temps(uses);
-                src.map_temps(defs);
+                dst.map_temps(defs);
+                src.map_temps(uses);
             }
-            Inst::Load(ref mut op, ref mut addr) |
+            Inst::Load(ref mut dst, ref mut addr) => {
+                dst.map_temps(defs);
+                addr.map_temps(uses);
+            }
             Inst::Store(ref mut addr, ref mut op) => {
                 op.map_temps(uses);
-                addr.map_temps(defs);
+                addr.map_temps(uses);
             }
             Inst::Die(_, ref mut o1, ref mut o2) |
             Inst::Condition(_, ref mut o1, ref mut o2) => {
@@ -685,7 +688,7 @@ impl Graphable for Program {
             try!(f.cfg.dot(out,
                            &mut |id| format!("{}_n{}", f.name, id),
                            &mut |id, ins| {
-                                format!("label=\"{}\n[node={}\" shape=box",
+                                format!("label=\"{}\n[node={}]\" shape=box",
                                         ins.iter().map(|s| s.to_string())
                                            .collect::<Vec<_>>().join("\\n"),
                                         id)

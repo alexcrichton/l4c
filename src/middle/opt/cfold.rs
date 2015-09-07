@@ -212,9 +212,9 @@ impl<'a> ConstantFolder<'a> {
 
 fn do_op(op: Binop, i1: i32, i2: i32) -> Option<i32> {
     Some(match op {
-        Binop::Add => i1 + i2,
-        Binop::Sub => i1 - i2,
-        Binop::Mul => i1 * i2,
+        Binop::Add => i1.wrapping_add(i2),
+        Binop::Sub => i1.wrapping_sub(i2),
+        Binop::Mul => i1.wrapping_mul(i2),
         Binop::Lt  => if i1 < i2 {1} else {0},
         Binop::Lte => if i1 <= i2 {1} else {0},
         Binop::Gt  => if i1 > i2 {1} else {0},
@@ -224,8 +224,8 @@ fn do_op(op: Binop, i1: i32, i2: i32) -> Option<i32> {
         Binop::And => i1 & i2,
         Binop::Or  => i1 | i2,
         Binop::Xor => i1 ^ i2,
-        Binop::Lsh => i1 << i2,
-        Binop::Rsh => i1 >> i2,
+        Binop::Lsh => i1.wrapping_shl(i2 as u32),
+        Binop::Rsh => i1.wrapping_shr(i2 as u32),
         Binop::Div |
         Binop::Mod => {
             if i2 == 0 || (i1 == i32::MIN && i2 == -1) {

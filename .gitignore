@@ -2,5 +2,4 @@ bin/*
 *.swp
 *.dot
 *.svg
-log
 target
