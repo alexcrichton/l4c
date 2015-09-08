@@ -117,7 +117,7 @@ fn main() {
 
     let driver = Driver {
         parallel: matches.opt_str("j").map(|j| j.parse().unwrap())
-                         .unwrap_or(num_cpus::get() as u32),
+                         .unwrap_or(num_cpus::get() as u32 * 3 / 2),
         verbose: matches.opt_present("v"),
         quiet: matches.opt_present("q"),
         retry: matches.opt_present("r"),
