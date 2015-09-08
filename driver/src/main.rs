@@ -49,6 +49,7 @@ struct State {
     total: usize,
     exit: bool,
     out: Box<StdoutTerminal>,
+    failures: Option<File>,
 }
 
 struct Test {
@@ -89,6 +90,8 @@ fn main() {
     opts.optflag("q", "quiet", "print less output");
     opts.optflag("h", "help", "show this message");
     opts.optflag("r", "retry", "retry failing tests");
+    opts.optopt("", "failures", "file to write failing tests to", "FILE");
+    opts.optopt("", "only", "only run tests listed in this file", "FILE");
 
     let matches = opts.parse(env::args().skip(1)).unwrap();
     if matches.opt_present("h") {
@@ -98,6 +101,10 @@ fn main() {
     }
     let tests = if matches.free.len() > 0 {
         matches.free.iter().map(PathBuf::from).collect::<Vec<_>>()
+    } else if let Some(f) = matches.opt_str("only") {
+        let mut s = String::new();
+        t!(t!(File::open(f)).read_to_string(&mut s));
+        s.lines().map(|s| PathBuf::from(s)).collect()
     } else {
         t!(fs::read_dir("tests"))
             .map(|e| t!(e))
@@ -115,7 +122,7 @@ fn main() {
         retry: matches.opt_present("r"),
         fail_fast: matches.opt_present("i"),
         log: PathBuf::from("target/log"),
-        compiler: PathBuf::from("target/debug/l4c"),
+        compiler: PathBuf::from("target/release/l4c"),
         gcc_timeout: 2_000,
         test_timeout: 5_000,
         compiler_timeout: 5_000,
@@ -124,6 +131,7 @@ fn main() {
             tests: tests,
             exit: false,
             out: term::stdout().unwrap(),
+            failures: matches.opt_str("failures").map(|f| t!(File::create(f))),
         }),
     };
     driver.run();
@@ -189,6 +197,10 @@ impl Driver {
                 String::new()
             }
             TestResult::Fail(msg, output) => {
+                if let Some(ref mut f) = state.failures {
+                    t!(f.write_all(test.to_string_lossy().as_bytes()));
+                    t!(f.write_all(b"\n"));
+                }
                 let mut msg = msg.to_string();
                 t!(state.out.fg(color::RED));
                 t!(state.out.write_all(b"fail: "));
