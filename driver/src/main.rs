@@ -259,7 +259,7 @@ impl Driver {
         }
         let ext = root.extension().unwrap().to_str().unwrap();
         let exe = root.with_extension(format!("{}-bin", ext));
-        let assem = root.with_extension("s");
+        let assem = root.with_extension(format!("{}.s", ext));
 
         let mut cmd = Command::new(&self.compiler);
         cmd.arg(&test.path).arg("-o").arg(&assem)
