@@ -47,6 +47,7 @@ struct Driver {
 struct State {
     tests: Vec<PathBuf>,
     total: usize,
+    remaining: usize,
     exit: bool,
     out: Box<StdoutTerminal>,
     failures: Option<File>,
@@ -128,6 +129,7 @@ fn main() {
         compiler_timeout: 5_000,
         state: Mutex::new(State {
             total: tests.len(),
+            remaining: tests.len(),
             tests: tests,
             exit: false,
             out: term::stdout().unwrap(),
@@ -172,6 +174,7 @@ impl Driver {
             let result = self.run_test(self.parse(&test));
 
             let mut state = self.state.lock().unwrap();
+            state.remaining -= 1;
             if let TestResult::Fail(..) = result {
                 if self.fail_fast {
                     state.exit = true;
@@ -237,7 +240,7 @@ impl Driver {
 
     fn progress(&self, state: &mut State) {
         let total = state.total;
-        let remaining = state.tests.len();
+        let remaining = state.remaining;
         let width = 60;
 
         let progress = (total - remaining) * width / total;
