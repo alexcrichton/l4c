@@ -1,5 +1,5 @@
 export CARGO_TARGET_DIR := $(PWD)/target
 
 all:
-	cargo build
+	cargo build --release
 	(cd driver && cargo build)
