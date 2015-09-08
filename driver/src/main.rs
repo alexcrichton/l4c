@@ -297,7 +297,10 @@ impl Driver {
                     Some(n) => n,
                     None => return TestResult::Fail("didn't fail", out),
                 };
-                if n.is_none() || Some(got) == n {
+                // Exception 14 == SIGALRM but we kill with signal 9 down below,
+                // so be sure to catch that specifically
+                if n.is_none() || Some(got) == n ||
+                   (n == Some(14) && got == 9) {
                     TestResult::Pass
                 } else {
                     TestResult::Fail("wrong signal", out)
