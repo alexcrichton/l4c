@@ -3,6 +3,9 @@ name = "l4c"
 authors = ["Alex Crichton <alex@alexcrichton.com>"]
 version = "0.0.0"
 
+[profile.release]
+debug-assertions = true
+
 [dependencies]
 getopts = "0.2.11"
 log = "0.3.1"
