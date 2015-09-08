@@ -502,8 +502,8 @@ impl fmt::Display for Address {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Address::MOp(ref o, disp, ref off) => {
-                for &d in disp.iter() {
-                    try!(write!(f, "{}", d));
+                if let Some(d) = disp {
+                    try!(write!(f, "{}", d as i32));
                 }
                 try!(write!(f, "({}", o));
                 match *off {
@@ -514,7 +514,7 @@ impl fmt::Display for Address {
                 }
                 write!(f, ")")
             }
-            Address::Stack(i) => write!(f, "{}(%rsp)", i),
+            Address::Stack(i) => write!(f, "{}(%rsp)", i as i32),
             Address::StackArg(i) => write!(f, "arg[{}]", i),
         }
     }
