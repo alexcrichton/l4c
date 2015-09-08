@@ -671,7 +671,7 @@ impl<'a, I: ssa::Statement<Inst>> Coalescer<'a, I> {
         }
 
         // Prelude to Algorithm 4.7 (find_interferences)
-        let mut visited = HashSet::new();
+        let mut visited = HashSet::default();
         let mut bitv = TempBitVec::with_capacity(self.max_temp);
         match self.uses.get(&t) {
             Some(uses) => {

@@ -457,7 +457,7 @@ impl Spiller {
                                     .chain(self.phis[&n].keys())
                                     .filter(|tmp| !cand.contains(tmp)));
 
-            let mut visited = HashSet::new();
+            let mut visited = HashSet::default();
             visited.insert(n);   // don't loop back to the start
             visited.insert(end); // don't go outside the loop
             let free = (arch::NUM_REGS -

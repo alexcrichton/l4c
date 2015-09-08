@@ -4,8 +4,10 @@ use std::mem;
 
 use vec_map::{self, VecMap};
 
+use utils::FnvState;
+
 pub type NodeId = usize;
-pub type NodeSet = HashSet<NodeId>;
+pub type NodeSet = HashSet<NodeId, FnvState>;
 
 pub struct Graph<N, E> {
     nodes: VecMap<N>,
@@ -35,8 +37,8 @@ impl<N, E> Graph<N, E> {
     pub fn new_id(&mut self) -> NodeId {
         let ret = self.next;
         self.next += 1;
-        self.succ.insert(ret, HashMap::new());
-        self.pred.insert(ret, HashSet::new());
+        self.succ.insert(ret, HashMap::default());
+        self.pred.insert(ret, HashSet::default());
         ret
     }
 

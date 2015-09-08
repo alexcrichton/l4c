@@ -137,11 +137,11 @@ impl<'a, T: fmt::Display, S: Statement<T>> Converter<'a, T, S> {
 
     // Build up the 'defs' map
     fn find_defs(&mut self) -> Definitions {
-        let mut defs: HashMap<Temp, HashSet<NodeId>> = HashMap::new();
+        let mut defs = HashMap::new();
         for (id, stms) in self.cfg.nodes() {
             for s in stms.iter() {
                 self.info.each_def(s, &mut |tmp| {
-                    defs.entry(tmp).or_insert_with(|| HashSet::new())
+                    defs.entry(tmp).or_insert_with(|| HashSet::default())
                         .insert(id);
                 });
             }
@@ -178,13 +178,13 @@ impl<'a, T: fmt::Display, S: Statement<T>> Converter<'a, T, S> {
 
     // Calculate the iterated dominance frontier on a set of nodes
     fn idf(&mut self, set: NodeSet) -> NodeSet {
-        let mut ret = HashSet::new();
+        let mut ret = HashSet::default();
         for v in set.iter() {
             ret.insert(*v);
         }
         // loop until we find a fixed point
         loop {
-            let mut tmp = HashSet::new();
+            let mut tmp = HashSet::default();
             for id in set.iter() {
                 if let Some(x) = self.frontiers.get(id) {
                     tmp.extend(x);
@@ -372,7 +372,7 @@ fn dom_frontiers<T>(cfg: &CFG<T>, root: NodeId,
     // for calculating the dominance frontier of a node
     let mut frontiers: DomFrontiers = HashMap::new(); // TODO: remove type?
     cfg.each_postorder(root, &mut |&a| {
-        let mut frontier = HashSet::new();
+        let mut frontier = HashSet::default();
 
         // df_local[a]
         debug!("df_local[{}]...", a);

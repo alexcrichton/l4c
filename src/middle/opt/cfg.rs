@@ -55,7 +55,7 @@ pub fn prune<T>(cfg: &mut CFG<T>, root: NodeId) {
             }
         }
     }
-    let mut visited = HashSet::new();
+    let mut visited = HashSet::default();
     visit(cfg, root, &mut visited);
     let mut to_delete = Vec::new();
     for (id, _) in cfg.nodes() {
@@ -156,7 +156,7 @@ pub fn merge<T>(cfg: &mut CFG<T>, root: NodeId)
         return root;
     }
 
-    let mut visited = HashSet::new();
+    let mut visited = HashSet::default();
     let mut changes = HashMap::new();
     return (domerge(cfg, &mut visited, &mut changes, root, root), changes);
 }
