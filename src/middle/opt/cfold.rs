@@ -72,7 +72,8 @@ impl<'a> ConstantFolder<'a> {
             Stmt::Load(_, ref mut e) => {
                 self.exp(e);
             }
-            Stmt::Call(_, _, ref mut args) => {
+            Stmt::Call(_, ref mut e, ref mut args) => {
+                self.exp(e);
                 for arg in args {
                     self.exp(arg);
                 }
