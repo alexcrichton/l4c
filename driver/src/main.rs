@@ -202,7 +202,7 @@ impl Driver {
         t!(state.out.attr(Attr::Bold));
         let extra = match result {
             TestResult::Pass => {
-                if !self.verbose {
+                if self.quiet {
                     t!(state.out.reset());
                     return
                 }
