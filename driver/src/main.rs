@@ -49,6 +49,7 @@ struct State {
     total: usize,
     remaining: usize,
     exit: bool,
+    failed: bool,
     out: Box<StdoutTerminal>,
     failures: Option<File>,
 }
@@ -133,6 +134,7 @@ fn main() {
             remaining: tests.len(),
             tests: tests,
             exit: false,
+            failed: false,
             out: term::stdout().unwrap(),
             failures: matches.opt_str("failures").map(|f| t!(File::create(f))),
         }),
@@ -161,6 +163,10 @@ impl Driver {
         let mut state = me.state.lock().unwrap();
         t!(state.out.carriage_return());
         t!(state.out.delete_line());
+        t!(state.out.flush());
+        if state.failed {
+            panic!("some tests failed");
+        }
     }
 
     fn build_compiler(&self) {
@@ -187,6 +193,7 @@ impl Driver {
             let mut state = self.state.lock().unwrap();
             state.remaining -= 1;
             if let TestResult::Fail(..) = result {
+                state.failed = true;
                 if self.fail_fast {
                     state.exit = true;
                 }
