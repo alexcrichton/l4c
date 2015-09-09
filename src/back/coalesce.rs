@@ -572,8 +572,9 @@ impl<'a, I: ssa::Statement<Inst>> Coalescer<'a, I> {
                             .map(|x| *x).unwrap_or(0)
                     }).fold(0, |a, b| a + b)
                 }).fold(0, |a, b| a + b);
-                assert!(real_weight == weight * 2, "{} != {} for {:?}",
-                        real_weight, weight * 2, set);
+                assert!(real_weight % 2 == 0);
+                assert!(real_weight / 2 == weight, "{} != {} for {:?}",
+                        real_weight / 2, weight, set);
             }
             if i == 0 {None} else {Some(c)}
         }).collect()
@@ -599,14 +600,17 @@ impl<'a, I: ssa::Statement<Inst>> Coalescer<'a, I> {
             for ins in self.f.cfg.node(n).iter() {
                 if let Some((def, map)) = self.info.phi(ins) {
                     for (_, &tmp) in map.iter() {
-                        self.add_affine(tmp, def, weight);
-                        self.add_affine(def, tmp, weight);
+                        if tmp != def {
+                            self.add_affine(tmp, def, weight);
+                            self.add_affine(def, tmp, weight);
+                        }
                     }
                 }
 
                 if self.consider_pcopy {
                     if let Inst::PCopy(ref copies) = *ins {
                         for &(a, b) in copies.iter() {
+                            debug_assert!(a != b);
                             self.add_affine(a, b, weight);
                             self.add_affine(b, a, weight);
                         }
