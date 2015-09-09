@@ -321,7 +321,7 @@ impl fmt::Display for Expr {
             Expr::Const(c, _) => write!(f, "0x{:x}", c),
             Expr::Label(ref l) => write!(f, "{}", l),
             Expr::BinaryOp(op, ref e1, ref e2) => {
-                write!(f, "({} {} {})", op, e1, e2)
+                write!(f, "({} {} {})", e1, op, e2)
             }
         }
     }
