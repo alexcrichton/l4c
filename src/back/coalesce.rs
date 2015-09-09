@@ -128,14 +128,14 @@ pub fn optimize<I: ssa::Statement<Inst>>(
     }
     let mut c = Coalescer {
         fixed: TempBitVec::with_capacity(max_temp),
-        affinities: HashMap::with_hash_state(FnvState),
+        affinities: HashMap::default(),
         colors: colors,
         old_color: TempVecMap::new(),
         precolored: pre,
         constraints: constraints,
         liveness_map: &lm,
-        interference: HashMap::with_hash_state(FnvState),
-        dominates: HashMap::with_hash_state(FnvState),
+        interference: HashMap::default(),
+        dominates: HashMap::default(),
         defs: &defs,
         uses: &uses,
         f: f,
@@ -154,10 +154,10 @@ fn liveness_map<I>(cfg: &CFG, info: &I, live: &liveness::Analysis, max: usize)
                    -> HashMap<NodeId, Vec<TempBitVec>, FnvState>
     where I: ssa::Statement<Inst>
 {
-    let mut ret = HashMap::with_hash_state(FnvState);
+    let mut ret = HashMap::default();
     for (id, stms) in cfg.nodes() {
         let mut vec = Vec::new();
-        let mut set = HashSet::with_hash_state(FnvState);
+        let mut set = HashSet::default();
         set.extend(&live.in_[&id]);
 
         for (i, stm) in stms.iter().enumerate() {
@@ -185,8 +185,8 @@ fn liveness_map<I>(cfg: &CFG, info: &I, live: &liveness::Analysis, max: usize)
 fn use_def_maps<I: ssa::Statement<Inst>>(
     cfg: &CFG, info: &I) -> (UseMap, DefMap)
 {
-    let mut uses = HashMap::with_hash_state(FnvState);
-    let mut defs = HashMap::with_hash_state(FnvState);
+    let mut uses = HashMap::default();
+    let mut defs = HashMap::default();
 
     profile::dbg("building use/def", || {
         for (id, ins) in cfg.nodes() {
@@ -227,11 +227,8 @@ impl<'a, I: ssa::Statement<Inst>> Coalescer<'a, I> {
     fn coalesce(&mut self) {
         /* Algorithm 4.3 */
         let mut pq = self.build_chunks();
-        loop {
-            match pq.pop() {
-                Some(chunk) => self.recolor_chunk(chunk, &mut pq),
-                None => break,
-            }
+        while let Some(chunk) = pq.pop() {
+            self.recolor_chunk(chunk, &mut pq);
         }
     }
 
@@ -249,7 +246,7 @@ impl<'a, I: ssa::Statement<Inst>> Coalescer<'a, I> {
         info!("coloring chunk {:?} {}", tmps, cost);
         let mut best_cost = 0;
         let mut best_color = u32::MAX;
-        let mut best_set = HashSet::with_hash_state(FnvState);
+        let mut best_set = HashSet::default();
         macro_rules! docolor {
             ($set:expr, $color:expr) => ({
                 // Unfix all temps
@@ -316,7 +313,7 @@ impl<'a, I: ssa::Statement<Inst>> Coalescer<'a, I> {
 
         // Left is a set of temps that haven't yet been processed, and it's
         // initially the subset of 's' of all temps with color 'c'
-        let mut left = HashSet::with_hash_state(FnvState);
+        let mut left = HashSet::default();
         for &tmp in s.iter() {
             if self.colors[tmp] == c {
                 left.insert(tmp);
@@ -325,9 +322,8 @@ impl<'a, I: ssa::Statement<Inst>> Coalescer<'a, I> {
         debug!("best of {:?} in {:?} for {}", left, s, c);
 
         // Iterate over the set of temps and partition as we go
-        loop {
-            if left.len() == 0 { break; }
-            let mut subset = HashSet::with_hash_state(FnvState);
+        while left.len() > 0 {
+            let mut subset = HashSet::default();
             let mut qweight = 1;
 
             // Start with the first temp in 'left', and then iteratively build
@@ -335,8 +331,7 @@ impl<'a, I: ssa::Statement<Inst>> Coalescer<'a, I> {
             // added to this queue to be later processed and have all their
             // affinities added as well
             let mut queue = vec![first(&left)];
-            loop {
-                let tmp = match queue.pop() { Some(tmp) => tmp, None => break };
+            while let Some(tmp) = queue.pop() {
                 subset.insert(tmp);
                 left.remove(&tmp);
                 assert!(self.affinities.contains_key(&tmp));
@@ -566,11 +561,7 @@ impl<'a, I: ssa::Statement<Inst>> Coalescer<'a, I> {
         let mut to_visit = vec![(self.f.root, 1)];
         let mut visited = HashSet::new();
 
-        loop {
-            let (n, weight) = match to_visit.pop() {
-                None => break,
-                Some(p) => p,
-            };
+        while let Some((n, weight)) = to_visit.pop() {
             assert!(visited.insert(n));
             // We have a more costly weight if we're moving into a loop
             let weight = weight +
@@ -687,7 +678,7 @@ impl<'a, I: ssa::Statement<Inst>> Coalescer<'a, I> {
                 self.find_interferences(t, block, &mut bitv, &mut visited);
             }
         }
-        let mut set = HashSet::with_hash_state(FnvState);
+        let mut set = HashSet::default();
         for x in bitv.iter() {
             if x != t {
                 set.insert(x);

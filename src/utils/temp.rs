@@ -13,7 +13,7 @@ use utils::{BitVec, BitVecIter};
 /// A temporary in the IR.
 ///
 /// Each temporary represents a numbered variable.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Debug)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Copy)]
 pub struct Temp(u32);
 
 pub type TempSet = HashSet<Temp, FnvState>;
@@ -64,6 +64,12 @@ impl TempAllocator {
         let ret = self.next.get();
         self.next.set(ret + 1);
         Temp(ret)
+    }
+}
+
+impl fmt::Debug for Temp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(self, f)
     }
 }
 
