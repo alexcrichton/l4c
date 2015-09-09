@@ -154,7 +154,7 @@ impl<'a> ConstantFolder<'a> {
              e1: &mut Expr,
              e2: &mut Expr,
              ispure: bool) -> Option<(Expr, bool)> {
-        if let Expr::Const(mut c, s) = *e1 {
+        if let Expr::Const(ref mut c, s) = *e1 {
             // Attempt to rotate constants out of binops to the left
             while let Expr::BinaryOp(..) = *e2 {
                 let (o2, e3, e4) = match mem::replace(e2, nop()) {
@@ -165,12 +165,12 @@ impl<'a> ConstantFolder<'a> {
                 if let Expr::Const(c2, s2) = *e3 {
                     assert!(s == s2);
                     if *o == o2 && o.associative() {
-                        c = do_op(o2, c, c2).unwrap(); // div/mod aren't assoc.
+                        *c = do_op(o2, *c, c2).unwrap(); // div/mod aren't assoc.
                         *e2 = *e4;
                         continue
                     } else if *o == o2 && *o == Binop::Sub {
                         *o = Binop::Add;
-                        c -= c2;
+                        *c -= c2;
                         *e2 = *e4;
                         continue
                     }
@@ -182,7 +182,7 @@ impl<'a> ConstantFolder<'a> {
 
             // If no rotations are possible, catch simple math like
             // multiplication by 0, bit tricks, etc.
-            if c == 0 {
+            if *c == 0 {
                 if *o == Binop::Add || *o == Binop::Or || *o == Binop::Xor {
                     return Some((mem::replace(e2, nop()), ispure))
                 }
@@ -190,7 +190,7 @@ impl<'a> ConstantFolder<'a> {
                     return Some((Expr::Const(0, s), true))
                 }
             }
-            if c == 1 && *o == Binop::Mul {
+            if *c == 1 && *o == Binop::Mul {
                 return Some((mem::replace(e2, nop()), ispure))
             }
         }
