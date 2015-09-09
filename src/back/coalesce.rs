@@ -62,7 +62,21 @@ type Location = (NodeId, isize);
 type Affinities = HashMap<Temp, HashMap<Temp, usize, FnvState>, FnvState>;
 type UseMap = HashMap<Temp, HashSet<Location, FnvState>, FnvState>;
 type DefMap = HashMap<Temp, Location, FnvState>;
+
+/// Representation of an affinity edge in graph.
+///
+/// An affinity edge involves two temporaries which are involved in a copy
+/// instruction (e.g. pcopy or phi). The `usize` here is an arbitrary weight
+/// associated with this affinity edge.
 struct Affinity(Temp, Temp, usize);
+
+/// Representation of a "chunk" of temps in a graph.
+///
+/// A chunk is a set of temps, none of which interfere with one another. The
+/// `usize` here is the cost associated with this chunk, which is the sum of all
+/// affinity edges in this chunk. In other words, each pair of temps in this
+/// chunk has an associated affinity cost (see above), and the usize here is the
+/// sum of them all.
 struct Chunk(TempSet, usize);
 
 struct Coalescer<'a, I: 'a> {
@@ -487,22 +501,18 @@ impl<'a, I: ssa::Statement<Inst>> Coalescer<'a, I> {
     /// if all chunks could be recolored to the same color (within each chunk).
     fn build_chunks(&mut self) -> BinaryHeap<Chunk> {
         // Algorithm 4.5
-        let mut pq = self.find_affinities();
-        let mut chunks = HashMap::with_hash_state(FnvState);
-        let mut temp_chunks = HashMap::with_hash_state(FnvState);
+        let mut chunks = HashMap::new();
+        let mut temp2chunk = HashMap::new();
         let mut next_chunk = 1;
-        chunks.insert(0, Chunk(HashSet::with_hash_state(FnvState), 0));
+        chunks.insert(0, Chunk(HashSet::default(), 0));
 
         // Process the highest cost affine temps first. For the affinity edge
         // (x, y) there are two chunks. We attempt to merge x's chunk with y's
         // chunk which can only be done if nothing pairwise interferes
-        loop {
-            let Affinity(x, y, w) = match pq.pop() {
-                Some(a) => a,
-                None => break,
-            };
-            let xc = temp_chunks.get(&x).map(|x| *x).unwrap_or(0);
-            let yc = temp_chunks.get(&y).map(|x| *x).unwrap_or(0);
+        for Affinity(x, y, w) in self.find_affinities() {
+            trace!("({}, {}) = {}", x, y, w);
+            let xc = temp2chunk.get(&x).map(|x| *x).unwrap_or(0);
+            let yc = temp2chunk.get(&y).map(|x| *x).unwrap_or(0);
             let mut merge;
             let weight;
             {
@@ -514,25 +524,31 @@ impl<'a, I: ssa::Statement<Inst>> Coalescer<'a, I> {
                 // Here try to find if anything pairwise interfers between the
                 // chunks, and if it does we have to break out and just go to
                 // the next affinity edge in the graph
-                let cont = xs.iter().all(|&v| {
-                    ys.iter().all(|&w| !self.interferes(v, w))
+                let cont = xs.iter().chain(Some(&x)).all(|&v| {
+                    ys.iter().chain(Some(&y)).all(|&w| !self.interferes(v, w))
                 });
-                if !cont { continue }
+                if !cont {
+                    debug_assert!(xc != yc || xc == 0);
+                    continue
+                }
 
                 // no element of the two chunks interfere, merge the chunks
-                merge = HashSet::with_hash_state(FnvState);
+                //
+                // If x/y already belong to the same chunk we only count the
+                // weight once, otherwise we add both chunk weights together.
+                merge = HashSet::default();
                 merge.insert(x);
                 merge.insert(y);
-                for &x in xs.iter() { merge.insert(x); }
-                for &y in ys.iter() { merge.insert(y); }
-                weight = w + xw + yw;
+                merge.extend(xs);
+                merge.extend(ys);
+                weight = w + if xc == yc {xw} else {xw + yw};
             }
 
             // In another scope where 'chunks' is mutable, insert/remove chunks
             let num = next_chunk;
             next_chunk += 1;
             for &tmp in merge.iter() {
-                temp_chunks.insert(tmp, num);
+                temp2chunk.insert(tmp, num);
             }
             chunks.insert(num, Chunk(merge, weight));
 
@@ -542,36 +558,55 @@ impl<'a, I: ssa::Statement<Inst>> Coalescer<'a, I> {
         }
 
         // Finally insert all chunks into a priority queue now that we've
-        // finalized what each chunk is going to be
-        let mut ret = BinaryHeap::new();
-        for (i, c) in chunks {
-            if i != 0 {
-                ret.push(c);
+        // finalized what each chunk is going to be.
+        //
+        // Here we also perform a sanity check to ensure that the weight we've
+        // calculated matches with what we're expecting.
+        chunks.into_iter().filter_map(|(i, c)| {
+            if cfg!(debug_assertions) {
+                let Chunk(ref set, weight) = c;
+                let real_weight = set.iter().map(|t1| {
+                    set.iter().map(|t2| {
+                        assert!(!self.interferes(*t1, *t2));
+                        self.affinities.get(t1).and_then(|m| m.get(t2))
+                            .map(|x| *x).unwrap_or(0)
+                    }).fold(0, |a, b| a + b)
+                }).fold(0, |a, b| a + b);
+                assert_eq!(real_weight, weight * 2);
             }
-        }
-        return ret;
+            if i == 0 {None} else {Some(c)}
+        }).collect()
     }
 
-    /// Creates a priority queue of all affinity edges in the interference graph
+    /// Creates a sorted vector of all affinity edges in the interference graph
     ///
-    /// This simply traverses the entire CFG looking for phi nodes and PCopy nodes
-    /// to generate affinity relations
-    fn find_affinities(&mut self) -> BinaryHeap<Affinity> {
-        let mut pq = BinaryHeap::new();
+    /// This simply traverses the entire CFG looking for phi nodes and PCopy
+    /// nodes to generate affinity relations. The final vector is sorted with
+    /// the most expensive weight first.
+    fn find_affinities(&mut self) -> Vec<Affinity> {
+        let mut ret = Vec::new();
         let mut to_visit = vec![(self.f.root, 1)];
         let mut visited = HashSet::new();
+        let mut added = HashSet::new();
 
         while let Some((n, weight)) = to_visit.pop() {
             assert!(visited.insert(n));
             // We have a more costly weight if we're moving into a loop
-            let weight = weight +
-                if self.f.loops.contains_key(&n) { 1 } else { 0 };
+            let weight = weight + if self.f.loops.contains_key(&n) {1} else {0};
             for ins in self.f.cfg.node(n).iter() {
                 if let Some((def, map)) = self.info.phi(ins) {
                     for (_, &tmp) in map.iter() {
                         self.add_affine(tmp, def, weight);
                         self.add_affine(def, tmp, weight);
-                        pq.push(Affinity(tmp, def, weight));
+
+                        // When adding affinity edges to return we want to
+                        // ensure that each edge shows up at most once, so order
+                        // the two temps and then make sure it's not already in
+                        // the list we're going to return.
+                        let (a, b) = if tmp < def {(tmp, def)} else {(def, tmp)};
+                        if added.insert((a, b)) {
+                            ret.push(Affinity(a, b, weight));
+                        }
                     }
                 }
 
@@ -580,7 +615,10 @@ impl<'a, I: ssa::Statement<Inst>> Coalescer<'a, I> {
                         for &(a, b) in copies.iter() {
                             self.add_affine(a, b, weight);
                             self.add_affine(b, a, weight);
-                            pq.push(Affinity(a, b, weight));
+                            let (a, b) = if a < b {(a, b)} else {(b, a)};
+                            if added.insert((a, b)) {
+                                ret.push(Affinity(a, b, weight));
+                            }
                         }
                     }
                 }
@@ -597,7 +635,8 @@ impl<'a, I: ssa::Statement<Inst>> Coalescer<'a, I> {
             }
         }
 
-        return pq;
+        ret.sort_by(|a, b| b.2.cmp(&a.2));
+        return ret
     }
 
     fn add_affine(&mut self, a: Temp, b: Temp, weight: usize) {
@@ -769,29 +808,6 @@ impl<'a, I: ssa::Statement<Inst>> Coalescer<'a, I> {
         return dominates;
     }
 }
-
-impl PartialEq for Affinity {
-    fn eq(&self, other: &Affinity) -> bool {
-        match (self, other) {
-            (&Affinity(_, _, a), &Affinity(_, _, b)) => a == b
-        }
-    }
-}
-impl PartialOrd for Affinity {
-    fn partial_cmp(&self, other: &Affinity) -> Option<Ordering> {
-        match (self, other) {
-            (&Affinity(_, _, a), &Affinity(_, _, b)) => a.partial_cmp(&b)
-        }
-    }
-}
-impl Ord for Affinity {
-    fn cmp(&self, other: &Affinity) -> Ordering {
-        match (self, other) {
-            (&Affinity(_, _, a), &Affinity(_, _, b)) => a.cmp(&b)
-        }
-    }
-}
-impl Eq for Affinity {}
 
 impl PartialEq for Chunk {
     fn eq(&self, other: &Chunk) -> bool {
