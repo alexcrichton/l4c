@@ -59,7 +59,7 @@ fn main() {
         return println!("{}", opts.usage(&msg));
     }
 
-    let r = thread::Builder::new().stack_size(64 * 1024 * 1024).spawn(move || {
+    let r = thread::Builder::new().stack_size(128 * 1024 * 1024).spawn(move || {
         run_compiler(&m);
     }).unwrap().join();
     std::process::exit(match r {
