@@ -460,8 +460,8 @@ impl Spiller {
             let mut visited = HashSet::default();
             visited.insert(n);   // don't loop back to the start
             visited.insert(end); // don't go outside the loop
-            let free = (arch::NUM_REGS -
-                        self.max_pressure(f, body, &mut visited)) as i32;
+            let free = arch::NUM_REGS as i32 -
+                       self.max_pressure(f, body, &mut visited) as i32;
             debug!("live through loop: {:?} {}", live_through, free);
             if free > 0 {
                 let sorted = sort(&live_through, &self.next_use[&n]);
