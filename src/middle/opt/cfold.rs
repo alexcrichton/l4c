@@ -63,10 +63,7 @@ impl<'a> ConstantFolder<'a> {
                 match *e {
                     Expr::Const(amt, _) => { self.constants.insert(t, amt); }
                     Expr::Temp(cp) => {
-                        let other = match self.temps.get(&cp) {
-                            Some(&other) => other,
-                            None => cp
-                        };
+                        let other = *self.temps.get(&cp).unwrap_or(&cp);
                         self.temps.insert(t, other);
                     }
                     _ => ()
