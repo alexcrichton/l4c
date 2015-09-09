@@ -127,7 +127,7 @@ fn main() {
         debug: matches.opt_present("d"),
         gcc_timeout: 2_000,
         test_timeout: 5_000,
-        compiler_timeout: 5_000,
+        compiler_timeout: if matches.opt_present("d") {20_000} else {5_000},
         state: Mutex::new(State {
             total: tests.len(),
             remaining: tests.len(),
