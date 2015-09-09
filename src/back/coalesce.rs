@@ -42,7 +42,7 @@
 //! When coalescing a chunk, the entire chunk may not be recolored, so some of
 //! the chunk may go back into the priority queue for re-evaluation later.
 
-use std::cmp::Ordering;
+use std::cmp::{self, Ordering};
 use std::collections::{HashMap, HashSet, BinaryHeap};
 use std::isize;
 use std::rc::Rc;
@@ -572,7 +572,8 @@ impl<'a, I: ssa::Statement<Inst>> Coalescer<'a, I> {
                             .map(|x| *x).unwrap_or(0)
                     }).fold(0, |a, b| a + b)
                 }).fold(0, |a, b| a + b);
-                assert_eq!(real_weight, weight * 2);
+                assert!(real_weight == weight * 2, "{} != {} for {:?}",
+                        real_weight, weight * 2, set);
             }
             if i == 0 {None} else {Some(c)}
         }).collect()
@@ -584,13 +585,15 @@ impl<'a, I: ssa::Statement<Inst>> Coalescer<'a, I> {
     /// nodes to generate affinity relations. The final vector is sorted with
     /// the most expensive weight first.
     fn find_affinities(&mut self) -> Vec<Affinity> {
-        let mut ret = Vec::new();
         let mut to_visit = vec![(self.f.root, 1)];
         let mut visited = HashSet::new();
-        let mut added = HashSet::new();
 
+        // First up traverse the entire graph and record all affine edges we
+        // see. We record in both directions to ensure they're all listed.
         while let Some((n, weight)) = to_visit.pop() {
-            assert!(visited.insert(n));
+            let first_time = visited.insert(n);
+            debug_assert!(first_time);
+
             // We have a more costly weight if we're moving into a loop
             let weight = weight + if self.f.loops.contains_key(&n) {1} else {0};
             for ins in self.f.cfg.node(n).iter() {
@@ -598,15 +601,6 @@ impl<'a, I: ssa::Statement<Inst>> Coalescer<'a, I> {
                     for (_, &tmp) in map.iter() {
                         self.add_affine(tmp, def, weight);
                         self.add_affine(def, tmp, weight);
-
-                        // When adding affinity edges to return we want to
-                        // ensure that each edge shows up at most once, so order
-                        // the two temps and then make sure it's not already in
-                        // the list we're going to return.
-                        let (a, b) = if tmp < def {(tmp, def)} else {(def, tmp)};
-                        if added.insert((a, b)) {
-                            ret.push(Affinity(a, b, weight));
-                        }
                     }
                 }
 
@@ -615,10 +609,6 @@ impl<'a, I: ssa::Statement<Inst>> Coalescer<'a, I> {
                         for &(a, b) in copies.iter() {
                             self.add_affine(a, b, weight);
                             self.add_affine(b, a, weight);
-                            let (a, b) = if a < b {(a, b)} else {(b, a)};
-                            if added.insert((a, b)) {
-                                ret.push(Affinity(a, b, weight));
-                            }
                         }
                     }
                 }
@@ -635,13 +625,27 @@ impl<'a, I: ssa::Statement<Inst>> Coalescer<'a, I> {
             }
         }
 
+        // After we've found all affine edges (which means we've calculated the
+        // final weight for all the edges) we then go through our analysis and
+        // generate all affinity edges. Finally we sort the vector-to-return to
+        // ensure the first affinity edge has the maximum weight.
+        let mut ret = self.affinities.iter().flat_map(|(&a, map)| {
+            map.iter().filter_map(move |(&b, &weight)| {
+                if a < b {Some(Affinity(a, b, weight))} else {None}
+            })
+        }).collect::<Vec<_>>();
         ret.sort_by(|a, b| b.2.cmp(&a.2));
         return ret
     }
 
     fn add_affine(&mut self, a: Temp, b: Temp, weight: usize) {
-        self.affinities.entry(a).or_insert_with(|| HashMap::default())
-            .insert(b, weight);
+        // We define the weight of the affine edge (a, b) as the maximum weight
+        // that we find while traversing the CFG, so if we've previously seen it
+        // then we just take the max of the two and put it back in the map.
+        let slot = self.affinities
+                       .entry(a).or_insert_with(|| HashMap::default())
+                       .entry(b).or_insert(weight);
+        *slot = cmp::max(*slot, weight);
     }
 
     //**************************************************************************
