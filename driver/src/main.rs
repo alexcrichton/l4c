@@ -278,10 +278,8 @@ impl Driver {
            .arg(if test.safe {"--safe"} else {"--unsafe"});
         let out = output_timeout(cmd, self.compiler_timeout);
         if let Expected::Error = test.expected {
-            return if out.status.success() {
-                TestResult::Fail("compiled ok", out)
-            } else {
-                TestResult::Pass
+            if !out.status.success() {
+                return TestResult::Pass
             }
         } else if !out.status.success() {
             return TestResult::Fail("compiler failed", out)
@@ -293,7 +291,13 @@ impl Driver {
            .arg(&assem)
            .arg("l4rt.c");
         let out = output_timeout(cmd, self.gcc_timeout);
-        if !out.status.success() {
+        if let Expected::Error = test.expected {
+            return if out.status.success() {
+                TestResult::Fail("gcc/compiler succeeded", out)
+            } else {
+                TestResult::Pass
+            }
+        } else if !out.status.success() {
             return TestResult::Fail("gcc failed", out)
         }
 
