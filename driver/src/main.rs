@@ -416,7 +416,8 @@ fn istest(p: &PathBuf) -> bool {
     match p.extension().and_then(|s| s.to_str()) {
         Some("in") |
         Some("out") |
-        Some("q4") => false,
+        Some("q4") |
+        Some("q3") => false,
         _ => true
     }
 }
