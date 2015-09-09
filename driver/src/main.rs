@@ -35,8 +35,8 @@ struct Driver {
     quiet: bool,
     retry: bool,
     fail_fast: bool,
+    debug: bool,
     log: PathBuf,
-    compiler: PathBuf,
     compiler_timeout: u32,
     test_timeout: u32,
     gcc_timeout: u32,
@@ -91,6 +91,7 @@ fn main() {
     opts.optflag("q", "quiet", "print less output");
     opts.optflag("h", "help", "show this message");
     opts.optflag("r", "retry", "retry failing tests");
+    opts.optflag("d", "debug", "run debug compiler");
     opts.optopt("", "failures", "file to write failing tests to", "FILE");
     opts.optopt("", "only", "only run tests listed in this file", "FILE");
 
@@ -123,7 +124,7 @@ fn main() {
         retry: matches.opt_present("r"),
         fail_fast: matches.opt_present("i"),
         log: PathBuf::from("target/log"),
-        compiler: PathBuf::from("target/release/l4c"),
+        debug: matches.opt_present("d"),
         gcc_timeout: 2_000,
         test_timeout: 5_000,
         compiler_timeout: 5_000,
@@ -141,6 +142,7 @@ fn main() {
 
 impl Driver {
     fn run(self) {
+        self.build_compiler();
         let _ = fs::create_dir(&self.log);
         let me = Arc::new(self);
         let threads = (0..me.parallel).map(|_| {
@@ -159,6 +161,15 @@ impl Driver {
         let mut state = me.state.lock().unwrap();
         t!(state.out.carriage_return());
         t!(state.out.delete_line());
+    }
+
+    fn build_compiler(&self) {
+        let mut cmd = Command::new("cargo");
+        cmd.arg("build");
+        if !self.debug {
+            cmd.arg("--release");
+        }
+        assert!(t!(cmd.status()).success());
     }
 
     fn run_tests(&self) {
@@ -261,7 +272,7 @@ impl Driver {
         let exe = root.with_extension(format!("{}-bin", ext));
         let assem = root.with_extension(format!("{}.s", ext));
 
-        let mut cmd = Command::new(&self.compiler);
+        let mut cmd = Command::new(self.compiler());
         cmd.arg(&test.path).arg("-o").arg(&assem)
            .arg("-l").arg("l4rt.h0")
            .arg(if test.safe {"--safe"} else {"--unsafe"});
@@ -359,6 +370,10 @@ impl Driver {
             input: input,
             output: output,
         }
+    }
+
+    fn compiler(&self) -> &'static str {
+        if self.debug {"target/debug/l4c"} else {"target/release/l4c"}
     }
 }
 
