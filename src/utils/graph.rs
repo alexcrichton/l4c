@@ -319,7 +319,7 @@ impl<'a, N, E> Iterator for PredEdges<'a, N, E> {
 
 #[test]
 fn test_basic() {
-    let mut g = Graph();
+    let mut g = Graph::new();
     let (n1, n2) = (g.new_id(), g.new_id());
     g.add_node(n1, 1);
     g.add_node(n2, 2);
@@ -341,14 +341,14 @@ fn test_basic() {
 #[test]
 #[should_panic]
 fn test_random_id_fail() {
-    let mut g = Graph::<i32, i32>();
+    let mut g = Graph::<i32, i32>::new();
     g.add_node(1, 1);
 }
 
 #[test]
 #[should_panic]
 fn test_same_id_fail() {
-    let mut g = Graph::<i32, i32>();
+    let mut g = Graph::<i32, i32>::new();
     let id = g.new_id();
     g.add_node(id, 1);
     g.add_node(id, 1);

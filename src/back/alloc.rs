@@ -687,45 +687,55 @@ fn resolve_perm(result: &[u32], incoming: &[u32], f: &mut FnMut(Resolution)) {
 }
 
 #[cfg(test)]
-fn resolve_test(from: &[uint], to: &[uint]) {
-    use std::collections::VecMap;
-    use std::vec;
-    let mut regs = vec::from_fn(10, |i| i);
+mod tests {
+    use vec_map::VecMap;
+    use super::{resolve_perm, Resolution};
 
-    resolve_perm(to, from, |foo| {
-        match foo {
-            Resolution::Copy(dst, src)  => { regs[dst] = regs[src]; }
-            Resolution::Xchg(dst, src) => { regs.swap(dst, src); }
+    fn resolve_test(from: &[u32], to: &[u32]) {
+        let mut regs = (0..10).collect::<Vec<u32>>();
+
+        resolve_perm(to, from, &mut |foo| {
+            match foo {
+                Resolution::Copy(dst, src)  => {
+                    regs[dst as usize] = regs[src as usize];
+                }
+                Resolution::Xchg(dst, src) => {
+                    regs.swap(dst as usize, src as usize);
+                }
+            }
+        });
+
+        let mut map = VecMap::new();
+        for i in 0..10 {
+            map.insert(i, ());
         }
-    });
-
-    let mut map = VecMap::new();
-    for i in 0..10 { map.insert(i, ()); }
-    for (&f, &t) in from.iter().zip(to.iter()) {
-        map.remove(&t);
-        if regs[t] != f {
-            panic!("expected {} to be {} but it was {}", t, f, regs[t]);
+        for (&f, &t) in from.iter().zip(to.iter()) {
+            map.remove(&(t as usize));
+            if regs[t as usize] != f {
+                panic!("expected {} to be {} but it was {}", t, f,
+                       regs[t as usize]);
+            }
+        }
+        debug!("{:?}", regs);
+        for (k, _) in map.iter() {
+            if regs[k] != k as u32 {
+                panic!("clobbered {} to {}", k, regs[k as usize]);
+            }
         }
     }
-    debug!("{}", regs);
-    for (k, _) in map.iter() {
-        if regs[k] != k {
-            panic!("clobbered {} to {}", k, regs[k]);
-        }
-    }
-}
 
-#[test]
-fn test_resolve() {
-    resolve_test([], []);
-    resolve_test([1], [1]);
-    resolve_test([1, 2], [1, 2]);
-    resolve_test([1], [2]);
-    resolve_test([1, 2], [2, 3]);
-    resolve_test([1, 2], [2, 1]);
-    resolve_test([1, 2, 3, 4], [2, 1, 4, 5]);
-    resolve_test([1, 2, 3], [2, 3, 1]);
-    resolve_test([1, 2, 3, 4, 5, 6, 7, 8], [2, 3, 1, 5, 6, 4, 8, 9]);
-    resolve_test([1, 1, 2], [2, 3, 1]);
-    resolve_test([7, 1, 7], [2, 7, 1]);
+    #[test]
+    fn test_resolve() {
+        resolve_test(&[], &[]);
+        resolve_test(&[1], &[1]);
+        resolve_test(&[1, 2], &[1, 2]);
+        resolve_test(&[1], &[2]);
+        resolve_test(&[1, 2], &[2, 3]);
+        resolve_test(&[1, 2], &[2, 1]);
+        resolve_test(&[1, 2, 3, 4], &[2, 1, 4, 5]);
+        resolve_test(&[1, 2, 3], &[2, 3, 1]);
+        resolve_test(&[1, 2, 3, 4, 5, 6, 7, 8], &[2, 3, 1, 5, 6, 4, 8, 9]);
+        resolve_test(&[1, 1, 2], &[2, 3, 1]);
+        resolve_test(&[7, 1, 7], &[2, 7, 1]);
+    }
 }

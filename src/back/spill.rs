@@ -598,31 +598,39 @@ impl Spiller {
 }
 
 #[cfg(test)]
-fn set(v: Vec<i32>) -> TempSet {
-    let mut set = HashSet::new();
-    for &i in v.iter() {
-        set.insert(i as Temp);
+mod tests {
+    use std::collections::HashMap;
+    use utils::{Temp, TempSet, TempAllocator};
+
+    use super::{sort, NextUse};
+
+    #[cfg(test)]
+    fn set(v: Vec<Temp>) -> TempSet {
+        v.into_iter().collect()
     }
-    return set;
-}
 
-#[test]
-fn test_sort_works1() {
-    let mut map: NextUse = HashMap::new();
-    map.insert(4, 5);
-    map.insert(5, 6);
-    let sorted = sort(&set(vec![4, 5, 6]), &map);
-    assert!(sorted[0] == 4);
-    assert!(sorted[1] == 5);
-    assert!(sorted[2] == 6);
-}
+    #[test]
+    fn test_sort_works1() {
+        let mut map: NextUse = HashMap::new();
+        let tg = TempAllocator::new();
+        let (a, b, c) = (tg.gen(), tg.gen(), tg.gen());
+        map.insert(a, 5);
+        map.insert(b, 6);
+        let sorted = sort(&set(vec![a, b, c]), &map);
+        assert!(sorted[0] == a);
+        assert!(sorted[1] == b);
+        assert!(sorted[2] == c);
+    }
 
-#[test]
-fn test_sort_works2() {
-    let mut map: NextUse = HashMap::new();
-    map.insert(4, 5);
-    map.insert(5, 6);
-    let sorted = sort(&set(vec![4, 5]), &map);
-    assert!(sorted[0] == 4);
-    assert!(sorted[1] == 5);
+    #[test]
+    fn test_sort_works2() {
+        let mut map: NextUse = HashMap::new();
+        let tg = TempAllocator::new();
+        let (a, b) = (tg.gen(), tg.gen());
+        map.insert(a, 5);
+        map.insert(b, 6);
+        let sorted = sort(&set(vec![a, b]), &map);
+        assert!(sorted[0] == a);
+        assert!(sorted[1] == b);
+    }
 }
