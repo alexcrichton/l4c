@@ -70,13 +70,11 @@ pub fn calculate<T, S: Statement<T>>(cfg: &CFG<T>, root: NodeId,
 impl<'a, T, S: Statement<T>> Liveness<'a, T, S> {
     fn lookup_phis(&mut self, n: NodeId) {
         for stm in self.cfg.node(n).iter() {
-            debug!("phi map");
             if let Some((_, map)) = self.info.phi(stm) {
                 for (pred, &tmp) in map {
                     self.phi_out.get_mut(pred).unwrap().insert(tmp);
                 }
             }
-            debug!("phi mapdone");
         }
     }
 
@@ -88,6 +86,7 @@ impl<'a, T, S: Statement<T>> Liveness<'a, T, S> {
                 live.extend(s);
             }
         }
+        debug!("live out at {}: {:?}", n, live);
         self.a.out.insert(n, live.clone());
         let mut my_deltas = Vec::new();
         for ins in self.cfg.node(n).iter().rev() {
@@ -111,6 +110,7 @@ impl<'a, T, S: Statement<T>> Liveness<'a, T, S> {
                 return false;
             }
         }
+        debug!("live in at {}: {:?}", n, live);
         self.a.in_.insert(n, live);
         self.a.deltas.insert(n, my_deltas);
         return true;

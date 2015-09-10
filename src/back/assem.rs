@@ -89,7 +89,7 @@ pub enum Register {
     R8D, R9D, R10D, R11D, R12D, R13D, R14D, R15D
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum Constraint { Caller, Idiv }
 
 // These two structures are used to parameterize the reconstruction of SSA form

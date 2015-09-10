@@ -379,6 +379,7 @@ impl Spiller {
                     // Finally reload all operands as necessary, and then run
                     // ins
                     for &tmp in reloaded.iter() {
+                        debug!("reloading {}", tmp);
                         block.push(Inst::Reload(tmp, tmp));
                     }
                     reloaded.truncate(0);
@@ -402,17 +403,28 @@ impl Spiller {
         }
     }
 
+    /// Algorithm 2, calculate the set of temps in registers at the beginning of
+    /// a basic block.
+    ///
+    /// This is mostly a straight implementation of what's found in the paper,
+    /// with the tweak that the returned set of registers is filtered to ensure
+    /// that each temp in a register is actually used at some later point (e.g.
+    /// next_use isn't infty).
     fn init_usual(&self, f: &Function, n: NodeId) -> TempSet {
         debug!("init_usual: {}", n);
         let mut freq = HashMap::with_hash_state(FnvState);
         let mut take = HashSet::with_hash_state(FnvState);
         let mut cand = HashSet::with_hash_state(FnvState);
+        let next_use = &self.next_use[&n];
         for pred in f.cfg.preds(n) {
             debug!("pred {}", pred);
             assert!(self.regs_end.contains_key(&pred));
             for &tmp in self.regs_end[&pred].iter() {
                 self.my_names(tmp, pred, n, &mut |mine| {
-                    *freq.entry(mine).or_insert(0) += 1;
+                    // Don't care about temps which aren't live any more
+                    if next_use.contains_key(&mine) {
+                        *freq.entry(mine).or_insert(0) += 1;
+                    }
                 });
             }
         }
@@ -425,14 +437,10 @@ impl Spiller {
                 cand.insert(tmp);
             }
         }
-        let max = arch::NUM_REGS as usize - take.len();
-        if max > 0 {
-            let sorted = sort(&cand, &self.next_use[&n]);
-            for &tmp in sorted[0..cmp::min(max, sorted.len())].iter() {
-                if self.next_use[&n].contains_key(&tmp) {
-                    take.insert(tmp);
-                }
-            }
+        let remaining = arch::NUM_REGS as usize - take.len();
+        if remaining > 0 {
+            let sorted = sort(&cand, next_use);
+            take.extend(&sorted[..cmp::min(remaining, sorted.len())]);
         }
         return take;
     }
@@ -551,9 +559,10 @@ impl Spiller {
         for &tmp in succ_spill.iter() {
             let theirs = self.their_name(tmp, pred, succ);
             if !pred_spill_exit.contains(&theirs) &&
-                pred_regs_exit.contains(&theirs) {
-                    append.push(Inst::Spill(theirs, theirs));
-                }
+               pred_regs_exit.contains(&theirs) {
+                debug!("forcing a spill of {} in {}", theirs, pred);
+                append.push(Inst::Spill(theirs, theirs));
+            }
         }
 
         // Each register we have which they don't have needs a reload
@@ -561,6 +570,7 @@ impl Spiller {
             let theirs = self.their_name(tmp, pred, succ);
             debug!("ours {} theirs {}", tmp, theirs);
             if !pred_regs_exit.contains(&theirs) {
+                debug!("forcing a reload of {} in {}", theirs, pred);
                 append.push(Inst::Reload(theirs, theirs));
             }
         }
