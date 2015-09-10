@@ -55,14 +55,9 @@ fn expr(e: &mut Expr) {
                     **e2 = Expr::Const(log2(c), s);
                     *op = Binop::Lsh;
                 }
-                (Binop::Div, _, Some((c, s))) if pow2(c) => {
-                    **e2 = Expr::Const(log2(c), s);
-                    *op = Binop::Rsh;
-                }
-                (Binop::Mod, _, Some((c, s))) if pow2(c) => {
-                    **e2 = Expr::Const(c - 1, s);
-                    *op = Binop::And;
-                }
+
+                // TODO: handle div/mod
+
                 _ => {}
             }
         }
