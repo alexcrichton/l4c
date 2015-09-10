@@ -46,6 +46,7 @@ fn main() {
         .optflag("", "dot-colored", "dot IR after coloring")
         .optflag("", "dot-precolor", "dot IR after precoloring")
         .optflag("", "dot-peephole", "dot IR after peephole optimizations")
+        .optflag("", "dot-arith", "dot IR after arithmetic optimizations")
         .optflag("", "safe", "safe compilation with memory checks")
         .optflag("", "unsafe", "unsafe compilation with no memory checks")
         .optopt("O", "optimize", "level of optimizations to perform", "LEVEL")
@@ -102,6 +103,7 @@ fn run_compiler(m: &getopts::Matches) {
     pass(middle::opt::cfold::optimize,    &mut ir, m, "dot-cfold");
     pass(middle::opt::cfg::simplify,      &mut ir, m, "dot-simplify");
     pass(middle::opt::deadcode::optimize, &mut ir, m, "dot-deadcode");
+    pass(middle::opt::arith::optimize,    &mut ir, m, "dot-arith");
 
     // backend
     let mut assem;

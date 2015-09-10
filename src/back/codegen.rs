@@ -257,18 +257,18 @@ impl CodeGenerator {
             // div/mod can't operate on immediates, only registers
             Inst::BinaryOp(op @ Binop::Div, d, s1, s2) |
             Inst::BinaryOp(op @ Binop::Mod, d, s1, s2) => {
-                    let s1 = if s1.imm() {
-                        let tmp = self.tmpnew(Type::Int);
-                        self.stms.push(Inst::Move(tmp, s1));
-                        tmp
-                    } else { s1 };
-                    let s2 = if s2.imm() {
-                        let tmp = self.tmpnew(Type::Int);
-                        self.stms.push(Inst::Move(tmp, s2));
-                        tmp
-                    } else { s2 };
-                    self.stms.push(Inst::BinaryOp(op, d, s1, s2));
-                }
+                let s1 = if s1.imm() {
+                    let tmp = self.tmpnew(Type::Int);
+                    self.stms.push(Inst::Move(tmp, s1));
+                    tmp
+                } else { s1 };
+                let s2 = if s2.imm() {
+                    let tmp = self.tmpnew(Type::Int);
+                    self.stms.push(Inst::Move(tmp, s2));
+                    tmp
+                } else { s2 };
+                self.stms.push(Inst::BinaryOp(op, d, s1, s2));
+            }
 
             // When invoking functions, all argument registers must be actual
             // registers, not immediates. Also the same register can't be an
