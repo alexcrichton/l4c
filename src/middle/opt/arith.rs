@@ -47,11 +47,11 @@ fn expr(e: &mut Expr) {
 
             match (*op, imm(e1), imm(e2)) {
                 (Binop::Mul, Some((c, s)), _) if pow2(c) => {
+                    mem::swap(e1, e2);
                     **e2 = Expr::Const(log2(c), s);
                     *op = Binop::Lsh;
                 }
-                (Binop::Mul, None, Some((c, s))) if pow2(c) => {
-                    mem::swap(e1, e2);
+                (Binop::Mul, _, Some((c, s))) if pow2(c) => {
                     **e2 = Expr::Const(log2(c), s);
                     *op = Binop::Lsh;
                 }
