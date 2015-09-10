@@ -132,23 +132,17 @@ impl Inst {
 
     pub fn each_use<F: FnMut(Temp)>(&self, mut f: F) {
         match *self {
-            Inst::Condition(_, Operand::Temp(t1), Operand::Temp(t2)) |
-            Inst::Die(_, Operand::Temp(t1), Operand::Temp(t2)) |
-            Inst::BinaryOp(_, _, Operand::Temp(t1), Operand::Temp(t2)) => {
-                f(t1);
-                f(t2);
+            Inst::Condition(_, ref o1, ref o2) |
+            Inst::Die(_, ref o1, ref o2) |
+            Inst::BinaryOp(_, _, ref o1, ref o2) => {
+                o1.each_temp(&mut f);
+                o2.each_temp(&mut f);
             }
 
-            Inst::Condition(_, Operand::Temp(t), _) |
-            Inst::Condition(_, _, Operand::Temp(t)) |
-            Inst::Die(_, Operand::Temp(t), _) |
-            Inst::Die(_, _, Operand::Temp(t)) |
-            Inst::BinaryOp(_, _, Operand::Temp(t), _) |
-            Inst::BinaryOp(_, _, _, Operand::Temp(t)) |
-            Inst::Move(_, Operand::Temp(t)) |
+            Inst::Move(_, ref t) |
+            Inst::Return(ref t) => t.each_temp(&mut f),
             Inst::Spill(t, _) |
-            Inst::Use(t) |
-            Inst::Return(Operand::Temp(t)) => f(t),
+            Inst::Use(t) => f(t),
 
             Inst::Store(ref addr, ref src) => {
                 addr.each_temp(&mut f);
@@ -157,13 +151,9 @@ impl Inst {
             Inst::Load(_, ref addr) => addr.each_temp(&mut f),
 
             Inst::Call(_, ref fun, ref args) => {
-                if let Operand::Temp(t) = *fun {
-                    f(t);
-                }
-                for arg in args.iter() {
-                    if let Operand::Temp(t) = *arg {
-                        f(t);
-                    }
+                fun.each_temp(&mut f);
+                for arg in args {
+                    arg.each_temp(&mut f);
                 }
             }
 

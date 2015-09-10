@@ -2,6 +2,7 @@ use std::collections::hash_state::HashState;
 
 use fnv::FnvHasher;
 
+#[derive(Clone)]
 pub struct FnvState;
 
 impl HashState for FnvState {

@@ -88,9 +88,7 @@ impl<'a, T, S: Statement<T>> Liveness<'a, T, S> {
                 live.extend(s);
             }
         }
-        let mut live_out = HashSet::with_hash_state(FnvState);
-        for &t in live.iter() { live_out.insert(t); }
-        self.a.out.insert(n, live_out);
+        self.a.out.insert(n, live.clone());
         let mut my_deltas = Vec::new();
         for ins in self.cfg.node(n).iter().rev() {
             let mut delta = Vec::new();
