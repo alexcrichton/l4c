@@ -48,6 +48,8 @@ use std::isize;
 use std::rc::Rc;
 use std::u32;
 
+use vec_map::VecMap;
+
 use back::alloc;
 use back::arch;
 use back::assem::{CFG, Inst, Function};
@@ -111,7 +113,7 @@ struct Coalescer<'a, I: 'a> {
     // costly to generate, there are a number of caches which store the results
     // of this computation to facilitate usage later on
     interference: HashMap<Temp, Rc<TempSet>, FnvState>,
-    dominates: HashMap<(NodeId, NodeId), bool, FnvState>,
+    dominates: VecMap<VecMap<bool>>,
 
     f: &'a Function,
     live: &'a liveness::Analysis,
@@ -149,7 +151,7 @@ pub fn optimize<I: ssa::Statement<Inst>>(
         constraints: constraints,
         liveness_map: &lm,
         interference: HashMap::default(),
-        dominates: HashMap::default(),
+        dominates: VecMap::new(),
         defs: &defs,
         uses: &uses,
         f: f,
@@ -793,7 +795,7 @@ impl<'a, I: ssa::Statement<Inst>> Coalescer<'a, I> {
         if a == b {
             return aline < bline;
         }
-        if let Some(&s) = self.dominates.get(&(a, b)) {
+        if let Some(&s) = self.dominates.get(&a).and_then(|m| m.get(&b)) {
             return s
         }
         // Otherwise we just walk up b's idominator tree to see if we ever find
@@ -811,8 +813,10 @@ impl<'a, I: ssa::Statement<Inst>> Coalescer<'a, I> {
             }
             cur = nxt;
         }
-        self.dominates.insert((a, b), dominates);
-        self.dominates.insert((b, a), !dominates);
+        self.dominates.entry(a).or_insert_with(|| VecMap::new())
+                      .insert(b, dominates);
+        self.dominates.entry(b).or_insert_with(|| VecMap::new())
+                      .insert(a, !dominates);
         return dominates;
     }
 }
