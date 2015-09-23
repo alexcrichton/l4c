@@ -1,5 +1,3 @@
-#![feature(into_raw_os)]
-
 extern crate getopts;
 extern crate num_cpus;
 extern crate term;
