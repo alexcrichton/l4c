@@ -3,7 +3,6 @@
 extern crate env_logger;
 extern crate fnv;
 extern crate getopts;
-extern crate libc;
 extern crate time;
 extern crate vec_map;
 
