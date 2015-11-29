@@ -573,7 +573,7 @@ impl<'a> Parser<'a> {
         let ret = pop(self);
         loop {
             match self.cur {
-                NEWLINE | COMMENT(..) => { pop(self); }
+                NEWLINE | COMMENT => { pop(self); }
                 _ => { return ret; }
             }
         }
@@ -585,7 +585,7 @@ impl<'a> Parser<'a> {
         let amt = amt - 1;
         while amt >= self.pending.len() {
             match self.lexer.next() {
-                (NEWLINE, _) | (COMMENT(..), _) => { continue }
+                (NEWLINE, _) | (COMMENT, _) => { continue }
                 tok => { self.pending.push(tok); }
             }
         }
