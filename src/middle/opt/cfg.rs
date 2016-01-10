@@ -2,7 +2,7 @@ use std::collections::{HashSet, HashMap};
 use std::mem;
 
 use middle::ssa::{CFG, Statement};
-use middle::ir::{self, Program, Stmt, Expr, Edge};
+use middle::ir::{self, Stmt, Expr, Edge};
 use utils::graph::{NodeId, NodeSet};
 
 pub fn simplify(p: &mut ir::Program) {

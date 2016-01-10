@@ -1,7 +1,6 @@
 use std::mem;
 
 use middle::ir::{Expr, Stmt, Program, Binop, Type};
-use utils::Temp;
 
 pub fn optimize(p: &mut Program) {
     for f in p.funs.iter_mut() {
