@@ -1,13 +1,13 @@
 use std::collections::{HashMap, HashSet, hash_map, hash_set};
+use std::hash::BuildHasherDefault;
 use std::io;
 use std::mem;
 
+use fnv::FnvHasher;
 use vec_map::{self, VecMap};
 
-use utils::FnvState;
-
 pub type NodeId = usize;
-pub type NodeSet = HashSet<NodeId, FnvState>;
+pub type NodeSet = HashSet<NodeId, BuildHasherDefault<FnvHasher>>;
 
 pub struct Graph<N, E> {
     nodes: VecMap<N>,
@@ -43,11 +43,11 @@ impl<N, E> Graph<N, E> {
     }
 
     pub fn contains(&self, id: NodeId) -> bool {
-        self.nodes.contains_key(&id)
+        self.nodes.contains_key(id)
     }
 
     pub fn contains_edge(&self, a: NodeId, b: NodeId) -> bool {
-        match self.succ.get(&a) {
+        match self.succ.get(a) {
             Some(m) => m.contains_key(&b),
             None => false,
         }
@@ -58,7 +58,7 @@ impl<N, E> Graph<N, E> {
     }
 
     pub fn node_mut(&mut self, id: NodeId) -> &mut N {
-        self.nodes.get_mut(&id).unwrap()
+        self.nodes.get_mut(id).unwrap()
     }
 
     pub fn edge(&self, a: NodeId, b: NodeId) -> &E {
@@ -66,44 +66,44 @@ impl<N, E> Graph<N, E> {
     }
 
     pub fn add_node(&mut self, id: NodeId, n: N) {
-        assert!(!self.nodes.contains_key(&id));
-        assert!(self.succ.contains_key(&id));
+        assert!(!self.nodes.contains_key(id));
+        assert!(self.succ.contains_key(id));
         self.nodes.insert(id, n);
     }
 
     pub fn update_node(&mut self, id: NodeId, n: N) {
         /* may not be in 'nodes' due to 'pop_node' */
-        assert!(self.succ.contains_key(&id));
+        assert!(self.succ.contains_key(id));
         self.nodes.insert(id, n);
     }
 
     pub fn pop_node(&mut self, n: NodeId) -> N {
-        self.nodes.remove(&n).unwrap()
+        self.nodes.remove(n).unwrap()
     }
 
     pub fn remove_node(&mut self, n: NodeId) -> N {
-        let ret = self.nodes.remove(&n);
+        let ret = self.nodes.remove(n);
         assert!(ret.is_some());
         let ret = ret.unwrap();
-        let succ = self.succ.remove(&n).unwrap();
-        let pred = self.pred.remove(&n).unwrap();
+        let succ = self.succ.remove(n).unwrap();
+        let pred = self.pred.remove(n).unwrap();
         for (k, _) in succ.iter() {
-            self.pred.get_mut(k).unwrap().remove(&n);
+            self.pred.get_mut(*k).unwrap().remove(&n);
         }
         for k in pred.iter() {
-            self.succ.get_mut(k).unwrap().remove(&n);
+            self.succ.get_mut(*k).unwrap().remove(&n);
         }
         return ret;
     }
 
     pub fn remove_edge(&mut self, n1: NodeId, n2: NodeId) -> E {
-        self.pred.get_mut(&n2).unwrap().remove(&n1);
-        self.succ.get_mut(&n1).unwrap().remove(&n2).unwrap()
+        self.pred.get_mut(n2).unwrap().remove(&n1);
+        self.succ.get_mut(n1).unwrap().remove(&n2).unwrap()
     }
 
     pub fn add_edge(&mut self, n1: NodeId, n2: NodeId, e: E) {
-        self.succ.get_mut(&n1).unwrap().insert(n2, e);
-        self.pred.get_mut(&n2).unwrap().insert(n1);
+        self.succ.get_mut(n1).unwrap().insert(n2, e);
+        self.pred.get_mut(n2).unwrap().insert(n1);
     }
 
     pub fn edges(&self) -> Edges<N, E> {
@@ -146,7 +146,7 @@ impl<N, E> Graph<N, E> {
     }
 
     pub fn map_consume_node(&mut self, id: NodeId, f: &mut FnMut(N) -> N) {
-        let node = self.nodes.remove(&id).unwrap();
+        let node = self.nodes.remove(id).unwrap();
         self.nodes.insert(id, f(node));
     }
 
@@ -205,7 +205,7 @@ impl<N, E> Graph<N, E> {
 
     fn traverse(&self, o: &mut VecMap<i32>,
                 n: NodeId, i: i32) -> i32 {
-        match o.get(&n) {
+        match o.get(n) {
             Some(_) => return i,
             None => ()
         }

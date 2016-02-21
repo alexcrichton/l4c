@@ -28,7 +28,7 @@ use back::assem::{Inst, Function, RegisterInfo, Program};
 use middle::ir::Edge;
 use middle::opt;
 use middle::ssa;
-use utils::{Temp, TempSet, FnvState};
+use utils::{Temp, TempSet, TempMap};
 use utils::graph::{NodeId, NodeSet};
 
 static LOOP_OUT_WEIGHT: u32 = 100000;
@@ -252,8 +252,8 @@ impl Spiller {
         let spill_entry = self.connect_pred(f, n, &regs_entry);
 
         // Set up the sets which will become {regs,spill}_exit
-        let mut regs = HashSet::with_hash_state(FnvState);
-        let mut spill = HashSet::with_hash_state(FnvState);
+        let mut regs = HashSet::default();
+        let mut spill = HashSet::default();
         regs.extend(&regs_entry);
         spill.extend(&spill_entry);
 
@@ -412,9 +412,9 @@ impl Spiller {
     /// next_use isn't infty).
     fn init_usual(&self, f: &Function, n: NodeId) -> TempSet {
         debug!("init_usual: {}", n);
-        let mut freq = HashMap::with_hash_state(FnvState);
-        let mut take = HashSet::with_hash_state(FnvState);
-        let mut cand = HashSet::with_hash_state(FnvState);
+        let mut freq: TempMap<_> = HashMap::default();
+        let mut take = HashSet::default();
+        let mut cand = HashSet::default();
         let next_use = &self.next_use[&n];
         for pred in f.cfg.preds(n) {
             debug!("pred {}", pred);
@@ -449,7 +449,7 @@ impl Spiller {
                  n: NodeId, body: NodeId, end: NodeId) -> TempSet {
         debug!("init_loop {} {} {}", n, body, end);
         // cand = (phis | live_in) & used_in_loop
-        let mut cand = HashSet::with_hash_state(FnvState);
+        let mut cand = HashSet::default();
         // If a variable is used in the loop, then its next_use as viewed from the
         // body of the loop would be less than LOOP_OUT_WEIGHT
         for (&tmp, &n) in self.next_use[&n].iter() {
@@ -460,7 +460,7 @@ impl Spiller {
         debug!("loop candidates: {:?}", cand);
         if cand.len() < arch::NUM_REGS as usize {
             // live_through = (phis | live_in) - cand
-            let mut live_through = HashSet::with_hash_state(FnvState);
+            let mut live_through = HashSet::default();
             live_through.extend(self.next_use[&n].keys()
                                     .chain(self.phis[&n].keys())
                                     .filter(|tmp| !cand.contains(tmp)));
@@ -502,7 +502,7 @@ impl Spiller {
     fn connect_pred(&self, f: &Function, n: NodeId, entry: &TempSet) -> TempSet {
         debug!("connecting preds: {}", n);
         // Build up our list of required spilled registers
-        let mut spill = HashSet::with_hash_state(FnvState);
+        let mut spill = HashSet::default();
         for pred in f.cfg.preds(n) {
             if !self.spill_exit.contains_key(&pred) {
                 continue

@@ -1,13 +1,14 @@
 //! IR Temporaries
 
 use std::cell::Cell;
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 use std::fmt;
 use std::ops::Index;
+use std::hash::BuildHasherDefault;
 
+use fnv::FnvHasher;
 use vec_map::{self, VecMap};
 
-use utils::FnvState;
 use utils::{BitVec, BitVecIter};
 
 /// A temporary in the IR.
@@ -16,7 +17,8 @@ use utils::{BitVec, BitVecIter};
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Copy)]
 pub struct Temp(u32);
 
-pub type TempSet = HashSet<Temp, FnvState>;
+pub type TempSet = HashSet<Temp, BuildHasherDefault<FnvHasher>>;
+pub type TempMap<V> = HashMap<Temp, V, BuildHasherDefault<FnvHasher>>;
 
 pub struct TempBitVec {
     inner: BitVec,
@@ -144,11 +146,11 @@ impl<T> TempVecMap<T> {
     }
 
     pub fn contains_key(&self, temp: &Temp) -> bool {
-        self.inner.contains_key(&(temp.0 as usize))
+        self.inner.contains_key(temp.0 as usize)
     }
 
     pub fn get(&self, temp: &Temp) -> Option<&T> {
-        self.inner.get(&(temp.0 as usize))
+        self.inner.get(temp.0 as usize)
     }
 
     pub fn iter(&self) -> TempVecMapIter<T> {

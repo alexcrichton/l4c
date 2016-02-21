@@ -11,7 +11,7 @@ use middle::ir::Type;
 use middle::liveness;
 use utils::graph::NodeId;
 use utils::profile;
-use utils::{Temp, TempSet, TempVecMap, FnvState, SmallBitVec};
+use utils::{Temp, TempSet, TempVecMap, SmallBitVec};
 
 type RegisterSet = SmallBitVec;
 pub type ColorMap = TempVecMap<u32>;
@@ -42,7 +42,7 @@ pub fn color(p: &mut Program) {
 
         let mut a = Allocator {
             colors: TempVecMap::new(),
-            precolored: HashSet::with_hash_state(FnvState),
+            precolored: HashSet::default(),
             constraints: TempVecMap::new(),
             slots: TempVecMap::new(),
             max_slot: 1,
@@ -67,7 +67,7 @@ pub fn color(p: &mut Program) {
             // no precolored slots or constraints, yay!
             let max = a.slots.len() as u32;
             coalesce::optimize(f, &live_stack, &mut a.slots,
-                               &HashSet::with_hash_state(FnvState),
+                               &HashSet::default(),
                                &TempVecMap::new(), &StackInfo, false, max);
         });
 
@@ -99,7 +99,7 @@ impl Allocator {
     fn color(&mut self, f: &Function, live: &liveness::Analysis,
              n: NodeId) {
         debug!("coloring {}", n);
-        let mut tmplive = HashSet::with_hash_state(FnvState);
+        let mut tmplive: TempSet = HashSet::default();
         let mut registers = register_set();
         for t in live.in_[&n].iter() {
             tmplive.insert(*t);
@@ -638,7 +638,9 @@ fn resolve_perm(result: &[u32], incoming: &[u32], f: &mut FnMut(Resolution)) {
     let mut src_dst = VecMap::new();
     let mut dst_src = VecMap::new();
     for (&dst, &src) in result.iter().zip(incoming) {
-        if dst == src { continue }
+        if dst == src {
+            continue
+        }
         let (dst, src) = (dst as usize, src as usize);
         assert!(dst_src.insert(dst, src).is_none());
         src_dst.entry(src).or_insert(Vec::new()).push(dst);
@@ -647,35 +649,41 @@ fn resolve_perm(result: &[u32], incoming: &[u32], f: &mut FnMut(Resolution)) {
     // deal with all move chains first
     for dst in result.iter().map(|&d| d as usize) {
         // if this destination is also a source, it's not the end of a chain
-        if src_dst.contains_key(&dst) { continue }
+        if src_dst.contains_key(dst) {
+            continue
+        }
 
         // having found the end of a chain, go up the chain moving everything into
         // the right spot as we go along
         let mut cur = dst;
-        while dst_src.contains_key(&cur) {
-            let nxt = dst_src[&cur];
+        while dst_src.contains_key(cur) {
+            let nxt = dst_src[cur];
             f(Resolution::Copy(cur as u32, nxt as u32));
-            dst_src.remove(&cur);
-            let mut arr = src_dst.remove(&nxt).unwrap();
+            dst_src.remove(cur);
+            let mut arr = src_dst.remove(nxt).unwrap();
             arr.retain(|&x| x != cur);
             if arr.len() > 0 {
                 src_dst.insert(nxt, arr);
             }
             cur = nxt;
-            if src_dst.contains_key(&cur) { break }
+            if src_dst.contains_key(cur) {
+                break
+            }
         }
     }
 
     // Next, deal with all loops
     for dst in result.iter().map(|&d| d as usize) {
         // if this isn't a destination any more, it was part of a chain
-        if !dst_src.contains_key(&dst) { continue }
+        if !dst_src.contains_key(dst) {
+            continue }
+
 
         // Exchange everything through the 'dst' register to resolve the chain
         let mut cur = dst;
-        while src_dst.contains_key(&cur) {
-            let mut arr = src_dst.remove(&cur).unwrap();
-            arr.retain(|x| dst_src.contains_key(x));
+        while src_dst.contains_key(cur) {
+            let mut arr = src_dst.remove(cur).unwrap();
+            arr.retain(|x| dst_src.contains_key(*x));
             debug!("{:?}", arr);
             assert!(arr.len() == 1);
             let nxt = arr[0];

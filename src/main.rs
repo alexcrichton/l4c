@@ -1,4 +1,4 @@
-#![feature(hashmap_hasher)]
+//#![feature(hashmap_hasher)]
 
 extern crate env_logger;
 extern crate fnv;

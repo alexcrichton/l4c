@@ -316,7 +316,9 @@ fn analyze<T>(cfg: &CFG<T>, root: NodeId, analysis: &mut Analysis) {
             let mut new_idom = usize::MAX;
 
             for p in cfg.preds(b) {
-                if !idoms.contains_key(&p) { continue }
+                if !idoms.contains_key(p) {
+                    continue
+                }
                 if new_idom == usize::MAX {
                     new_idom = p;
                 } else {
@@ -338,7 +340,7 @@ fn analyze<T>(cfg: &CFG<T>, root: NodeId, analysis: &mut Analysis) {
                 }
             }
             assert!(new_idom != usize::MAX);
-            let prev = idoms.get(&b).map(|x| *x).unwrap_or(usize::MAX);
+            let prev = idoms.get(b).map(|x| *x).unwrap_or(usize::MAX);
             if prev != new_idom {
                 idoms.insert(b, new_idom);
                 changed = true;
@@ -354,8 +356,7 @@ fn analyze<T>(cfg: &CFG<T>, root: NodeId, analysis: &mut Analysis) {
     }
     for (a, &b) in idoms.iter() {
         if a != b {
-            analysis.idominated.get_mut(&b).unwrap()
-                               .insert(a);
+            analysis.idominated.get_mut(b).unwrap().insert(a);
         }
     }
 }

@@ -1,13 +1,15 @@
 use std::collections::{HashMap, HashSet, BTreeSet};
+use std::hash::BuildHasherDefault;
 
+use fnv::FnvHasher;
 use vec_map::VecMap;
 
 use middle::ssa::{CFG, Statement};
-use utils::{Temp, TempSet, FnvState};
+use utils::{Temp, TempSet};
 use utils::graph::NodeId;
 
-pub type LiveMap = HashMap<NodeId, TempSet, FnvState>;
-pub type DeltaMap = HashMap<NodeId, Vec<Delta>, FnvState>;
+pub type LiveMap = HashMap<NodeId, TempSet, BuildHasherDefault<FnvHasher>>;
+pub type DeltaMap = HashMap<NodeId, Vec<Delta>, BuildHasherDefault<FnvHasher>>;
 pub type Delta = Vec<DeltaOp>;
 
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]
@@ -32,9 +34,9 @@ struct Liveness<'a, T: 'a, S: 'a> {
 impl Analysis {
     pub fn new() -> Analysis {
         Analysis {
-            in_: HashMap::with_hash_state(FnvState),
-            out: HashMap::with_hash_state(FnvState),
-            deltas: HashMap::with_hash_state(FnvState),
+            in_: HashMap::default(),
+            out: HashMap::default(),
+            deltas: HashMap::default(),
         }
     }
 }
@@ -72,14 +74,14 @@ impl<'a, T, S: Statement<T>> Liveness<'a, T, S> {
         for stm in self.cfg.node(n).iter() {
             if let Some((_, map)) = self.info.phi(stm) {
                 for (pred, &tmp) in map {
-                    self.phi_out.get_mut(pred).unwrap().insert(tmp);
+                    self.phi_out.get_mut(*pred).unwrap().insert(tmp);
                 }
             }
         }
     }
 
     fn liveness(&mut self, n: NodeId) -> bool {
-        let mut live = HashSet::with_hash_state(FnvState);
+        let mut live = HashSet::default();
         live.extend(&self.phi_out[&n]);
         for succ in self.cfg.succ(n) {
             if let Some(s) = self.a.in_.get(&succ) {

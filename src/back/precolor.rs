@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use back::arch;
 use back::assem::{Program, RegisterInfo, Inst, Address, Operand, Binop};
 use middle::liveness;
-use utils::{TempAllocator, TempSet, Temp, FnvState};
+use utils::{TempAllocator, TempSet, Temp};
 
 pub fn constrain(p: &mut Program) {
     for f in p.funs.iter_mut() {
@@ -29,8 +29,8 @@ fn constrain_block(live: &TempSet, delta: &[liveness::Delta],
                    ins: Vec<Inst>) -> Vec<Inst> {
     let mut new = Vec::new();
     let mut synthetic = Vec::new();
-    let mut live_in = HashSet::with_hash_state(FnvState);
-    let mut live_out = HashSet::with_hash_state(FnvState);
+    let mut live_in = HashSet::default();
+    let mut live_out = HashSet::default();
     for &t in live.iter() {
         live_in.insert(t);
         live_out.insert(t);

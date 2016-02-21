@@ -44,10 +44,12 @@
 
 use std::cmp::{self, Ordering};
 use std::collections::{HashMap, HashSet, BinaryHeap};
+use std::hash::BuildHasherDefault;
 use std::isize;
 use std::rc::Rc;
 use std::u32;
 
+use fnv::FnvHasher;
 use vec_map::VecMap;
 
 use back::alloc;
@@ -58,8 +60,9 @@ use middle::liveness;
 use middle::ssa;
 use utils::graph::{NodeSet, NodeId};
 use utils::profile;
-use utils::{Temp, TempSet, TempBitVec, TempVecMap, FnvState};
+use utils::{Temp, TempSet, TempBitVec, TempVecMap};
 
+type FnvState = BuildHasherDefault<FnvHasher>;
 type Location = (NodeId, isize);
 type Affinities = HashMap<Temp, HashMap<Temp, usize, FnvState>, FnvState>;
 type UseMap = HashMap<Temp, HashSet<Location, FnvState>, FnvState>;
@@ -795,7 +798,7 @@ impl<'a, I: ssa::Statement<Inst>> Coalescer<'a, I> {
         if a == b {
             return aline < bline;
         }
-        if let Some(&s) = self.dominates.get(&a).and_then(|m| m.get(&b)) {
+        if let Some(&s) = self.dominates.get(a).and_then(|m| m.get(b)) {
             return s
         }
         // Otherwise we just walk up b's idominator tree to see if we ever find
