@@ -718,7 +718,7 @@ mod tests {
             map.insert(i, ());
         }
         for (&f, &t) in from.iter().zip(to.iter()) {
-            map.remove(&(t as usize));
+            map.remove(t as usize);
             if regs[t as usize] != f {
                 panic!("expected {} to be {} but it was {}", t, f,
                        regs[t as usize]);
