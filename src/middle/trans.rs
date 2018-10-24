@@ -47,7 +47,7 @@ pub fn translate(p: ast::Program, safe: bool) -> ir::Program {
         structs: HashMap::new(),
         salloc: syms.intern("salloc"),
         salloc_array: syms.intern("salloc_array"),
-        calloc: syms.intern("calloc"),
+        calloc: syms.intern("calloc@plt"),
     };
     syms.store();
     info.build(&p);

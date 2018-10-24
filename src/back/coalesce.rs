@@ -404,7 +404,7 @@ impl<'a, I: ssa::Statement<Inst>> Coalescer<'a, I> {
             if !self.avoid_color(tmp, c, &mut changed) {
                 // rollback
                 for &tmp in changed.iter() {
-                    assert!(self.old_color.contains_key(&tmp));
+                    debug_assert!(self.old_color.contains_key(&tmp));
                     self.colors.insert(tmp, self.old_color[tmp]);
                 }
             }

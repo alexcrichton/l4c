@@ -1,6 +1,6 @@
 extern crate getopts;
 extern crate num_cpus;
-extern crate term;
+extern crate termcolor;
 extern crate wait_timeout;
 
 use std::env;
@@ -16,8 +16,7 @@ use std::str;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use term::{StdoutTerminal, Terminal, Attr};
-use term::color;
+use termcolor::{StandardStream, WriteColor, Color, ColorSpec, ColorChoice};
 use wait_timeout::ChildExt;
 
 macro_rules! t {
@@ -48,7 +47,7 @@ struct State {
     remaining: usize,
     exit: bool,
     failed: bool,
-    out: Box<StdoutTerminal>,
+    out: StandardStream,
     failures: Option<File>,
 }
 
@@ -133,7 +132,7 @@ fn main() {
             tests: tests,
             exit: false,
             failed: false,
-            out: term::stdout().unwrap(),
+            out: StandardStream::stderr(ColorChoice::Auto),
             failures: matches.opt_str("failures").map(|f| t!(File::create(f))),
         }),
     };
@@ -159,8 +158,7 @@ impl Driver {
             }
         }
         let mut state = me.state.lock().unwrap();
-        t!(state.out.carriage_return());
-        t!(state.out.delete_line());
+        t!(state.out.write_all(b"\r                                             \r"));
         t!(state.out.flush());
         if state.failed {
             panic!("some tests failed");
@@ -202,16 +200,17 @@ impl Driver {
     }
 
     fn print_result(&self, state: &mut State, test: &Path, result: TestResult) {
-        t!(state.out.carriage_return());
-        t!(state.out.delete_line());
-        t!(state.out.attr(Attr::Bold));
+        t!(state.out.write_all(b"\r"));
+        t!(state.out.write_all(b"                                             \r"));
         let extra = match result {
             TestResult::Pass => {
                 if self.quiet {
                     t!(state.out.reset());
                     return
                 }
-                t!(state.out.fg(color::GREEN));
+                t!(state.out.set_color(
+                    ColorSpec::new().set_fg(Some(Color::Green)).set_bold(true),
+                ));
                 t!(state.out.write_all(b"pass: "));
                 String::new()
             }
@@ -221,7 +220,9 @@ impl Driver {
                     t!(f.write_all(b"\n"));
                 }
                 let mut msg = msg.to_string();
-                t!(state.out.fg(color::RED));
+                t!(state.out.set_color(
+                    ColorSpec::new().set_fg(Some(Color::Red)).set_bold(true),
+                ));
                 t!(state.out.write_all(b"fail: "));
                 if self.verbose {
                     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -292,6 +293,7 @@ impl Driver {
 
         let mut cmd = Command::new("gcc");
         cmd.arg("-m64")
+           .arg("-fPIC")
            .arg("-o").arg(&exe)
            .arg(&assem)
            .arg("l4rt.c");

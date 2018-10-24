@@ -25,7 +25,7 @@ mod back;
 mod utils;
 
 fn main() {
-    env_logger::init().unwrap();
+    env_logger::init();
 
     let mut opts = Options::new();
     opts.optflag("h", "help", "print this help message")

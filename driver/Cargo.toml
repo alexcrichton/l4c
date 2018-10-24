@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Alex Crichton <alex@alexcrichton.com>"]
 
 [dependencies]
-num_cpus = "0.2"
+num_cpus = "1.8"
 getopts = "0.2"
-term = "0.2"
+termcolor = "1.0"
 wait-timeout = "0.1"
